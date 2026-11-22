@@ -1,0 +1,81 @@
+import { NoToneMapping, SRGBColorSpace, setConsoleFunction, WebGLRenderer } from 'three';
+import { createLogger } from '../core/log.ts';
+
+const log = createLogger('three');
+
+/** Routes three.js warnings and errors (shader compile/link failures…) into the app logger. */
+setConsoleFunction((type, message, ...params) => {
+  if (type === 'error') log.error(message, params.length ? params : undefined);
+  else if (type === 'warn') log.warn(message, params.length ? params : undefined);
+});
+
+export interface RendererOptions {
+  /** Upper bound for devicePixelRatio (quality presets: 1, 1.5, 2). */
+  readonly maxPixelRatio: number;
+}
+
+/** Owns the WebGL renderer and keeps the canvas sized to its container. */
+export class Renderer {
+  readonly webgl: WebGLRenderer;
+  private readonly observer: ResizeObserver;
+  private readonly container: HTMLElement;
+  private readonly maxPixelRatio: number;
+  private dprQuery: MediaQueryList | null = null;
+  private onResize: ((width: number, height: number) => void) | null = null;
+
+  constructor(container: HTMLElement, options: RendererOptions) {
+    this.webgl = new WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    this.webgl.outputColorSpace = SRGBColorSpace;
+    this.webgl.toneMapping = NoToneMapping;
+    this.webgl.info.autoReset = false;
+    this.container = container;
+    this.maxPixelRatio = options.maxPixelRatio;
+    this.webgl.setPixelRatio(this.targetPixelRatio());
+    const canvas = this.webgl.domElement;
+    canvas.className = 'game-canvas';
+    container.appendChild(canvas);
+    this.observer = new ResizeObserver(() => this.resize());
+    this.observer.observe(container);
+    this.watchPixelRatio();
+    this.resize();
+  }
+
+  setResizeHandler(handler: (width: number, height: number) => void): void {
+    this.onResize = handler;
+    const size = this.webgl.domElement.getBoundingClientRect();
+    handler(Math.max(1, size.width), Math.max(1, size.height));
+  }
+
+  dispose(): void {
+    this.observer.disconnect();
+    this.dprQuery?.removeEventListener('change', this.onPixelRatioChange);
+    this.webgl.setAnimationLoop(null);
+    this.webgl.dispose();
+    this.webgl.domElement.remove();
+  }
+
+  private targetPixelRatio(): number {
+    return Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+  }
+
+  /** Re-arms a resolution media query so zoom or a monitor change updates the drawing buffer. */
+  private watchPixelRatio(): void {
+    this.dprQuery?.removeEventListener('change', this.onPixelRatioChange);
+    this.dprQuery = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    this.dprQuery.addEventListener('change', this.onPixelRatioChange);
+  }
+
+  private readonly onPixelRatioChange = (): void => {
+    this.watchPixelRatio();
+    this.resize();
+  };
+
+  private resize(): void {
+    const ratio = this.targetPixelRatio();
+    if (ratio !== this.webgl.getPixelRatio()) this.webgl.setPixelRatio(ratio);
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
+    this.webgl.setSize(width, height, false);
+    this.onResize?.(width, height);
+  }
+}

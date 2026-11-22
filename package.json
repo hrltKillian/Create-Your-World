@@ -1,0 +1,40 @@
+{
+  "name": "create-your-world",
+  "private": true,
+  "version": "0.0.0",
+  "description": "An original voxel survival-adventure sandbox for the browser.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "bench": "vite build --mode bench --outDir dist-bench && vite preview --outDir dist-bench --port 4174 --strictPort",
+    "typecheck": "tsc -b",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:perf": "vitest run --mode perf --reporter=verbose",
+    "test:slow": "vitest run --mode slow",
+    "headless": "node tools/headless.ts",
+    "e2e": "playwright test",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "idb": "8.0.4",
+    "simplex-noise": "4.0.3",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^24.19.2",
+    "@types/three": "0.187.0",
+    "fake-indexeddb": "^6.2.8",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}

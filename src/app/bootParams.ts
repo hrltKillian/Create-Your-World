@@ -1,0 +1,56 @@
+/** URL parameters that drive deterministic boots for tests and debugging (dev and bench only). */
+
+export interface BootParams {
+  readonly seed: string | null;
+  readonly skipMenu: boolean;
+  readonly noLock: boolean;
+  readonly debug: boolean;
+  readonly storage: 'memory' | 'idb';
+  readonly forceNoWebGL: boolean;
+  readonly forceNoIdb: boolean;
+  readonly scene: string | null;
+  readonly freecam: boolean;
+  readonly fixedStep: boolean;
+  readonly selftest: string | null;
+  readonly mute: boolean;
+}
+
+export const DEFAULT_BOOT_PARAMS: BootParams = {
+  seed: null,
+  skipMenu: false,
+  noLock: false,
+  debug: false,
+  storage: 'idb',
+  forceNoWebGL: false,
+  forceNoIdb: false,
+  scene: null,
+  freecam: false,
+  fixedStep: false,
+  selftest: null,
+  mute: false,
+};
+
+function flag(params: URLSearchParams, name: string): boolean {
+  const value = params.get(name);
+  return value === '1' || value === 'true' || value === '';
+}
+
+/** Parses `location.search`. When `allowDebug` is false (production), every parameter is ignored. */
+export function parseBootParams(search: string, allowDebug: boolean): BootParams {
+  if (!allowDebug) return DEFAULT_BOOT_PARAMS;
+  const params = new URLSearchParams(search);
+  return {
+    seed: params.get('seed'),
+    skipMenu: flag(params, 'skipMenu'),
+    noLock: flag(params, 'noLock'),
+    debug: flag(params, 'debug'),
+    storage: params.get('storage') === 'memory' ? 'memory' : 'idb',
+    forceNoWebGL: flag(params, 'forceNoWebGL'),
+    forceNoIdb: flag(params, 'forceNoIdb'),
+    scene: params.get('scene'),
+    freecam: flag(params, 'freecam'),
+    fixedStep: flag(params, 'fixedStep'),
+    selftest: params.get('selftest'),
+    mute: flag(params, 'mute'),
+  };
+}
