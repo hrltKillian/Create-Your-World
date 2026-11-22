@@ -1,7 +1,12 @@
 import { basePack } from '../content/packs/base/index.ts';
 import { buildRegistry, type Registry } from '../content/registry.ts';
 import { Column, sectionPayloads } from '../world/Column.ts';
-import { createGenContext, type GenContext, generateColumn } from '../world/gen/generateColumn.ts';
+import {
+  createGenContext,
+  type GenContext,
+  generateColumn,
+  type WorldType,
+} from '../world/gen/generateColumn.ts';
 import { meshSection } from '../world/mesh/greedyMesher.ts';
 import type { GenJob, GenResult, Job, JobResult, MeshJob, MeshResult } from '../world/protocol.ts';
 
@@ -23,13 +28,14 @@ export class WorldJobs {
     return job.kind === 'gen' ? this.gen(job) : this.mesh(job);
   }
 
-  context(seed: string): GenContext {
-    let ctx = this.contexts.get(seed);
+  context(seed: string, worldType: WorldType = 'default'): GenContext {
+    const key = `${worldType}:${seed}`;
+    let ctx = this.contexts.get(key);
     if (!ctx) {
-      ctx = createGenContext(seed, this.registry);
+      ctx = createGenContext(seed, this.registry, worldType);
       // A world uses one seed at a time; keep at most two contexts around.
       if (this.contexts.size > 1) this.contexts.clear();
-      this.contexts.set(seed, ctx);
+      this.contexts.set(key, ctx);
     }
     return ctx;
   }
@@ -37,7 +43,7 @@ export class WorldJobs {
   gen(job: GenJob): GenResult {
     const start = this.now();
     const column = new Column(job.cx, job.cz, this.registry.air);
-    generateColumn(this.context(job.seed), column);
+    generateColumn(this.context(job.seed, job.worldType), column);
     const sections = sectionPayloads(column);
     return {
       kind: 'gen',

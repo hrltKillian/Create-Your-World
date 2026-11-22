@@ -155,6 +155,8 @@ export interface PackBindings {
   readonly unknownBlock: BlockKey;
   /** Biomes where a new player may appear. */
   readonly spawnBiomes?: readonly BiomeKey[];
+  /** Model drawn for players in third person. */
+  readonly avatarModel?: ModelKey;
 }
 
 export interface PackManifest {
@@ -239,6 +241,24 @@ export interface TreeFeatureDef {
   readonly soil: readonly BlockKey[];
 }
 
+/** A box of a creature or avatar model, in 1/16 block, relative to the model origin (feet centre). */
+export interface ModelPart {
+  readonly name: string;
+  readonly from: readonly [number, number, number];
+  readonly to: readonly [number, number, number];
+  /** Rotation pivot (same units). */
+  readonly pivot: readonly [number, number, number];
+  readonly texture: TexKey;
+  /** The part follows its parent's rotation. */
+  readonly parent?: string;
+}
+
+export interface ModelDef {
+  readonly key: ModelKey;
+  readonly parts: readonly ModelPart[];
+  readonly gait: 'biped' | 'quadruped' | 'hexapod';
+}
+
 /** Layout of the developer test scene (`?scene=testchunk`), described with the pack's own blocks. */
 export interface DevSceneDef {
   /** Ground layers from bottom to top; the top layer is the surface. */
@@ -263,4 +283,5 @@ export interface ContentPack {
   readonly worldgen?: WorldgenDef;
   readonly biomes?: readonly BiomeDef[];
   readonly features?: readonly TreeFeatureDef[];
+  readonly models?: readonly ModelDef[];
 }

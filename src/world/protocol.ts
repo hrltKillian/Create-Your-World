@@ -15,6 +15,7 @@ export type JobPriority = 'urgent' | 'normal';
 export interface GenJob {
   readonly kind: 'gen';
   readonly seed: string;
+  readonly worldType: 'default' | 'flat';
   readonly cx: number;
   readonly cz: number;
 }

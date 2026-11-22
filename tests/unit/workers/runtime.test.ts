@@ -33,8 +33,18 @@ describe('world worker runtime', () => {
 
   it('runs urgent jobs before normal ones that arrived earlier', () => {
     const { sent, send, flush } = harness();
-    send({ type: 'job', id: 1, priority: 'normal', job: { kind: 'gen', seed: 'q', cx: 0, cz: 0 } });
-    send({ type: 'job', id: 2, priority: 'urgent', job: { kind: 'gen', seed: 'q', cx: 1, cz: 0 } });
+    send({
+      type: 'job',
+      id: 1,
+      priority: 'normal',
+      job: { kind: 'gen', worldType: 'default', seed: 'q', cx: 0, cz: 0 },
+    });
+    send({
+      type: 'job',
+      id: 2,
+      priority: 'urgent',
+      job: { kind: 'gen', worldType: 'default', seed: 'q', cx: 1, cz: 0 },
+    });
     flush();
     const ids = sent
       .filter((s) => s.message.type === 'result')
@@ -48,7 +58,7 @@ describe('world worker runtime', () => {
       type: 'job',
       id: 7,
       priority: 'normal',
-      job: { kind: 'gen', seed: 't', cx: 3, cz: -2 },
+      job: { kind: 'gen', worldType: 'default', seed: 't', cx: 3, cz: -2 },
     });
     flush();
     const reply = sent.find((s) => s.message.type === 'result')!;

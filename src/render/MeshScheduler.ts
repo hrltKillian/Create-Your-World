@@ -1,6 +1,12 @@
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
-import { columnKeyX, columnKeyZ, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
+import {
+  columnKey,
+  columnKeyX,
+  columnKeyZ,
+  SECTIONS_PER_COLUMN,
+  sectionKey,
+} from '../world/coords.ts';
 import {
   createPadded,
   fillPadded,
@@ -48,6 +54,8 @@ export class MeshScheduler {
   private readonly inFlight = new Map<number, number>();
   private readonly ready: MeshResult[] = [];
   private readonly freePadded: PaddedVoxels[] = [];
+  /** Columns currently shown (meshable and within the render distance). */
+  private readonly shown = new Set<number>();
   private uploaded = 0;
   private stale = 0;
 
@@ -60,12 +68,28 @@ export class MeshScheduler {
 
   onEvent(event: SimEvent): void {
     if (event.type === 'columnMeshable') {
+      this.shown.add(columnKey(event.cx, event.cz));
       for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) this.queue(event.cx, sy, event.cz);
+    } else if (event.type === 'blocksChanged') {
+      this.queueBox(event.x0, event.y0, event.z0, event.x1, event.y1, event.z1);
     } else if (event.type === 'columnUnloaded' || event.type === 'columnHidden') {
+      this.shown.delete(columnKey(event.cx, event.cz));
       for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) {
         const key = sectionKey(event.cx, sy, event.cz);
         this.pending.delete(key);
         this.chunks.remove(key);
+      }
+    }
+  }
+
+  /** Queues the shown sections touching a block box grown by one (faces and AO of neighbours). */
+  private queueBox(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
+    const sy0 = Math.max(0, (y0 - 1) >> 5);
+    const sy1 = Math.min(SECTIONS_PER_COLUMN - 1, (y1 + 1) >> 5);
+    for (let cx = (x0 - 1) >> 5; cx <= (x1 + 1) >> 5; cx++) {
+      for (let cz = (z0 - 1) >> 5; cz <= (z1 + 1) >> 5; cz++) {
+        if (!this.shown.has(columnKey(cx, cz))) continue;
+        for (let sy = sy0; sy <= sy1; sy++) this.queue(cx, sy, cz);
       }
     }
   }

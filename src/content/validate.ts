@@ -130,6 +130,23 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
     if (!biomeKeys.has(key)) add(`manifest.bindings.spawnBiomes[${i}]`, `unknown biome "${key}"`);
   });
   validateWorld(pack, blockKeys, add);
+  const modelKeys = new Set<string>();
+  (pack.models ?? []).forEach((model, i) => {
+    modelKeys.add(model.key);
+    const names = new Set(model.parts.map((p) => p.name));
+    model.parts.forEach((part, k) => {
+      const path = `models[${i}].parts[${k}]`;
+      if (!textureKeys.has(part.texture))
+        add(`${path}.texture`, `unknown texture "${part.texture}"`);
+      if (part.parent && !names.has(part.parent))
+        add(`${path}.parent`, `unknown part "${part.parent}"`);
+      if (part.from.some((v, a) => !(v < part.to[a]!)))
+        add(path, 'from must be below to on every axis');
+    });
+  });
+  if (bindings.avatarModel && !modelKeys.has(bindings.avatarModel)) {
+    add('manifest.bindings.avatarModel', `unknown model "${bindings.avatarModel}"`);
+  }
   const scene = pack.devScene;
   if (scene) {
     const refs: [string, string | undefined][] = [

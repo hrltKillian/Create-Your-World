@@ -15,6 +15,11 @@
   box-sizing: border-box;
 }
 
+/* Screens are display: flex, which would otherwise beat the hidden attribute. */
+.screen[hidden] {
+  display: none;
+}
+
 html,
 body {
   margin: 0;
@@ -227,4 +232,39 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.crosshair.hidden {
+  display: none;
+}
+
+.screen-click {
+  background: rgba(13, 20, 24, 0.55);
+  cursor: pointer;
+  gap: 10px;
+}
+
+.screen-click .click-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.screen-click .click-controls {
+  margin: 0;
+  color: var(--c-ink-muted);
+  font-size: 0.9rem;
 }

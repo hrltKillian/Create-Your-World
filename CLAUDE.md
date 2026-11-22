@@ -62,7 +62,10 @@ Deterministic boot URL: `http://localhost:5173/?seed=42&storage=memory&noLock=1&
 - `window.__game` exists only when `__DEBUG_HOOK__` is true (dev, bench, tests) and is loaded by a
   dynamic import: it must never appear in `dist/**/*.js` of a production build.
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
-  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest`, `mute` — more arrive with later milestones.
+  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute`, `skipMenu`,
+  `worldType=flat`, `rd`, `view`, `kb`, `host=serialize`, `bench` — more arrive with later milestones.
+- Player checks: `?worldType=flat&fixedStep=1&selftest=m3`; `__game.input.press(action, ticks)`
+  steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 
 ## Originality checklist
 

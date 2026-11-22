@@ -1,4 +1,4 @@
-import type { ColumnSource } from '../sim/ports.ts';
+import type { ColumnSource, WorldSpec } from '../sim/ports.ts';
 import type { Simulation } from '../sim/Simulation.ts';
 import type { WorkerPool } from './WorkerPool.ts';
 
@@ -15,10 +15,12 @@ export class WorkerColumnSource implements ColumnSource {
     this.sim = sim;
   }
 
-  request(seed: string, cx: number, cz: number): void {
-    this.pool.run({ kind: 'gen', seed, cx, cz }, 'normal').then(
-      (result) => this.sim?.deliver(result),
-      () => this.sim?.requestFailed(cx, cz),
-    );
+  request(world: WorldSpec, cx: number, cz: number): void {
+    this.pool
+      .run({ kind: 'gen', seed: world.seed, worldType: world.worldType, cx, cz }, 'normal')
+      .then(
+        (result) => this.sim?.deliver(result),
+        () => this.sim?.requestFailed(cx, cz),
+      );
   }
 }

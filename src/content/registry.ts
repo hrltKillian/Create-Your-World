@@ -70,7 +70,18 @@ export interface RawTables {
   /** State → index into `boxShapes` (only for SHAPE_BOXES). */
   readonly boxShape: Uint16Array;
   readonly boxShapes: readonly (readonly Box16[])[];
+  /** State → collision: COLLISION_NONE, COLLISION_FULL, COLLISION_LIQUID, or COLLISION_BOXES + index. */
+  readonly collision: Uint16Array;
+  readonly collisionBoxes: readonly (readonly Box16[])[];
+  /** State → ground acceleration factor × 100 (ice 20). */
+  readonly friction: Uint8Array;
 }
+
+export const COLLISION_NONE = 0;
+export const COLLISION_FULL = 1;
+export const COLLISION_LIQUID = 2;
+/** Values ≥ this index `collisionBoxes[value - COLLISION_BOXES]`. */
+export const COLLISION_BOXES = 3;
 
 export interface StateInfo {
   readonly id: number;
@@ -211,7 +222,11 @@ export function buildRegistry(pack: ContentPack): Registry {
     faceFlags: new Uint8Array(n * 6),
     boxShape: new Uint16Array(n),
     boxShapes: [] as Box16[][],
+    collision: new Uint16Array(n),
+    collisionBoxes: [] as Box16[][],
+    friction: new Uint8Array(n),
   };
+  const collisionIndex = new Map<string, number>();
   const boxShapeIndex = new Map<string, number>();
 
   for (const state of states) {
@@ -241,6 +256,21 @@ export function buildRegistry(pack: ContentPack): Registry {
     if (block.cullGroup) {
       if (!cullGroups.has(block.cullGroup)) cullGroups.set(block.cullGroup, cullGroups.size + 1);
       tables.cullGroup[s] = cullGroups.get(block.cullGroup)!;
+    }
+    tables.friction[s] = Math.round((block.friction ?? 1) * 100);
+    if (eff.collision === 'full') tables.collision[s] = COLLISION_FULL;
+    else if (eff.collision === 'liquid') tables.collision[s] = COLLISION_LIQUID;
+    else if (typeof eff.collision === 'object') {
+      const quarter = facingQuarterTurns(state.props.facing4);
+      const boxes = eff.collision.boxes.map((box) => rotateBoxY(box, quarter));
+      const id = JSON.stringify(boxes);
+      let index = collisionIndex.get(id);
+      if (index === undefined) {
+        index = tables.collisionBoxes.length;
+        tables.collisionBoxes.push(boxes);
+        collisionIndex.set(id, index);
+      }
+      tables.collision[s] = COLLISION_BOXES + index;
     }
     if (typeof eff.shape === 'object') {
       const quarter = facingQuarterTurns(state.props.facing4);

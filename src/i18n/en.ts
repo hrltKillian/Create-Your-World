@@ -35,6 +35,18 @@ export const en = {
   'debug.meshQueue': 'Mesh queue / in flight',
   'debug.workerTimes': 'Gen / mesh (worker)',
   'loading.world': 'Generating the world…',
+  'key.space': 'Space',
+  'key.shift': 'Shift',
+  'key.tab': 'Tab',
+  'key.escape': 'Esc',
+  'key.enter': 'Enter',
+  'key.mouseLeft': 'Left click',
+  'key.mouseMiddle': 'Middle click',
+  'key.mouseRight': 'Right click',
+  'play.click': 'Click to play',
+  'play.resume': 'Click to resume',
+  'play.controls':
+    '{forward}{left}{back}{right} move · {jump} jump · {sprint} sprint · {crouch} crouch · {camera} camera',
 } as const;
 
 export type EngineStringKey = keyof typeof en;

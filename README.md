@@ -26,18 +26,22 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M2 — Terrain and streaming.** `npm run dev` now opens an endless generated world (random seed)
-that streams around the free camera: seven surface biomes (meadow, forest, highlands, tundra in the
-north, ochre desert in the south, fungal marsh, lake basins), trees, plants, lakes and frozen ponds.
-Generation and meshing run in Web Workers; the simulation ticks at 30 Hz.
+**M3 — Player and cameras.** `npm run dev` now drops you on foot into a new world (random seed).
+Click the canvas to capture the mouse, then walk, sprint, jump, crouch and swim; the simulation runs
+at 30 Hz with its own physics (swept AABB collision, coyote time, jump buffering, stamina).
 
-- Fly with the free camera: click to look around, move keys to fly (WASD on QWERTY, ZQSD on
-  AZERTY — same physical keys), Space / C to rise and sink, Shift to go faster.
-- F3 (fn+F3 on a Mac), the key left of 1, or the `@` key toggles the debug panel (seed, biome,
-  streaming queues, worker timings).
-- `?seed=42` picks a world, `?rd=4` a render distance, `?view=quads` shows the merged quads.
-- `?scene=testchunk` opens the hand-built block showcase from M1.
-- `?selftest=all` runs the in-browser acceptance checks.
+- Move with the keys in the WASD position (ZQSD on AZERTY, same physical keys); the click screen
+  shows the labels of your own keyboard. Space jumps, Shift sprints (uses stamina), C crouches
+  (you will not walk off edges), Space swims up.
+- V switches between first and third person. In third person the explorer avatar animates (walk,
+  run, crouch, jump, swim) and the camera slides in front of walls.
+- F3 (fn+F3 on a Mac), the key left of 1, or the `@` key toggles the debug panel.
+- `?seed=42` picks a world, `?rd=4` a render distance, `?worldType=flat` an endless flat field,
+  `?freecam=1` the M2 free camera, `?kb=azerty` forces keyboard labels.
+- `?scene=testchunk` opens the M1 block showcase; `?selftest=all` runs the in-browser checks (the
+  movement checks need `?worldType=flat&fixedStep=1`).
+- `npm run headless -- --seed=42 --ticks=3000 --bot=wander` runs the simulation in plain Node with a
+  wandering bot and prints its state hash (the same on every run).
 
 ## Roadmap
 

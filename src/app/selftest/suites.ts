@@ -7,6 +7,8 @@ export interface SelftestCase {
   readonly scenes?: readonly App['state'][];
   /** Overrides the runner's default per-case timeout (ms). */
   readonly timeoutMs?: number;
+  /** Returns a reason to skip the case in this setup (for example "needs ?fixedStep=1"). */
+  skip?(app: App): string | null;
   run(app: App): Promise<void> | void;
 }
 
@@ -170,6 +172,8 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
           while (!done()) {
             assert(performance.now() - t0 < 30_000, `${what} not reached after 30 s`);
             await new Promise((r) => setTimeout(r, 50));
+            // Frames do not tick the simulation in fixed-step mode.
+            if (app.params.fixedStep) session.step(1);
           }
         };
         await waitFor(`radius ${rd} meshed`, () => session.chunksReady(rd));
@@ -177,13 +181,14 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const smaller = Math.max(1, rd - 4);
         try {
           session.setRenderDistance(smaller);
+          if (app.params.fixedStep) session.step(1);
           // Columns beyond RD' + 1 are hidden: their meshes are freed (data stays until RD' + 3.5).
           await waitFor('hiding', () => session.scheduler.idle() && session.chunksReady(smaller));
           for (let i = 0; i < 3; i++) await nextFrame();
           const after = app.view!.chunks.stats().meshes;
           assert(after < before, `meshes ${before} → ${after}`);
           // Only columns within RD' + 1 may keep meshes.
-          const pose = app.freecam!.pose;
+          const pose = session.focus();
           const ccx = Math.floor(Math.floor(pose.x) / 32);
           const ccz = Math.floor(Math.floor(pose.z) / 32);
           let allowed = 0;
@@ -213,4 +218,213 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
       },
     },
   ],
+  m3: [
+    {
+      name: 'the player falls onto the flat surface',
+      scenes: ['loading', 'world'],
+      timeoutMs: 30_000,
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        teleport(app, 0.5, 80, 0.5);
+        session.step(120);
+        const b = session.player.body;
+        assert(Math.abs(b.y - 65) <= 0.01, `y = ${b.y}`);
+        assert(b.onGround, 'not on the ground');
+      },
+    },
+    {
+      name: 'walking forward for 60 ticks covers 8.6 ± 0.9 m',
+      scenes: ['world'],
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        session.rig.yaw = 0;
+        session.rig.pitch = 0;
+        const b = session.player.body;
+        const x0 = b.x;
+        const z0 = b.z;
+        app.input!.force('forward', 60);
+        session.step(60);
+        const d = Math.hypot(b.x - x0, b.z - z0);
+        assert(Math.abs(d - 8.6) <= 0.9, `walked ${d.toFixed(2)} m`);
+      },
+    },
+    {
+      name: 'movement keys bind by physical position (AZERTY Z and QWERTY W)',
+      scenes: ['world'],
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        const b = session.player.body;
+        for (const key of ['z', 'w']) {
+          const x0 = b.x;
+          const z0 = b.z;
+          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', key }));
+          session.step(20);
+          window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW', key }));
+          session.step(10);
+          const d = Math.hypot(b.x - x0, b.z - z0);
+          assert(d > 1, `key "${key}" moved ${d.toFixed(2)} m`);
+        }
+        assert(app.input!.keyLabel('forward').length > 0, 'no label for forward');
+      },
+    },
+    {
+      name: 'the avatar swings its limbs when walking, rests when idle and crouches',
+      scenes: ['world'],
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        const mode = session.rig.mode;
+        session.rig.mode = 'third';
+        try {
+          const rig = () => session.entities.rig(session.player.id)!;
+          // One tick per rendered frame for a wall-clock time, so the display rate does not matter.
+          const play = async (ms: number) => {
+            const t0 = performance.now();
+            while (performance.now() - t0 < ms) {
+              session.step(1);
+              await nextFrame();
+            }
+          };
+          app.input!.force('forward', 1e6);
+          await play(600);
+          app.input!.force('forward', 0);
+          const swing = (rig().amplitude * 180) / Math.PI;
+          assert(swing > 20, `walking swing ${swing.toFixed(1)}°`);
+          await play(1000);
+          const idle = (rig().amplitude * 180) / Math.PI;
+          assert(idle < 2, `idle swing ${idle.toFixed(1)}°`);
+          const standing = rig().headPivotY;
+          app.input!.force('crouch', 1e6);
+          await play(300);
+          const crouched = rig().headPivotY;
+          app.input!.force('crouch', 0);
+          assert(crouched < standing - 0.2, `head pivot ${standing} → ${crouched}`);
+          await play(300);
+        } finally {
+          session.rig.mode = mode;
+        }
+      },
+    },
+    {
+      name: 'V toggles the view; the third-person camera stops in front of a wall',
+      scenes: ['world'],
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        const registry = app.registry!;
+        teleport(app, 0.5, 65, 0);
+        session.step(5);
+        session.rig.yaw = 0;
+        session.rig.pitch = 0;
+        const mode = session.rig.mode;
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', key: 'v' }));
+        await nextFrame();
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v' }));
+        assert(session.rig.mode !== mode, `mode stayed ${mode}`);
+        session.rig.mode = 'third';
+        // The camera eases out per frame: wait wall-clock time, not a frame count.
+        const settle = async () => {
+          const t0 = performance.now();
+          while (performance.now() - t0 < 700) await nextFrame();
+        };
+        await settle();
+        assert(session.rig.distance > 3, `open-field distance ${session.rig.distance.toFixed(2)}`);
+        const ground = registry.states[session.sim.world.getBlock(0, 64, 0)]!.key;
+        const air = registry.states[registry.air]!.key;
+        // A wall 2 m behind the player (the camera looks along −z, so behind is +z).
+        session.host.send({
+          type: 'debug.fill',
+          x0: -2,
+          y0: 65,
+          z0: 2,
+          x1: 2,
+          y1: 68,
+          z1: 2,
+          state: ground,
+        });
+        session.step(1);
+        try {
+          await settle();
+          assert(session.rig.distance < 2, `camera distance ${session.rig.distance.toFixed(2)}`);
+        } finally {
+          session.host.send({
+            type: 'debug.fill',
+            x0: -2,
+            y0: 65,
+            z0: 2,
+            x1: 2,
+            y1: 68,
+            z1: 2,
+            state: air,
+          });
+          session.step(1);
+          session.rig.mode = mode;
+        }
+      },
+    },
+    {
+      name: 'a far teleport loads the new area (radius 3 meshed in < 3 s)',
+      scenes: ['world'],
+      timeoutMs: 40_000,
+      skip: needsFlatPlayer,
+      run: async (app) => {
+        const session = await playerSession(app);
+        const t0 = performance.now();
+        teleport(app, 4000.5, 'surface', 0.5);
+        await nextFrame();
+        assert(session.loading, 'the loading overlay did not come back');
+        await waitForChunks(app, 3, 10_000);
+        const ms = performance.now() - t0;
+        assert(session.playerColumnLit(), 'player column not lit');
+        assert(ms < 3000, `radius 3 meshed after ${ms.toFixed(0)} ms`);
+        teleport(app, 0.5, 65, 0.5);
+        await waitForChunks(app, 3, 20_000);
+      },
+    },
+    {
+      name: 'no errors after the m3 checks',
+      run: (app) => {
+        assert(app.errors.length === 0, `errors: ${app.errors.join(' | ')}`);
+        assert(i18nMissing().length === 0, `missing strings: ${i18nMissing().join(', ')}`);
+      },
+    },
+  ],
 };
+
+/** The m3 movement checks need a player (no free camera), fixed steps and the flat world. */
+function needsFlatPlayer(app: App): string | null {
+  if (app.params.freecam) return 'needs a player (no ?freecam)';
+  if (!app.params.fixedStep) return 'needs ?fixedStep=1';
+  if (app.params.worldType !== 'flat') return 'needs ?worldType=flat';
+  return null;
+}
+
+async function playerSession(app: App) {
+  await app.ready();
+  const session = app.session;
+  assert(session && app.input, 'no player session');
+  await waitForChunks(app, session.loadingRadius(), 25_000);
+  return session;
+}
+
+function teleport(app: App, x: number, y: number | 'surface', z: number): void {
+  const session = app.session!;
+  session.host.send({ type: 'debug.teleport', x, y, z });
+  session.step(1);
+}
+
+/** Waits until `radius` is meshed around the player, stepping the world if frames stall. */
+async function waitForChunks(app: App, radius: number, timeoutMs: number): Promise<void> {
+  const session = app.session!;
+  const t0 = performance.now();
+  while (!session.chunksReady(radius)) {
+    assert(performance.now() - t0 < timeoutMs, `radius ${radius} not meshed after ${timeoutMs} ms`);
+    const frames = app.frames.frameTotal();
+    await new Promise((r) => setTimeout(r, 16));
+    if (app.frames.frameTotal() === frames) session.pumpOnce();
+  }
+  await nextFrame();
+}

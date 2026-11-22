@@ -2,6 +2,7 @@ import type { ContentPack } from '../../schema.ts';
 import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
 import { strings } from './i18n.en.ts';
+import { models } from './models.ts';
 import { textures } from './textures.ts';
 import { biomes, features, worldgen } from './worldgen.ts';
 
@@ -16,6 +17,7 @@ export const basePack: ContentPack = {
       air: 'block:air',
       unknownBlock: 'block:unknown',
       spawnBiomes: ['biome:meadow', 'biome:forest'],
+      avatarModel: 'model:explorer',
     },
   },
   blocks: [...blocks, ...natureBlocks],
@@ -32,4 +34,5 @@ export const basePack: ContentPack = {
   worldgen,
   biomes,
   features,
+  models,
 };

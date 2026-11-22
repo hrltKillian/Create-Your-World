@@ -48,7 +48,7 @@ describe('worker pool', () => {
     vi.stubGlobal('Worker', FakeWorker);
     const pool = new WorkerPool(2);
     const jobs = Array.from({ length: 7 }, (_, i) =>
-      pool.run({ kind: 'gen', seed: 'p', cx: i, cz: 0 }),
+      pool.run({ kind: 'gen', worldType: 'default', seed: 'p', cx: i, cz: 0 }),
     );
     expect(pool.stats().inFlight).toBe(4);
     expect(pool.stats().queued).toBe(3);
@@ -61,8 +61,9 @@ describe('worker pool', () => {
   it('sends urgent jobs even when every worker is busy', () => {
     vi.stubGlobal('Worker', FakeWorker);
     const pool = new WorkerPool(1);
-    for (let i = 0; i < 3; i++) void pool.run({ kind: 'gen', seed: 'u', cx: i, cz: 0 });
-    void pool.run({ kind: 'gen', seed: 'u', cx: 9, cz: 9 }, 'urgent');
+    for (let i = 0; i < 3; i++)
+      void pool.run({ kind: 'gen', worldType: 'default', seed: 'u', cx: i, cz: 0 });
+    void pool.run({ kind: 'gen', worldType: 'default', seed: 'u', cx: 9, cz: 9 }, 'urgent');
     const sent = FakeWorker.instances[0]!.received.filter((m) => m.type === 'job');
     expect(sent).toHaveLength(3); // 2 normal + 1 urgent; the third normal waits
   });
@@ -72,7 +73,7 @@ describe('worker pool', () => {
     vi.stubGlobal('Worker', FakeWorker);
     FakeWorker.hang = true;
     const pool = new WorkerPool(1);
-    const job = pool.run({ kind: 'gen', seed: 'h', cx: 0, cz: 0 });
+    const job = pool.run({ kind: 'gen', worldType: 'default', seed: 'h', cx: 0, cz: 0 });
     const failed = expect(job).rejects.toThrow(/did not answer/);
     await vi.advanceTimersByTimeAsync(10_001);
     await failed;
@@ -93,15 +94,15 @@ describe('worker pool', () => {
       fatal = reason;
     };
     for (let attempt = 0; attempt < 3; attempt++) {
-      const job = pool.run({ kind: 'gen', seed: 'f', cx: attempt, cz: 0 });
+      const job = pool.run({ kind: 'gen', worldType: 'default', seed: 'f', cx: attempt, cz: 0 });
       const failed = expect(job).rejects.toThrow();
       await vi.advanceTimersByTimeAsync(10_001);
       await failed;
       await vi.advanceTimersByTimeAsync(2_000);
     }
     expect(fatal).toMatch(/stopped working/);
-    await expect(pool.run({ kind: 'gen', seed: 'f', cx: 9, cz: 9 })).rejects.toThrow(
-      /stopped working/,
-    );
+    await expect(
+      pool.run({ kind: 'gen', worldType: 'default', seed: 'f', cx: 9, cz: 9 }),
+    ).rejects.toThrow(/stopped working/);
   });
 });

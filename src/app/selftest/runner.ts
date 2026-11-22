@@ -45,12 +45,12 @@ async function runCase(app: App, name: string, test: SelftestCase): Promise<Self
     if (!test.scenes.includes(app.state))
       return { name, ok: true, skipped: true, detail: `not in ${app.state}` };
   }
+  const skip = test.skip?.(app);
+  if (skip) return { name, ok: true, skipped: true, detail: skip };
+  const limit = test.timeoutMs ?? CASE_TIMEOUT_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`timeout after ${CASE_TIMEOUT_MS} ms`)),
-      CASE_TIMEOUT_MS,
-    );
+    timer = setTimeout(() => reject(new Error(`timeout after ${limit} ms`)), limit);
   });
   try {
     await Promise.race([Promise.resolve().then(() => test.run(app)), timeout]);

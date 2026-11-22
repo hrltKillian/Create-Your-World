@@ -5,6 +5,7 @@ import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
 import { addStrings, t } from '../i18n/i18n.ts';
+import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
 import { Renderer } from '../render/Renderer.ts';
@@ -13,6 +14,12 @@ import { createTextureArray } from '../render/textureArray.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
+import { crosshair } from '../ui/hud/crosshair.ts';
+import {
+  clickToPlay,
+  setClickToPlayControls,
+  setClickToPlayResume,
+} from '../ui/screens/clickToPlay.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
 import { hintBar } from '../ui/screens/hint.ts';
 import { loadingScreen } from '../ui/screens/loading.ts';
@@ -28,7 +35,7 @@ import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 2;
+export const MILESTONE = 3;
 
 export type AppState =
   | 'boot'
@@ -62,6 +69,7 @@ export class App {
   freecam: FreeCam | null = null;
   overlay: DebugOverlay | null = null;
   session: GameSession | null = null;
+  input: InputManager | null = null;
   debugView: DebugView = 'none';
 
   private readonly root: HTMLElement;
@@ -184,27 +192,73 @@ export class App {
     return new WorldView(this.renderer!, textures, tints, renderDistance);
   }
 
-  /** Default mode: an endless generated world explored with the free camera (M2). */
+  /** Default mode: an endless generated world, explored on foot (or with ?freecam=1). */
   private startWorld(registry: Registry): void {
     const renderer = this.renderer!;
+    const canvas = renderer.webgl.domElement;
     const pack = registry.pack;
     const renderDistance = this.params.rd ?? RENDER_DISTANCE;
     const view = this.createWorldView(pack, biomeTints(pack), renderDistance);
     this.view = view;
-    const freecam = new FreeCam(
-      renderer.webgl.domElement,
-      { x: 0, y: 100, z: 0, yaw: 0, pitch: 0 },
-      !this.params.noLock,
-    );
+    const freecam = this.params.freecam
+      ? new FreeCam(canvas, { x: 0, y: 100, z: 0, yaw: 0, pitch: 0 }, !this.params.noLock)
+      : null;
     this.freecam = freecam;
+    const input = new InputManager(canvas, {
+      pointerLock: !this.params.noLock && !freecam,
+      language: navigator.language,
+    });
+    this.input = input;
+    if (this.params.kb) input.labels.force(this.params.kb);
+    const layoutLoaded = input.labels.loadLayoutMap(
+      (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard,
+    );
     const seed = this.params.seed ?? Math.floor(Math.random() * 1e9).toString(36);
-    const session = new GameSession(seed, registry, this.workers!, view, freecam, renderDistance);
+    const session = new GameSession(
+      {
+        seed,
+        worldType: this.params.worldType,
+        renderDistance,
+        freecam,
+        fixedStep: this.params.fixedStep,
+        serialize: this.params.host === 'serialize',
+        allowDebug: __DEBUG_HOOK__,
+      },
+      registry,
+      this.workers!,
+      view,
+      input,
+    );
     this.session = session;
     this.world = session.sim.world;
     const overlay = new DebugOverlay(this.params.debug);
     this.overlay = overlay;
     const loading = loadingScreen();
-    this.root.append(overlay.element, loading, hintBar('hint.freecam'));
+    const cross = crosshair();
+    this.root.append(cross, overlay.element, loading);
+    if (freecam) this.root.append(hintBar('hint.freecam'));
+    const click = input.pointer
+      ? clickToPlay(this.controlsText(input), () => input.pointer?.request())
+      : null;
+    if (click && input.pointer) {
+      this.root.append(click);
+      void layoutLoaded.then(() => setClickToPlayControls(click, this.controlsText(input)));
+      // Without the mouse captured the game is paused and ignores the keyboard.
+      const setPlaying = (playing: boolean) => {
+        session.paused = !playing;
+        input.enabled = playing;
+        if (!playing) input.releaseAll();
+      };
+      setPlaying(false);
+      input.pointer.onChange = (locked) => {
+        click.hidden = locked;
+        setPlaying(locked);
+        if (!locked) {
+          setClickToPlayResume(click);
+          setClickToPlayControls(click, this.controlsText(input));
+        }
+      };
+    }
     this.installDebugToggle(overlay);
     this.state = 'loading';
     const requested = this.params.view as DebugView | null;
@@ -213,21 +267,36 @@ export class App {
     let sinceOverlay = 0;
     this.runLoop((dt) => {
       const t0 = performance.now();
-      session.frame(dt);
+      const pose = session.frame(dt);
       const t1 = performance.now();
-      view.setPose(freecam.pose);
+      view.setPose(pose);
       view.frame(dt);
+      cross.classList.toggle('hidden', session.rig.mode === 'third' || freecam !== null);
       this.frames.span('world', t1 - t0);
       this.frames.span('render', performance.now() - t1);
-      if (this.state === 'loading' && !session.loading) {
-        this.state = 'world';
-        loading.remove();
+      if (session.loading !== (this.state === 'loading')) {
+        this.state = session.loading ? 'loading' : 'world';
+        loading.hidden = !session.loading;
       }
       sinceOverlay += dt;
       if (sinceOverlay >= 0.25) {
         sinceOverlay = 0;
         this.refreshOverlay();
       }
+    });
+  }
+
+  /** Controls line with the labels of the player's own keyboard layout. */
+  controlsText(input: InputManager): string {
+    return t('play.controls', {
+      forward: input.keyLabel('forward'),
+      left: input.keyLabel('left'),
+      back: input.keyLabel('back'),
+      right: input.keyLabel('right'),
+      jump: input.keyLabel('jump'),
+      sprint: input.keyLabel('sprint'),
+      crouch: input.keyLabel('crouch'),
+      camera: input.keyLabel('camera'),
     });
   }
 
@@ -279,7 +348,8 @@ export class App {
   }
 
   private refreshOverlay(): void {
-    const { overlay, view, freecam, world } = this;
+    const { overlay, view, world } = this;
+    const freecam = this.freecam ?? (this.session ? { pose: this.session.rig.pose } : null);
     if (!overlay?.isVisible() || !view || !freecam || !world) return;
     const info = this.renderer!.webgl.info;
     const snap = this.frames.snapshot();
@@ -386,4 +456,8 @@ export function biomeTints(pack: ContentPack): string[] {
   if (biomes.length === 0) return [...out, pack.tints.grass, pack.tints.foliage, pack.tints.water];
   for (const biome of biomes) out.push(biome.tints.grass, biome.tints.foliage, biome.tints.water);
   return out;
+}
+
+interface KeyboardLayoutSource {
+  getLayoutMap(): Promise<ReadonlyMap<string, string>>;
 }
