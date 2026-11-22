@@ -1,5 +1,5 @@
 import type { Registry } from '../content/registry.ts';
-import { toColumn } from '../world/coords.ts';
+import { blockToColumn } from '../world/coords.ts';
 import {
   createGenContext,
   findSpawn,
@@ -142,8 +142,7 @@ export class Simulation implements ColumnSink {
     for (const player of this.players.values()) {
       const body = player.body;
       // Frozen while its column is not ready (no falling into the void).
-      const active =
-        this.columnState(toColumn(Math.floor(body.x)), toColumn(Math.floor(body.z))) >= COLUMN_LIT;
+      const active = this.columnState(blockToColumn(body.x), blockToColumn(body.z)) >= COLUMN_LIT;
       if (stepPlayer(player, active, this.world, this.registry.tables, DT, out)) this.track(player);
     }
     this.columns.integrate(INTEGRATE_PER_TICK, out);

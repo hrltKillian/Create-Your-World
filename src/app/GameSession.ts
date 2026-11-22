@@ -17,7 +17,7 @@ import {
   Simulation,
   TICKS_PER_SECOND,
 } from '../sim/Simulation.ts';
-import { SECTIONS_PER_COLUMN, sectionKey, toColumn } from '../world/coords.ts';
+import { blockToColumn, SECTION_SIZE, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { FreeCam } from './FreeCam.ts';
 
@@ -180,15 +180,15 @@ export class GameSession {
   /** The player's column is lit, so the player is simulated (not frozen). */
   playerColumnLit(): boolean {
     const b = this.player.body;
-    const state = this.host.view.columnState(toColumn(Math.floor(b.x)), toColumn(Math.floor(b.z)));
+    const state = this.host.view.columnState(blockToColumn(b.x), blockToColumn(b.z));
     return state >= COLUMN_LIT;
   }
 
   /** Every column within `radius` of the focus is meshable and its sections are uploaded. */
   chunksReady(radius: number): boolean {
     const focus = this.focus();
-    const ccx = toColumn(Math.floor(focus.x));
-    const ccz = toColumn(Math.floor(focus.z));
+    const ccx = blockToColumn(focus.x);
+    const ccz = blockToColumn(focus.z);
     for (let dz = -radius; dz <= radius; dz++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx * dx + dz * dz > radius * radius) continue;
@@ -219,9 +219,9 @@ export class GameSession {
       dt,
     );
     this.batch.begin(
-      Math.floor(pose.x / 32) * 32,
-      Math.floor(pose.y / 32) * 32,
-      Math.floor(pose.z / 32) * 32,
+      blockToColumn(pose.x) * SECTION_SIZE,
+      blockToColumn(pose.y) * SECTION_SIZE,
+      blockToColumn(pose.z) * SECTION_SIZE,
     );
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
     const visible = this.rig.mode === 'third' && this.rig.distance >= AVATAR_MIN_DISTANCE;

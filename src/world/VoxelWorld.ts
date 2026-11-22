@@ -8,6 +8,7 @@ import {
   toColumn,
   WORLD_HEIGHT,
 } from './coords.ts';
+import { FULL_SKY } from './light.ts';
 import type { Section } from './Section.ts';
 
 /** Loaded columns with block and light access by world coordinates. */
@@ -64,9 +65,9 @@ export class VoxelWorld {
     return true;
   }
 
-  /** Packed light (sky << 4 | block). Above the world: full sky; unloaded: dark. */
+  /** Packed light (see light.ts). Above the world: full sky; unloaded: dark. */
   getLight(x: number, y: number, z: number): number {
-    if (y >= WORLD_HEIGHT) return 0xf0;
+    if (y >= WORLD_HEIGHT) return FULL_SKY;
     if (y < 0) return 0;
     const column = this.getColumn(toColumn(x), toColumn(z));
     if (!column) return 0;

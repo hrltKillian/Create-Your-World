@@ -1,4 +1,5 @@
 import { i18nMissing } from '../../i18n/i18n.ts';
+import { blockToColumn } from '../../world/coords.ts';
 import type { App } from '../App.ts';
 import { fill, framesFor, nextFrame, teleport, waitForChunks, waitUntil } from '../automation.ts';
 
@@ -181,8 +182,8 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
           assert(after < before, `meshes ${before} → ${after}`);
           // Only columns within RD' + 1 may keep meshes.
           const pose = session.focus();
-          const ccx = Math.floor(Math.floor(pose.x) / 32);
-          const ccz = Math.floor(Math.floor(pose.z) / 32);
+          const ccx = blockToColumn(pose.x);
+          const ccz = blockToColumn(pose.z);
           let allowed = 0;
           for (let dz = -smaller - 2; dz <= smaller + 2; dz++) {
             for (let dx = -smaller - 2; dx <= smaller + 2; dx++) {

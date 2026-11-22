@@ -1,3 +1,5 @@
+import { HOTBAR_SLOTS } from '../core/player.ts';
+
 /**
  * Actions bound by physical key position (KeyboardEvent.code): the same keys work on every layout
  * (ZQSD on AZERTY is WASD on QWERTY). Only the displayed labels change.
@@ -35,17 +37,11 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   pause: ['Escape'],
 };
 
-/** Hotbar slots 1–8 (always labelled with digits). */
-export const HOTBAR_CODES = [
-  'Digit1',
-  'Digit2',
-  'Digit3',
-  'Digit4',
-  'Digit5',
-  'Digit6',
-  'Digit7',
-  'Digit8',
-] as const;
+/** Hotbar slot keys, Digit1 for the first slot (always labelled with digits). */
+export const HOTBAR_CODES: readonly string[] = Array.from(
+  { length: HOTBAR_SLOTS },
+  (_, i) => `Digit${i + 1}`,
+);
 
 /** Keys the game never binds (browser and system shortcuts). */
 export const RESERVED_CODES: ReadonlySet<string> = new Set([

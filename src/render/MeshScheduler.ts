@@ -2,10 +2,11 @@ import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import {
   columnKey,
-  columnKeyX,
-  columnKeyZ,
+  SECTION_SIZE,
   SECTIONS_PER_COLUMN,
+  type SectionCoords,
   sectionKey,
+  sectionKeyParts,
 } from '../world/coords.ts';
 import {
   createPadded,
@@ -16,11 +17,7 @@ import {
 import type { JobRunner, MeshResult } from '../world/protocol.ts';
 import type { ChunkMeshes } from './ChunkMeshes.ts';
 
-interface PendingSection {
-  readonly cx: number;
-  readonly sy: number;
-  readonly cz: number;
-}
+type PendingSection = Readonly<SectionCoords>;
 
 export interface MeshBudgets {
   /** Mesh jobs in flight at once. */
@@ -31,6 +28,9 @@ export interface MeshBudgets {
   readonly uploadsPerFrame: number;
   readonly uploadBytesPerFrame: number;
 }
+
+/** Coordinates of the result being uploaded (decoded from its section key). */
+const resultAt: SectionCoords = { cx: 0, sy: 0, cz: 0 };
 
 export interface MeshStats {
   readonly pending: number;
@@ -207,19 +207,21 @@ export class MeshScheduler {
       if (this.freePadded.length < 16) this.freePadded.push(result.padded);
       const expected = this.inFlight.get(result.key);
       this.inFlight.delete(result.key);
-      // Section key = column key × 8 + sy.
-      const colKey = Math.floor(result.key / SECTIONS_PER_COLUMN);
-      const sy = result.key - colKey * SECTIONS_PER_COLUMN;
-      const ccx = columnKeyX(colKey);
-      const ccz = columnKeyZ(colKey);
-      const section = this.view.world.getSection(ccx, sy, ccz);
+      const { cx, sy, cz } = sectionKeyParts(result.key, resultAt);
+      const section = this.view.world.getSection(cx, sy, cz);
       if (!section) continue; // unloaded meanwhile
       if (expected === undefined || section.version !== result.version) {
         this.stale++;
-        this.queue(ccx, sy, ccz);
+        this.queue(cx, sy, cz);
         continue;
       }
-      this.chunks.update(result.key, ccx * 32, sy * 32, ccz * 32, result);
+      this.chunks.update(
+        result.key,
+        cx * SECTION_SIZE,
+        sy * SECTION_SIZE,
+        cz * SECTION_SIZE,
+        result,
+      );
       this.uploaded++;
       count++;
       for (const pass of result.passes) bytes += pass.data.byteLength;

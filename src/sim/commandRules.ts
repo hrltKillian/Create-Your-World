@@ -1,9 +1,7 @@
+import { HOTBAR_SLOTS } from '../core/player.ts';
 import { insideBorder } from '../world/coords.ts';
 import type { Command, InputCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
-
-/** Hotbar slots (InputCommand.slot is 0…HOTBAR_SLOTS−1). */
-const HOTBAR_SLOTS = 8;
 
 /** Rejects non-finite numbers and out-of-range axes or slots (commands may come from a network). */
 export function validInput(c: InputCommand): boolean {

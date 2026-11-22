@@ -1,4 +1,10 @@
-import { type BlockDef, type ContentPack, STATE_VALUES, type TextureSlot } from './schema.ts';
+import {
+  type BlockDef,
+  type ContentPack,
+  STATE_VALUES,
+  type TextureAlpha,
+  type TextureSlot,
+} from './schema.ts';
 
 export interface ContentIssue {
   /** Exact location in the pack, e.g. `blocks[3].textures.top`. */
@@ -11,23 +17,54 @@ export const MAX_STATES = 65_535;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
+type AddIssue = (path: string, message: string) => void;
+
+/** Texture keys of a pack: all of them, and by alpha use. */
+export interface TextureSets {
+  readonly keys: ReadonlySet<string>;
+  /** Emissive-mask textures (a tinted block may not use them). */
+  readonly emissive: ReadonlySet<string>;
+  /** Tint-aware textures (tintMask, tintFull): the only faces of an opaque block that take its tint. */
+  readonly tintable: ReadonlySet<string>;
+}
+
+export function textureSets(pack: ContentPack): TextureSets {
+  const keysWhere = (keep: (alpha: TextureAlpha | undefined) => boolean) =>
+    new Set(pack.textures.filter((t) => keep(t.alpha)).map((t) => t.key as string));
+  return {
+    keys: keysWhere(() => true),
+    emissive: keysWhere((alpha) => alpha === 'emissiveMask'),
+    tintable: keysWhere((alpha) => alpha === 'tintMask' || alpha === 'tintFull'),
+  };
+}
+
 /** Semantic validation of a content pack. Returns every issue found (empty = valid). */
 export function validatePack(pack: ContentPack): ContentIssue[] {
   const issues: ContentIssue[] = [];
-  const add = (path: string, message: string) => issues.push({ path, message });
-  const { manifest } = pack;
+  const add: AddIssue = (path, message) => issues.push({ path, message });
+  const textures = textureSets(pack);
+  validateTextures(pack, add);
+  const blockKeys = validateBlocks(pack, textures, add);
+  validateBindings(pack, blockKeys, add);
+  validateWorld(pack, blockKeys, add);
+  validateModels(pack, textures.keys, add);
+  validateDevScene(pack, blockKeys, add);
+  checkTints(pack.tints, 'tints', add);
+  return issues;
+}
 
-  const size = manifest.textureSize;
+/** Texture size, keys and palettes, and the layer limit. */
+function validateTextures(pack: ContentPack, add: AddIssue): void {
+  const size = pack.manifest.textureSize;
   if (!Number.isInteger(size) || size < 8 || size > 64 || (size & (size - 1)) !== 0) {
     add('manifest.textureSize', `must be a power of two between 8 and 64 (got ${size})`);
   }
-
-  const textureKeys = new Set<string>();
+  const seen = new Set<string>();
   pack.textures.forEach((tex, i) => {
     const path = `textures[${i}]`;
     if (!tex.key.startsWith('tex:')) add(`${path}.key`, `"${tex.key}" must start with "tex:"`);
-    if (textureKeys.has(tex.key)) add(`${path}.key`, `duplicate texture "${tex.key}"`);
-    textureKeys.add(tex.key);
+    if (seen.has(tex.key)) add(`${path}.key`, `duplicate texture "${tex.key}"`);
+    seen.add(tex.key);
     if (tex.palette.length === 0) add(`${path}.palette`, 'palette is empty');
     tex.palette.forEach((color, c) => {
       if (!HEX.test(color)) add(`${path}.palette[${c}]`, `"${color}" is not a #rrggbb colour`);
@@ -39,10 +76,10 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
       `${pack.textures.length} textures exceed the ${MAX_TEXTURE_LAYERS}-layer limit`,
     );
   }
-  const emissiveTextures = new Set(
-    pack.textures.filter((tex) => tex.alpha === 'emissiveMask').map((tex) => tex.key),
-  );
+}
 
+/** Every block and its state overrides, and the state count. Returns the block keys. */
+function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue): Set<string> {
   const blockKeys = new Set<string>();
   let stateTotal = 0;
   pack.blocks.forEach((block, i) => {
@@ -54,59 +91,18 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
     if (pack.strings[block.nameKey] === undefined) {
       add(`${path}.nameKey`, `no string for "${block.nameKey}"`);
     }
-    checkTextures(block, path, textureKeys, emissiveTextures, add);
+    checkTextures(block, path, textures, add);
     checkLight(block.light?.emit, `${path}.light.emit`, add);
     checkLight(block.light?.filter, `${path}.light.filter`, add);
     if (block.hardness < 0 && block.hardness !== -1)
       add(`${path}.hardness`, 'must be ≥ 0 (or -1 for unbreakable)');
-
-    const props = block.states ?? [];
-    const seen = new Set<string>();
-    let combos = 1;
-    props.forEach((prop, p) => {
-      if (!(prop in STATE_VALUES)) add(`${path}.states[${p}]`, `unknown state "${prop}"`);
-      if (seen.has(prop)) add(`${path}.states[${p}]`, `duplicate state "${prop}"`);
-      seen.add(prop);
-      combos *= STATE_VALUES[prop]?.length ?? 1;
-    });
-    stateTotal += combos;
-    for (const [prop, override] of Object.entries(block.whenState ?? {})) {
-      if (!seen.has(prop)) add(`${path}.whenState.${prop}`, `block has no "${prop}" state`);
-      for (const [slot, key] of Object.entries(override?.textures ?? {})) {
-        if (!textureKeys.has(key))
-          add(`${path}.whenState.${prop}.textures.${slot}`, `unknown texture "${key}"`);
-      }
-      checkLight(override?.emit, `${path}.whenState.${prop}.emit`, add);
-    }
-
+    stateTotal += checkStates(block, path, textures.keys, add);
     checkBlockRules(block, path, block, add);
     checkBoxes(block.shape, `${path}.shape`, add);
     checkBoxes(block.collision, `${path}.collision`, add);
-    for (const [prop, override] of Object.entries(block.whenState ?? {})) {
-      if (!override) continue;
-      const opath = `${path}.whenState.${prop}`;
-      const effective = {
-        opaque: override.opaque ?? block.opaque,
-        shape: override.shape ?? block.shape,
-        collision: override.collision ?? block.collision,
-        filter: override.light?.filter ?? block.light?.filter ?? 0,
-      };
-      checkBlockRules(block, opath, effective, add);
-      checkBoxes(override.shape, `${opath}.shape`, add);
-      checkBoxes(override.collision, `${opath}.collision`, add);
-      checkLight(override.light?.filter, `${opath}.light.filter`, add);
-      for (const [slot, key] of Object.entries(override.textures ?? {})) {
-        if (block.tint && emissiveTextures.has(key))
-          add(`${opath}.textures.${slot}`, `"${key}" is emissive but the block is tinted`);
-      }
-    }
+    checkOverrides(block, path, textures.emissive, add);
     if (block.tint && block.pass === 'opaque') {
-      const tintAware = new Set(
-        pack.textures
-          .filter((t) => t.alpha === 'tintMask' || t.alpha === 'tintFull')
-          .map((t) => t.key as string),
-      );
-      if (!Object.values(block.textures).some((key) => tintAware.has(key))) {
+      if (!Object.values(block.textures).some((key) => textures.tintable.has(key))) {
         add(
           `${path}.tint`,
           'a tinted opaque block needs at least one tintMask or tintFull texture',
@@ -114,10 +110,66 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
       }
     }
   });
-
   if (stateTotal > MAX_STATES) add('blocks', `${stateTotal} block states exceed ${MAX_STATES}`);
+  return blockKeys;
+}
 
-  const bindings = manifest.bindings;
+/** State properties and the references of `whenState` overrides. Returns the block's state count. */
+function checkStates(
+  block: BlockDef,
+  path: string,
+  textureKeys: ReadonlySet<string>,
+  add: AddIssue,
+): number {
+  const seen = new Set<string>();
+  let combos = 1;
+  (block.states ?? []).forEach((prop, p) => {
+    if (!(prop in STATE_VALUES)) add(`${path}.states[${p}]`, `unknown state "${prop}"`);
+    if (seen.has(prop)) add(`${path}.states[${p}]`, `duplicate state "${prop}"`);
+    seen.add(prop);
+    combos *= STATE_VALUES[prop]?.length ?? 1;
+  });
+  for (const [prop, override] of Object.entries(block.whenState ?? {})) {
+    if (!seen.has(prop)) add(`${path}.whenState.${prop}`, `block has no "${prop}" state`);
+    for (const [slot, key] of Object.entries(override?.textures ?? {})) {
+      if (!textureKeys.has(key))
+        add(`${path}.whenState.${prop}.textures.${slot}`, `unknown texture "${key}"`);
+    }
+    checkLight(override?.emit, `${path}.whenState.${prop}.emit`, add);
+  }
+  return combos;
+}
+
+/** The block rules, boxes, light and texture tint applied to each `whenState` override. */
+function checkOverrides(
+  block: BlockDef,
+  path: string,
+  emissive: ReadonlySet<string>,
+  add: AddIssue,
+): void {
+  for (const [prop, override] of Object.entries(block.whenState ?? {})) {
+    if (!override) continue;
+    const opath = `${path}.whenState.${prop}`;
+    const effective = {
+      opaque: override.opaque ?? block.opaque,
+      shape: override.shape ?? block.shape,
+      collision: override.collision ?? block.collision,
+      filter: override.light?.filter ?? block.light?.filter ?? 0,
+    };
+    checkBlockRules(block, opath, effective, add);
+    checkBoxes(override.shape, `${opath}.shape`, add);
+    checkBoxes(override.collision, `${opath}.collision`, add);
+    checkLight(override.light?.filter, `${opath}.light.filter`, add);
+    for (const [slot, key] of Object.entries(override.textures ?? {})) {
+      if (block.tint && emissive.has(key))
+        add(`${opath}.textures.${slot}`, `"${key}" is emissive but the block is tinted`);
+    }
+  }
+}
+
+/** The air and unknown blocks, and the spawn biomes. */
+function validateBindings(pack: ContentPack, blockKeys: ReadonlySet<string>, add: AddIssue): void {
+  const bindings = pack.manifest.bindings;
   if (pack.blocks[0]?.key !== bindings.air) {
     add('manifest.bindings.air', `the air block "${bindings.air}" must be the first block`);
   }
@@ -129,7 +181,10 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   (bindings.spawnBiomes ?? []).forEach((key, i) => {
     if (!biomeKeys.has(key)) add(`manifest.bindings.spawnBiomes[${i}]`, `unknown biome "${key}"`);
   });
-  validateWorld(pack, blockKeys, add);
+}
+
+/** Model parts (textures, parents, extents) and the avatar model binding. */
+function validateModels(pack: ContentPack, textureKeys: ReadonlySet<string>, add: AddIssue): void {
   const modelKeys = new Set<string>();
   (pack.models ?? []).forEach((model, i) => {
     modelKeys.add(model.key);
@@ -144,27 +199,27 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
         add(path, 'from must be below to on every axis');
     });
   });
-  if (bindings.avatarModel && !modelKeys.has(bindings.avatarModel)) {
-    add('manifest.bindings.avatarModel', `unknown model "${bindings.avatarModel}"`);
+  const avatar = pack.manifest.bindings.avatarModel;
+  if (avatar && !modelKeys.has(avatar)) {
+    add('manifest.bindings.avatarModel', `unknown model "${avatar}"`);
   }
+}
+
+/** Blocks named by the developer test scene. */
+function validateDevScene(pack: ContentPack, blockKeys: ReadonlySet<string>, add: AddIssue): void {
   const scene = pack.devScene;
-  if (scene) {
-    const refs: [string, string | undefined][] = [
-      ...scene.ground.map((key, g): [string, string] => [`devScene.ground[${g}]`, key]),
-      ['devScene.pond.liquid', scene.pond?.liquid],
-      ['devScene.pond.shore', scene.pond?.shore],
-      ['devScene.tree.log', scene.tree?.log],
-      ['devScene.tree.leaves', scene.tree?.leaves],
-      ['devScene.plant', scene.plant],
-      ['devScene.showcaseFloor', scene.showcaseFloor],
-    ];
-    for (const [path, key] of refs)
-      if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
-  }
-  for (const channel of ['grass', 'foliage', 'water'] as const) {
-    if (!HEX.test(pack.tints[channel])) add(`tints.${channel}`, 'must be a #rrggbb colour');
-  }
-  return issues;
+  if (!scene) return;
+  const refs: [string, string | undefined][] = [
+    ...scene.ground.map((key, g): [string, string] => [`devScene.ground[${g}]`, key]),
+    ['devScene.pond.liquid', scene.pond?.liquid],
+    ['devScene.pond.shore', scene.pond?.shore],
+    ['devScene.tree.log', scene.tree?.log],
+    ['devScene.tree.leaves', scene.tree?.leaves],
+    ['devScene.plant', scene.plant],
+    ['devScene.showcaseFloor', scene.showcaseFloor],
+  ];
+  for (const [path, key] of refs)
+    if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
 }
 
 interface RuleView {
@@ -176,12 +231,7 @@ interface RuleView {
 }
 
 /** Rules that must hold for a block and for each of its state overrides. */
-function checkBlockRules(
-  block: BlockDef,
-  path: string,
-  view: RuleView,
-  add: (path: string, message: string) => void,
-): void {
+function checkBlockRules(block: BlockDef, path: string, view: RuleView, add: AddIssue): void {
   const filter = view.filter ?? view.light?.filter ?? 0;
   const collides = view.collision !== 'none' && view.collision !== 'liquid';
   if (collides && !view.opaque && filter < 1) {
@@ -196,7 +246,7 @@ function checkBlockRules(
 function checkBoxes(
   value: BlockDef['shape'] | BlockDef['collision'] | undefined,
   path: string,
-  add: (path: string, message: string) => void,
+  add: AddIssue,
 ): void {
   if (typeof value !== 'object' || value === null) return;
   value.boxes.forEach((box, b) => {
@@ -211,40 +261,37 @@ function checkBoxes(
   });
 }
 
-function checkTextures(
-  block: BlockDef,
-  path: string,
-  known: ReadonlySet<string>,
-  emissive: ReadonlySet<string>,
-  add: (path: string, message: string) => void,
-): void {
+function checkTextures(block: BlockDef, path: string, textures: TextureSets, add: AddIssue): void {
   const needsTextures = block.shape !== 'none' && block.pass !== 'invisible';
   const slots = Object.entries(block.textures) as [TextureSlot, string][];
   if (needsTextures && slots.length === 0)
     add(`${path}.textures`, 'a visible block needs textures');
   for (const [slot, key] of slots) {
-    if (!known.has(key)) add(`${path}.textures.${slot}`, `unknown texture "${key}"`);
-    if (block.tint && emissive.has(key)) {
+    if (!textures.keys.has(key)) add(`${path}.textures.${slot}`, `unknown texture "${key}"`);
+    if (block.tint && textures.emissive.has(key)) {
       add(`${path}.textures.${slot}`, `"${key}" is emissive but the block is tinted`);
     }
   }
 }
 
-function checkLight(
-  value: number | undefined,
-  path: string,
-  add: (path: string, message: string) => void,
-): void {
+function checkLight(value: number | undefined, path: string, add: AddIssue): void {
   if (value === undefined) return;
   if (!Number.isInteger(value) || value < 0 || value > 15)
     add(path, `must be an integer 0–15 (got ${value})`);
 }
 
-function validateWorld(
-  pack: ContentPack,
-  blockKeys: ReadonlySet<string>,
-  add: (path: string, message: string) => void,
+function checkTints(
+  tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>,
+  path: string,
+  add: AddIssue,
 ): void {
+  for (const channel of ['grass', 'foliage', 'water'] as const) {
+    if (!HEX.test(tints[channel])) add(`${path}.${channel}`, 'must be a #rrggbb colour');
+  }
+}
+
+/** World generation: worldgen blocks and splines, tree features and biomes. */
+function validateWorld(pack: ContentPack, blockKeys: ReadonlySet<string>, add: AddIssue): void {
   const block = (path: string, key: string | undefined) => {
     if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
   };
@@ -290,9 +337,7 @@ function validateWorld(
     (b.plants ?? []).forEach((p, k) => {
       block(`${path}.plants[${k}].block`, p.block);
     });
-    for (const channel of ['grass', 'foliage', 'water'] as const) {
-      if (!HEX.test(b.tints[channel])) add(`${path}.tints.${channel}`, 'must be a #rrggbb colour');
-    }
+    checkTints(b.tints, `${path}.tints`, add);
   });
   if (pack.biomes && pack.biomes.length > 10)
     add('biomes', 'at most 10 biomes fit the 32 tint slots');

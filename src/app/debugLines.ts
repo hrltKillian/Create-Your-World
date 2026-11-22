@@ -1,7 +1,7 @@
 import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
 import { t } from '../i18n/i18n.ts';
 import type { DebugLine } from '../ui/debug/DebugOverlay.ts';
-import { toColumn, toLocal } from '../world/coords.ts';
+import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
 import type { App } from './App.ts';
 
 /**
@@ -38,9 +38,11 @@ export function debugLines(app: App): DebugLine[] | null {
 function worldLines(app: App, x: number, z: number): DebugLine[] {
   const { session, world } = app;
   if (!session || !world) return [];
-  const column = world.getColumn(toColumn(Math.floor(x)), toColumn(Math.floor(z)));
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  const column = world.getColumn(toColumn(bx), toColumn(bz));
   const biome = column
-    ? session.ctx.biomes[column.biomes[toLocal(Math.floor(x)) | (toLocal(Math.floor(z)) << 5)]!]
+    ? session.ctx.biomes[column.biomes[columnIndex(toLocal(bx), toLocal(bz))]!]
     : undefined;
   const mesh = session.scheduler.stats();
   const pool = app.workers?.stats();

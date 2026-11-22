@@ -1,5 +1,6 @@
 import type { Registry } from '../../content/registry.ts';
 import { sectionKey } from '../coords.ts';
+import { FULL_SKY } from '../light.ts';
 import { meshSection, type SectionMesh } from '../mesh/greedyMesher.ts';
 import { createPadded, fillPadded } from '../mesh/padded.ts';
 import type { VoxelWorld } from '../VoxelWorld.ts';
@@ -119,7 +120,7 @@ export function meshTestScene(world: VoxelWorld, registry: Registry, sink: Secti
   const fill = {
     belowBlock: registry.unknownBlock,
     missingBlock: registry.air,
-    missingLight: 0xf0,
+    missingLight: FULL_SKY,
     air: registry.air,
   };
   for (const column of world.columns.values()) {

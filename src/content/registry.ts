@@ -10,7 +10,7 @@ import {
   type StateProp,
   type TexKey,
 } from './schema.ts';
-import { type ContentIssue, validatePack } from './validate.ts';
+import { type ContentIssue, textureSets, validatePack } from './validate.ts';
 
 /** Face order used everywhere: +x, −x, +y, −y, +z, −z (north = −z). */
 export const FACE_EAST = 0;
@@ -185,14 +185,7 @@ export function buildRegistry(pack: ContentPack): Registry {
   if (issues.length > 0) throw new ContentError(issues);
 
   const textureLayer = new Map(pack.textures.map((t, i) => [t.key as string, i]));
-  const emissive = new Set(
-    pack.textures.filter((t) => t.alpha === 'emissiveMask').map((t) => t.key as string),
-  );
-  const tintable = new Set(
-    pack.textures
-      .filter((t) => t.alpha === 'tintMask' || t.alpha === 'tintFull')
-      .map((t) => t.key as string),
-  );
+  const { emissive, tintable } = textureSets(pack);
   const cullGroups = new Map<string, number>();
 
   const states: StateInfo[] = [];
@@ -261,28 +254,21 @@ export function buildRegistry(pack: ContentPack): Registry {
     if (eff.collision === 'full') tables.collision[s] = COLLISION_FULL;
     else if (eff.collision === 'liquid') tables.collision[s] = COLLISION_LIQUID;
     else if (typeof eff.collision === 'object') {
-      const quarter = facingQuarterTurns(state.props.facing4);
-      const boxes = eff.collision.boxes.map((box) => rotateBoxY(box, quarter));
-      const id = JSON.stringify(boxes);
-      let index = collisionIndex.get(id);
-      if (index === undefined) {
-        index = tables.collisionBoxes.length;
-        tables.collisionBoxes.push(boxes);
-        collisionIndex.set(id, index);
-      }
+      const index = internBoxes(
+        eff.collision.boxes,
+        state.props.facing4,
+        tables.collisionBoxes,
+        collisionIndex,
+      );
       tables.collision[s] = COLLISION_BOXES + index;
     }
     if (typeof eff.shape === 'object') {
-      const quarter = facingQuarterTurns(state.props.facing4);
-      const boxes = eff.shape.boxes.map((box) => rotateBoxY(box, quarter));
-      const id = JSON.stringify(boxes);
-      let index = boxShapeIndex.get(id);
-      if (index === undefined) {
-        index = tables.boxShapes.length;
-        tables.boxShapes.push(boxes);
-        boxShapeIndex.set(id, index);
-      }
-      tables.boxShape[s] = index;
+      tables.boxShape[s] = internBoxes(
+        eff.shape.boxes,
+        state.props.facing4,
+        tables.boxShapes,
+        boxShapeIndex,
+      );
     }
     for (let face = 0; face < 6; face++) {
       const { key, rotate } = faceTexture(eff.textures, face, state.props);
@@ -399,6 +385,28 @@ function facingQuarterTurns(facing: string | undefined): number {
     default:
       return 0;
   }
+}
+
+/**
+ * Rotates a state's boxes to its facing and returns their index in `list`, appending them unless
+ * an identical set is already there (`index` maps each set's JSON to its index).
+ */
+function internBoxes(
+  boxes: readonly Box16[],
+  facing: string | undefined,
+  list: Box16[][],
+  index: Map<string, number>,
+): number {
+  const quarter = facingQuarterTurns(facing);
+  const rotated = boxes.map((box) => rotateBoxY(box, quarter));
+  const id = JSON.stringify(rotated);
+  let i = index.get(id);
+  if (i === undefined) {
+    i = list.length;
+    list.push(rotated);
+    index.set(id, i);
+  }
+  return i;
 }
 
 /** Rotates a 1/16 box clockwise (seen from above) around the block centre, `turns` quarter turns. */

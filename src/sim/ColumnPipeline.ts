@@ -1,5 +1,5 @@
 import { type Column, columnFromResult } from '../world/Column.ts';
-import { columnKey, toColumn } from '../world/coords.ts';
+import { blockToColumn, columnKey } from '../world/coords.ts';
 import type { GenResult } from '../world/protocol.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { SimEvent } from './events.ts';
@@ -86,8 +86,8 @@ export class ColumnPipeline {
     const r = Math.max(1, Math.min(MAX_STREAM_RADIUS - 3, Math.floor(radius)));
     const radii = streamRadii(r);
     const view = this.views.get(playerId);
-    const cx = toColumn(Math.floor(x));
-    const cz = toColumn(Math.floor(z));
+    const cx = blockToColumn(x);
+    const cz = blockToColumn(z);
     if (view && view.cx === cx && view.cz === cz && view.radius === r) return;
     this.views.set(playerId, {
       cx,

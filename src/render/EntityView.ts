@@ -1,6 +1,7 @@
 import { Matrix4 } from 'three';
 import type { Registry } from '../content/registry.ts';
 import type { PlayerState } from '../sim/player.ts';
+import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { BoxBatch } from './BoxBatch.ts';
 import {
@@ -92,8 +93,8 @@ export class EntityView {
     animate(tracked.rig, motion);
     if (visible) {
       const light = this.world.getLight(Math.floor(x), Math.floor(y + 1), Math.floor(z));
-      this.sky = (light >> 4) / 15;
-      this.block = (light & 15) / 15;
+      this.sky = skyOf(light) / 15;
+      this.block = blockOf(light) / 15;
     }
     // Posed even when hidden (first person), so the rig's measurements stay current.
     this.root.makeRotationY(player.yaw).setPosition(x, y, z);

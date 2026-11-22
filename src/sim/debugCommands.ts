@@ -1,5 +1,5 @@
 import type { Registry } from '../content/registry.ts';
-import { insideBorder, toColumn, WORLD_HEIGHT } from '../world/coords.ts';
+import { columnIndex, insideBorder, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
 import { type GenContext, surfaceY } from '../world/gen/generateColumn.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { finite, reject } from './commandRules.ts';
@@ -85,8 +85,8 @@ function teleportY(
   z: number,
 ): number {
   if (y !== 'surface') return Math.max(1, Math.min(WORLD_HEIGHT - PHYSICS.height, y));
-  const column = world.getColumn(toColumn(Math.floor(x)), toColumn(Math.floor(z)));
-  return column
-    ? column.heightmap[(Math.floor(x) & 31) | ((Math.floor(z) & 31) << 5)]!
-    : surfaceY(ctx, Math.floor(x), Math.floor(z));
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  const column = world.getColumn(toColumn(bx), toColumn(bz));
+  return column ? column.heightmap[columnIndex(toLocal(bx), toLocal(bz))]! : surfaceY(ctx, bx, bz);
 }

@@ -2,7 +2,14 @@ import { FLAG_REPLACEABLE, type Registry } from '../../content/registry.ts';
 import type { BiomeDef, WorldgenDef } from '../../content/schema.ts';
 import { fnv1aString, fnv1aU32, hash32, hashUnit } from '../../core/hash.ts';
 import type { Column } from '../Column.ts';
-import { localIndex, SECTION_BITS, SECTION_MASK, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
+import {
+  columnIndex,
+  localIndex,
+  SECTION_BITS,
+  SECTION_MASK,
+  SECTION_SIZE,
+  WORLD_HEIGHT,
+} from '../coords.ts';
 import { pickBiome } from './biomes.ts';
 import { Climate, type ClimateSample, emptySample, interpolateSample } from './climate.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
@@ -217,7 +224,7 @@ export function generateColumn(ctx: GenContext, column: Column): void {
       const h = surfaceHeight(tmp, ctx.def);
       const biomeIndex = pickBiome(defs, tmp, h, jitterAt(ctx, x, z));
       const biome = ctx.biomes[biomeIndex]!;
-      const cell = lx | (lz << 5);
+      const cell = columnIndex(lx, lz);
       heights[cell] = h;
       column.biomes[cell] = biomeIndex;
       const fillerDepth = 3 + (hash32(ctx.seedHash, x, z, 3) & 1);

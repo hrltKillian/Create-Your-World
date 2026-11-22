@@ -1,5 +1,5 @@
 import type { Column } from '../Column.ts';
-import { localIndex, SECTION_BITS, SECTION_MASK, SECTION_SIZE } from '../coords.ts';
+import { columnIndex, localIndex, SECTION_BITS, SECTION_MASK, SECTION_SIZE } from '../coords.ts';
 
 /** Surface height of the flat test world: the top grass layer is at y 64. */
 export const FLAT_SURFACE = 64;
@@ -27,7 +27,7 @@ export function generateFlatColumn(
                 : blocks.surface;
         column.sections[y >> SECTION_BITS]!.setBlock(localIndex(lx, y & SECTION_MASK, lz), state);
       }
-      column.heightmap[lx | (lz << 5)] = FLAT_SURFACE + 1;
+      column.heightmap[columnIndex(lx, lz)] = FLAT_SURFACE + 1;
     }
   }
   for (const section of column.sections) section.compact();

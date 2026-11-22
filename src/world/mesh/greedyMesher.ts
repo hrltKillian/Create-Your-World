@@ -10,6 +10,7 @@ import {
   SHAPE_LIQUID,
 } from '../../content/registry.ts';
 import { SECTION_SIZE, SECTION_VOLUME } from '../coords.ts';
+import { blockOf, skyOf } from '../light.ts';
 import { PADDED, PADDED_AREA, type PaddedVoxels, paddedIndex } from './padded.ts';
 import { packW0, packW1, QUAD_WORDS } from './vertexFormat.ts';
 import { ALL_CONNECTED, sectionConnectivity } from './visibility.ts';
@@ -18,9 +19,10 @@ import { ALL_CONNECTED, sectionConnectivity } from './visibility.ts';
  * Section mesher (runs in workers). Full cubes are merged greedily per face direction and slice;
  * liquids, cross plants and box shapes are emitted per block. Three output passes:
  * opaque (no discard), cutout and translucent.
+ *
+ * Kept in one file despite its length: it is the meshing hot loop, and both halves share the
+ * module-level scratch buffers (slice masks, corner AO and light, vertex order, pass buffers).
  */
-
-export const PASS_COUNT = 3;
 
 export interface PassMesh {
   /** Packed vertices, 4 per quad, 2 words per vertex. */
@@ -144,25 +146,25 @@ function computeCorners(voxels: PaddedVoxels, tables: RawTables, p: number, face
     cornerAo[c] = o1 && o2 ? 0 : AO_SIDE_FULL - (o1 + o2 + oc);
     // Smooth light: average of the non-opaque cells around the vertex, scaled to 4 samples.
     const lf = light[front]!;
-    let sky = lf >> 4;
-    let blk = lf & 15;
+    let sky = skyOf(lf);
+    let blk = blockOf(lf);
     let count = 1;
     if (!o1) {
       const l = light[side1]!;
-      sky += l >> 4;
-      blk += l & 15;
+      sky += skyOf(l);
+      blk += blockOf(l);
       count++;
     }
     if (!o2) {
       const l = light[side2]!;
-      sky += l >> 4;
-      blk += l & 15;
+      sky += skyOf(l);
+      blk += blockOf(l);
       count++;
     }
     if (!oc && !(o1 && o2)) {
       const l = light[corner]!;
-      sky += l >> 4;
-      blk += l & 15;
+      sky += skyOf(l);
+      blk += blockOf(l);
       count++;
     }
     cornerSky[c] = ((sky * 4 + (count >> 1)) / count) | 0;
@@ -170,7 +172,40 @@ function computeCorners(voxels: PaddedVoxels, tables: RawTables, p: number, face
   }
 }
 
-/** Writes one quad. `corners` give the (u, v) corner of each vertex in emission order. */
+/**
+ * Second vertex word of face `fi` (state × 6 + face) of a block: its texture layer, tint and flags,
+ * with `normal` (the face, or 6–7 for the two cross planes) and the light sums.
+ */
+function faceW1(
+  tables: RawTables,
+  fi: number,
+  normal: number,
+  sky: number,
+  blk: number,
+  biome: number,
+): number {
+  return packW1(
+    tables.faceLayer[fi]!,
+    normal,
+    sky,
+    blk,
+    tintIndex(tables.faceTint[fi]!, biome),
+    tables.faceFlags[fi]!,
+  );
+}
+
+/**
+ * Writes into `tmpOrder` the (u, v) corner of each vertex in emission order: CCW seen from outside
+ * (positive faces 0,1,2,3; negative faces 0,3,2,1), shifted by one to flip the diagonal when the
+ * default one (v0–v2) joins the darker corners of `ao` (null: uniform AO, never flipped).
+ */
+function vertexOrder(face: number, ao: Uint8Array | null): void {
+  const base = FACE_SIGN[face]! > 0 ? ORDER_POSITIVE : ORDER_NEGATIVE;
+  const flip = ao !== null && ao[base[0]]! + ao[base[2]]! < ao[base[1]]! + ao[base[3]]!;
+  for (let i = 0; i < 4; i++) tmpOrder[i] = base[(i + (flip ? 1 : 0)) & 3]!;
+}
+
+/** Writes one merged quad; `a` and `b` carry its packed corner AO and light. */
 function emitQuad(
   buffer: QuadBuffer,
   face: number,
@@ -187,16 +222,11 @@ function emitQuad(
   const axis = FACE_AXIS[face]!;
   const u = (axis + 1) % 3;
   const v = (axis + 2) % 3;
-  const positive = FACE_SIGN[face]! > 0;
   tmpAo[0] = a & 3;
   tmpAo[1] = (a >>> 2) & 3;
   tmpAo[2] = (a >>> 4) & 3;
   tmpAo[3] = (a >>> 6) & 3;
-  // Emission order (CCW seen from outside): positive faces 0,1,2,3; negative faces 0,3,2,1.
-  const base = positive ? ORDER_POSITIVE : ORDER_NEGATIVE;
-  // Flip the diagonal when the default one (v0–v2) joins the darker corners.
-  const flip = tmpAo[base[0]]! + tmpAo[base[2]]! < tmpAo[base[1]]! + tmpAo[base[3]]!;
-  for (let i = 0; i < 4; i++) tmpOrder[i] = base[(i + (flip ? 1 : 0)) & 3]!;
+  vertexOrder(face, tmpAo);
   const offset = buffer.reserve();
   const data = buffer.data;
   for (let i = 0; i < 4; i++) {
@@ -260,123 +290,137 @@ function summarize(ids: Uint16Array, tables: RawTables): typeof summaryResult {
   return summaryResult;
 }
 
+/** Full cubes (and liquid tops), merged per face direction and slice. */
 function meshCubes(
   voxels: PaddedVoxels,
   tables: RawTables,
   greedy: boolean,
   boundaryOnly: boolean,
 ): void {
-  const { ids } = voxels;
   const n = SECTION_SIZE;
   for (let face = 0; face < 6; face++) {
-    const axis = FACE_AXIS[face]!;
-    const u = (axis + 1) % 3;
-    const v = (axis + 2) % 3;
-    const step = FACE_STEP[face]!;
     const positive = FACE_SIGN[face]! > 0;
     for (let w = 0; w < n; w++) {
       if (boundaryOnly && w !== (positive ? n - 1 : 0)) continue;
-      // Build the 32×32 mask of visible faces in this slice.
-      let any = false;
-      const slice = ORIGIN + w * AXIS_STEP[axis]!;
-      const du = AXIS_STEP[u]!;
-      const dv = AXIS_STEP[v]!;
-      for (let vv = 0; vv < n; vv++) {
-        const row = slice + vv * dv;
-        for (let uu = 0; uu < n; uu++) {
-          const p = row + uu * du;
-          const id = ids[p]!;
-          const m = uu + vv * n;
-          maskKey[m] = 0;
-          const shape = tables.shape[id]!;
-          const pass = tables.pass[id]!;
-          let lowered = 0;
-          if (shape === SHAPE_CUBE) {
-            if (pass === 0 || !faceVisible(tables, id, ids[p + step]!)) continue;
-          } else if (shape === SHAPE_LIQUID && face === FACE_UP_INDEX) {
-            // Liquid surfaces are merged too: shown 2/16 lower unless the same liquid is above.
-            const group = tables.cullGroup[id]!;
-            if (group !== 0 && tables.cullGroup[ids[p + step]!] === group) continue;
-            lowered = 1;
-          } else {
-            continue;
-          }
-          computeCorners(voxels, tables, p, face);
-          const fi = id * 6 + face;
-          maskKey[m] =
-            ((1 << 31) |
-              tables.faceLayer[fi]! |
-              (tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)) << 9) |
-              (tables.faceFlags[fi]! << 14) |
-              (pass << 17) |
-              (lowered << 19)) >>>
-            0;
-          maskA[m] =
-            (cornerAo[0]! |
-              (cornerAo[1]! << 2) |
-              (cornerAo[2]! << 4) |
-              (cornerAo[3]! << 6) |
-              (cornerSky[0]! << 8) |
-              (cornerSky[1]! << 14) |
-              (cornerSky[2]! << 20) |
-              (cornerSky[3]! << 26)) >>>
-            0;
-          maskB[m] =
-            (cornerBlock[0]! |
-              (cornerBlock[1]! << 6) |
-              (cornerBlock[2]! << 12) |
-              (cornerBlock[3]! << 18)) >>>
-            0;
-          any = true;
+      if (buildSliceMask(voxels, tables, face, w)) mergeSlice(face, positive ? w + 1 : w, greedy);
+    }
+  }
+}
+
+/**
+ * Builds the 32×32 masks of the faces towards `face` visible in slice `w`: merge key (layer, tint,
+ * flags, pass, lowered liquid top) in `maskKey`, packed corner AO and light in `maskA`/`maskB`.
+ * Returns whether any face is visible.
+ */
+function buildSliceMask(voxels: PaddedVoxels, tables: RawTables, face: number, w: number): boolean {
+  const { ids } = voxels;
+  const n = SECTION_SIZE;
+  const axis = FACE_AXIS[face]!;
+  const step = FACE_STEP[face]!;
+  const slice = ORIGIN + w * AXIS_STEP[axis]!;
+  const du = AXIS_STEP[(axis + 1) % 3]!;
+  const dv = AXIS_STEP[(axis + 2) % 3]!;
+  let any = false;
+  for (let vv = 0; vv < n; vv++) {
+    const row = slice + vv * dv;
+    for (let uu = 0; uu < n; uu++) {
+      const p = row + uu * du;
+      const id = ids[p]!;
+      const m = uu + vv * n;
+      maskKey[m] = 0;
+      const shape = tables.shape[id]!;
+      const pass = tables.pass[id]!;
+      let lowered = 0;
+      if (shape === SHAPE_CUBE) {
+        if (pass === 0 || !faceVisible(tables, id, ids[p + step]!)) continue;
+      } else if (shape === SHAPE_LIQUID && face === FACE_UP_INDEX) {
+        // Liquid surfaces are merged too: shown 2/16 lower unless the same liquid is above.
+        const group = tables.cullGroup[id]!;
+        if (group !== 0 && tables.cullGroup[ids[p + step]!] === group) continue;
+        lowered = 1;
+      } else {
+        continue;
+      }
+      computeCorners(voxels, tables, p, face);
+      const fi = id * 6 + face;
+      maskKey[m] =
+        ((1 << 31) |
+          tables.faceLayer[fi]! |
+          (tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)) << 9) |
+          (tables.faceFlags[fi]! << 14) |
+          (pass << 17) |
+          (lowered << 19)) >>>
+        0;
+      maskA[m] =
+        (cornerAo[0]! |
+          (cornerAo[1]! << 2) |
+          (cornerAo[2]! << 4) |
+          (cornerAo[3]! << 6) |
+          (cornerSky[0]! << 8) |
+          (cornerSky[1]! << 14) |
+          (cornerSky[2]! << 20) |
+          (cornerSky[3]! << 26)) >>>
+        0;
+      maskB[m] =
+        (cornerBlock[0]! |
+          (cornerBlock[1]! << 6) |
+          (cornerBlock[2]! << 12) |
+          (cornerBlock[3]! << 18)) >>>
+        0;
+      any = true;
+    }
+  }
+  return any;
+}
+
+/**
+ * Greedy merge of the slice masks into quads on `plane`: extend along u, then along v while whole
+ * rows match. Clears `maskKey` as cells are consumed.
+ */
+function mergeSlice(face: number, plane: number, greedy: boolean): void {
+  const n = SECTION_SIZE;
+  for (let vv = 0; vv < n; vv++) {
+    for (let uu = 0; uu < n; ) {
+      const m = uu + vv * n;
+      const key = maskKey[m]!;
+      if (key === 0) {
+        uu++;
+        continue;
+      }
+      const a = maskA[m]!;
+      const b = maskB[m]!;
+      let width = 1;
+      if (greedy) {
+        while (
+          uu + width < n &&
+          maskKey[m + width] === key &&
+          maskA[m + width] === a &&
+          maskB[m + width] === b
+        ) {
+          width++;
         }
       }
-      if (!any) continue;
-      const plane = positive ? w + 1 : w;
-      // Greedy merge: extend along u, then along v while whole rows match.
-      for (let vv = 0; vv < n; vv++) {
-        for (let uu = 0; uu < n; ) {
-          const m = uu + vv * n;
-          const key = maskKey[m]!;
-          if (key === 0) {
-            uu++;
-            continue;
+      let height = 1;
+      if (greedy) {
+        outer: while (vv + height < n) {
+          const row = m + height * n;
+          for (let k = 0; k < width; k++) {
+            if (maskKey[row + k] !== key || maskA[row + k] !== a || maskB[row + k] !== b)
+              break outer;
           }
-          const a = maskA[m]!;
-          const b = maskB[m]!;
-          let width = 1;
-          if (greedy) {
-            while (
-              uu + width < n &&
-              maskKey[m + width] === key &&
-              maskA[m + width] === a &&
-              maskB[m + width] === b
-            ) {
-              width++;
-            }
-          }
-          let height = 1;
-          if (greedy) {
-            outer: while (vv + height < n) {
-              const row = m + height * n;
-              for (let k = 0; k < width; k++) {
-                if (maskKey[row + k] !== key || maskA[row + k] !== a || maskB[row + k] !== b)
-                  break outer;
-              }
-              height++;
-            }
-          }
-          for (let dv = 0; dv < height; dv++) maskKey.fill(0, m + dv * n, m + dv * n + width);
-          const pass = (key >>> 17) & 3;
-          const buffer = passBuffer(pass)!;
-          const layer = key & 511;
-          const tint = (key >>> 9) & 31;
-          const flags = (key >>> 14) & 7;
-          const w1Base = packW1(layer, face, 0, 0, tint, flags);
-          const drop = (key >>> 19) & 1 ? LIQUID_DROP : 0;
-          emitQuad(buffer, face, plane, drop, uu, vv, width, height, w1Base, a, b);
-          uu += width;
+          height++;
         }
       }
+      for (let dv = 0; dv < height; dv++) maskKey.fill(0, m + dv * n, m + dv * n + width);
+      const pass = (key >>> 17) & 3;
+      const buffer = passBuffer(pass)!;
+      const layer = key & 511;
+      const tint = (key >>> 9) & 31;
+      const flags = (key >>> 14) & 7;
+      const w1Base = packW1(layer, face, 0, 0, tint, flags);
+      const drop = (key >>> 19) & 1 ? LIQUID_DROP : 0;
+      emitQuad(buffer, face, plane, drop, uu, vv, width, height, w1Base, a, b);
+      uu += width;
     }
   }
 }
@@ -421,15 +465,7 @@ function meshLiquid(
     if (face === FACE_UP_INDEX) continue;
     if (!faceVisible(tables, id, ids[p + FACE_STEP[face]!]!)) continue;
     computeCorners(voxels, tables, p, face);
-    const fi = id * 6 + face;
-    const w1Base = packW1(
-      tables.faceLayer[fi]!,
-      face,
-      0,
-      0,
-      tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)),
-      tables.faceFlags[fi]!,
-    );
+    const w1Base = faceW1(tables, id * 6 + face, face, 0, 0, biomeAt(voxels, p));
     tmpBounds[0] = x * 16;
     tmpBounds[1] = y * 16;
     tmpBounds[2] = z * 16;
@@ -450,21 +486,14 @@ function meshCross(
   y: number,
   z: number,
 ): void {
-  const sky = (cellLight >> 4) * 4;
-  const blk = (cellLight & 15) * 4;
+  const sky = skyOf(cellLight) * 4;
+  const blk = blockOf(cellLight) * 4;
   const x0 = x * 16;
   const y0 = y * 16;
   const z0 = z * 16;
-  const fi = id * 6;
   for (let k = 0; k < 2; k++) {
-    const w1 = packW1(
-      tables.faceLayer[fi]!,
-      6 + k,
-      sky,
-      blk,
-      tintIndex(tables.faceTint[fi]!, biome),
-      tables.faceFlags[fi]!,
-    );
+    // Both planes use the block's first face texture.
+    const w1 = faceW1(tables, id * 6, 6 + k, sky, blk, biome);
     const ax = k === 0 ? x0 : x0 + 16;
     const bx = k === 0 ? x0 + 16 : x0;
     const offset = buffer.reserve();
@@ -492,8 +521,8 @@ function meshBoxes(
 ): void {
   const { ids, light } = voxels;
   const cellLight = light[p]!;
-  const sky = (cellLight >> 4) * 4;
-  const blk = (cellLight & 15) * 4;
+  const sky = skyOf(cellLight) * 4;
+  const blk = blockOf(cellLight) * 4;
   const boxes = tables.boxShapes[tables.boxShape[id]!] ?? [];
   for (const box of boxes) {
     const [bx0, by0, bz0, bx1, by1, bz1] = box;
@@ -512,15 +541,7 @@ function meshBoxes(
         (face === 4 && bz1 === 16) ||
         (face === 5 && bz0 === 0);
       if (onBoundary && (tables.flags[ids[p + FACE_STEP[face]!]!]! & FLAG_OPAQUE) !== 0) continue;
-      const fi = id * 6 + face;
-      const w1 = packW1(
-        tables.faceLayer[fi]!,
-        face,
-        sky,
-        blk,
-        tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)),
-        tables.faceFlags[fi]!,
-      );
+      const w1 = faceW1(tables, id * 6 + face, face, sky, blk, biomeAt(voxels, p));
       emitBox(buffer, face, tmpBounds, w1, false);
     }
   }
@@ -542,11 +563,8 @@ function emitBox(
   const v = (axis + 2) % 3;
   const positive = FACE_SIGN[face]! > 0;
   const plane = positive ? bounds[axis + 3]! : bounds[axis]!;
-  const base = positive ? ORDER_POSITIVE : ORDER_NEGATIVE;
   // Same AO-driven diagonal choice as merged quads (smooth faces only; flat ones have full AO).
-  const flip =
-    smooth && cornerAo[base[0]]! + cornerAo[base[2]]! < cornerAo[base[1]]! + cornerAo[base[3]]!;
-  for (let i = 0; i < 4; i++) tmpOrder[i] = base[(i + (flip ? 1 : 0)) & 3]!;
+  vertexOrder(face, smooth ? cornerAo : null);
   const offset = buffer.reserve();
   for (let i = 0; i < 4; i++) {
     const c = tmpOrder[i]!;

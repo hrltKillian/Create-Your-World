@@ -170,7 +170,7 @@ export class InputManager {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     this.labels.learn(event.code, event.key);
     if (PREVENT_DEFAULT.has(event.code)) event.preventDefault();
-    const slot = (HOTBAR_CODES as readonly string[]).indexOf(event.code);
+    const slot = HOTBAR_CODES.indexOf(event.code);
     if (slot >= 0 && this.enabled) this.slot = slot;
     if (!event.repeat) this.press(event.code);
   };

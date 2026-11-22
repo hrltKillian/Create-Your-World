@@ -56,6 +56,11 @@ Deterministic boot URL: `http://localhost:5173/?seed=42&storage=memory&noLock=1&
 - Zero allocations in hot loops; budgets are in nodes/ticks inside the sim, never milliseconds.
 - Every persistent state comes with a serializer, a default and a round-trip test. Bump
   `GEN_VERSION` when generation output changes and `SAVE_VERSION` when the save format changes.
+- One source per helper or constant: coordinates in `world/coords.ts` (`blockToColumn`,
+  `columnIndex`, `sectionKey`/`sectionKeyParts`), packed light in `world/light.ts` (`skyOf`,
+  `blockOf`, `FULL_SKY`), angles in `core/angles.ts`, player constants shared by sim, render and
+  input (eye heights, `HOTBAR_SLOTS`) in `core/player.ts`, box-vs-voxel collision in
+  `sim/collision.ts`, pack texture sets in `content/validate.ts` (`textureSets`).
 
 ## Automation
 

@@ -1,4 +1,5 @@
-import { SECTION_SIZE, SECTIONS_PER_COLUMN } from '../coords.ts';
+import { columnIndex, SECTION_SIZE, SECTIONS_PER_COLUMN, toLocal } from '../coords.ts';
+import { FULL_SKY } from '../light.ts';
 import type { Section } from '../Section.ts';
 
 /** Padded copy: the section plus a one-voxel border from its 26 neighbours (34³ cells). */
@@ -13,7 +14,7 @@ export function paddedIndex(x: number, y: number, z: number): number {
 
 export interface SectionSource {
   getSection(cx: number, sy: number, cz: number): Section | undefined;
-  /** Biome ids of a column (index x | z << 5), if loaded. */
+  /** Biome ids of a column (index `columnIndex(x, z)`), if loaded. */
   getBiomes?(cx: number, cz: number): Uint8Array | undefined;
 }
 
@@ -70,7 +71,7 @@ export function fillPadded(
       const dx = x < 0 ? -1 : x >= SECTION_SIZE ? 1 : 0;
       const columnBiomes = source.getBiomes?.(cx + dx, cz + dz);
       biomes[x + 1 + (z + 1) * PADDED] = columnBiomes
-        ? columnBiomes[(x & 31) | ((z & 31) << 5)]!
+        ? columnBiomes[columnIndex(toLocal(x), toLocal(z))]!
         : 0;
     }
   }
@@ -91,7 +92,7 @@ export function fillPadded(
             light[p] = 0;
           } else {
             ids[p] = fill.air;
-            light[p] = 0xf0;
+            light[p] = FULL_SKY;
           }
         } else if (section === undefined) {
           ids[p] = fill.missingBlock;
