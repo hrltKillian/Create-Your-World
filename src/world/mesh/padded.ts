@@ -13,6 +13,8 @@ export function paddedIndex(x: number, y: number, z: number): number {
 
 export interface SectionSource {
   getSection(cx: number, sy: number, cz: number): Section | undefined;
+  /** Biome ids of a column (index x | z << 5), if loaded. */
+  getBiomes?(cx: number, cz: number): Uint8Array | undefined;
 }
 
 export interface PaddedFill {
@@ -27,10 +29,16 @@ export interface PaddedFill {
 export interface PaddedVoxels {
   readonly ids: Uint16Array;
   readonly light: Uint8Array;
+  /** Biome per padded (x, z): index (x + 1) + (z + 1) * 34. */
+  readonly biomes: Uint8Array;
 }
 
 export function createPadded(): PaddedVoxels {
-  return { ids: new Uint16Array(PADDED_VOLUME), light: new Uint8Array(PADDED_VOLUME) };
+  return {
+    ids: new Uint16Array(PADDED_VOLUME),
+    light: new Uint8Array(PADDED_VOLUME),
+    biomes: new Uint8Array(PADDED_AREA),
+  };
 }
 
 const neighbours: (Section | undefined | null)[] = new Array(27);
@@ -55,7 +63,17 @@ export function fillPadded(
       }
     }
   }
-  const { ids, light } = out;
+  const { ids, light, biomes } = out;
+  for (let z = -1; z <= SECTION_SIZE; z++) {
+    const dz = z < 0 ? -1 : z >= SECTION_SIZE ? 1 : 0;
+    for (let x = -1; x <= SECTION_SIZE; x++) {
+      const dx = x < 0 ? -1 : x >= SECTION_SIZE ? 1 : 0;
+      const columnBiomes = source.getBiomes?.(cx + dx, cz + dz);
+      biomes[x + 1 + (z + 1) * PADDED] = columnBiomes
+        ? columnBiomes[(x & 31) | ((z & 31) << 5)]!
+        : 0;
+    }
+  }
   for (let y = -1; y <= SECTION_SIZE; y++) {
     const dy = y < 0 ? -1 : y >= SECTION_SIZE ? 1 : 0;
     const ly = y & 31;

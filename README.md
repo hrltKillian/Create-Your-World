@@ -26,15 +26,18 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M1 — Voxel core.** `npm run dev` opens a hand-built test scene: layered ground, a pond, a tree,
-scattered plants and a showcase of every block state (gates open and closed, kilns lit and unlit,
-logs on each axis…). Everything comes from the content pack: blocks, procedural textures and names.
+**M2 — Terrain and streaming.** `npm run dev` now opens an endless generated world (random seed)
+that streams around the free camera: seven surface biomes (meadow, forest, highlands, tundra in the
+north, ochre desert in the south, fungal marsh, lake basins), trees, plants, lakes and frozen ponds.
+Generation and meshing run in Web Workers; the simulation ticks at 30 Hz.
 
 - Fly with the free camera: click to look around, move keys to fly (WASD on QWERTY, ZQSD on
   AZERTY — same physical keys), Space / C to rise and sink, Shift to go faster.
-- F3 (fn+F3 on a Mac), the key left of 1, or the `@` key toggles the debug panel.
-- `?view=quads` shows the greedy-merged quads, `?view=ao` the ambient occlusion.
-- `?selftest=m0,m1` runs the in-browser acceptance checks.
+- F3 (fn+F3 on a Mac), the key left of 1, or the `@` key toggles the debug panel (seed, biome,
+  streaming queues, worker timings).
+- `?seed=42` picks a world, `?rd=4` a render distance, `?view=quads` shows the merged quads.
+- `?scene=testchunk` opens the hand-built block showcase from M1.
+- `?selftest=all` runs the in-browser acceptance checks.
 
 ## Roadmap
 

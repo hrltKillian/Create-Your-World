@@ -10,6 +10,7 @@ import {
 } from 'three';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { Renderer } from './Renderer.ts';
+import { Sky } from './Sky.ts';
 import { createVoxelMaterials, type DebugView, type VoxelMaterials } from './voxelMaterial.ts';
 
 export interface CameraPose {
@@ -29,7 +30,8 @@ export interface CaptureStats {
   readonly uniqueColors: number;
 }
 
-const SKY = '#8fb5d6';
+const HORIZON = '#a9c8e2';
+const ZENITH = '#4f86c6';
 
 /** Scene, camera and chunk meshes of the voxel world. */
 export class WorldView {
@@ -39,6 +41,8 @@ export class WorldView {
   readonly materials: VoxelMaterials;
   private readonly renderer: Renderer;
   private readonly chunkRoot = new Group();
+  private readonly sky = new Sky(ZENITH, HORIZON);
+  private readonly fog: Fog;
   private elapsed = 0;
 
   constructor(
@@ -50,16 +54,25 @@ export class WorldView {
     this.renderer = renderer;
     this.materials = createVoxelMaterials(textures, tintColors);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
-    this.scene.add(this.chunkRoot);
-    this.scene.background = new Color(SKY);
-    const reach = renderDistance * 32;
-    this.scene.fog = new Fog(SKY, reach * 0.55, reach - 8);
-    this.camera.far = reach + 48;
+    this.scene.add(this.chunkRoot, this.sky.mesh);
+    this.scene.background = new Color(HORIZON);
+    this.fog = new Fog(HORIZON, 0, 1);
+    this.scene.fog = this.fog;
+    this.setRenderDistance(renderDistance);
     this.camera.rotation.order = 'YXZ';
     renderer.setResizeHandler((width, height) => {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
     });
+  }
+
+  /** Fog and far plane follow the render distance (in columns). */
+  setRenderDistance(renderDistance: number): void {
+    const reach = renderDistance * 32;
+    this.fog.near = reach * 0.55;
+    this.fog.far = reach - 8;
+    this.camera.far = reach + 48;
+    this.camera.updateProjectionMatrix();
   }
 
   setPose(pose: CameraPose): void {
@@ -74,6 +87,7 @@ export class WorldView {
   frame(dt: number): void {
     this.elapsed += dt;
     this.materials.uniforms.uTime.value = this.elapsed % 3600;
+    this.sky.follow(this.camera.position.x, this.camera.position.y, this.camera.position.z);
     const webgl = this.renderer.webgl;
     webgl.info.reset();
     webgl.render(this.scene, this.camera);
@@ -108,6 +122,7 @@ export class WorldView {
   }
 
   dispose(): void {
+    this.sky.dispose();
     this.chunks.clear();
     this.materials.dispose();
   }

@@ -1,4 +1,5 @@
 import { SECTIONS_PER_COLUMN } from './coords.ts';
+import type { GenResult, SectionPayload } from './protocol.ts';
 import { Section } from './Section.ts';
 
 /** A vertical stack of 8 sections plus per-column 2D data. */
@@ -22,4 +23,30 @@ export class Column {
     for (const section of this.sections) total += section.byteSize();
     return total;
   }
+}
+
+/** Plain payload of a column's sections (arrays are shared, not copied). */
+export function sectionPayloads(column: Column): SectionPayload[] {
+  return column.sections.map((s, sy) => ({
+    sy,
+    uniformBlock: s.uniformBlock,
+    blocks: s.blocks,
+    uniformLight: s.uniformLight,
+    light: s.light,
+  }));
+}
+
+/** Rebuilds a column from a generation result (takes ownership of its arrays). */
+export function columnFromResult(result: GenResult, air: number): Column {
+  const column = new Column(result.cx, result.cz, air);
+  for (const payload of result.sections) {
+    const section = column.sections[payload.sy]!;
+    section.blocks = payload.blocks;
+    section.uniformBlock = payload.uniformBlock;
+    section.light = payload.light;
+    section.uniformLight = payload.uniformLight;
+  }
+  column.heightmap.set(result.heightmap);
+  column.biomes.set(result.biomes);
+  return column;
 }

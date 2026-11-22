@@ -15,6 +15,10 @@ export interface BootParams {
   readonly mute: boolean;
   /** Debug render view: quads, ao or light. */
   readonly view: string | null;
+  /** Render distance in columns. */
+  readonly rd: number | null;
+  /** Benchmark run (fixed drawing-buffer size). */
+  readonly bench: string | null;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -31,6 +35,8 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   selftest: null,
   mute: false,
   view: null,
+  rd: null,
+  bench: null,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
@@ -56,5 +62,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     selftest: params.get('selftest'),
     mute: flag(params, 'mute'),
     view: params.get('view'),
+    rd: params.has('rd') ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6)) : null,
+    bench: params.get('bench'),
   };
 }

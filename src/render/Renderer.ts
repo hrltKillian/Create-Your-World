@@ -12,6 +12,8 @@ setConsoleFunction((type, message, ...params) => {
 export interface RendererOptions {
   /** Upper bound for devicePixelRatio (quality presets: 1, 1.5, 2). */
   readonly maxPixelRatio: number;
+  /** Benchmarks: render at this exact drawing-buffer size whatever the pane size. */
+  readonly fixedBuffer?: readonly [number, number];
 }
 
 /** Owns the WebGL renderer and keeps the canvas sized to its container. */
@@ -20,6 +22,7 @@ export class Renderer {
   private readonly observer: ResizeObserver;
   private readonly container: HTMLElement;
   private readonly maxPixelRatio: number;
+  private readonly fixedBuffer: readonly [number, number] | undefined;
   private dprQuery: MediaQueryList | null = null;
   private onResize: ((width: number, height: number) => void) | null = null;
 
@@ -30,6 +33,7 @@ export class Renderer {
     this.webgl.info.autoReset = false;
     this.container = container;
     this.maxPixelRatio = options.maxPixelRatio;
+    this.fixedBuffer = options.fixedBuffer;
     this.webgl.setPixelRatio(this.targetPixelRatio());
     const canvas = this.webgl.domElement;
     canvas.className = 'game-canvas';
@@ -55,6 +59,7 @@ export class Renderer {
   }
 
   private targetPixelRatio(): number {
+    if (this.fixedBuffer) return 1;
     return Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
   }
 
@@ -73,8 +78,8 @@ export class Renderer {
   private resize(): void {
     const ratio = this.targetPixelRatio();
     if (ratio !== this.webgl.getPixelRatio()) this.webgl.setPixelRatio(ratio);
-    const width = Math.max(1, this.container.clientWidth);
-    const height = Math.max(1, this.container.clientHeight);
+    const width = this.fixedBuffer?.[0] ?? Math.max(1, this.container.clientWidth);
+    const height = this.fixedBuffer?.[1] ?? Math.max(1, this.container.clientHeight);
     this.webgl.setSize(width, height, false);
     this.onResize?.(width, height);
   }

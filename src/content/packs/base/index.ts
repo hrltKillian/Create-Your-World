@@ -1,7 +1,9 @@
 import type { ContentPack } from '../../schema.ts';
 import { blocks } from './blocks.ts';
+import { natureBlocks } from './blocksNature.ts';
 import { strings } from './i18n.en.ts';
 import { textures } from './textures.ts';
+import { biomes, features, worldgen } from './worldgen.ts';
 
 /** The neutral placeholder content pack shipped with the game. */
 export const basePack: ContentPack = {
@@ -10,9 +12,13 @@ export const basePack: ContentPack = {
     version: 1,
     locale: 'en',
     textureSize: 16,
-    bindings: { air: 'block:air', unknownBlock: 'block:unknown' },
+    bindings: {
+      air: 'block:air',
+      unknownBlock: 'block:unknown',
+      spawnBiomes: ['biome:meadow', 'biome:forest'],
+    },
   },
-  blocks,
+  blocks: [...blocks, ...natureBlocks],
   textures,
   strings,
   tints: { grass: '#7fb04f', foliage: '#5f9a3e', water: '#3f76c4' },
@@ -23,4 +29,7 @@ export const basePack: ContentPack = {
     plant: 'block:tall_grass',
     showcaseFloor: 'block:planks',
   },
+  worldgen,
+  biomes,
+  features,
 };

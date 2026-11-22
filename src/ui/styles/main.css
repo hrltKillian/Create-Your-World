@@ -206,3 +206,25 @@ body {
   text-align: center;
   pointer-events: none;
 }
+
+.screen-loading {
+  background: rgba(13, 20, 24, 0.82);
+  gap: 14px;
+  color: var(--c-ink-muted);
+  pointer-events: none;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(232, 176, 74, 0.25);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

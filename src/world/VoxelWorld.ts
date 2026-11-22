@@ -37,6 +37,10 @@ export class VoxelWorld {
     return column;
   }
 
+  getBiomes(cx: number, cz: number): Uint8Array | undefined {
+    return this.getColumn(cx, cz)?.biomes;
+  }
+
   getSection(cx: number, sy: number, cz: number): Section | undefined {
     if (sy < 0 || sy >= SECTIONS_PER_COLUMN) return undefined;
     return this.getColumn(cx, cz)?.sections[sy];

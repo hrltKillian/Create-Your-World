@@ -4,6 +4,7 @@ import { type SelftestCase, SUITES } from './suites.ts';
 export interface SelftestResult {
   readonly name: string;
   readonly ok: boolean;
+  readonly skipped?: boolean;
   readonly detail?: string;
 }
 
@@ -35,6 +36,15 @@ export async function runSelftests(app: App, selection: string): Promise<Selftes
 }
 
 async function runCase(app: App, name: string, test: SelftestCase): Promise<SelftestResult> {
+  if (test.scenes) {
+    // Wait for the boot so the scene is known, then skip cases that do not apply to it.
+    await Promise.race([
+      app.ready().catch(() => {}),
+      new Promise((r) => setTimeout(r, CASE_TIMEOUT_MS)),
+    ]);
+    if (!test.scenes.includes(app.state))
+      return { name, ok: true, skipped: true, detail: `not in ${app.state}` };
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -59,8 +69,8 @@ function showBanner(passed: number, total: number, results: readonly SelftestRes
   const ok = total > 0 && passed === total;
   banner.className = ok ? 'selftest pass' : 'selftest fail';
   const failures = results.filter((r) => !r.ok).map((r) => `✗ ${r.name}: ${r.detail ?? ''}`);
-  banner.textContent = [`SELFTEST ${ok ? 'PASS' : 'FAIL'} ${passed}/${total}`, ...failures].join(
-    '\n',
-  );
+  const skipped = results.filter((r) => r.skipped).length;
+  const head = `SELFTEST ${ok ? 'PASS' : 'FAIL'} ${passed}/${total}${skipped ? ` (${skipped} skipped)` : ''}`;
+  banner.textContent = [head, ...failures].join('\n');
   document.body.append(banner);
 }

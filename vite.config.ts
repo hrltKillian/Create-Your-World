@@ -2,7 +2,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
-  define: { __DEBUG_HOOK__: JSON.stringify(mode !== 'production') },
+  define: {
+    __DEBUG_HOOK__: JSON.stringify(mode !== 'production'),
+    __BENCH__: JSON.stringify(mode === 'bench'),
+  },
   server: { port: 5173, strictPort: true, forwardConsole: true },
   preview: { port: 4173, strictPort: true },
   worker: { format: 'es' },
