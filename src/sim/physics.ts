@@ -83,10 +83,10 @@ export interface StepResult {
 }
 
 export function createBody(x: number, y: number, z: number): Body {
-  return {
-    x,
-    y,
-    z,
+  const body: Body = {
+    x: 0,
+    y: 0,
+    z: 0,
     vx: 0,
     vy: 0,
     vz: 0,
@@ -100,8 +100,23 @@ export function createBody(x: number, y: number, z: number): Body {
     airTicks: 0,
     jumpTicks: 99,
     jumpHeldLast: false,
-    fallStartY: y,
+    fallStartY: 0,
   };
+  resetBody(body, x, y, z);
+  return body;
+}
+
+/** Puts a body at rest at a position (spawn, teleport): airborne, the fall measured from there. */
+export function resetBody(body: Body, x: number, y: number, z: number): void {
+  body.x = x;
+  body.y = y;
+  body.z = z;
+  body.vx = 0;
+  body.vy = 0;
+  body.vz = 0;
+  body.onGround = false;
+  body.airTicks = 0;
+  body.fallStartY = y;
 }
 
 export function bodyHeight(body: Body): number {

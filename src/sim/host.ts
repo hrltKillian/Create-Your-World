@@ -10,6 +10,7 @@ export interface SimView {
   readonly world: VoxelWorld;
   readonly registry: Registry;
   readonly seed: string;
+  readonly spawn: { readonly x: number; readonly y: number; readonly z: number };
   readonly playerId: number;
   tick(): number;
   columnState(cx: number, cz: number): number;
@@ -24,7 +25,6 @@ export interface SimHost {
   advance(ticks: number, out: SimEvent[]): void;
   /** Integrates more generated columns outside play (loading screen, tests). */
   pumpWorld(budget: { readonly columns: number }, out: SimEvent[]): void;
-  readonly canPause: boolean;
 }
 
 function makeView(sim: Simulation, playerId: number): SimView {
@@ -32,6 +32,7 @@ function makeView(sim: Simulation, playerId: number): SimView {
     world: sim.world,
     registry: sim.registry,
     seed: sim.seed,
+    spawn: sim.spawn,
     playerId,
     tick: () => sim.tick,
     columnState: (cx, cz) => sim.columnState(cx, cz),
@@ -42,7 +43,6 @@ function makeView(sim: Simulation, playerId: number): SimView {
 /** v1 host: the simulation runs in this page; the view exposes live objects without copies. */
 export class LocalSimHost implements SimHost {
   readonly view: SimView;
-  readonly canPause = true;
   protected readonly sim: Simulation;
   protected readonly playerId: number;
   private seq = 0;
@@ -66,6 +66,11 @@ export class LocalSimHost implements SimHost {
   }
 }
 
+/** JSON round trip: the copy of a value that a network would deliver. */
+function relay<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 /**
  * Same as LocalSimHost, but every command and event goes through JSON, which proves the protocol
  * would survive a network (`?host=serialize` and tests).
@@ -74,18 +79,18 @@ export class SerializingSimHost extends LocalSimHost {
   private readonly scratch: SimEvent[] = [];
 
   override send(command: Command): void {
-    super.send(JSON.parse(JSON.stringify(command)) as Command);
+    super.send(relay(command));
   }
 
   override advance(ticks: number, out: SimEvent[]): void {
     this.scratch.length = 0;
     super.advance(ticks, this.scratch);
-    for (const event of JSON.parse(JSON.stringify(this.scratch)) as SimEvent[]) out.push(event);
+    for (const event of relay(this.scratch)) out.push(event);
   }
 
   override pumpWorld(budget: { readonly columns: number }, out: SimEvent[]): void {
     this.scratch.length = 0;
     super.pumpWorld(budget, this.scratch);
-    for (const event of JSON.parse(JSON.stringify(this.scratch)) as SimEvent[]) out.push(event);
+    for (const event of relay(this.scratch)) out.push(event);
   }
 }

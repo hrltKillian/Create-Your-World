@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry } from '../../../src/content/registry.ts';
 import { fnv1aU32 } from '../../../src/core/hash.ts';
+import { COLUMN_MESHABLE } from '../../../src/sim/ColumnPipeline.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { LocalSimHost } from '../../../src/sim/host.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import { COLUMN_MESHABLE, Simulation } from '../../../src/sim/Simulation.ts';
+import { Simulation } from '../../../src/sim/Simulation.ts';
 
 const registry = buildRegistry(basePack);
 
 function makeHost(seed = 'stream') {
-  const source = new InlineColumnSource(registry);
-  const sim = new Simulation({ seed, registry, source, maxInFlight: 8 });
-  source.connect((r) => sim.deliver(r));
+  const sim = new Simulation({
+    seed,
+    registry,
+    source: new InlineColumnSource(registry),
+    maxInFlight: 8,
+  });
   return { sim, host: new LocalSimHost(sim) };
 }
 

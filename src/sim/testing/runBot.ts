@@ -33,15 +33,13 @@ export interface BotRunResult {
 
 /** Runs a bot-driven simulation synchronously (Node tests, headless runner). */
 export function runBot(options: BotRunOptions): BotRunResult {
-  const source = new InlineColumnSource(options.registry);
   const sim = new Simulation({
     seed: options.seed,
     worldType: options.worldType ?? 'default',
     registry: options.registry,
-    source,
+    source: new InlineColumnSource(options.registry),
     maxInFlight: 8,
   });
-  source.connect((result) => sim.deliver(result));
   const player = sim.addPlayer(1, options.viewRadius ?? 2);
   const host = options.serialize ? new SerializingSimHost(sim, 1) : new LocalSimHost(sim, 1);
   const bot = createBot(options.bot, options.seed);

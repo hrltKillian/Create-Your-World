@@ -5,23 +5,21 @@ import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { LocalSimHost } from '../../../src/sim/host.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import type { ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
+import type { ColumnSink, ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
 import { Simulation } from '../../../src/sim/Simulation.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 
 const registry = buildRegistry(basePack);
 
 function setup(worldType: 'default' | 'flat' = 'flat') {
-  const source = new InlineColumnSource(registry);
   const sim = new Simulation({
     seed: 'cmd',
     worldType,
     registry,
-    source,
+    source: new InlineColumnSource(registry),
     maxInFlight: 8,
     allowDebug: true,
   });
-  source.connect((r) => sim.deliver(r));
   const player = sim.addPlayer(1, 2);
   const host = new LocalSimHost(sim, 1);
   const events: SimEvent[] = [];
@@ -233,6 +231,9 @@ describe('state hash', () => {
     class ReversedSource implements ColumnSource {
       readonly inner = new InlineColumnSource(registry);
       private pending: [WorldSpec, number, number][] = [];
+      connect(sink: ColumnSink): void {
+        this.inner.connect(sink);
+      }
       request(world: WorldSpec, cx: number, cz: number): void {
         this.pending.push([world, cx, cz]);
       }
@@ -243,11 +244,9 @@ describe('state hash', () => {
       }
     }
     const run = (reversed: boolean) => {
-      const inline = new InlineColumnSource(registry);
       const late = new ReversedSource();
-      const source = reversed ? late : inline;
+      const source = reversed ? late : new InlineColumnSource(registry);
       const sim = new Simulation({ seed: 'order', registry, source, maxInFlight: 8 });
-      (reversed ? late.inner : inline).connect((r) => sim.deliver(r));
       const host = new LocalSimHost(sim, 1);
       host.send({ type: 'client.view', x: 40, z: -70, radius: 2, detached: true });
       const events: SimEvent[] = [];

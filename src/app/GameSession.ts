@@ -7,12 +7,11 @@ import { CameraRig } from '../render/CameraRig.ts';
 import { EntityView } from '../render/EntityView.ts';
 import { MeshScheduler } from '../render/MeshScheduler.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
+import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import type { SimEvent } from '../sim/events.ts';
 import { LocalSimHost, SerializingSimHost, type SimHost } from '../sim/host.ts';
 import type { PlayerState } from '../sim/player.ts';
 import {
-  COLUMN_LIT,
-  COLUMN_MESHABLE,
   INTEGRATE_PER_TICK,
   LOADING_FACTOR,
   Simulation,
@@ -81,16 +80,14 @@ export class GameSession {
     this.freecam = options.freecam;
     this.fixedStep = options.fixedStep;
     this.renderDistance = options.renderDistance;
-    const source = new WorkerColumnSource(pool);
     this.sim = new Simulation({
       seed: options.seed,
       worldType: options.worldType,
       registry,
-      source,
+      source: new WorkerColumnSource(pool),
       maxInFlight: pool.size * 2,
       allowDebug: options.allowDebug,
     });
-    source.connect(this.sim);
     this.player = this.sim.addPlayer(PLAYER_ID, options.renderDistance);
     this.host = options.serialize
       ? new SerializingSimHost(this.sim, PLAYER_ID)
@@ -103,8 +100,8 @@ export class GameSession {
     });
     this.batch = new BoxBatch(view.materials.uniforms.uTextures.value, view.materials.uniforms);
     view.scene.add(this.batch.mesh);
-    this.entities = new EntityView(this.batch, this.sim.world, registry);
-    const spawn = this.sim.spawn;
+    this.entities = new EntityView(this.batch, this.host.view.world, registry);
+    const spawn = this.host.view.spawn;
     if (this.freecam)
       this.freecam.set({ x: spawn.x, y: spawn.y + 18, z: spawn.z, yaw: 0, pitch: -0.35 });
     this.sendView();
@@ -114,8 +111,8 @@ export class GameSession {
     return this.sim.ctx;
   }
 
-  get spawn(): { x: number; y: number; z: number } {
-    return this.sim.spawn;
+  get spawn(): { readonly x: number; readonly y: number; readonly z: number } {
+    return this.host.view.spawn;
   }
 
   /** The point the world streams and meshes around (player feet or free camera). */
@@ -191,7 +188,8 @@ export class GameSession {
   /** The player's column is lit, so the player is simulated (not frozen). */
   playerColumnLit(): boolean {
     const b = this.player.body;
-    return this.sim.columnState(toColumn(Math.floor(b.x)), toColumn(Math.floor(b.z))) >= COLUMN_LIT;
+    const state = this.host.view.columnState(toColumn(Math.floor(b.x)), toColumn(Math.floor(b.z)));
+    return state >= COLUMN_LIT;
   }
 
   /** Every column within `radius` of the focus is meshable and its sections are uploaded. */
@@ -202,7 +200,7 @@ export class GameSession {
     for (let dz = -radius; dz <= radius; dz++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx * dx + dz * dz > radius * radius) continue;
-        if (this.sim.columnState(ccx + dx, ccz + dz) !== COLUMN_MESHABLE) return false;
+        if (this.host.view.columnState(ccx + dx, ccz + dz) !== COLUMN_MESHABLE) return false;
         for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) {
           if (this.scheduler.busy(sectionKey(ccx + dx, sy, ccz + dz))) return false;
         }
@@ -221,7 +219,13 @@ export class GameSession {
   private render(dt: number): CameraPose {
     if (this.freecam) return this.freecam.pose;
     const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK);
-    const pose = this.rig.update(this.player, alpha, this.sim.world, this.registry.tables, dt);
+    const pose = this.rig.update(
+      this.player,
+      alpha,
+      this.host.view.world,
+      this.registry.tables,
+      dt,
+    );
     this.batch.begin(
       Math.floor(pose.x / 32) * 32,
       Math.floor(pose.y / 32) * 32,

@@ -6,6 +6,7 @@ import type { SimEvent } from '../../../src/sim/events.ts';
 import { LocalSimHost, SerializingSimHost } from '../../../src/sim/host.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
 import { STAMINA } from '../../../src/sim/player.ts';
+import type { ColumnSource } from '../../../src/sim/ports.ts';
 import { Simulation } from '../../../src/sim/Simulation.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 
@@ -19,16 +20,14 @@ function world(
     allowDebug?: boolean;
   } = {},
 ) {
-  const source = new InlineColumnSource(registry);
   const sim = new Simulation({
     seed: options.seed ?? 'player',
     worldType: options.worldType ?? 'flat',
     registry,
-    source,
+    source: new InlineColumnSource(registry),
     maxInFlight: 8,
     allowDebug: options.allowDebug ?? true,
   });
-  source.connect((r) => sim.deliver(r));
   sim.addPlayer(1, 2);
   const host = options.serialize ? new SerializingSimHost(sim) : new LocalSimHost(sim);
   const events: SimEvent[] = [];
@@ -91,7 +90,8 @@ describe('player in the simulation', () => {
   });
 
   it('freezes the player until its column is ready', () => {
-    const source = new InlineColumnSource(registry);
+    // A source that never delivers anything.
+    const source: ColumnSource = { connect: () => {}, request: () => {} };
     const sim = new Simulation({
       seed: 'frozen',
       worldType: 'flat',
@@ -100,7 +100,6 @@ describe('player in the simulation', () => {
       maxInFlight: 8,
       allowDebug: true,
     });
-    // No source connection: nothing is ever delivered.
     const player = sim.addPlayer(1, 2);
     const host = new LocalSimHost(sim);
     const events: SimEvent[] = [];
