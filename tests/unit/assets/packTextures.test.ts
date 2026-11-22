@@ -26,10 +26,10 @@ describe('base pack textures', () => {
     for (const def of basePack.textures) {
       const values = alphas(generatePackTexture(def, size));
       const alpha = 'alpha' in def ? def.alpha : 'opaque';
-      if (alpha === 'opaque') expect([...values], def.key).toEqual([255]);
+      if (alpha === 'opaque' || alpha === 'tintFull') expect([...values], def.key).toEqual([255]);
       else if (alpha === 'emissiveMask' || alpha === 'tintMask') {
         expect(values.has(0) && values.has(255), def.key).toBe(true);
-      } else if (def.key !== 'tex:water') {
+      } else if (def.pattern !== 'ripple') {
         expect(values.has(0), `${def.key} should have holes`).toBe(true);
       }
     }

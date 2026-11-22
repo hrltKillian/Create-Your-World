@@ -32,6 +32,7 @@ export const textures = [
     pattern: 'speckle',
     palette: ['#9da583', '#acb38f', '#bcc29c', '#ccd1aa'],
     seed: 11,
+    alpha: 'tintFull',
   },
   {
     key: 'tex:grass_side',

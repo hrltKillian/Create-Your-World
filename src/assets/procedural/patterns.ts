@@ -157,7 +157,8 @@ const PATTERNS: Readonly<Record<TexturePattern, PatternFn>> = {
   torch: (seed, n, x, y, size) => {
     const lo = (size >> 1) - 1;
     const hi = size >> 1;
-    const stickTop = Math.floor(size * 0.6);
+    // The torch box is 10/16 tall: the flame must sit in rows 7–9 so the sides and the top show it.
+    const stickTop = Math.floor(size * 0.6) - 2;
     if (x >= lo && x <= hi && y < stickTop)
       return set(hashUnit(seed, x, y) < 0.5 ? 0 : Math.min(1, n - 1));
     if (x >= lo - 1 && x <= hi + 1 && y >= stickTop && y < stickTop + 3) {
@@ -200,7 +201,7 @@ export function generatePackTexture(def: TextureDef, size: number): Uint8Array {
       out[o + 1] = color[1];
       out[o + 2] = color[2];
       out[o + 3] =
-        alpha === 'opaque'
+        alpha === 'opaque' || alpha === 'tintFull'
           ? 255
           : alpha === 'coverage'
             ? p.kind === HOLE

@@ -61,6 +61,8 @@ export interface RawTables {
   readonly shape: Uint8Array;
   readonly tint: Uint8Array;
   readonly cullGroup: Uint8Array;
+  /** `state * 6 + face` → tint channel (TINT_*), 0 for untinted faces. */
+  readonly faceTint: Uint8Array;
   /** `state * 6 + face` → texture layer. */
   readonly faceLayer: Uint16Array;
   /** `state * 6 + face` → FACEFLAG_* bits. */
@@ -175,6 +177,11 @@ export function buildRegistry(pack: ContentPack): Registry {
   const emissive = new Set(
     pack.textures.filter((t) => t.alpha === 'emissiveMask').map((t) => t.key as string),
   );
+  const tintable = new Set(
+    pack.textures
+      .filter((t) => t.alpha === 'tintMask' || t.alpha === 'tintFull')
+      .map((t) => t.key as string),
+  );
   const cullGroups = new Map<string, number>();
 
   const states: StateInfo[] = [];
@@ -199,6 +206,7 @@ export function buildRegistry(pack: ContentPack): Registry {
     shape: new Uint8Array(n),
     tint: new Uint8Array(n),
     cullGroup: new Uint8Array(n),
+    faceTint: new Uint8Array(n * 6),
     faceLayer: new Uint16Array(n * 6),
     faceFlags: new Uint8Array(n * 6),
     boxShape: new Uint16Array(n),
@@ -221,7 +229,7 @@ export function buildRegistry(pack: ContentPack): Registry {
     tables.lightFilter[s] = eff.opaque ? 15 : eff.filter;
     tables.pass[s] = passCode(block.pass, block.shape);
     tables.shape[s] = shapeCode(eff.shape);
-    tables.tint[s] =
+    const tint =
       block.tint === 'grass'
         ? TINT_GRASS
         : block.tint === 'foliage'
@@ -229,6 +237,7 @@ export function buildRegistry(pack: ContentPack): Registry {
           : block.tint === 'water'
             ? TINT_WATER
             : TINT_NONE;
+    tables.tint[s] = tint;
     if (block.cullGroup) {
       if (!cullGroups.has(block.cullGroup)) cullGroups.set(block.cullGroup, cullGroups.size + 1);
       tables.cullGroup[s] = cullGroups.get(block.cullGroup)!;
@@ -248,6 +257,10 @@ export function buildRegistry(pack: ContentPack): Registry {
     for (let face = 0; face < 6; face++) {
       const { key, rotate } = faceTexture(eff.textures, face, state.props);
       tables.faceLayer[s * 6 + face] = key ? (textureLayer.get(key) ?? 0) : 0;
+      // Opaque faces use alpha as a mask: only tint-aware textures take the tint. Cutout and
+      // translucent faces use alpha as coverage and are tinted whole.
+      tables.faceTint[s * 6 + face] =
+        block.pass !== 'opaque' || (key && tintable.has(key)) ? tint : TINT_NONE;
       tables.faceFlags[s * 6 + face] =
         (rotate ? FACEFLAG_UV_ROTATE : 0) |
         (key && emissive.has(key) ? FACEFLAG_EMISSIVE : 0) |

@@ -52,3 +52,40 @@ describe('content validation', () => {
     expect(() => buildRegistry(pack)).toThrow(ContentError);
   });
 });
+
+describe('content validation of shapes and state overrides', () => {
+  it('rejects boxes outside 0–16 or with min ≥ max, with exact paths', () => {
+    const pack = broken((p) => {
+      const torch = p.blocks.find((b) => b.key === 'block:torch')!;
+      torch.shape = { boxes: [[7, 0, 7, 9, 18, 9]] };
+      const gate = p.blocks.find((b) => b.key === 'block:gate')!;
+      (gate.whenState as Record<string, Record<string, unknown>>).open!.shape = {
+        boxes: [[4, 0, 0, 3, 16, 16]],
+      };
+    });
+    const paths = validatePack(pack).map((i) => i.path);
+    expect(paths.some((path) => /^blocks\[\d+\]\.shape\.boxes\[0\]$/.test(path))).toBe(true);
+    expect(
+      paths.some((path) => /^blocks\[\d+\]\.whenState\.open\.shape\.boxes\[0\]$/.test(path)),
+    ).toBe(true);
+  });
+
+  it('applies the collision ⇒ opaque-or-filter rule to state overrides', () => {
+    const pack = broken((p) => {
+      const gate = p.blocks.find((b) => b.key === 'block:gate')!;
+      (gate.whenState as Record<string, Record<string, unknown>>).open = {
+        collision: 'full',
+        light: { filter: 0 },
+      };
+    });
+    expect(validatePack(pack).some((i) => /whenState\.open\.collision$/.test(i.path))).toBe(true);
+  });
+
+  it('requires a tint-aware texture on tinted opaque blocks', () => {
+    const pack = broken((p) => {
+      const grass = p.blocks.find((b) => b.key === 'block:grass')!;
+      grass.textures = { all: 'tex:dirt' };
+    });
+    expect(validatePack(pack).some((i) => /\.tint$/.test(i.path))).toBe(true);
+  });
+});

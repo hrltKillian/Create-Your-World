@@ -46,6 +46,9 @@ const AXIS_STEP = [1, PADDED_AREA, PADDED] as const; // padded index step along 
 const FACE_STEP = [1, -1, PADDED_AREA, -PADDED_AREA, PADDED, -PADDED] as const;
 
 const AO_SIDE_FULL = 3;
+const FACE_UP_INDEX = 2;
+/** Liquid surfaces sit 2/16 below the block top. */
+const LIQUID_DROP = 2;
 
 class QuadBuffer {
   data = new Uint32Array(QUAD_WORDS * 256);
@@ -161,6 +164,7 @@ function emitQuad(
   buffer: QuadBuffer,
   face: number,
   plane: number,
+  drop: number,
   u0: number,
   v0: number,
   width: number,
@@ -188,7 +192,7 @@ function emitQuad(
     const c = tmpOrder[i]!;
     const cu = c === 1 || c === 2 ? width : 0;
     const cv = c >= 2 ? height : 0;
-    tmpPos[axis] = plane * 16;
+    tmpPos[axis] = plane * 16 - drop;
     tmpPos[u] = (u0 + cu) * 16;
     tmpPos[v] = (v0 + cv) * 16;
     const sky = (a >>> (8 + c * 6)) & 63;
@@ -236,17 +240,28 @@ function meshCubes(voxels: PaddedVoxels, tables: RawTables, greedy: boolean): vo
           const id = ids[p]!;
           const m = uu + vv * n;
           maskKey[m] = 0;
-          if (tables.shape[id] !== SHAPE_CUBE) continue;
+          const shape = tables.shape[id]!;
           const pass = tables.pass[id]!;
-          if (pass === 0 || !faceVisible(tables, id, ids[p + step]!)) continue;
+          let lowered = 0;
+          if (shape === SHAPE_CUBE) {
+            if (pass === 0 || !faceVisible(tables, id, ids[p + step]!)) continue;
+          } else if (shape === SHAPE_LIQUID && face === FACE_UP_INDEX) {
+            // Liquid surfaces are merged too: shown 2/16 lower unless the same liquid is above.
+            const group = tables.cullGroup[id]!;
+            if (group !== 0 && tables.cullGroup[ids[p + step]!] === group) continue;
+            lowered = 1;
+          } else {
+            continue;
+          }
           computeCorners(voxels, tables, p, face);
           const fi = id * 6 + face;
           maskKey[m] =
             ((1 << 31) |
               tables.faceLayer[fi]! |
-              (tables.tint[id]! << 9) |
+              (tables.faceTint[fi]! << 9) |
               (tables.faceFlags[fi]! << 14) |
-              (pass << 17)) >>>
+              (pass << 17) |
+              (lowered << 19)) >>>
             0;
           maskA[m] =
             (cornerAo[0]! |
@@ -309,7 +324,8 @@ function meshCubes(voxels: PaddedVoxels, tables: RawTables, greedy: boolean): vo
           const tint = (key >>> 9) & 31;
           const flags = (key >>> 14) & 7;
           const w1Base = packW1(layer, face, 0, 0, tint, flags);
-          emitQuad(buffer, face, plane, uu, vv, width, height, w1Base, a, b);
+          const drop = (key >>> 19) & 1 ? LIQUID_DROP : 0;
+          emitQuad(buffer, face, plane, drop, uu, vv, width, height, w1Base, a, b);
           uu += width;
         }
       }
@@ -351,9 +367,10 @@ function meshLiquid(
   const { ids } = voxels;
   const group = tables.cullGroup[id]!;
   const above = ids[p + PADDED_AREA]!;
-  const top = group !== 0 && tables.cullGroup[above] === group ? 16 : 14;
+  const top = group !== 0 && tables.cullGroup[above] === group ? 16 : 16 - LIQUID_DROP;
   for (let face = 0; face < 6; face++) {
-    if (!faceVisible(tables, id, ids[p + FACE_STEP[face]!]!) && !(face === 2 && top < 16)) continue;
+    if (face === FACE_UP_INDEX) continue;
+    if (!faceVisible(tables, id, ids[p + FACE_STEP[face]!]!)) continue;
     computeCorners(voxels, tables, p, face);
     const fi = id * 6 + face;
     const w1Base = packW1(
@@ -361,7 +378,7 @@ function meshLiquid(
       face,
       0,
       0,
-      tables.tint[id]!,
+      tables.faceTint[fi]!,
       tables.faceFlags[fi]!,
     );
     tmpBounds[0] = x * 16;
@@ -395,7 +412,7 @@ function meshCross(
       6 + k,
       sky,
       blk,
-      tables.tint[id]!,
+      tables.faceTint[fi]!,
       tables.faceFlags[fi]!,
     );
     const ax = k === 0 ? x0 : x0 + 16;
@@ -451,7 +468,7 @@ function meshBoxes(
         face,
         sky,
         blk,
-        tables.tint[id]!,
+        tables.faceTint[fi]!,
         tables.faceFlags[fi]!,
       );
       emitBox(buffer, face, tmpBounds, w1, false);
@@ -475,10 +492,14 @@ function emitBox(
   const v = (axis + 2) % 3;
   const positive = FACE_SIGN[face]! > 0;
   const plane = positive ? bounds[axis + 3]! : bounds[axis]!;
-  const order = positive ? ORDER_POSITIVE : ORDER_NEGATIVE;
+  const base = positive ? ORDER_POSITIVE : ORDER_NEGATIVE;
+  // Same AO-driven diagonal choice as merged quads (smooth faces only; flat ones have full AO).
+  const flip =
+    smooth && cornerAo[base[0]]! + cornerAo[base[2]]! < cornerAo[base[1]]! + cornerAo[base[3]]!;
+  for (let i = 0; i < 4; i++) tmpOrder[i] = base[(i + (flip ? 1 : 0)) & 3]!;
   const offset = buffer.reserve();
   for (let i = 0; i < 4; i++) {
-    const c = order[i]!;
+    const c = tmpOrder[i]!;
     tmpPos[axis] = plane;
     tmpPos[u] = c === 1 || c === 2 ? bounds[u + 3]! : bounds[u]!;
     tmpPos[v] = c >= 2 ? bounds[v + 3]! : bounds[v]!;

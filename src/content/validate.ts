@@ -79,15 +79,39 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
       checkLight(override?.emit, `${path}.whenState.${prop}.emit`, add);
     }
 
-    const collides = block.collision !== 'none' && block.collision !== 'liquid';
-    if (collides && !block.opaque && (block.light?.filter ?? 0) < 1) {
-      add(`${path}.collision`, 'a block with collision must be opaque or have light.filter ≥ 1');
+    checkBlockRules(block, path, block, add);
+    checkBoxes(block.shape, `${path}.shape`, add);
+    checkBoxes(block.collision, `${path}.collision`, add);
+    for (const [prop, override] of Object.entries(block.whenState ?? {})) {
+      if (!override) continue;
+      const opath = `${path}.whenState.${prop}`;
+      const effective = {
+        opaque: override.opaque ?? block.opaque,
+        shape: override.shape ?? block.shape,
+        collision: override.collision ?? block.collision,
+        filter: override.light?.filter ?? block.light?.filter ?? 0,
+      };
+      checkBlockRules(block, opath, effective, add);
+      checkBoxes(override.shape, `${opath}.shape`, add);
+      checkBoxes(override.collision, `${opath}.collision`, add);
+      checkLight(override.light?.filter, `${opath}.light.filter`, add);
+      for (const [slot, key] of Object.entries(override.textures ?? {})) {
+        if (block.tint && emissiveTextures.has(key))
+          add(`${opath}.textures.${slot}`, `"${key}" is emissive but the block is tinted`);
+      }
     }
-    if (block.opaque && block.pass !== 'opaque') {
-      add(`${path}.pass`, 'an opaque block must use the opaque pass');
-    }
-    if (block.opaque && block.shape !== 'cube') {
-      add(`${path}.shape`, 'an opaque block must be a cube');
+    if (block.tint && block.pass === 'opaque') {
+      const tintAware = new Set(
+        pack.textures
+          .filter((t) => t.alpha === 'tintMask' || t.alpha === 'tintFull')
+          .map((t) => t.key as string),
+      );
+      if (!Object.values(block.textures).some((key) => tintAware.has(key))) {
+        add(
+          `${path}.tint`,
+          'a tinted opaque block needs at least one tintMask or tintFull texture',
+        );
+      }
     }
   });
 
@@ -118,6 +142,50 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
     if (!HEX.test(pack.tints[channel])) add(`tints.${channel}`, 'must be a #rrggbb colour');
   }
   return issues;
+}
+
+interface RuleView {
+  readonly opaque: boolean;
+  readonly shape: BlockDef['shape'];
+  readonly collision: BlockDef['collision'];
+  readonly filter?: number;
+  readonly light?: BlockDef['light'];
+}
+
+/** Rules that must hold for a block and for each of its state overrides. */
+function checkBlockRules(
+  block: BlockDef,
+  path: string,
+  view: RuleView,
+  add: (path: string, message: string) => void,
+): void {
+  const filter = view.filter ?? view.light?.filter ?? 0;
+  const collides = view.collision !== 'none' && view.collision !== 'liquid';
+  if (collides && !view.opaque && filter < 1) {
+    add(`${path}.collision`, 'a block with collision must be opaque or have light.filter ≥ 1');
+  }
+  if (view.opaque && block.pass !== 'opaque')
+    add(`${path}.pass`, 'an opaque block must use the opaque pass');
+  if (view.opaque && view.shape !== 'cube') add(`${path}.shape`, 'an opaque block must be a cube');
+}
+
+/** Boxes must be 6 integers in 1/16 with 0 ≤ min < max ≤ 16 on every axis. */
+function checkBoxes(
+  value: BlockDef['shape'] | BlockDef['collision'] | undefined,
+  path: string,
+  add: (path: string, message: string) => void,
+): void {
+  if (typeof value !== 'object' || value === null) return;
+  value.boxes.forEach((box, b) => {
+    const ok =
+      box.length === 6 &&
+      box.every((v) => Number.isInteger(v) && v >= 0 && v <= 16) &&
+      box[0] < box[3] &&
+      box[1] < box[4] &&
+      box[2] < box[5];
+    if (!ok)
+      add(`${path}.boxes[${b}]`, `invalid box [${box.join(', ')}] (integers 0–16, min < max)`);
+  });
 }
 
 function checkTextures(

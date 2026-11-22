@@ -63,3 +63,15 @@ describe('column slots', () => {
     expect(slots.at(slotOf(31, 3))?.cx).toBe(31);
   });
 });
+
+describe('section compaction', () => {
+  it('drops arrays once a promoted section is uniform again', () => {
+    const s = new Section(0);
+    for (let i = 0; i < 32 * 32 * 32; i++) s.setBlock(i, 7);
+    expect(s.byteSize()).toBeGreaterThan(0);
+    s.compact();
+    expect(s.blocks).toBeNull();
+    expect(s.getBlock(123)).toBe(7);
+    expect(s.byteSize()).toBe(0);
+  });
+});

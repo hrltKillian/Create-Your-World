@@ -22,7 +22,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:sand": "6a5e4bea",
   "tex:stone": "b6a29c69",
   "tex:tall_grass": "79ea338d",
-  "tex:torch": "3c5131ed",
+  "tex:torch": "a00374e5",
   "tex:unknown": "9f2e39c5",
   "tex:water": "c3382b5",
   "tex:worldrock": "17e32bc9",

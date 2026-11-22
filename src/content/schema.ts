@@ -135,8 +135,11 @@ export type TexturePattern =
   | 'furnaceFront'
   | 'checker';
 
-/** How a texture uses its alpha channel. */
-export type TextureAlpha = 'opaque' | 'coverage' | 'emissiveMask' | 'tintMask';
+/**
+ * How a texture uses its alpha channel. On opaque blocks, only `tintMask` and `tintFull` faces
+ * receive the block tint (so a grass block's dirt underside stays brown).
+ */
+export type TextureAlpha = 'opaque' | 'coverage' | 'emissiveMask' | 'tintMask' | 'tintFull';
 
 export interface TextureDef {
   readonly key: TexKey;

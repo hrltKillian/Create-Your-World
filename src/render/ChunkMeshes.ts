@@ -11,8 +11,12 @@ import {
 import type { SectionMesh } from '../world/mesh/greedyMesher.ts';
 import type { VoxelMaterials } from './voxelMaterial.ts';
 
-/** Worst case of a 32³ section (checkerboard): 98 304 quads. */
-export const MAX_QUADS = 98_304;
+/**
+ * Quads covered by the shared index: one single-box shape in every cell (32³ × 6 faces).
+ * A pass with more quads (multi-box shapes) is split into several meshes.
+ */
+export const MAX_QUADS = 196_608;
+const QUAD_WORDS = 8;
 const RENDER_ORDER = [0, 1, 10] as const;
 const SECTION_CENTER = new Vector3(16, 16, 16);
 const SECTION_RADIUS = Math.sqrt(3) * 16;
@@ -33,7 +37,7 @@ function createQuadIndex(): BufferAttribute {
 }
 
 interface SectionEntry {
-  readonly meshes: (Mesh | null)[];
+  readonly meshes: Mesh[];
   quads: number;
   bytes: number;
 }
@@ -53,22 +57,26 @@ export class ChunkMeshes {
   /** Replaces the meshes of a section (origin in blocks). Empty passes get no mesh. */
   update(key: number, originX: number, originY: number, originZ: number, mesh: SectionMesh): void {
     this.remove(key);
-    const entry: SectionEntry = { meshes: [null, null, null], quads: 0, bytes: 0 };
+    const entry: SectionEntry = { meshes: [], quads: 0, bytes: 0 };
     mesh.passes.forEach((pass, p) => {
-      if (pass.quads === 0) return;
-      const geometry = new BufferGeometry();
-      geometry.setAttribute('aPacked', new BufferAttribute(pass.data, 2));
-      geometry.setIndex(this.index);
-      geometry.setDrawRange(0, pass.quads * 6);
-      geometry.boundingSphere = new Sphere(SECTION_CENTER.clone(), SECTION_RADIUS);
-      geometry.boundingBox = new Box3(new Vector3(0, 0, 0), new Vector3(32, 32, 32));
-      const object = new Mesh(geometry, this.materials[p]!);
-      object.position.set(originX, originY, originZ);
-      object.matrixAutoUpdate = false;
-      object.updateMatrix();
-      object.renderOrder = RENDER_ORDER[p]!;
-      this.root.add(object);
-      entry.meshes[p] = object;
+      // Chunks of at most MAX_QUADS quads; slices start on a quad boundary (gl_VertexID & 3 stays valid).
+      for (let first = 0; first < pass.quads; first += MAX_QUADS) {
+        const quads = Math.min(MAX_QUADS, pass.quads - first);
+        const data = pass.data.subarray(first * QUAD_WORDS, (first + quads) * QUAD_WORDS);
+        const geometry = new BufferGeometry();
+        geometry.setAttribute('aPacked', new BufferAttribute(data, 2));
+        geometry.setIndex(this.index);
+        geometry.setDrawRange(0, quads * 6);
+        geometry.boundingSphere = new Sphere(SECTION_CENTER.clone(), SECTION_RADIUS);
+        geometry.boundingBox = new Box3(new Vector3(0, 0, 0), new Vector3(32, 32, 32));
+        const object = new Mesh(geometry, this.materials[p]!);
+        object.position.set(originX, originY, originZ);
+        object.matrixAutoUpdate = false;
+        object.updateMatrix();
+        object.renderOrder = RENDER_ORDER[p]!;
+        this.root.add(object);
+        entry.meshes.push(object);
+      }
       entry.quads += pass.quads;
       entry.bytes += pass.data.byteLength;
     });
@@ -79,7 +87,6 @@ export class ChunkMeshes {
     const entry = this.sections.get(key);
     if (!entry) return;
     for (const mesh of entry.meshes) {
-      if (!mesh) continue;
       this.root.remove(mesh);
       // Detach the shared index first: dispose() would delete it for every other section.
       mesh.geometry.setIndex(null);
@@ -97,7 +104,7 @@ export class ChunkMeshes {
     let quads = 0;
     let bytes = 0;
     for (const entry of this.sections.values()) {
-      meshes += entry.meshes.filter(Boolean).length;
+      meshes += entry.meshes.length;
       quads += entry.quads;
       bytes += entry.bytes;
     }

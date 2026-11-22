@@ -105,7 +105,8 @@ describe('section mesher', () => {
       w.setBlock(5, BASE + 5, 5, WATER);
       w.setBlock(6, BASE + 5, 5, WATER);
     });
-    expect(water.passes[2].quads).toBe(10);
+    // 4 sides each + the two lowered surfaces merged into one quad; nothing between them.
+    expect(water.passes[2].quads).toBe(9);
     const glass = mesh((w) => {
       w.setBlock(5, BASE + 5, 5, GLASS);
       w.setBlock(6, BASE + 5, 5, GLASS);
@@ -221,3 +222,45 @@ function unitFaces(m: SectionMesh): string[] {
   }
   return out.sort();
 }
+
+describe('mesher review fixes', () => {
+  it('tints only the tint-aware faces of a grass block (dirt underside stays untinted)', () => {
+    const grass = S('block:grass');
+    const m = mesh((w) => w.setBlock(5, BASE + 5, 5, grass));
+    const byFace = new Map(vertices(m).map((v) => [v.face, v.tint]));
+    expect(byFace.get(2)).toBe(1); // top
+    expect(byFace.get(0)).toBe(1); // side (tint mask)
+    expect(byFace.get(3)).toBe(0); // bottom: plain dirt texture
+  });
+
+  it('merges a flat water surface into one lowered quad', () => {
+    const m = mesh((w) => {
+      for (let x = 0; x < 32; x++) for (let z = 0; z < 32; z++) w.setBlock(x, BASE + 4, z, WATER);
+    });
+    const tops = quads(m).filter((q) => q[0]!.face === 2);
+    expect(tops).toHaveLength(1);
+    expect(tops[0]!.every((v) => v.y === 5 - 2 / 16)).toBe(true);
+  });
+
+  it('gives the same unit faces with and without merging when water is present', () => {
+    for (let seed = 10; seed < 14; seed++) {
+      const build = (w: VoxelWorld) => {
+        randomSection(w, seed);
+        for (let x = 0; x < 32; x++)
+          for (let z = 0; z < 32; z++)
+            if ((x * 7 + z * 3 + seed) % 5 === 0) w.setBlock(x, BASE + 20, z, WATER);
+      };
+      expect(unitFaces(mesh(build, 2, true))).toEqual(unitFaces(mesh(build, 2, false)));
+    }
+  });
+
+  it('flips liquid side diagonals away from the occluded corner', () => {
+    const m = mesh((w) => {
+      w.setBlock(5, BASE + 5, 5, WATER);
+      w.setBlock(4, BASE + 4, 6, STONE); // occludes only the lower-west corner of the south face
+    });
+    const south = quads(m).find((q) => q[0]!.face === 4 && q.every((v) => v.z === 6))!;
+    const dark = south.findIndex((v) => v.ao < 3);
+    expect(dark === 1 || dark === 3).toBe(true);
+  });
+});
