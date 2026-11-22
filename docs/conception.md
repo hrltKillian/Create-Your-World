@@ -7,6 +7,7 @@
 Le code vit dans le dépôt GitHub privé et vide `git@github.com:hrltKillian/Create-Your-World.git` (accès SSH et `gh` vérifiés). Je crée et je merge les PR en autonomie.
 
 Les trois jeux cités ne servent que de références de **mécaniques** :
+
 - Last Day On Earth : jauges, progression du craft, base, butin ;
 - Minecraft : voxels, grottes, minerais, paliers d'outils, nuits dangereuses ;
 - No Man's Sky : biomes variés, dangers environnementaux, raffinage.
@@ -14,11 +15,13 @@ Les trois jeux cités ne servent que de références de **mécaniques** :
 Aucun nom, créature, objet, texture, son ni écran n'en est repris.
 
 **Boucle de jeu.** Récolter → Fabriquer → Se préparer → Survivre à la nuit → Aller plus loin.
+
 - La première nuit tombe environ 10 minutes réelles après l'apparition.
 - L'obscurité est la menace, la lumière la sécurité.
 - Chaque biome hostile (froid, chaud, toxique) détient un ingrédient du palier d'outils suivant.
 
 **Résultat visé à la fin de M11.**
+
 - 7 biomes ; minage et construction bloc par bloc.
 - Inventaire, Logbook (le carnet de craft) et stations jusqu'au fer.
 - 6 jauges de survie (santé, faim, soif, endurance, température, toxicité) plus le souffle ; jour/nuit.
@@ -27,30 +30,32 @@ Aucun nom, créature, objet, texture, son ni écran n'en est repris.
 - 60 FPS sur un portable de classe M1 à la distance de rendu par défaut.
 - Chaque jalon laisse le jeu lançable, se valide objectivement et arrive sur `main` par une PR.
 
-| # | Ta décision (définitive) |
-|---|---|
-| 1 | Monde **voxel**, entièrement minable et constructible, procédural et infini (bordure dure à ±1 000 000 blocs) |
-| 2 | **1re personne** par défaut ; une touche bascule en **3e personne** (avatar visible et animé) |
-| 3 | **Solo**, mais simulation séparée du rendu et des entrées (contrat `SimHost`), prête pour une coop future |
-| 4 | **Chrome en priorité** (desktop, clavier + souris, Pointer Lock). Firefox et Safari sont aussi visés s'ils se comportent pareil, sans travail spécifique. Ni mobile ni manette |
-| 5 | Thème non fixé : **tout le contenu est en données**, avec un pack neutre fourni |
-| 6 | Survie : santé, **faim et soif**, **endurance**, **nuits dangereuses**, **dangers environnementaux** (froid, chaleur, toxicité) |
-| 7 | **Assets générés par le code** (pixel-art, modèles en boîtes, sons Web Audio) derrière une abstraction remplaçable |
-| 8 | **Tranche verticale jouable**, livrée par jalons testables |
-| 9 | Jeu **en anglais d'abord**, via des clés i18n : les traductions (le français en premier) viendront si le jeu plaît |
-| 10 | Mêmes **touches physiques** sur tous les claviers : ZQSD sur AZERTY = WASD sur QWERTY |
-| 11 | Dépôt `hrltKillian/Create-Your-World` : une PR par jalon, que je crée puis merge moi-même après CI verte et revue |
-| 12 | **KISS, DRY et SRP** appliqués dans tout le projet (code, tests, outillage), pour la maintenabilité et la structure (voir « Principes de code ») |
-| 13 | **Exécution autonome** (22/11/2026) : je déroule M4 → M11 sans te solliciter, puis j'améliore ce qui existe tant que tu ne m'interromps pas (voir « Exécution autonome ») |
-| 14 | **Priorité : un jeu qui fonctionne sans bug ni erreur**. Le style passe après ; tes avis sur le style sont facultatifs et ne bloquent jamais un jalon |
+| #   | Ta décision (définitive)                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Monde **voxel**, entièrement minable et constructible, procédural et infini (bordure dure à ±1 000 000 blocs)                                                                  |
+| 2   | **1re personne** par défaut ; une touche bascule en **3e personne** (avatar visible et animé)                                                                                  |
+| 3   | **Solo**, mais simulation séparée du rendu et des entrées (contrat `SimHost`), prête pour une coop future                                                                      |
+| 4   | **Chrome en priorité** (desktop, clavier + souris, Pointer Lock). Firefox et Safari sont aussi visés s'ils se comportent pareil, sans travail spécifique. Ni mobile ni manette |
+| 5   | Thème non fixé : **tout le contenu est en données**, avec un pack neutre fourni                                                                                                |
+| 6   | Survie : santé, **faim et soif**, **endurance**, **nuits dangereuses**, **dangers environnementaux** (froid, chaleur, toxicité)                                                |
+| 7   | **Assets générés par le code** (pixel-art, modèles en boîtes, sons Web Audio) derrière une abstraction remplaçable                                                             |
+| 8   | **Tranche verticale jouable**, livrée par jalons testables                                                                                                                     |
+| 9   | Jeu **en anglais d'abord**, via des clés i18n : les traductions (le français en premier) viendront si le jeu plaît                                                             |
+| 10  | Mêmes **touches physiques** sur tous les claviers : ZQSD sur AZERTY = WASD sur QWERTY                                                                                          |
+| 11  | Dépôt `hrltKillian/Create-Your-World` : une PR par jalon, que je crée puis merge moi-même après CI verte et revue                                                              |
+| 12  | **KISS, DRY et SRP** appliqués dans tout le projet (code, tests, outillage), pour la maintenabilité et la structure (voir « Principes de code »)                               |
+| 13  | **Exécution autonome** (22/11/2026) : je déroule M4 → M11 sans te solliciter, puis j'améliore ce qui existe tant que tu ne m'interromps pas (voir « Exécution autonome »)      |
+| 14  | **Priorité : un jeu qui fonctionne sans bug ni erreur**. Le style passe après ; tes avis sur le style sont facultatifs et ne bloquent jamais un jalon                          |
 
 **Contraintes de forme.**
+
 - Textes du jeu en anglais via des clés i18n ; code, identifiants et commentaires en anglais.
 - Interface en HTML/CSS par-dessus le canvas WebGL.
 - Logique pure, déterministe et testable sous Node.
 - Messages de commit, titres et descriptions de PR, et README en anglais. Nos échanges et `docs/conception.md` restent en français.
 
 **Principes de code (décision 12).** Ils s'appliquent à chaque ligne écrite, dans tout le projet, et sont vérifiés par une lentille dédiée de la revue adversariale de chaque jalon.
+
 - **KISS** (garder simple) :
   - la solution la plus simple qui remplit le cahier des charges et ses tests ;
   - pas d'abstraction, d'option ni de paramètre « pour plus tard » ;
@@ -104,20 +109,21 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
 
 ## Stack & outillage
 
-| Paquet | Version | Rôle |
-|---|---|---|
-| three | 0.187.0 (exacte) | `WebGLRenderer` ; importé **uniquement** sous `src/render` |
-| simplex-noise | 4.0.3 (exacte) | bruit ; importé **uniquement** via `src/core/noise.ts`, toujours avec un PRNG fourni |
-| idb | 8.0.4 (exacte) | IndexedDB, uniquement dans `io.worker` |
-| typescript (dev) | ~7.0.2 | compilateur natif, vérification de types seulement (`tsc -b`) ; repli `~6.0.3` |
-| vite (dev) | ^8.3.8 | serveur de dev et build (Rolldown/Oxc) |
-| vitest (dev) | ^5.1.1 | tests unitaires, d'équilibrage et de perf sous Node |
-| @types/three · @types/node (dev) | 0.187.0 · ^24.19.2 | types |
-| @biomejs/biome (dev) | 2.6.8 (exacte) | lint et formatage |
-| fake-indexeddb (dev) | ^6.2.8 | test de l'adaptateur IndexedDB |
-| @playwright/test (dev) | ^1.65.1 | e2e de fumée : en local avec le Chrome installé, en CI avec Chromium |
+| Paquet                           | Version            | Rôle                                                                                 |
+| -------------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| three                            | 0.187.0 (exacte)   | `WebGLRenderer` ; importé **uniquement** sous `src/render`                           |
+| simplex-noise                    | 4.0.3 (exacte)     | bruit ; importé **uniquement** via `src/core/noise.ts`, toujours avec un PRNG fourni |
+| idb                              | 8.0.4 (exacte)     | IndexedDB, uniquement dans `io.worker`                                               |
+| typescript (dev)                 | ~7.0.2             | compilateur natif, vérification de types seulement (`tsc -b`) ; repli `~6.0.3`       |
+| vite (dev)                       | ^8.3.8             | serveur de dev et build (Rolldown/Oxc)                                               |
+| vitest (dev)                     | ^5.1.1             | tests unitaires, d'équilibrage et de perf sous Node                                  |
+| @types/three · @types/node (dev) | 0.187.0 · ^24.19.2 | types                                                                                |
+| @biomejs/biome (dev)             | 2.6.8 (exacte)     | lint et formatage                                                                    |
+| fake-indexeddb (dev)             | ^6.2.8             | test de l'adaptateur IndexedDB                                                       |
+| @playwright/test (dev)           | ^1.65.1            | e2e de fumée : en local avec le Chrome installé, en CI avec Chromium                 |
 
 **Volontairement exclus.**
+
 - Frameworks et utilitaires : framework UI, Zod, lit-html, bibliothèque ECS, moteur physique, lil-gui.
 - Outillage : ESLint + typescript-eslint (il exige TypeScript < 6.1), Prettier.
 - Rendu et threads :
@@ -126,6 +132,7 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
   - `three/addons` : ciel, contrôles et stats sont écrits à la main.
 
 **Gestionnaire de paquets : npm 11.**
+
 - Tous tes autres projets utilisent npm (`package-lock.json`).
 - Pas de corepack ni d'approbation de scripts d'installation : le seul paquet concerné, fsevents, est livré précompilé.
 - `package.json` :
@@ -136,22 +143,23 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
 
 **Scripts de `package.json`**
 
-| Script | Commande |
-|---|---|
-| `dev` | `vite` |
-| `build` | `tsc -b && vite build` |
-| `preview` | `vite preview` |
-| `bench` | `vite build --mode bench --outDir dist-bench && vite preview --outDir dist-bench --port 4174 --strictPort` |
-| `typecheck` | `tsc -b` |
-| `lint` / `lint:fix` | `biome check .` / `biome check --write .` |
-| `test` | `vitest run` |
-| `test:perf` | `vitest run --mode perf --reporter=verbose` |
-| `test:slow` | `vitest run --mode slow` |
-| `headless` | `node tools/headless.ts` |
-| `e2e` | `playwright test` |
-| `verify` | `npm run typecheck && npm run lint && npm run test && npm run build` |
+| Script              | Commande                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `dev`               | `vite`                                                                                                     |
+| `build`             | `tsc -b && vite build`                                                                                     |
+| `preview`           | `vite preview`                                                                                             |
+| `bench`             | `vite build --mode bench --outDir dist-bench && vite preview --outDir dist-bench --port 4174 --strictPort` |
+| `typecheck`         | `tsc -b`                                                                                                   |
+| `lint` / `lint:fix` | `biome check .` / `biome check --write .`                                                                  |
+| `test`              | `vitest run`                                                                                               |
+| `test:perf`         | `vitest run --mode perf --reporter=verbose`                                                                |
+| `test:slow`         | `vitest run --mode slow`                                                                                   |
+| `headless`          | `node tools/headless.ts`                                                                                   |
+| `e2e`               | `playwright test`                                                                                          |
+| `verify`            | `npm run typecheck && npm run lint && npm run test && npm run build`                                       |
 
 **Pièges.**
+
 - `vitest` sans `run` est un mode watch qui ne rend jamais la main : interdit comme étape bloquante.
 - `tsc` sans `-b` sur la solution ne vérifie rien : toujours `tsc -b`, avec `--force` si l'incrémental est périmé.
 - `npm run headless -- --seed=42` : npm retire le `--`, et l'outil tolère malgré tout un `--` en tête.
@@ -160,29 +168,48 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
   - Vite renvoie les erreurs du navigateur dans le log du serveur.
 
 **TypeScript 7 : quatre projets `noEmit`**
+
 - `tsconfig.json` est une « solution » : `{ "files": [], "references": [core, worker, app, node] }`.
 - Aucune autre `references`, et aucun commentaire dans les `tsconfig.*.json` (Biome ne les lit pas en JSONC).
 - `tsconfig.base.json` :
 
 ```json
-{ "compilerOptions": { "target": "es2023", "module": "esnext", "moduleResolution": "bundler",
-  "moduleDetection": "force", "allowImportingTsExtensions": true, "allowArbitraryExtensions": true,
-  "resolveJsonModule": true, "verbatimModuleSyntax": true, "isolatedModules": true, "erasableSyntaxOnly": true,
-  "noEmit": true, "skipLibCheck": true, "strict": true, "noUncheckedIndexedAccess": true,
-  "noImplicitOverride": true, "noImplicitReturns": true, "noFallthroughCasesInSwitch": true,
-  "noUnusedLocals": true, "noUnusedParameters": true } }
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "allowArbitraryExtensions": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}
 ```
 
-| Projet | `lib` | `types` | `include` |
-|---|---|---|---|
-| `tsconfig.core.json` (prouve l'absence de DOM) | ES2023 | `[]` | `src/core`, `src/content`, `src/world`, `src/sim` |
-| `tsconfig.worker.json` | ES2023, WebWorker | `[]` | `src/**/*.worker.ts` |
-| `tsconfig.app.json` | ES2023, DOM | `vite/client` | `src` sauf `*.worker.ts` |
-| `tsconfig.node.json` | ES2023, DOM | `node`, `vite/client` | configs, `tests`, `tools`, `e2e`, `src/types` |
+| Projet                                         | `lib`             | `types`               | `include`                                         |
+| ---------------------------------------------- | ----------------- | --------------------- | ------------------------------------------------- |
+| `tsconfig.core.json` (prouve l'absence de DOM) | ES2023            | `[]`                  | `src/core`, `src/content`, `src/world`, `src/sim` |
+| `tsconfig.worker.json`                         | ES2023, WebWorker | `[]`                  | `src/**/*.worker.ts`                              |
+| `tsconfig.app.json`                            | ES2023, DOM       | `vite/client`         | `src` sauf `*.worker.ts`                          |
+| `tsconfig.node.json`                           | ES2023, DOM       | `node`, `vite/client` | configs, `tests`, `tools`, `e2e`, `src/types`     |
 
 Chaque projet a son `tsBuildInfoFile` dans `node_modules/.tmp/`.
 
 Conséquences sur le code :
+
 - **Syntaxe** : ni `enum`, ni namespace, ni propriétés-paramètres (on utilise des objets `as const`) ; `import type` obligatoire.
 - **Imports relatifs en `.ts`**, vérifiés par la règle Biome `useImportExtensions`. Node 24.9 exécute donc le cœur sans build.
 - **Boucles chaudes** : écrire `a[i]!`.
@@ -200,15 +227,31 @@ Conséquences sur le code :
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 export default defineConfig(({ mode }) => ({
-  define: { __DEBUG_HOOK__: JSON.stringify(mode !== 'production') },   // true en dev, bench et test
-  server: { port: 5173, strictPort: true, forwardConsole: true },      // erreurs du navigateur → log du serveur
+  define: { __DEBUG_HOOK__: JSON.stringify(mode !== 'production') }, // true en dev, bench et test
+  server: { port: 5173, strictPort: true, forwardConsole: true }, // erreurs du navigateur → log du serveur
   preview: { port: 4173, strictPort: true },
   worker: { format: 'es' },
   optimizeDeps: { include: ['simplex-noise', 'idb'] },
-  build: { sourcemap: mode !== 'production', chunkSizeWarningLimit: 1024,
-    rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }] } } } },
-  test: { environment: 'node', fileParallelism: mode !== 'perf', testTimeout: mode === 'slow' ? 180_000 : 10_000,
-    include: mode === 'perf' ? ['tests/perf/**/*.perf.ts'] : mode === 'slow' ? ['tests/slow/**/*.slow.ts'] : ['tests/**/*.test.ts'] },
+  build: {
+    sourcemap: mode !== 'production',
+    chunkSizeWarningLimit: 1024,
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }] },
+      },
+    },
+  },
+  test: {
+    environment: 'node',
+    fileParallelism: mode !== 'perf',
+    testTimeout: mode === 'slow' ? 180_000 : 10_000,
+    include:
+      mode === 'perf'
+        ? ['tests/perf/**/*.perf.ts']
+        : mode === 'slow'
+          ? ['tests/slow/**/*.slow.ts']
+          : ['tests/**/*.test.ts'],
+  },
 }));
 ```
 
@@ -219,6 +262,7 @@ export default defineConfig(({ mode }) => ({
   - absent du build de production, présent dans le build `bench`, qui est minifié.
 
 **Biome** (schéma local dans `node_modules`) :
+
 - `vcs.enabled: true`, `clientKind: "git"`, `useIgnoreFile: true` ;
 - `files.includes` exclut `dist`, `dist-bench`, `coverage`, `.vitest`, `playwright-report`, `test-results`, `.claude` ;
 - formatage : espaces, indentation 2, largeur 100, guillemets simples ;
@@ -229,12 +273,22 @@ export default defineConfig(({ mode }) => ({
 **`.claude/launch.json`**
 
 ```json
-{ "version": "0.0.1", "configurations": [
-  { "name": "game-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
-  { "name": "game-bench", "runtimeExecutable": "npm", "runtimeArgs": ["run", "bench"], "port": 4174 } ] }
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "game-dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
+    {
+      "name": "game-bench",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "bench"],
+      "port": 4174
+    }
+  ]
+}
 ```
 
 **Playwright (introduit en M2)**
+
 - `testDir: 'e2e'`, `workers: 1`.
 - En local : `channel: 'chrome'` (le Chrome 158 installé), arguments `--enable-gpu`. En CI (`process.env.CI`) : Chromium de Playwright.
 - `webServer` : `npm run dev`, `reuseExistingServer: !process.env.CI`.
@@ -244,6 +298,7 @@ export default defineConfig(({ mode }) => ({
 **`.gitignore`** : `node_modules`, `dist*`, `.vitest`, `coverage`, `test-results`, `playwright-report`, `blob-report`, `*.tsbuildinfo`, `.DS_Store`, `.claude/worktrees`.
 
 **Dépôt et CI**
+
 - **Amorçage (M0)** :
   - `git init -b main` dans le dossier, `origin` = `git@github.com:hrltKillian/Create-Your-World.git` ;
   - premier commit sur `main` (`.gitignore`, README minimal), poussé directement : le dépôt est vide, une PR a besoin d'une base ;
@@ -263,6 +318,7 @@ export default defineConfig(({ mode }) => ({
 - **Ruleset** : GitHub indique que les rulesets ne s'appliquent pas aux dépôts privés d'un compte gratuit, donc je respecte ce circuit par discipline. Si tu passes le dépôt en public ou en Pro, la règle s'appliquera telle quelle.
 
 **Fichiers créés en M0, en plus du code :**
+
 - **`CLAUDE.md`** :
   - commandes et protocole de vérification ;
   - circuit Git/PR ;
@@ -280,23 +336,24 @@ export default defineConfig(({ mode }) => ({
 
 **Couches et dépendances autorisées**
 
-| Couche | Rôle | Imports autorisés (valeurs) | `import type` en plus | S'exécute |
-|---|---|---|---|---|
-| `core` | math, rng, hash, noise, files, varint, log, ids | aucun (simplex-noise seulement dans `noise.ts`) | — | partout |
-| `content` | schéma, registre, validation, packs | core | — | partout |
-| `world` | voxels, slots de colonnes, lumière, raycast, génération, maillage, codec, `protocol.ts` (types `JobRunner`, jobs, résultats) | core, content | — | thread principal, workers, Node |
-| `sim` | `Simulation`, systèmes, IA, ports, persistance abstraite, hôtes | core, content, world | — | thread principal en v1, Node (futur serveur) |
-| `workers` | entrées `*.worker.ts`, runtime à deux files, jobs, `io/idbStore` | core, content, world, idb | — | Web Worker |
-| `i18n` | `t()`, `fmt` (via `Intl`), chaînes du moteur | core, content | — | navigateur, Node |
-| `assets` | `AssetProvider`, génération procédurale | core, content | — | navigateur, Node (tests) |
-| `input` | clavier, souris, liaisons, étiquettes, Pointer Lock, `CommandBuilder`, interface `LookTarget` | core, content, i18n | sim | navigateur |
-| `platform` | porte de capacités, `WorkerPool` (implémente `JobRunner`), proxy `IdbStorage`, `SaveManager`, verrou de monde, réglages, export | core, content, world, sim | — | navigateur |
-| `render` | three.js, matériaux, maillages, ciel, entités, caméra (`CameraRig` implémente `LookTarget`) | core, content, world, assets, **three** | sim, input | navigateur |
-| `audio` | moteur, sons, ambiances | core, content, assets, `platform/settings` | sim | navigateur |
-| `ui` | HUD, écrans, menus, prise en main, overlay de debug | core, content, i18n, assets, `input/keyLabels`, `platform/settings` | sim | navigateur |
-| `app` | racine de composition, boucle, hook de debug, autotests | tout | — | navigateur |
+| Couche     | Rôle                                                                                                                            | Imports autorisés (valeurs)                                         | `import type` en plus | S'exécute                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------- | -------------------------------------------- |
+| `core`     | math, rng, hash, noise, files, varint, log, ids                                                                                 | aucun (simplex-noise seulement dans `noise.ts`)                     | —                     | partout                                      |
+| `content`  | schéma, registre, validation, packs                                                                                             | core                                                                | —                     | partout                                      |
+| `world`    | voxels, slots de colonnes, lumière, raycast, génération, maillage, codec, `protocol.ts` (types `JobRunner`, jobs, résultats)    | core, content                                                       | —                     | thread principal, workers, Node              |
+| `sim`      | `Simulation`, systèmes, IA, ports, persistance abstraite, hôtes                                                                 | core, content, world                                                | —                     | thread principal en v1, Node (futur serveur) |
+| `workers`  | entrées `*.worker.ts`, runtime à deux files, jobs, `io/idbStore`                                                                | core, content, world, idb                                           | —                     | Web Worker                                   |
+| `i18n`     | `t()`, `fmt` (via `Intl`), chaînes du moteur                                                                                    | core, content                                                       | —                     | navigateur, Node                             |
+| `assets`   | `AssetProvider`, génération procédurale                                                                                         | core, content                                                       | —                     | navigateur, Node (tests)                     |
+| `input`    | clavier, souris, liaisons, étiquettes, Pointer Lock, `CommandBuilder`, interface `LookTarget`                                   | core, content, i18n                                                 | sim                   | navigateur                                   |
+| `platform` | porte de capacités, `WorkerPool` (implémente `JobRunner`), proxy `IdbStorage`, `SaveManager`, verrou de monde, réglages, export | core, content, world, sim                                           | —                     | navigateur                                   |
+| `render`   | three.js, matériaux, maillages, ciel, entités, caméra (`CameraRig` implémente `LookTarget`)                                     | core, content, world, assets, **three**                             | sim, input            | navigateur                                   |
+| `audio`    | moteur, sons, ambiances                                                                                                         | core, content, assets, `platform/settings`                          | sim                   | navigateur                                   |
+| `ui`       | HUD, écrans, menus, prise en main, overlay de debug                                                                             | core, content, i18n, assets, `input/keyLabels`, `platform/settings` | sim                   | navigateur                                   |
+| `app`      | racine de composition, boucle, hook de debug, autotests                                                                         | tout                                                                | —                     | navigateur                                   |
 
 **Règles vérifiées par `tests/architecture/boundaries.test.ts`**
+
 - La table ci-dessus est un littéral dans le test, et le vérificateur lui-même est testé sur une arborescence fixture.
 - Le test échoue s'il trouve :
   - un import hors de la table ;
@@ -309,16 +366,16 @@ export default defineConfig(({ mode }) => ({
   - une clé de contenu littérale (`'block:…'` et autres) hors de `src/content/packs` et des tests ;
   - dans `src/ui`, un littéral de texte passé à `h()` (tout texte passe par `t()`).
 
-Le moteur ne nomme jamais un élément de contenu. Il réagit à des propriétés (`blockEntity`, `liquid`, `heat`, `light.emit`, `friction`, `contact`…) et aux *bindings* du manifeste du pack (air, bloc inconnu, objet inconnu, sac abandonné, avatar, biomes d'apparition, objectifs de départ).
+Le moteur ne nomme jamais un élément de contenu. Il réagit à des propriétés (`blockEntity`, `liquid`, `heat`, `light.emit`, `friction`, `contact`…) et aux _bindings_ du manifeste du pack (air, bloc inconnu, objet inconnu, sac abandonné, avatar, biomes d'apparition, objectifs de départ).
 
 **Contrat sim ⇄ client**
 
 ```ts
 export interface SimHost {
-  readonly view: SimView;                          // read-only world, entities, players, time, block entities
-  send(cmd: Command): void;                        // queued; host stamps playerId + seq
-  advance(ticks: number, out: SimEvent[]): void;   // appends into a caller-owned array (no per-tick allocation)
-  pumpWorld(budget: WorldPumpBudget): void;        // ingest + light outside play (loading screen, tests)
+  readonly view: SimView; // read-only world, entities, players, time, block entities
+  send(cmd: Command): void; // queued; host stamps playerId + seq
+  advance(ticks: number, out: SimEvent[]): void; // appends into a caller-owned array (no per-tick allocation)
+  pumpWorld(budget: WorldPumpBudget): void; // ingest + light outside play (loading screen, tests)
   readonly canPause: boolean;
 }
 ```
@@ -339,25 +396,31 @@ export interface SimHost {
 **Boucle fixe à 30 Hz avec interpolation**
 
 ```ts
-const TICK_MS = 1000 / 30, MAX_STEPS = 4;
+const TICK_MS = 1000 / 30,
+  MAX_STEPS = 4;
 renderer.setAnimationLoop((now: number) => {
-  perf.frameStart();                               // CPU work time of the frame (not the rAF interval)
-  const frameMs = last < 0 ? 0 : Math.min(now - last, 250); last = now;
-  input.applyMouseLook(lookTarget);                // view rotation every frame
+  perf.frameStart(); // CPU work time of the frame (not the rAF interval)
+  const frameMs = last < 0 ? 0 : Math.min(now - last, 250);
+  last = now;
+  input.applyMouseLook(lookTarget); // view rotation every frame
   if (!paused && !fixedStep) {
-    acc += frameMs; let n = 0;
+    acc += frameMs;
+    let n = 0;
     while (acc >= TICK_MS && n < MAX_STEPS) {
-      host.send(cmdBuilder.sample());              // edge-latched buttons, move, yaw, pitch, client target, slot
+      host.send(cmdBuilder.sample()); // edge-latched buttons, move, yaw, pitch, client target, slot
       ui.drainCommandsInto(host);
-      host.advance(1, events); acc -= TICK_MS; n++;
+      host.advance(1, events);
+      acc -= TICK_MS;
+      n++;
     }
-    if (n === MAX_STEPS) acc = 0;                  // drop backlog, never spiral
+    if (n === MAX_STEPS) acc = 0; // drop backlog, never spiral
   }
-  bus.dispatch(events); events.length = 0;         // meshes, entities, particles, UI, audio, saves (pooled events)
-  meshScheduler.update(budgets);                   // padded copies, dispatch, uploads (ms budgets)
-  renderer.info.reset();                           // autoReset = false
-  view.render(fixedStep ? 1 : acc / TICK_MS);      // lerp prev → cur
-  ui.flush();                                      // DOM writes ≤ 10 Hz
+  bus.dispatch(events);
+  events.length = 0; // meshes, entities, particles, UI, audio, saves (pooled events)
+  meshScheduler.update(budgets); // padded copies, dispatch, uploads (ms budgets)
+  renderer.info.reset(); // autoReset = false
+  view.render(fixedStep ? 1 : acc / TICK_MS); // lerp prev → cur
+  ui.flush(); // DOM writes ≤ 10 Hz
   perf.frameEnd();
 });
 ```
@@ -368,6 +431,7 @@ renderer.setAnimationLoop((now: number) => {
 - Les événements très fréquents (`sectionsDirty`) sont mis en pool ou regroupés dans un tableau typé.
 
 **Ordre d'un tick : `Simulation.step()`**
+
 1. **Monde** :
    - intégrer au plus 2 colonnes générées par tick, ×6 en mode chargement ;
    - sous Node, avec `InlineJobRunner`, cette étape est synchrone, donc déterministe ;
@@ -395,6 +459,7 @@ renderer.setAnimationLoop((now: number) => {
 16. **Objectifs** et marquage `saveDue`.
 
 **Workers**
+
 - **`world.worker` × N**, N = clamp(`hardwareConcurrency` − 2, 1, 4), aucun réservé :
   - tâches sans état `gen` (terrain, grottes, minerais, décor, structures, lumière locale, heightmap, biomes) et `mesh` ;
   - tables de blocs reçues une fois, par le message `init`.
@@ -420,18 +485,20 @@ Rendu, UI et audio lisent SimView ; seule une commande modifie l'état.
 
 **Propriété de l'état**
 
-| Propriétaire | État |
-|---|---|
+| Propriétaire       | État                                                                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sim (sérialisable) | voxels, lumière, heightmaps, pipeline des colonnes, entités de bloc, entités, joueurs (stats, inventaires, craft, objets vus, tombes), temps, flux RNG, compteur d'ids |
-| Client (jetable) | angles de vue, maillages GPU, particules, caméra, UI transitoire, voix audio |
-| Plateforme | IndexedDB (via `io.worker`), réglages en `localStorage`, verrou de monde |
+| Client (jetable)   | angles de vue, maillages GPU, particules, caméra, UI transitoire, voix audio                                                                                           |
+| Plateforme         | IndexedDB (via `io.worker`), réglages en `localStorage`, verrou de monde                                                                                               |
 
 **Entités** : pas d'ECS.
+
 - Union discriminée d'enregistrements JSON `player | creature | itemDrop`, rangés dans une `Map` dont l'ordre d'insertion est déterministe.
 - Ids persistés ; l'état de l'IA est inclus dans l'enregistrement.
 - Hachage spatial en tableaux typés ; transformations `prev/cur` pour l'interpolation.
 
 **Déterminisme**
+
 - Flux sfc32 (graine via xmur3) dans l'état : `world`, `ai`, `loot`, `spawn`, `fauna`.
 - Le temps est le numéro de tick ; aucun `await` dans `step()`.
 - Les budgets de la sim se comptent en nœuds et en ticks, jamais en millisecondes ; seuls ceux du client s'adaptent à la machine.
@@ -478,6 +545,7 @@ tools/headless.ts          plain Node: N ticks → {hash, tps, columns, census}
 Le dossier local reste `Adventure` ; seul le dépôt GitHub porte le nom `Create-Your-World`.
 
 **Fichiers critiques** :
+
 - `src/sim/Simulation.ts`
 - `src/world/light/LightEngine.ts`
 - `src/world/mesh/greedyMesher.ts`
@@ -490,6 +558,7 @@ Le dossier local reste `Adventure` ; seul le dépôt GitHub porte le nom `Create
 ### Monde
 
 **Encodage**
+
 - Un voxel = un `Uint16` qui contient un **id d'état global aplati**. Le registre attribue des ids contigus à chaque combinaison (bloc, valeurs d'états), par exemple `block:door[facing=n,open=1]`.
   - Air = 0 ; au plus 65 535 états au total.
   - Propriétés d'état : `axis`, `facing4`, `open`, `lit`, `half`, `ripe` ; le registre fournit `withState(id, prop, valeur)` via des tables.
@@ -501,17 +570,17 @@ Le dossier local reste `Adventure` ; seul le dépôt GitHub porte le nom `Create
 
 **Tailles et coordonnées**
 
-| Élément | Valeur |
-|---|---|
-| Section | 32³, index `x \| z<<5 \| y<<10`. Blocs : `Uint16Array(32768)` **ou** un id uniforme. Lumière : `Uint8Array(32768)` (ciel en bits hauts, bloc en bits bas) **ou** un niveau uniforme. Les deux sont paresseux **indépendamment** : promotion à la première écriture différente, rétrogradation au remaillage |
-| Colonne | 32×256×32 = 8 sections, plus heightmap `Int16Array(1024)`, biomes `Uint8Array(1024)`, entités de bloc, état du pipeline, masque de coutures, versions, bits `persisted` et `dirty` par section |
-| Slots | `ColumnSlots` : grille de 32×32 indexée par `(cx & 31, cz & 31)`, clé vérifiée à l'accès (le diamètre chargé est ≤ 27) |
-| Axes | +Y vers le haut, nord = −Z ; `cx = x >> 5`, `lx = x & 31` (jamais `%`) |
-| Hauteur | y 0–255 ; Worldrock incassable en y 0 ; mer à 62 |
-| Bordure | ±1 000 000 blocs ; au-delà : solide et jamais chargé |
-| Clés | entiers sûrs : colonne `(cx+2²⁰)·2²¹ + (cz+2²⁰)`, section `col·8 + sy` |
-| Précision | positions en float64 dans la sim, sommets locaux à la section ; three compose `modelViewMatrix` en float64, donc pas d'origine flottante (sauf `BoxBatch`, voir Rendu) |
-| Mémoire | 64 Ko de blocs + 32 Ko de lumière par section non uniforme ; `voxelBytes` compte les deux ; budget ≤ 140 Mo à RD 6 |
+| Élément   | Valeur                                                                                                                                                                                                                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Section   | 32³, index `x \| z<<5 \| y<<10`. Blocs : `Uint16Array(32768)` **ou** un id uniforme. Lumière : `Uint8Array(32768)` (ciel en bits hauts, bloc en bits bas) **ou** un niveau uniforme. Les deux sont paresseux **indépendamment** : promotion à la première écriture différente, rétrogradation au remaillage |
+| Colonne   | 32×256×32 = 8 sections, plus heightmap `Int16Array(1024)`, biomes `Uint8Array(1024)`, entités de bloc, état du pipeline, masque de coutures, versions, bits `persisted` et `dirty` par section                                                                                                              |
+| Slots     | `ColumnSlots` : grille de 32×32 indexée par `(cx & 31, cz & 31)`, clé vérifiée à l'accès (le diamètre chargé est ≤ 27)                                                                                                                                                                                      |
+| Axes      | +Y vers le haut, nord = −Z ; `cx = x >> 5`, `lx = x & 31` (jamais `%`)                                                                                                                                                                                                                                      |
+| Hauteur   | y 0–255 ; Worldrock incassable en y 0 ; mer à 62                                                                                                                                                                                                                                                            |
+| Bordure   | ±1 000 000 blocs ; au-delà : solide et jamais chargé                                                                                                                                                                                                                                                        |
+| Clés      | entiers sûrs : colonne `(cx+2²⁰)·2²¹ + (cz+2²⁰)`, section `col·8 + sy`                                                                                                                                                                                                                                      |
+| Précision | positions en float64 dans la sim, sommets locaux à la section ; three compose `modelViewMatrix` en float64, donc pas d'origine flottante (sauf `BoxBatch`, voir Rendu)                                                                                                                                      |
+| Mémoire   | 64 Ko de blocs + 32 Ko de lumière par section non uniforme ; `voxelBytes` compte les deux ; budget ≤ 140 Mo à RD 6                                                                                                                                                                                          |
 
 **Génération**
 Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, salt)`.
@@ -539,14 +608,14 @@ Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, sal
    - Sous y 10 : magma (lumière 15, chaleur).
 6. **Minerais** : flux RNG par section ; centres des filons à au moins 2 blocs des faces de la section ; ils ne remplacent que la pierre.
 
-   | Minerai | Où | Y | Palier |
-   |---|---|---|---|
-   | Copper Ore | prairie, forêt, plateaux (6 filons de 4–8) | 40–110 | 1 |
-   | Cassiterite | **toundra** uniquement | 50–100 | 2 |
-   | Bog Iron | fonds de mares du **marais** | 54–62 | 2 |
-   | Fireclay | strates du **désert** | 60–85 | 2 |
-   | Dawn Crystal (lumière 7) | parois de grottes | 5–28 | 3 |
-   | Gravel (silex), Clay | rives | surface | 0 |
+   | Minerai                  | Où                                         | Y       | Palier |
+   | ------------------------ | ------------------------------------------ | ------- | ------ |
+   | Copper Ore               | prairie, forêt, plateaux (6 filons de 4–8) | 40–110  | 1      |
+   | Cassiterite              | **toundra** uniquement                     | 50–100  | 2      |
+   | Bog Iron                 | fonds de mares du **marais**               | 54–62   | 2      |
+   | Fireclay                 | strates du **désert**                      | 60–85   | 2      |
+   | Dawn Crystal (lumière 7) | parois de grottes                          | 5–28    | 3      |
+   | Gravel (silex), Clay     | rives                                      | surface | 0      |
 
 7. **Décor** : au plus un candidat par cellule de 8×8.
    - Chaque candidat est une fonction pure de la graine, de `biomeAt`, `surfaceHeight` et `caveAt`.
@@ -559,10 +628,12 @@ Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, sal
 9. **Finition** : heightmap, sections uniformes rendues au pool, lumière locale (dès M5), graines des hardes.
 
 **Point d'apparition**
+
 - **Définitif (M6)** : recherche en spirale d'une colonne de prairie ou de forêt avec de l'eau et du gravier à 40 blocs au plus, et un marais, une toundra et un désert à 1 000 blocs au plus (échantillonnage analytique).
 - **Provisoire (M2 à M5)** : la colonne d'herbe sèche la plus proche de l'origine.
 
 **Mondes de test**
+
 - `flat` : herbe à y 64.
 - `arena` : cabane fermée de 5×4×5 (porte, fenêtre de verre), mare, gravier, arbres, mur de minerais, stations, coffre.
 
@@ -570,13 +641,13 @@ Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, sal
 
 **Streaming** (`sim/streaming.ts`, par joueur)
 
-| Rayon (en colonnes) | Valeur |
-|---|---|
+| Rayon (en colonnes)    | Valeur                                   |
+| ---------------------- | ---------------------------------------- |
 | RD (maillage et rendu) | 6, soit 192 blocs ; préréglages 4/6/8/10 |
-| Lumière | RD + 1 |
-| Génération | RD + 2 |
-| Déchargement | au-delà de RD + 3 |
-| Simulation | 4 |
+| Lumière                | RD + 1                                   |
+| Génération             | RD + 2                                   |
+| Déchargement           | au-delà de RD + 3                        |
+| Simulation             | 4                                        |
 
 - **Spirale** précalculée jusqu'au rayon 16 ; au plus 2 × N générations en vol.
 - **États d'une colonne** :
@@ -593,6 +664,7 @@ Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, sal
 - **Objectifs** : rayon 3 en moins de 3 s ; RD 6 complet en moins de 5 s.
 
 **Maillage** (dans les workers)
+
 - **Entrée** : copie paddée de 34³ (ids, lumière, biomes 34×34), construite en environ 0,1 ms.
 - **Culling** : une face est visible si le voisin n'est pas opaque et n'est pas du même `cullGroup` (eau/eau, verre/verre, feuilles/feuilles et glace/glace sont cachées).
 - **Glouton** par direction et par tranche, sur des masques de 32×32.
@@ -613,19 +685,20 @@ Pure, dans les workers. Chaque couche de bruit a son PRNG neuf `rngFor(seed, sal
   - **translucide**.
 - **Sortie** : sommets `Uint32Array`, nombre de quads, masque de connectivité sur 15 bits (pour le culling des grottes).
 
-| Mot | Bits | Champ du sommet `uvec2` (8 octets) |
-|---|---|---|
-| w0 | 0–29 | x, y, z en 1/16 de bloc (10 bits chacun, 0–512) |
-| w0 | 30–31 | AO (coins d'UV pour les faces 6–7) |
-| w1 | 0–8 | couche du texture array (≤ 256) |
-| w1 | 9–11 | face (0–5 : axes, 6–7 : diagonales) |
-| w1 | 12–23 | somme ciel / somme bloc (6 + 6 bits) |
-| w1 | 24–28 | index de teinte dans `uTintColors[32]` (biome × canal) |
-| w1 | 29–31 | drapeaux SWAY, EMISSIVE, UV_ROTATE |
+| Mot | Bits  | Champ du sommet `uvec2` (8 octets)                     |
+| --- | ----- | ------------------------------------------------------ |
+| w0  | 0–29  | x, y, z en 1/16 de bloc (10 bits chacun, 0–512)        |
+| w0  | 30–31 | AO (coins d'UV pour les faces 6–7)                     |
+| w1  | 0–8   | couche du texture array (≤ 256)                        |
+| w1  | 9–11  | face (0–5 : axes, 6–7 : diagonales)                    |
+| w1  | 12–23 | somme ciel / somme bloc (6 + 6 bits)                   |
+| w1  | 24–28 | index de teinte dans `uTintColors[32]` (biome × canal) |
+| w1  | 29–31 | drapeaux SWAY, EMISSIVE, UV_ROTATE                     |
 
 Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la texture se répète bloc par bloc sur un quad fusionné, sans couture.
 
 **Éclairage** : deux canaux 0–15, propagés par remplissage.
+
 - **Règles** :
   - perte de `1 + FILTER` par pas ;
   - le ciel à 15 descend sans perte à travers les blocs de filtre 0 ;
@@ -645,6 +718,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 - **Lumière effective** (règles de jeu) = `max(bloc, floor(ciel × daylight))`.
 
 **Textures procédurales**
+
 - **Recettes** dans `textures.ts` : motif + palette sRGB de 3 à 8 couleurs + graine.
   - Motifs : speckle, strata, planks, bark, rings, leaves (au moins 60 % de pixels opaques, pour résister aux mipmaps), turfSide, ore, bricks, cutStone, ripple, crystal, sludge, frost, cross, fracture (8 stades, motif de fracture propre au jeu).
   - Aussi : les peaux de créatures, et les icônes en masques ASCII de 16×16.
@@ -663,6 +737,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 - **Icônes de l'UI** : RGBA → canvas → `toBlob` → URL objet, affichées en `pixelated` ; les blocs en vue isométrique.
 
 **Eau**
+
 - Sources statiques.
 - Remplissage borné :
   - 5 ticks après qu'un voisin devient de l'air ;
@@ -727,14 +802,14 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 ### Joueur
 
-| Paramètre | Valeur | Paramètre | Valeur |
-|---|---|---|---|
-| Boîte | 0,6×1,8 (1,5 accroupi) | Yeux | 1,62 / 1,27 |
-| Marche / sprint / accroupi | 4,3 / 6,4 / 1,6 m/s | Gravité | 28 m/s² |
-| Saut | 8,4 m/s (apogée 1,26, au tick 9) | Accélération sol / air | 50 / 12 |
-| Coyote / tampon de saut | 0,1 / 0,1 s | Vitesse terminale | 50 m/s |
-| Nage | 2,4 m/s, gravité ×0,25 | Souffle | 15 s, puis −5 PV/s |
-| Chute | 6 PV par bloc au-delà de 3,5 | Glace | accélération ×0,2 (`friction`) |
+| Paramètre                  | Valeur                           | Paramètre              | Valeur                         |
+| -------------------------- | -------------------------------- | ---------------------- | ------------------------------ |
+| Boîte                      | 0,6×1,8 (1,5 accroupi)           | Yeux                   | 1,62 / 1,27                    |
+| Marche / sprint / accroupi | 4,3 / 6,4 / 1,6 m/s              | Gravité                | 28 m/s²                        |
+| Saut                       | 8,4 m/s (apogée 1,26, au tick 9) | Accélération sol / air | 50 / 12                        |
+| Coyote / tampon de saut    | 0,1 / 0,1 s                      | Vitesse terminale      | 50 m/s                         |
+| Nage                       | 2,4 m/s, gravité ×0,25           | Souffle                | 15 s, puis −5 PV/s             |
+| Chute                      | 6 PV par bloc au-delà de 3,5     | Glace                  | accélération ×0,2 (`friction`) |
 
 - **Physique** : `stepBody()` pure.
   - Intégration exacte à accélération constante : `y += v·dt − ½·g·dt²` puis `v −= g·dt`, puis limite à la vitesse terminale. Un test vérifie l'apogée de 1,26 au tick 9.
@@ -755,12 +830,11 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
   - la cible du client part dans la commande (voir Architecture).
 - **Priorité des actions**
 
-  | Bouton | Ordre de priorité |
-  |---|---|
-  | Principal (clic gauche) | créature à portée → attaque ; sinon bloc → minage (maintenu) |
+  | Bouton                  | Ordre de priorité                                                                                                                                            |
+  | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | Principal (clic gauche) | créature à portée → attaque ; sinon bloc → minage (maintenu)                                                                                                 |
   | Secondaire (clic droit) | bloc interactif (station, coffre, porte, natte) → consommer l'objet tenu (maintenu `consume.seconds`) → remplir un récipient ou boire sur un liquide → poser |
-  | Accroupi + secondaire | force la pose, par exemple contre un coffre |
-
+  | Accroupi + secondaire   | force la pose, par exemple contre un coffre                                                                                                                  |
   - Maintenir le clic gauche ≥ 0,5 s **sur une créature** donne une attaque chargée, appliquée au relâchement.
   - Sur un bloc, maintenir mine ; si la cible change pendant le maintien, la progression repart de zéro.
 - **Casser** :
@@ -777,6 +851,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 ### Gameplay
 
 **Registres**
+
 - Données TS `as const satisfies …Def`, avec des clés préfixées (`block:`, `item:`, `tag:`, `recipe:`, `process:`, `station:`, `creature:`, `biome:`, `loot:`, `tex:`, `sfx:`, `model:`, `objective:`).
 - `nameKey` est typé par `PackI18nKey` (dérivé de `i18n.en.ts as const`) : une faute de frappe fait échouer `tsc`.
 - Chaque bloc posable a un objet implicite `item:<id>`.
@@ -793,15 +868,16 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 **Outils et paliers** (`tiers.ts`, noms via i18n)
 
-| Palier | Matériau | Vitesse | Durabilité | Débloque |
-|---|---|---|---|---|
-| 0 | main | 1 | ∞ | terre, sable, plantes, bois lentement |
-| 1 | silex (flint) | 2 | 60 | pierre, cuivre |
-| 2 | cuivre (copper) | 3,5 | 160 | cassitérite, fer des marais, argile réfractaire |
-| 3 | bronze | 5 | 320 | Darkstone, Dawn Crystal |
-| 4 | fer (iron) | 7 | 640 | plafond de la tranche |
+| Palier | Matériau        | Vitesse | Durabilité | Débloque                                        |
+| ------ | --------------- | ------- | ---------- | ----------------------------------------------- |
+| 0      | main            | 1       | ∞          | terre, sable, plantes, bois lentement           |
+| 1      | silex (flint)   | 2       | 60         | pierre, cuivre                                  |
+| 2      | cuivre (copper) | 3,5     | 160        | cassitérite, fer des marais, argile réfractaire |
+| 3      | bronze          | 5       | 320        | Darkstone, Dawn Crystal                         |
+| 4      | fer (iron)      | 7       | 640        | plafond de la tranche                           |
 
 **Inventaire**
+
 - Barre de 8, sac de 24 (6×4), 5 emplacements d'équipement (tête, visage, torse, jambes, pieds).
 - Piles `{ item: ItemKey, count, durability?, charges?, orig? }`. Maximum : blocs 50, matériaux 30, nourriture 20, outils 1.
 - Opérations pures qui renvoient le reste.
@@ -809,6 +885,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 - Coffre de 18 emplacements, ouvert par un seul joueur à ≤ 5 blocs ; casser un conteneur répand son contenu.
 
 **Craft : le « Logbook »** (une liste originale, pas de grille)
+
 - Recettes `known: 'start'` connues dès le départ ; les autres sont **révélées dès qu'un de leurs ingrédients a été vu**.
 - Un ingrédient inconnu s'affiche avec un indice, par exemple « Found in the frozen lands to the north ».
 - File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation.
@@ -817,20 +894,22 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 - Le résultat va dans l'inventaire, ou au sol s'il est plein.
 
 **Stations de transformation**
+
 - Ce sont des entités de bloc avec entrées, combustible, sortie, `burnTicksLeft`, `progressTicks` et un état `lit` qui pilote lumière et chaleur.
 - Le feu de camp brûle tant qu'il a du combustible ; four et bas fourneau ne brûlent que pendant un traitement.
 - Sortie pleine → pause.
 - Hors du rayon de simulation, ou après un déchargement : rejeu tick par tick depuis `lastTick` à la ré-entrée, plafonné à 36 000 ticks.
 
-| Station | Fabrication | Procédés |
-|---|---|---|
-| Campfire | à la main : 2 bûches (`tag:log`) + 4 bâtons + 1 silex | viande grillée 8 s ; cuisson d'une gourde crue 10 s ; eau bouillie 6 s ; antidote 10 s |
-| Clay Kiln | établi : 4 argile + 6 éclats de pierre | cuivre 10 s ; briques et verre 8 s ; charbon de bois 12 s ; brique réfractaire 12 s ; **alliage** 3 cuivre + 1 cassitérite → 3 bronze, 15 s |
-| Bloomery | établi : 8 briques réfractaires + 2 bronze + 4 éclats | 2 fer des marais → 1 fer, 20 s, charbon de bois uniquement |
+| Station   | Fabrication                                           | Procédés                                                                                                                                    |
+| --------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Campfire  | à la main : 2 bûches (`tag:log`) + 4 bâtons + 1 silex | viande grillée 8 s ; cuisson d'une gourde crue 10 s ; eau bouillie 6 s ; antidote 10 s                                                      |
+| Clay Kiln | établi : 4 argile + 6 éclats de pierre                | cuivre 10 s ; briques et verre 8 s ; charbon de bois 12 s ; brique réfractaire 12 s ; **alliage** 3 cuivre + 1 cassitérite → 3 bronze, 15 s |
+| Bloomery  | établi : 8 briques réfractaires + 2 bronze + 4 éclats | 2 fer des marais → 1 fer, 20 s, charbon de bois uniquement                                                                                  |
 
 Combustibles : bâton 5 s, planche 15 s, bûche 40 s, tourbe 60 s, charbon de bois 80 s.
 
 **Eau potable** (la soif est la jauge qui tue le plus vite)
+
 - **Gorgée** : main vide + clic droit maintenu 0,8 s sur un liquide `drinkable`.
   - Eau douce : soif +8, toxicité +2.
   - Eau croupie : soif +8, toxicité +10.
@@ -844,16 +923,17 @@ Combustibles : bâton 5 s, planche 15 s, bûche 40 s, tourbe 60 s, charbon de bo
 
 **Rythme visé** (`objectives.ts` et événements de phase du jour)
 
-| Temps réel | Étape |
-|---|---|
-| 0–1:30 | fibres, bâtons, silex, baies ; gorgées au point d'eau |
-| 1:30–4 | hachette, torches, arbre, établi |
-| 4–5:30 | pioche, lance, feu de camp, gourde |
-| 5:30–8 | chasse, cuisson, eau bouillie |
-| 8–10:30 | cabane ; alerte à 18:30 |
-| ~10:30 | crépuscule, yeux de Prowler ; dormir ou tenir |
+| Temps réel | Étape                                                 |
+| ---------- | ----------------------------------------------------- |
+| 0–1:30     | fibres, bâtons, silex, baies ; gorgées au point d'eau |
+| 1:30–4     | hachette, torches, arbre, établi                      |
+| 4–5:30     | pioche, lance, feu de camp, gourde                    |
+| 5:30–8     | chasse, cuisson, eau bouillie                         |
+| 8–10:30    | cabane ; alerte à 18:30                               |
+| ~10:30     | crépuscule, yeux de Prowler ; dormir ou tenir         |
 
 **Objectifs jusqu'au fer** : une chaîne en données, avec indices et points cardinaux sur la boussole.
+
 1. Récolter fibres, bâtons et silex.
 2. Fabriquer une hachette et des torches.
 3. Boire, puis fabriquer une gourde.
@@ -876,19 +956,20 @@ En monde sans hostiles, les cairns contiennent aussi des Prowler Sinews : la pro
 
 Toutes les valeurs sont dans `balance.ts`. Les tests d'équilibrage **calculent leurs attendus à partir de ce code partagé** plutôt que de chiffres recopiés à la main.
 
-| Jauge | Évolution | Seuils |
-|---|---|---|
-| Santé 100 | régénère 0,4/s si faim ≥ 50, soif ≥ 50, toxicité < 35, aucun statut thermique et 6 s sans dégâts ; +0,5 de faim consommée par PV régénéré | < 25 : battement de cœur et vignette |
-| Faim 100 | −4/min ; ×2 en sprint, ×1,5 en Cold ; +1 par 50 d'endurance dépensée | < 15 : endurance max 50 ; 0 : −12 PV/min |
-| Soif 100 | −6,25/min ; ×2 en Hot, ×1,5 en sprint | < 20 : régénération d'endurance ×0,5 ; 0 : −18 PV/min |
-| Endurance 100 | +25/s après 0,8 s de repos ; sprint −10/s, saut −5, attaque −6 (chargée −14), minage −2,5/s | 0 : Exhausted jusqu'à 30 (pas de sprint, attaques ×1,5 plus lentes, minage ×0,6) |
-| Température −100…+100 | tend vers la cible à 16/min (30/min en revenant vers 0) | ±40 : Cold (faim ×1,5) / Hot (soif ×2) ; ±70 : Freezing / Overheating, −20 PV/min |
-| Toxicité 0–100 | marais +4/min le jour et +7 la nuit ; eau croupie aux pieds +8/min ; morsure +8 ; viande crue +10 ; boissons (voir Eau potable) ; −3/min sans source ; antidote −40 | ≥ 35 Nauseous (pas de régénération) ; ≥ 65 −10 PV/min ; ≥ 90 −30 PV/min |
-| Souffle 15 s | se vide quand la tête est sous l'eau | 0 : −5 PV/s |
+| Jauge                 | Évolution                                                                                                                                                           | Seuils                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Santé 100             | régénère 0,4/s si faim ≥ 50, soif ≥ 50, toxicité < 35, aucun statut thermique et 6 s sans dégâts ; +0,5 de faim consommée par PV régénéré                           | < 25 : battement de cœur et vignette                                              |
+| Faim 100              | −4/min ; ×2 en sprint, ×1,5 en Cold ; +1 par 50 d'endurance dépensée                                                                                                | < 15 : endurance max 50 ; 0 : −12 PV/min                                          |
+| Soif 100              | −6,25/min ; ×2 en Hot, ×1,5 en sprint                                                                                                                               | < 20 : régénération d'endurance ×0,5 ; 0 : −18 PV/min                             |
+| Endurance 100         | +25/s après 0,8 s de repos ; sprint −10/s, saut −5, attaque −6 (chargée −14), minage −2,5/s                                                                         | 0 : Exhausted jusqu'à 30 (pas de sprint, attaques ×1,5 plus lentes, minage ×0,6)  |
+| Température −100…+100 | tend vers la cible à 16/min (30/min en revenant vers 0)                                                                                                             | ±40 : Cold (faim ×1,5) / Hot (soif ×2) ; ±70 : Freezing / Overheating, −20 PV/min |
+| Toxicité 0–100        | marais +4/min le jour et +7 la nuit ; eau croupie aux pieds +8/min ; morsure +8 ; viande crue +10 ; boissons (voir Eau potable) ; −3/min sans source ; antidote −40 | ≥ 35 Nauseous (pas de régénération) ; ≥ 65 −10 PV/min ; ≥ 90 −30 PV/min           |
+| Souffle 15 s          | se vide quand la tête est sous l'eau                                                                                                                                | 0 : −5 PV/s                                                                       |
 
 Un joueur inactif meurt en environ 21,6 min (fenêtre cible : 18 à 26 min).
 
 **Modèle thermique**
+
 1. Facteur de jour `t = clamp((daylight − 0,12) / 0,88, 0, 1)`, pour que les valeurs de nuit des biomes soient vraiment atteintes.
 2. Base = `lerp(nuit, jour, t) − 0,15 × max(0, y − 100)`. En grotte (ciel 0 et ≥ 8 blocs sous la surface) : 12 °C.
 3. Abri **fermé** : `lerp(base, 18, 0,6)`. Abri **couvert**, au-dessus de 28 °C : −8.
@@ -898,6 +979,7 @@ Un joueur inactif meurt en environ 21,6 min (fenêtre cible : 18 à 26 min).
 7. Cible : `−min(100, 5·(10 − eff))` sous 10 °C, `+min(100, 5·(eff − 28))` au-dessus de 28 °C, sinon 0.
 
 Exemples verrouillés par les tests :
+
 - **Toundra** (−6/−16 °C) sans équipement : Cold à environ 2,5 min, Freezing à environ 4,4 min.
   - En fourrure : confort le jour, Cold sans dégâts la nuit.
   - Abri fermé de nuit : 4,4 °C, cible −28.
@@ -905,6 +987,7 @@ Exemples verrouillés par les tests :
 - **Marais** : Nauseous à environ 8,75 min de jour ; avec masque (×0,15, durabilité de 60 min d'usage), plus de 40 min.
 
 **Abri** (tous les 30 ticks, et après une édition à ≤ 10 blocs)
+
 - BFS 6-connexe depuis la tête, à travers les cellules sans collision :
   - ≤ 384 cellules et ≤ 10 blocs en distance de Manhattan ;
   - les portes fermées comptent comme des murs.
@@ -917,25 +1000,28 @@ Exemples verrouillés par les tests :
 
 **Équipement de danger**
 
-| Biome | Équipement |
-|---|---|
-| Toundra | Fur Hood (chaleur 6) + Fur Coat (10) |
-| Désert | Straw Hat (fraîcheur 6) + Fiber Veil (8) |
-| Marais | Filter Mask (×0,15, 60 min d'usage) + Waxed Boots (annulent l'eau croupie aux pieds) |
+| Biome   | Équipement                                                                           |
+| ------- | ------------------------------------------------------------------------------------ |
+| Toundra | Fur Hood (chaleur 6) + Fur Coat (10)                                                 |
+| Désert  | Straw Hat (fraîcheur 6) + Fiber Veil (8)                                             |
+| Marais  | Filter Mask (×0,15, 60 min d'usage) + Waxed Boots (annulent l'eau croupie aux pieds) |
 
 Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bronze 3 et 6, cuirasse de carapace 5.
 
 **Jour/nuit**
+
 - 1 jour = 36 000 ticks = 20 min ; 1 h de jeu = 50 s ; un monde commence à 07:00.
 - Plein jour 06:00–18:30, crépuscule jusqu'à 20:30, nuit jusqu'à 04:30 (`daylight` 0,12), aube jusqu'à 06:00.
 - Hostiles en surface environ de 20:00 à 04:50, soit environ 7,4 min réelles.
 - Messages : « The sun is setting… » à 18:30, un son au crépuscule, « Night N survived » à 06:00.
 
 **Sommeil** : natte (Bedroll), entre 19:30 et 05:00, abri **fermé**, aucun hostile à ≤ 16 blocs.
+
 - On saute à 06:00 ; coût : faim −10, soif −15.
 - Le point de réapparition est fixé là.
 
 **Mort**
+
 - L'inventaire va dans un **Abandoned Pack** permanent. Il est enregistré dans `graves[]` du joueur, donc son marqueur sur la boussole survit au rechargement.
 - L'écran de mort affiche la cause (`death.cause.*`).
 - Réapparition :
@@ -945,13 +1031,13 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
 
 ### Créatures et combat
 
-| Clé | Nom | Catégorie | PV | Marche / course (m/s) | Attaque | Où | Particularités | Butin |
-|---|---|---|---|---|---|---|---|---|
-| `creature:trotter` | Trotter | passif | 12 | 1,6 / 5,8 | — | prairie, forêt ; hardes de 2 à 4 | fuit 8 s | viande 1–2, peau 1 |
-| `creature:shagback` | Shagback | défensif | 26 | 1,3 / 4,8 | charge 6 | toundra, plateaux | six pattes ; alerte sa harde à ≤ 12 blocs | fourrure 1–2 |
-| `creature:prowler` | Prowler | hostile | 22 | 2,2 / 5,0 | bond 7 (0,4 s, recharge 2 s) | surface de nuit, grottes | silhouette basse et quadrupède, yeux ambrés émissifs ; 30 % de vitesse quand on le regarde ; fuit la lumière ≥ 10 ; s'enfouit à l'aube ; dégâts ×(1 + 0,05·min(jour, 10)) | Prowler Sinew 1 |
-| `creature:swarmling` | Swarmling | hostile | 8 | 2,5 / 6,0 | morsure 3, toxicité +8 | marais (nuit, ombre), grottes ; groupes de 3 à 5 | approche en zigzag | glande 0–1 |
-| `creature:shellback` | Shellback | territorial | 45 | 1,2 / charge 7 | charge 12 (0,8 s) | désert, à toute heure | attaque à ≤ 6 blocs ; −60 % de dégâts de face ; étourdi 1,5 s s'il percute un mur | plaque 1–2 |
+| Clé                  | Nom       | Catégorie   | PV  | Marche / course (m/s) | Attaque                      | Où                                               | Particularités                                                                                                                                                            | Butin              |
+| -------------------- | --------- | ----------- | --- | --------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `creature:trotter`   | Trotter   | passif      | 12  | 1,6 / 5,8             | —                            | prairie, forêt ; hardes de 2 à 4                 | fuit 8 s                                                                                                                                                                  | viande 1–2, peau 1 |
+| `creature:shagback`  | Shagback  | défensif    | 26  | 1,3 / 4,8             | charge 6                     | toundra, plateaux                                | six pattes ; alerte sa harde à ≤ 12 blocs                                                                                                                                 | fourrure 1–2       |
+| `creature:prowler`   | Prowler   | hostile     | 22  | 2,2 / 5,0             | bond 7 (0,4 s, recharge 2 s) | surface de nuit, grottes                         | silhouette basse et quadrupède, yeux ambrés émissifs ; 30 % de vitesse quand on le regarde ; fuit la lumière ≥ 10 ; s'enfouit à l'aube ; dégâts ×(1 + 0,05·min(jour, 10)) | Prowler Sinew 1    |
+| `creature:swarmling` | Swarmling | hostile     | 8   | 2,5 / 6,0             | morsure 3, toxicité +8       | marais (nuit, ombre), grottes ; groupes de 3 à 5 | approche en zigzag                                                                                                                                                        | glande 0–1         |
+| `creature:shellback` | Shellback | territorial | 45  | 1,2 / charge 7        | charge 12 (0,8 s)            | désert, à toute heure                            | attaque à ≤ 6 blocs ; −60 % de dégâts de face ; étourdi 1,5 s s'il percute un mur                                                                                         | plaque 1–2         |
 
 - **Bruits du joueur** (rayon d'audition, en blocs) : accroupi 2, marche 6, minage 10, combat 12, sprint 14.
 - **Comportements** : machines à états paramétrées par les données : `grazer`, `defender`, `stalker`, `swarmer`, `charger`.
@@ -986,15 +1072,16 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
   - attaques télégraphiées et esquivables (portée + 0,3 et ligne de vue au moment de l'impact) ;
   - marqueur d'impact et arcs indiquant la direction des dégâts.
 
-| Arme | Dégâts | Recharge | Portée |
-|---|---|---|---|
-| Main | 2 | 0,4 s | 3 |
-| Flint Knife | 4 | 0,4 s | 3 |
-| Flint Spear | 6 | 0,8 s | 4 |
-| Hatchets flint / copper / bronze / iron | 4 / 5 / 6 / 8 | 0,6 s | 3 |
-| Blades copper / bronze / iron | 7 / 9 / 12 | 0,5 s | 3 |
+| Arme                                    | Dégâts        | Recharge | Portée |
+| --------------------------------------- | ------------- | -------- | ------ |
+| Main                                    | 2             | 0,4 s    | 3      |
+| Flint Knife                             | 4             | 0,4 s    | 3      |
+| Flint Spear                             | 6             | 0,8 s    | 4      |
+| Hatchets flint / copper / bronze / iron | 4 / 5 / 6 / 8 | 0,6 s    | 3      |
+| Blades copper / bronze / iron           | 7 / 9 / 12    | 0,5 s    | 3      |
 
 **Objets au sol**
+
 - Aimant à 1,6 m, fusion tous les 10 ticks, disparition après 5 min, 200 au maximum.
 - Délai de reprise de 0,6 s **uniquement pour les objets jetés par un joueur** : un objet miné se ramasse tout de suite.
 - Sauvegardés avec leur colonne ; minuteries rattrapées à la ré-entrée.
@@ -1004,6 +1091,7 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
 Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18n.en.ts`).
 
 **HUD** (disposition originale)
+
 - **Bas gauche** : fioles de santé, faim et soif avec icônes, thermomètre avec tendance, toxicité si > 0, souffle sous l'eau.
 - **Centre** : point de visée, arc d'endurance, anneau de minage, marqueur d'impact, arcs de dégâts.
 - **Bas centre** : barre de 8 avec durabilité et touches.
@@ -1014,6 +1102,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 - **Plein écran (CSS)** : vignettes de santé, givre, chaleur, toxicité, sous l'eau ; nom du biome à l'entrée.
 
 **Écrans**
+
 - **Bag** (E ou Tab) :
   - à gauche, la silhouette et ses 5 emplacements, avec le détail des protections ;
   - au centre, le sac 6×4 et la barre ;
@@ -1027,6 +1116,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 - **Manipulation** : glisser-déposer en pointer events, clic droit pour diviser, Maj+clic pour transférer, chiffre au survol pour échanger.
 
 **Menus**
+
 - **Main** ; **Worlds** (cartes, Play, Delete avec confirmation, Export/Import) ; **New world** (nom, graine, hostiles oui/non) ; **Loading** ; « Click to play » ; **Pause** ; **Death**.
 - **Settings** :
   - graphismes : préréglage, distance, FOV, résolution, particules, balancement ;
@@ -1036,6 +1126,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 - Anglais seul en v1, donc pas de sélecteur de langue ; la structure i18n est prête pour le français.
 
 **Prise en main**
+
 - Au premier lancement, une carte des commandes avec les vraies étiquettes de touches du clavier du joueur.
 - Indices contextuels :
   - premier E/Tab ;
@@ -1045,6 +1136,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 - Panneau d'objectifs.
 
 **Écrans d'erreur**
+
 - **Porte de capacités** avant le boot, qui vérifie :
   - un contexte WebGL2 avec `MAX_ARRAY_TEXTURE_LAYERS ≥ 256` ;
   - les workers de module ;
@@ -1056,10 +1148,12 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 - Paramètres de test : `?forceNoWebGL=1` et `?forceNoIdb=1`.
 
 **Debug**
+
 - Touche **F3** (sur Mac : fn+F3), **Backquote** ou **IntlBackslash** (la touche @/# du Mac AZERTY) ; étiquette lue depuis la disposition.
 - Panneau stylé propre au jeu, rafraîchi à 4 Hz : FPS, travail p95, temps par sous-système, draws, triangles, sections, files, position, biome, lumière, abri, températures, entités.
 
 **Technique**
+
 - TS vanilla + `ui/signals.ts` (signal, computed, effect, batch ; environ 80 lignes) + `h()`.
 - Écrans construits une fois ; `UiBridge` rafraîchit à 10 Hz, et tout de suite sur un événement d'inventaire.
 - Seules les variables CSS, `transform` et `opacity` changent ; pas de `backdrop-filter`.
@@ -1071,15 +1165,15 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 
 **Entrées** : liaison par **position physique** (`KeyboardEvent.code`). Les mêmes touches physiques servent sur tous les claviers : ZQSD sur AZERTY correspond à WASD sur QWERTY. Seules les étiquettes affichées changent.
 
-| Action | `code` (position physique) | Étiquette QWERTY | Étiquette AZERTY |
-|---|---|---|---|
-| Déplacement | KeyW/S/A/D | W/S/A/D | Z/S/Q/D |
-| Saut / sprint / accroupi | Space / ShiftLeft / KeyC | Space / Shift / C | Espace / Maj / C |
-| Miner-attaquer / utiliser-poser | Mouse0 / Mouse2 | Clics | Clics |
-| Barre | Digit1–8, molette | 1–8 | 1–8 (toujours des chiffres) |
-| Sac | KeyE, ou Tab (comportement par défaut empêché) | E / Tab | E / Tab |
-| Jeter (Maj = pile entière) / caméra | KeyG / KeyV | G / V | G / V |
-| Debug / pause | F3, Backquote ou IntlBackslash / Escape | F3 ou ` / Esc | F3 (fn+F3 sur Mac) ou @ / Échap |
+| Action                              | `code` (position physique)                     | Étiquette QWERTY  | Étiquette AZERTY                |
+| ----------------------------------- | ---------------------------------------------- | ----------------- | ------------------------------- |
+| Déplacement                         | KeyW/S/A/D                                     | W/S/A/D           | Z/S/Q/D                         |
+| Saut / sprint / accroupi            | Space / ShiftLeft / KeyC                       | Space / Shift / C | Espace / Maj / C                |
+| Miner-attaquer / utiliser-poser     | Mouse0 / Mouse2                                | Clics             | Clics                           |
+| Barre                               | Digit1–8, molette                              | 1–8               | 1–8 (toujours des chiffres)     |
+| Sac                                 | KeyE, ou Tab (comportement par défaut empêché) | E / Tab           | E / Tab                         |
+| Jeter (Maj = pile entière) / caméra | KeyG / KeyV                                    | G / V             | G / V                           |
+| Debug / pause                       | F3, Backquote ou IntlBackslash / Escape        | F3 ou ` / Esc     | F3 (fn+F3 sur Mac) ou @ / Échap |
 
 - Jamais lié : Ctrl, Cmd, Alt, F5, F11, F12.
 - `contextmenu` empêché ; toutes les touches relâchées sur `blur`.
@@ -1090,6 +1184,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
   4. QWERTY.
 
 **Pointer Lock**
+
 1. Le clic appelle `requestPointerLock({ unadjustedMovement: true })`, puis réessaie sans options en cas de refus.
    - On gère une promesse **ou** `undefined`, plus l'événement `pointerlockerror`.
    - Ensuite `audio.resume()`.
@@ -1101,6 +1196,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 7. `?noLock=1` pour l'automatisation.
 
 **Checklist d'originalité** (dans `CLAUDE.md`, relue en M1, M3, M4, M8 et M10)
+
 - Pas de grille de craft 3×3 ni de barre à 9 cases.
 - Pas d'icônes cœur ou cuisse : des fioles.
 - Soleil et lune ronds.
@@ -1112,12 +1208,12 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 
 ### Sauvegarde
 
-| Store | Clé | Contenu |
-|---|---|---|
-| `worlds` | `id` | nom, graine, dates, `saveVersion`, `genVersion`, `contentHash`, `stateKeys[]`, tick, jour, états RNG, `nextEntityId`, apparition, règles (hostiles) |
-| `players` | `[worldId, playerId]` | position, regard, stats, effets, inventaire et équipement (clés texte), craft, objets vus, réapparition, objectifs, `graves[]` |
-| `columns` | `[worldId, cx, cz]` | `{ v, codec: 'raw' \| 'deflate-raw', payload, blockEntities, entities (objets au sol + hardes), populated, lastTick }` |
-| `kv` | texte | dernier monde, divers |
+| Store     | Clé                   | Contenu                                                                                                                                             |
+| --------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worlds`  | `id`                  | nom, graine, dates, `saveVersion`, `genVersion`, `contentHash`, `stateKeys[]`, tick, jour, états RNG, `nextEntityId`, apparition, règles (hostiles) |
+| `players` | `[worldId, playerId]` | position, regard, stats, effets, inventaire et équipement (clés texte), craft, objets vus, réapparition, objectifs, `graves[]`                      |
+| `columns` | `[worldId, cx, cz]`   | `{ v, codec: 'raw' \| 'deflate-raw', payload, blockEntities, entities (objets au sol + hardes), populated, lastTick }`                              |
+| `kv`      | texte                 | dernier monde, divers                                                                                                                               |
 
 - Base IndexedDB nommée `create-your-world`.
 - **Contenu** : seules les sections `persisted`, en instantanés complets.
@@ -1167,126 +1263,186 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 
 Noms affichés en anglais dans le jeu (`i18n.en.ts`) ; la traduction française est indiquée entre parenthèses quand elle aide.
 
-| Élément | Quantité |
-|---|---|
-| Blocs | 53 |
-| Objets | environ 62, plus les objets de bloc |
-| Recettes | environ 40, plus 14 procédés |
-| Créatures | 5 |
-| Biomes | 7 |
-| Tables de butin | environ 14 |
-| Structures | 2 |
-| Sons | environ 45 |
-| Couches de texture | environ 140 |
-| Chaînes anglaises | environ 480 |
+| Élément            | Quantité                            |
+| ------------------ | ----------------------------------- |
+| Blocs              | 53                                  |
+| Objets             | environ 62, plus les objets de bloc |
+| Recettes           | environ 40, plus 14 procédés        |
+| Créatures          | 5                                   |
+| Biomes             | 7                                   |
+| Tables de butin    | environ 14                          |
+| Structures         | 2                                   |
+| Sons               | environ 45                          |
+| Couches de texture | environ 140                         |
+| Chaînes anglaises  | environ 480                         |
 
 **Blocs**
 
-| Famille | Blocs |
-|---|---|
-| Terrain | Worldrock (socle incassable), Stone, Darkstone (roche profonde), Cut Stone, Dirt, Grass, Sand, Ochre Sand, Ochre Sandstone, Gravel, Clay, Fireclay, Snow, Permafrost, Ice, Peat, Silt, Magma |
-| Liquides | Water, Foul Water (eau croupie) |
-| Arbres et champignons | Broadleaf Log, Foliage, Conifer Log, Needles, Giant Mushroom Stem, Glowcap |
-| Plantes | Tall Grass, Shrub, Berry Bush, Thornbush, Palmthorn, Frost Lichen, Glowbloom |
-| Minerais | Copper Ore, Cassiterite, Bog Iron, Dawn Crystal |
-| Construction et lumière | Planks, Bricks, Fire Bricks, Glass, Torch, Glowbloom Lantern |
-| Stations et mobilier | Campfire, Workbench (établi), Clay Kiln (four), Bloomery (bas fourneau), Chest, Gate, Bedroll (natte), Abandoned Pack (sac abandonné) |
-| Techniques | air, Unknown Block |
+| Famille                 | Blocs                                                                                                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Terrain                 | Worldrock (socle incassable), Stone, Darkstone (roche profonde), Cut Stone, Dirt, Grass, Sand, Ochre Sand, Ochre Sandstone, Gravel, Clay, Fireclay, Snow, Permafrost, Ice, Peat, Silt, Magma |
+| Liquides                | Water, Foul Water (eau croupie)                                                                                                                                                              |
+| Arbres et champignons   | Broadleaf Log, Foliage, Conifer Log, Needles, Giant Mushroom Stem, Glowcap                                                                                                                   |
+| Plantes                 | Tall Grass, Shrub, Berry Bush, Thornbush, Palmthorn, Frost Lichen, Glowbloom                                                                                                                 |
+| Minerais                | Copper Ore, Cassiterite, Bog Iron, Dawn Crystal                                                                                                                                              |
+| Construction et lumière | Planks, Bricks, Fire Bricks, Glass, Torch, Glowbloom Lantern                                                                                                                                 |
+| Stations et mobilier    | Campfire, Workbench (établi), Clay Kiln (four), Bloomery (bas fourneau), Chest, Gate, Bedroll (natte), Abandoned Pack (sac abandonné)                                                        |
+| Techniques              | air, Unknown Block                                                                                                                                                                           |
 
 **Objets**
 
-| Famille | Objets |
-|---|---|
-| Matériaux | Stick, Plant Fiber, Cord, Flint, Stone Shard, Resin, Raw Hide, Leather, Fur, Clay Lump, Copper / Bronze / Iron Ingot, Charcoal, Shell Plate, Toxic Gland, Prowler Sinew, Crystal Shard |
-| Outils | Flint Knife, Flint Hatchet, Flint Pickaxe, Flint Spear ; hachette, pioche et lame en Copper, Bronze et Iron |
-| Équipement | Leather Tunic, Leather Leggings, Fur Hood, Fur Coat, Straw Hat, Fiber Veil, Filter Mask, Waxed Boots, Bronze Helmet, Bronze Cuirass, Shell Cuirass |
-| Consommables | Berries, Raw Meat, Grilled Meat, Palmthorn Fruit, Bandage, Antidote Tea |
-| Récipients | Unfired Flask ; Clay Flask (empty, Raw Water, Boiled Water, Foul Water ; 3 charges) ; Leather Waterskin (mêmes états ; 6 charges) |
-| Techniques | Unknown Item |
+| Famille      | Objets                                                                                                                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Matériaux    | Stick, Plant Fiber, Cord, Flint, Stone Shard, Resin, Raw Hide, Leather, Fur, Clay Lump, Copper / Bronze / Iron Ingot, Charcoal, Shell Plate, Toxic Gland, Prowler Sinew, Crystal Shard |
+| Outils       | Flint Knife, Flint Hatchet, Flint Pickaxe, Flint Spear ; hachette, pioche et lame en Copper, Bronze et Iron                                                                            |
+| Équipement   | Leather Tunic, Leather Leggings, Fur Hood, Fur Coat, Straw Hat, Fiber Veil, Filter Mask, Waxed Boots, Bronze Helmet, Bronze Cuirass, Shell Cuirass                                     |
+| Consommables | Berries, Raw Meat, Grilled Meat, Palmthorn Fruit, Bandage, Antidote Tea                                                                                                                |
+| Récipients   | Unfired Flask ; Clay Flask (empty, Raw Water, Boiled Water, Foul Water ; 3 charges) ; Leather Waterskin (mêmes états ; 6 charges)                                                      |
+| Techniques   | Unknown Item                                                                                                                                                                           |
 
 **Biomes** (températures jour/nuit)
 
-| Biome | Climat | Danger | Ressources |
-|---|---|---|---|
-| Meadow (prairie) | 22/12 °C | aucun | cuivre, silex |
-| Forest | 20/11 °C | aucun | bois, baies |
-| Highlands | 12/2 °C | froid léger | — |
-| Tundra (nord) | −6/−16 °C | froid | cassitérite, fourrure |
-| Ochre Desert (sud) | 44/8 °C | chaleur | argile réfractaire |
-| Fungal Marsh | 24/16 °C | toxicité | fer des marais, tourbe |
-| Lake Basin | 18/10 °C | — | argile, silex |
+| Biome              | Climat    | Danger      | Ressources             |
+| ------------------ | --------- | ----------- | ---------------------- |
+| Meadow (prairie)   | 22/12 °C  | aucun       | cuivre, silex          |
+| Forest             | 20/11 °C  | aucun       | bois, baies            |
+| Highlands          | 12/2 °C   | froid léger | —                      |
+| Tundra (nord)      | −6/−16 °C | froid       | cassitérite, fourrure  |
+| Ochre Desert (sud) | 44/8 °C   | chaleur     | argile réfractaire     |
+| Fungal Marsh       | 24/16 °C  | toxicité    | fer des marais, tourbe |
+| Lake Basin         | 18/10 °C  | —           | argile, silex          |
 
 **Progression**
 
-| Étape | Contenu |
-|---|---|
-| Mains nues | fibres (Tall Grass, 60 %), bâtons, silex (Gravel, 35 %), baies, mottes d'argile |
-| Craft à la main | cordelette, outils de silex, torches, feu de camp, planches, Unfired Flask, établi (8 planches + 4 fibres) |
-| Établi | coffre, portillon, natte, outre, cuir (2 peaux + résine), four, Cut Stone |
-| Cuivre | minerai fondu au four → outils (lingots + bâtons + cuir) |
-| Bronze | cassitérite (**toundra**, au nord) + cuivre ; les outils demandent un **Prowler Sinew** (chasse de nuit, ou cairns en monde sans hostiles) |
-| Fer | fer des **marais** fondu au bas fourneau ; celui-ci exige des briques d'**argile du désert** (au sud) et 2 bronze, ce qui oblige à visiter les 3 biomes |
+| Étape           | Contenu                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mains nues      | fibres (Tall Grass, 60 %), bâtons, silex (Gravel, 35 %), baies, mottes d'argile                                                                         |
+| Craft à la main | cordelette, outils de silex, torches, feu de camp, planches, Unfired Flask, établi (8 planches + 4 fibres)                                              |
+| Établi          | coffre, portillon, natte, outre, cuir (2 peaux + résine), four, Cut Stone                                                                               |
+| Cuivre          | minerai fondu au four → outils (lingots + bâtons + cuir)                                                                                                |
+| Bronze          | cassitérite (**toundra**, au nord) + cuivre ; les outils demandent un **Prowler Sinew** (chasse de nuit, ou cairns en monde sans hostiles)              |
+| Fer             | fer des **marais** fondu au bas fourneau ; celui-ci exige des briques d'**argile du désert** (au sud) et 2 bronze, ce qui oblige à visiter les 3 biomes |
 
 **Schéma** (extrait de `src/content/schema.ts`)
 
 ```ts
 export type Tier = 0 | 1 | 2 | 3 | 4;
 export type Box16 = readonly [number, number, number, number, number, number]; // x0 y0 z0 x1 y1 z1, in 1/16 block
-export interface LiquidDef { drinkable: boolean; thirstPerSip: number; toxicityPerSip: number;
-  fills: Partial<Record<ItemKey, ItemKey>> }                                   // empty container → filled
+export interface LiquidDef {
+  drinkable: boolean;
+  thirstPerSip: number;
+  toxicityPerSip: number;
+  fills: Partial<Record<ItemKey, ItemKey>>;
+} // empty container → filled
 export interface BlockDef {
-  key: BlockKey; nameKey: PackI18nKey;
+  key: BlockKey;
+  nameKey: PackI18nKey;
   shape: 'cube' | 'cross' | 'liquid' | 'none' | { boxes: readonly Box16[] };
-  pass: 'opaque' | 'cutout' | 'translucent' | 'invisible'; cullGroup?: string;
-  textures: Partial<Record<'all' | 'top' | 'bottom' | 'side' | 'front', TexKey>>; tint?: 'grass' | 'foliage' | 'water';
-  collision: 'full' | 'none' | 'liquid' | { boxes: readonly Box16[] }; opaque: boolean; replaceable?: boolean;
-  light?: { emit?: number; filter?: number }; friction?: number;
-  contact?: { toxicityPerMin?: number; damagePerSec?: number }; liquid?: LiquidDef;
-  hardness: number; tool?: ToolKind; minTier?: Tier; drops: LootKey | 'self' | 'none';
-  states?: readonly StateProp[];                                                 // axis, facing4, open, lit, half, ripe
-  whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>;           // emit, heat, collision, light, textures
-  heat?: { celsius: number; radius: number }; blockEntity?: 'container' | 'station' | 'grave' | 'bed';
-  station?: StationKey; placement?: { support?: 'below' | 'face'; orient?: 'axis' | 'facing'; tall?: 2 }; sound: SoundMaterial;
+  pass: 'opaque' | 'cutout' | 'translucent' | 'invisible';
+  cullGroup?: string;
+  textures: Partial<Record<'all' | 'top' | 'bottom' | 'side' | 'front', TexKey>>;
+  tint?: 'grass' | 'foliage' | 'water';
+  collision: 'full' | 'none' | 'liquid' | { boxes: readonly Box16[] };
+  opaque: boolean;
+  replaceable?: boolean;
+  light?: { emit?: number; filter?: number };
+  friction?: number;
+  contact?: { toxicityPerMin?: number; damagePerSec?: number };
+  liquid?: LiquidDef;
+  hardness: number;
+  tool?: ToolKind;
+  minTier?: Tier;
+  drops: LootKey | 'self' | 'none';
+  states?: readonly StateProp[]; // axis, facing4, open, lit, half, ripe
+  whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>; // emit, heat, collision, light, textures
+  heat?: { celsius: number; radius: number };
+  blockEntity?: 'container' | 'station' | 'grave' | 'bed';
+  station?: StationKey;
+  placement?: { support?: 'below' | 'face'; orient?: 'axis' | 'facing'; tall?: 2 };
+  sound: SoundMaterial;
 }
 export interface ItemDef {
-  key: ItemKey; nameKey: PackI18nKey; icon: TexKey | { block: BlockKey }; maxStack: number; tags?: readonly TagKey[];
+  key: ItemKey;
+  nameKey: PackI18nKey;
+  icon: TexKey | { block: BlockKey };
+  maxStack: number;
+  tags?: readonly TagKey[];
   tool?: { kind: ToolKind; tier: Tier; speed: number; durability: number };
   weapon?: { damage: number; cooldown: number; reach: number; knockback: number };
-  wear?: { slot: 'head' | 'face' | 'body' | 'legs' | 'feet'; armor?: number; warmth?: number; cooling?: number;
-           airFilter?: number; waterproof?: boolean; durability: number };
-  consume?: { seconds: number; hunger?: number; thirst?: number; health?: number; toxicity?: number; returns?: ItemKey };
+  wear?: {
+    slot: 'head' | 'face' | 'body' | 'legs' | 'feet';
+    armor?: number;
+    warmth?: number;
+    cooling?: number;
+    airFilter?: number;
+    waterproof?: boolean;
+    durability: number;
+  };
+  consume?: {
+    seconds: number;
+    hunger?: number;
+    thirst?: number;
+    health?: number;
+    toxicity?: number;
+    returns?: ItemKey;
+  };
   container?: { charges: number; contents: 'empty' | 'raw' | 'boiled' | 'foul'; emptyAs: ItemKey };
   fuel?: { seconds: number; charcoal?: boolean };
 }
 export interface CreatureDef {
-  key: CreatureKey; nameKey: PackI18nKey; model: ModelKey; hitbox: [number, number]; health: number;
-  speed: { walk: number; run: number }; brain: 'grazer' | 'defender' | 'stalker' | 'swarmer' | 'charger';
+  key: CreatureKey;
+  nameKey: PackI18nKey;
+  model: ModelKey;
+  hitbox: [number, number];
+  health: number;
+  speed: { walk: number; run: number };
+  brain: 'grazer' | 'defender' | 'stalker' | 'swarmer' | 'charger';
   category: 'passive' | 'defensive' | 'territorial' | 'hostile';
-  attack?: { damage: number; reach: number; windup: number; cooldown: number; knockback: number; toxicity?: number };
+  attack?: {
+    damage: number;
+    reach: number;
+    windup: number;
+    cooldown: number;
+    knockback: number;
+    toxicity?: number;
+  };
   senses: { sight: number; fovDeg: number; hearing: number };
-  traits?: { watchedSpeedMul?: number; lightAversion?: number; burrowAtDawn?: boolean; frontArmor?: number; wallStunSec?: number };
-  spawn: readonly { biomes: readonly BiomeKey[] | '*'; when: 'day' | 'night' | 'any'; where: 'surface' | 'cave';
-                    maxLight?: number; group: [number, number]; weight: number }[];
-  loot: LootKey; sounds: Partial<Record<'idle' | 'alert' | 'hurt' | 'attack' | 'death', SfxKey>>;
+  traits?: {
+    watchedSpeedMul?: number;
+    lightAversion?: number;
+    burrowAtDawn?: boolean;
+    frontArmor?: number;
+    wallStunSec?: number;
+  };
+  spawn: readonly {
+    biomes: readonly BiomeKey[] | '*';
+    when: 'day' | 'night' | 'any';
+    where: 'surface' | 'cave';
+    maxLight?: number;
+    group: [number, number];
+    weight: number;
+  }[];
+  loot: LootKey;
+  sounds: Partial<Record<'idle' | 'alert' | 'hurt' | 'attack' | 'death', SfxKey>>;
 }
 ```
 
-| Type | Champs |
-|---|---|
-| `RecipeDef` | key, category, station?, seconds, inputs [{item ou tag, count}], output {item, count}, known?: 'start', hintKey? |
-| `ProcessDef` | key, station, seconds, fuel: 'any' \| 'charcoal' \| 'none', inputs, output |
-| `StationDef` | key, inputSlots, fuelSlot, outputSlots, burns: 'whileFuel' \| 'whileProcessing' |
-| `BiomeDef` | key, nameKey, rule {order, conditions sur C/E/M/T/H/X et h}, climate {dayC, nightC}, toxicity? {day, night}, surface, filler, liquid, tints, fog, ambience, features [{feature, weight}], hintKey |
-| `WorldgenDef` | seaLevel, bedrockY, deepStoneBelowY, magmaBelowY, splines C et E, échelles de bruit, bande de latitude {amplitude, period}, seuils des grottes |
-| `OreDef` | key, block, biomes, yRange, veinsPerSection, veinSize, replaces |
-| `FeatureDef` | key, kind 'tree' \| 'mushroom' \| 'boulder' \| 'plant', blocs, rayon ≤ 7, paramètres |
-| `StructureDef` | key, biomes, chance, template (couches en grilles de caractères), legend → clés d'état, lootTables |
-| `LootTableDef` | key, rolls [min, max], entries [{item, count [min, max], weight}] |
-| `ObjectiveDef` | key, textKey, hintKey?, compass? ('north' \| 'south' \| …), condition en données (hasItem, placed, surviveNight, reachBiome…) |
-| `ModelDef` | key, parts [{name, box, pivot, parent?, texture}], gait 'biped' \| 'quadruped' \| 'hexapod', stride, idle |
-| `TierDef` | tier, nameKey |
-| `TextureRecipe` / `SfxRecipe` | motif ou type de synthèse, palette ou paramètres, graine, drapeaux émissif et teinte |
-| `PackManifest` | id, version, locale ('en'), textureSize (16), bindings {air, unknownBlock, unknownItem, grave, avatarModel, spawnBiomes, startObjectives} |
+| Type                          | Champs                                                                                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RecipeDef`                   | key, category, station?, seconds, inputs [{item ou tag, count}], output {item, count}, known?: 'start', hintKey?                                                                                  |
+| `ProcessDef`                  | key, station, seconds, fuel: 'any' \| 'charcoal' \| 'none', inputs, output                                                                                                                        |
+| `StationDef`                  | key, inputSlots, fuelSlot, outputSlots, burns: 'whileFuel' \| 'whileProcessing'                                                                                                                   |
+| `BiomeDef`                    | key, nameKey, rule {order, conditions sur C/E/M/T/H/X et h}, climate {dayC, nightC}, toxicity? {day, night}, surface, filler, liquid, tints, fog, ambience, features [{feature, weight}], hintKey |
+| `WorldgenDef`                 | seaLevel, bedrockY, deepStoneBelowY, magmaBelowY, splines C et E, échelles de bruit, bande de latitude {amplitude, period}, seuils des grottes                                                    |
+| `OreDef`                      | key, block, biomes, yRange, veinsPerSection, veinSize, replaces                                                                                                                                   |
+| `FeatureDef`                  | key, kind 'tree' \| 'mushroom' \| 'boulder' \| 'plant', blocs, rayon ≤ 7, paramètres                                                                                                              |
+| `StructureDef`                | key, biomes, chance, template (couches en grilles de caractères), legend → clés d'état, lootTables                                                                                                |
+| `LootTableDef`                | key, rolls [min, max], entries [{item, count [min, max], weight}]                                                                                                                                 |
+| `ObjectiveDef`                | key, textKey, hintKey?, compass? ('north' \| 'south' \| …), condition en données (hasItem, placed, surviveNight, reachBiome…)                                                                     |
+| `ModelDef`                    | key, parts [{name, box, pivot, parent?, texture}], gait 'biped' \| 'quadruped' \| 'hexapod', stride, idle                                                                                         |
+| `TierDef`                     | tier, nameKey                                                                                                                                                                                     |
+| `TextureRecipe` / `SfxRecipe` | motif ou type de synthèse, palette ou paramètres, graine, drapeaux émissif et teinte                                                                                                              |
+| `PackManifest`                | id, version, locale ('en'), textureSize (16), bindings {air, unknownBlock, unknownItem, grave, avatarModel, spawnBiomes, startObjectives}                                                         |
 
 **Exemples de données**
 
@@ -1311,6 +1467,7 @@ export interface CreatureDef {
 ## Jalons
 
 **Protocole commun à chaque jalon**
+
 1. Branche `claude/mN-<sujet>` créée depuis `main` à jour.
 2. `npm run verify` vert.
 3. `game-dev` démarré dans le navigateur intégré. Dans la page : `await __game.ready()`, `__game.errors().length === 0`, et aucune erreur dans le log du serveur.
@@ -1332,6 +1489,7 @@ export interface CreatureDef {
 `B` désigne `http://localhost:5173/?seed=42&storage=memory&noLock=1&debug=1`.
 
 **Ce que montre `http://localhost:5173/` à chaque étape**
+
 - M0 : titre et cube.
 - M1 : chunk de test.
 - M2 : survol libre du terrain, sur une graine aléatoire.
@@ -1339,6 +1497,7 @@ export interface CreatureDef {
 - Dès M7 : menu principal.
 
 ### M0 — Échafaudage
+
 - **Livrables** :
   - dépôt : `git init -b main`, `origin`, commit d'amorçage poussé sur `main`, puis branche `claude/m0-scaffold` ;
   - configs (package.json, 6 fichiers tsconfig, vite, biome, launch.json, .gitignore) et CI `.github/workflows/ci.yml` ;
@@ -1358,6 +1517,7 @@ export interface CreatureDef {
   - la CI passe sur la première PR, qui est mergée.
 
 ### M1 — Cœur voxel
+
 - **Livrables** :
   - schéma, registre (ids d'états aplatis, tables brutes), validateur, pack de 20 blocs ;
   - `Section`, `Column`, `ColumnSlots`, `VoxelWorld` ;
@@ -1374,6 +1534,7 @@ export interface CreatureDef {
   - checklist d'originalité (textures), et je te montre une capture pour avoir ton avis sur le style.
 
 ### M2 — Terrain et streaming
+
 - **Livrables** :
   - génération v1 (climat, latitude, hauteur, 7 biomes de surface, eau, arbres), `GEN_VERSION 1`, point d'apparition provisoire ;
   - protocole, jobs, pool (2 files, versions, relance) ;
@@ -1395,6 +1556,7 @@ export interface CreatureDef {
   - le premier spec e2e vérifie WebGL2, en local et en CI.
 
 ### M3 — Simulation, joueur et caméras
+
 - **Livrables** :
   - `Simulation` complète, `SerializingSimHost`, entités et hachage spatial, physique ;
   - entrées par position physique et étiquettes de touches, Pointer Lock ;
@@ -1420,7 +1582,9 @@ export interface CreatureDef {
   - checklist d'originalité (avatar), et une capture pour ton avis.
 
 ### M3.5 — Passe KISS/DRY/SRP (branche `claude/m3.5-structure`)
+
 But : appliquer la décision 12 au code de M0–M3 **sans changer le comportement** avant que M4 ne s'appuie dessus. Les cibles viennent d'un audit en lecture seule du code, classées par valeur.
+
 - **SRP de la simulation** : `src/sim/Simulation.ts` (525 lignes) est découpé.
   - `sim/ColumnPipeline.ts` reçoit les vues, arrivées, états GENERATED/LIT/MESHABLE, show/hide, stream et unload, avec un seul `anyViewWithin()` à la place des trois boucles quasi identiques.
   - `sim/commandRules.ts` reçoit la validation des commandes et un `reject(out, playerId, type, reason)` qui remplace les 7 littéraux.
@@ -1457,6 +1621,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - la lentille KISS/DRY/SRP de la revue ne confirme plus de remarque de valeur élevée.
 
 ### M4 — Minage et construction
+
 - **Livrables** :
   - interaction : progression, règles d'outils, pose, fantôme, répétition, table de priorité ;
   - surlignage et fissures (8 stades) ; objets au sol ;
@@ -1480,6 +1645,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - checklist d'originalité (HUD, barre, sac).
 
 ### M5 — Lumière et temps
+
 - **Livrables** :
   - `columnLight` ; `LightEngine` (slots, files encodées, compteurs d'entrées en attente) ;
   - état LIT réel, lumière lissée, torches ;
@@ -1498,6 +1664,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
     - ≤ 400 draws.
 
 ### M6 — Sous-sol et décor
+
 - **Livrables** :
   - grottes, magma, minerais par biome, décor complet, campements et cairns ;
   - point d'apparition définitif, extras de biome, toutes les textures ;
@@ -1511,6 +1678,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - captures de chaque biome (`findBiome` + téléport), d'une vue `xray`, d'un campement et d'un minerai lumineux.
 
 ### M7 — Sauvegarde et menus
+
 - **Livrables** :
   - codec et migrations ; `io.worker` et `idbStore` ; proxy `IdbStorage` ; `MemoryStorage` ;
   - persistance avec remappage ; `SaveManager` (toutes les 30 s, et à la sortie de l'onglet) ;
@@ -1531,6 +1699,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
     - avec `forceNoIdb=1`, le bandeau s'affiche et la partie reste jouable.
 
 ### M8 — Objets, Logbook et stations
+
 - **Livrables** :
   - objets et recettes de tous les paliers ; crafting ; stations (rejeu plafonné) ; coffres ;
   - sac complet et Logbook ; écrans Conteneur et Station ; icônes ;
@@ -1551,6 +1720,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - checklist d'originalité (Logbook, écrans).
 
 ### M9 — Survie et dangers
+
 - **Livrables** :
   - survival, environment, shelter ; eau potable (gorgée, remplissage, ébullition) ; consommables, équipement ;
   - HUD complet ; mort, Abandoned Pack et réapparition ; natte et sommeil ;
@@ -1573,6 +1743,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - ta première partie test de 10 min (facultative à ce stade).
 
 ### M10 — Créatures et combat
+
 - **Livrables** :
   - modèles et animation ;
   - cerveaux `grazer`, `defender`, `stalker`, `swarmer`, `charger` ; sens ; A* ;
@@ -1595,6 +1766,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - checklist d'originalité (créatures), et des captures pour ton avis.
 
 ### M11 — Finition et performance
+
 - **Livrables** :
   - audio complet (environ 45 sons, ambiances) ; réglages complets (réassignation) ;
   - culling des grottes ; passe de performance ;
@@ -1619,16 +1791,17 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
 
 ## Vérification
 
-| Commande | Rôle |
-|---|---|
-| `npm run verify` | `tsc -b` (4 projets), Biome, Vitest, build : à chaque jalon, en local et en CI |
-| `npm run test:perf` | seuils sous Node (génération, maillage, couture, 60 créatures), dès M2, en local |
-| `npm run test:slow` | bot de 2 jours de jeu aux hashes identiques, en M3, M10 et M11 |
-| `npm run headless -- --seed=42 --ticks=9000 --bot=wanderMineBuild` | sim en Node natif → `{hash, tps, columns, census}`, dès M3 |
-| `npm run e2e` | Playwright (Chrome en local, Chromium en CI), charge `?selftest=…`, dès M2 |
-| `game-dev` / `game-bench` | navigateur intégré ; les mesures de perf se font uniquement sur bench, panneau visible |
+| Commande                                                           | Rôle                                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `npm run verify`                                                   | `tsc -b` (4 projets), Biome, Vitest, build : à chaque jalon, en local et en CI         |
+| `npm run test:perf`                                                | seuils sous Node (génération, maillage, couture, 60 créatures), dès M2, en local       |
+| `npm run test:slow`                                                | bot de 2 jours de jeu aux hashes identiques, en M3, M10 et M11                         |
+| `npm run headless -- --seed=42 --ticks=9000 --bot=wanderMineBuild` | sim en Node natif → `{hash, tps, columns, census}`, dès M3                             |
+| `npm run e2e`                                                      | Playwright (Chrome en local, Chromium en CI), charge `?selftest=…`, dès M2             |
+| `game-dev` / `game-bench`                                          | navigateur intégré ; les mesures de perf se font uniquement sur bench, panneau visible |
 
 **Tests**
+
 - **Unitaires, par couche** :
   - core : rng golden, bruit, varint ;
   - content : registre, validation, atteignabilité, i18n, JSON, `altPack` ;
@@ -1642,35 +1815,37 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - `slow/` : le bot de 2 jours.
 
 **Hook `window.__game`**
+
 - Chargé uniquement si `__DEBUG_HOOK__` (dev et bench), par import dynamique : absent du build de production.
 - Toute mutation passe par une commande `debug.*`, refusée si `rules.allowDebug` est faux.
 - `press(action, ticks)` maintient l'entrée pendant N ticks et avance de N ticks en `fixedStep`.
 
-| Groupe | Méthodes |
-|---|---|
-| Cycle | `version`, `params`, `ready()`, `errors()`, `state()`, `selftest()`, `pump(ms)` |
-| sim | `step(n)`, `pause()`, `resume()`, `hash()` |
-| input | `look()`, `press(action, ticks)`, `release()`, `keyLabel()` |
-| player | `get()`, `teleport(x, y\|'surface', z)`, `setStat()`, `give()`, `equip()`, `inventory()`, `kill()`, `god()` |
-| world | `block()`, `setBlock()`, `fill()`, `light()`, `biome()`, `surface()`, `findBiome()`, `findStructure()`, `waitForChunks()`, `genHash()` |
-| time / entities | `set(heures)`, `freeze()` / `spawn()`, `list()`, `kill()`, `census()`, `spawnLog()` |
-| craft / container / ui | `enqueue()`, `queue()`, `contents()` / `screen()`, `open()`, `close()`, `text()`, `i18nMissing()` |
-| save | `now()`, `reload()`, `worlds()`, `inspect()`, `wipeAll()` |
-| render | `info()`, `camera()` (`mode`, `distance`), `rig(id)`, `capture()` (`avgLuma`, `uniqueColors`), `debugView()`, `sectionVersionLag()`, `setRenderDistance()`, `setQuality()` |
-| perf, events, audio | `snapshot()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig')`, `events.tail()`, `events.waitFor()`, `audio.log()`, `workers.ping()` |
+| Groupe                 | Méthodes                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cycle                  | `version`, `params`, `ready()`, `errors()`, `state()`, `selftest()`, `pump(ms)`                                                                                            |
+| sim                    | `step(n)`, `pause()`, `resume()`, `hash()`                                                                                                                                 |
+| input                  | `look()`, `press(action, ticks)`, `release()`, `keyLabel()`                                                                                                                |
+| player                 | `get()`, `teleport(x, y\|'surface', z)`, `setStat()`, `give()`, `equip()`, `inventory()`, `kill()`, `god()`                                                                |
+| world                  | `block()`, `setBlock()`, `fill()`, `light()`, `biome()`, `surface()`, `findBiome()`, `findStructure()`, `waitForChunks()`, `genHash()`                                     |
+| time / entities        | `set(heures)`, `freeze()` / `spawn()`, `list()`, `kill()`, `census()`, `spawnLog()`                                                                                        |
+| craft / container / ui | `enqueue()`, `queue()`, `contents()` / `screen()`, `open()`, `close()`, `text()`, `i18nMissing()`                                                                          |
+| save                   | `now()`, `reload()`, `worlds()`, `inspect()`, `wipeAll()`                                                                                                                  |
+| render                 | `info()`, `camera()` (`mode`, `distance`), `rig(id)`, `capture()` (`avgLuma`, `uniqueColors`), `debugView()`, `sectionVersionLag()`, `setRenderDistance()`, `setQuality()` |
+| perf, events, audio    | `snapshot()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig')`, `events.tail()`, `events.waitFor()`, `audio.log()`, `workers.ping()`                                      |
 
 **Paramètres d'URL de démarrage** (dev et bench uniquement)
 
-| Famille | Paramètres |
-|---|---|
-| Monde | `seed`, `world`, `new=1`, `skipMenu=1`, `worldType=default\|flat\|arena`, `pos`, `look`, `time`, `freezeTime=1` |
-| Simulation | `fixedStep=1`, `spawns=0\|1`, `grace=0`, `god=1`, `give=` |
-| Rendu | `rd`, `quality`, `occlusion=0`, `workers` |
-| Stockage et entrées | `storage=memory\|idb`, `noLock=1`, `kb=azerty\|qwerty\|qwertz` (étiquettes seulement) |
-| Pannes simulées | `forceNoWebGL=1`, `forceNoIdb=1` |
-| Divers | `mute=1`, `debug=1`, `scene=testchunk`, `freecam=1`, `host=serialize`, `selftest=`, `bench=walk\|fly\|cave\|mobs\|dig` |
+| Famille             | Paramètres                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Monde               | `seed`, `world`, `new=1`, `skipMenu=1`, `worldType=default\|flat\|arena`, `pos`, `look`, `time`, `freezeTime=1`        |
+| Simulation          | `fixedStep=1`, `spawns=0\|1`, `grace=0`, `god=1`, `give=`                                                              |
+| Rendu               | `rd`, `quality`, `occlusion=0`, `workers`                                                                              |
+| Stockage et entrées | `storage=memory\|idb`, `noLock=1`, `kb=azerty\|qwerty\|qwertz` (étiquettes seulement)                                  |
+| Pannes simulées     | `forceNoWebGL=1`, `forceNoIdb=1`                                                                                       |
+| Divers              | `mute=1`, `debug=1`, `scene=testchunk`, `freecam=1`, `host=serialize`, `selftest=`, `bench=walk\|fly\|cave\|mobs\|dig` |
 
 **Mesure de performance**
+
 - **Métriques** :
   - **travail CPU d'une image** : `performance.now()` au début et à la fin du callback rAF ; ce n'est pas l'intervalle rAF, qui est quantifié par l'écran ;
   - **régularité** : part des intervalles supérieurs à 20 ms, et image la plus longue ;
@@ -1681,20 +1856,20 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
 - **Seuils mesurés sur ton M4**, réglés à environ 0,6 × la cible M1 (estimation, à recalibrer sur un vrai M1) :
   - build bench, tampon de rendu fixé à 2160×1350 pour que le coût de remplissage ne dépende pas de la taille du panneau.
 
-  | Mesure | Seuil |
-  |---|---|
-  | Travail d'image p95, `walk` / `fly` | ≤ 9 ms / ≤ 11 ms |
-  | Intervalles > 20 ms en `walk` | < 1 % |
-  | Tick de sim p95, `mobs` (environ 25 créatures) | ≤ 1,5 ms |
-  | Génération d'une colonne / maillage d'une section (Node, médianes) | ≤ 10 ms / ≤ 3 ms |
-  | Couture d'un bord (Node) | ≤ 0,5 ms |
-  | Un tick avec 60 créatures (Node) | ≤ 3 ms |
-  | Draws à RD 6, surface / grotte | ≤ 400 / ≤ 150 |
-  | Triangles / géométrie | ≤ 1,5 M / ≤ 64 Mo |
-  | `voxelBytes` (médiane de 3 trajets de 2 km) | ≤ 140 Mo |
-  | Chargement, rayon 3 / RD 6 | < 3 s / < 5 s |
-  | Édition → maillage visible | ≤ 50 ms p95 |
-  | JS gzip | ≤ 400 Ko |
+  | Mesure                                                             | Seuil             |
+  | ------------------------------------------------------------------ | ----------------- |
+  | Travail d'image p95, `walk` / `fly`                                | ≤ 9 ms / ≤ 11 ms  |
+  | Intervalles > 20 ms en `walk`                                      | < 1 %             |
+  | Tick de sim p95, `mobs` (environ 25 créatures)                     | ≤ 1,5 ms          |
+  | Génération d'une colonne / maillage d'une section (Node, médianes) | ≤ 10 ms / ≤ 3 ms  |
+  | Couture d'un bord (Node)                                           | ≤ 0,5 ms          |
+  | Un tick avec 60 créatures (Node)                                   | ≤ 3 ms            |
+  | Draws à RD 6, surface / grotte                                     | ≤ 400 / ≤ 150     |
+  | Triangles / géométrie                                              | ≤ 1,5 M / ≤ 64 Mo |
+  | `voxelBytes` (médiane de 3 trajets de 2 km)                        | ≤ 140 Mo          |
+  | Chargement, rayon 3 / RD 6                                         | < 3 s / < 5 s     |
+  | Édition → maillage visible                                         | ≤ 50 ms p95       |
+  | JS gzip                                                            | ≤ 400 Ko          |
 
 - **Approximations d'un M1** :
   - GPU : RD 8 à DPR 2 sur le M4 garde moins de 5 % d'intervalles supérieurs à 20 ms ;
@@ -1706,20 +1881,21 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
 
 **Budgets du thread principal par image** (cible M1)
 
-| Poste | Budget |
-|---|---|
-| Entrées | 0,2 ms |
-| Tick de sim | ≤ 2 ms p95 |
-| Copies et envois | 1,5 ms |
-| Téléversements | 1 ms ; au plus 8 sections ou 1 Mo, les urgents d'abord |
-| Entités | 0,5 ms |
-| Rendu CPU | ≤ 4 ms |
-| UI | 0,5 ms |
-| **Total** | **≤ 11,7 ms** |
+| Poste            | Budget                                                 |
+| ---------------- | ------------------------------------------------------ |
+| Entrées          | 0,2 ms                                                 |
+| Tick de sim      | ≤ 2 ms p95                                             |
+| Copies et envois | 1,5 ms                                                 |
+| Téléversements   | 1 ms ; au plus 8 sections ou 1 Mo, les urgents d'abord |
+| Entités          | 0,5 ms                                                 |
+| Rendu CPU        | ≤ 4 ms                                                 |
+| UI               | 0,5 ms                                                 |
+| **Total**        | **≤ 11,7 ms**                                          |
 
 Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réutilisés, files typées, clés numériques, tampons recyclés.
 
 **Navigateurs**
+
 - **Cible : Chrome desktop** (≥ 120, à jour). Edge, basé sur Chromium, suit naturellement.
 - Toute l'automatisation tourne sous Chromium : navigateur intégré, Playwright en local et en CI.
 - **Firefox et Safari** :
@@ -1730,6 +1906,7 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 ## Exécution et collaboration
 
 **Chaque jalon se déroule en 4 temps**
+
 1. **Implémentation** sur la branche du jalon. Les modules indépendants peuvent être confiés à des sous-agents en parallèle, par exemple en M8 les données de contenu, les systèmes de sim et les écrans. Les sous-agents travaillent dans des worktrees isolés s'ils écrivent en même temps.
 2. **Vérification** : protocole commun, autotests, contrôles dans le navigateur intégré, captures, perf.
 3. **Revue adversariale** : un workflow de relecture sur le diff du jalon, en deux passes.
@@ -1743,6 +1920,7 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
    - compte rendu en français : ce qui marche, comment l'essayer, ce qui reste.
 
 **Ce que je te demanderai**
+
 - Rien pendant l'exécution autonome (décision 13). Les captures de style (créatures en M10) sont jointes à la PR, sans attendre ton avis.
 - Une partie test de 10 min, quand tu le voudras (facultative).
 - Ton accord avant tout gros téléchargement hors `npm install`. En autonomie, je n'en fais aucun : je contourne ou je reporte et je le note.
@@ -1750,6 +1928,7 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 ## Exécution autonome (décision 13)
 
 **Déroulé.**
+
 1. **M3.5 — Passe KISS/DRY/SRP** sur le code de M0 à M3 (voir « M3.5 » dans « Jalons »).
 2. **M4 à M11**, dans l'ordre, chacun avec le protocole commun complet et sa PR.
 3. **Boucle d'amélioration** sans fin tant que tu ne m'interromps pas. Chaque itération :
@@ -1763,6 +1942,7 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
    - est livrée comme une PR `claude/improve-<sujet>` avec le même protocole qu'un jalon (vérification, revue adversariale en deux passes, CI verte, squash-merge).
 
 **Règles d'autonomie.**
+
 - Aucune question, ni via AskUserQuestion ni via les boutons de fin de tour.
 - Quand un choix n'est pas tranché par ce plan, je prends l'option la plus simple qui respecte la spec (KISS). Je note la décision et sa raison dans la description de la PR et, si elle change la spec, dans `docs/conception.md`.
 - Je ne m'arrête jamais sur une CI rouge, une revue négative ou un test qui échoue : je corrige, je revérifie et je repousse. Auto-fix reste activé sur chaque PR.
@@ -1775,27 +1955,28 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 - Chaque jalon et chaque amélioration se termine par un court compte rendu en français, que tu liras au réveil.
 
 **Téléchargements** :
+
 - en local, seulement `npm install` des paquets listés plus haut, depuis le registre npm ;
 - en CI, Playwright télécharge Chromium sur les machines de GitHub.
 
 ## Risques et parades
 
-| Risque | Parade |
-|---|---|
-| Coutures de lumière fausses ou BFS trop coûteux | lumière du worker jamais trop claire, état LIT avec compteurs d'attente, tests contre un BFS de référence, budget en nœuds, vue `light` |
-| À-coups du thread principal (streaming, téléversements, GC) | budgets, transferts, pools, zéro allocation, précompilation des shaders, seuils de perf dès M2 |
-| Le M4 masque des lenteurs sur un M1 | seuils à 0,6× la cible, compteurs durs indépendants de la machine, ralentissement CPU ×1,7, test sur un M1 par toi si possible |
-| Trop de draws sur GPU intégré | sections de 32³, 3 matériaux partagés, frustum culling + culling des grottes, préréglages |
-| Perte du déterminisme | interdictions vérifiées par le test `boundaries`, RNG dans l'état, goldens + `GEN_VERSION`, wrapper du bruit, tests `SerializingSimHost` |
-| `@types/three` sous TS 7 non vérifié | `typecheck` dès M0 ; repli sur `typescript@~6.0.3` |
-| Pointer Lock capricieux (délai après Échap) | machine à états, overlay de reprise, liaison par `code`, `noLock`, pilotage via `__game` |
-| WebGL2 en headless (local Apple Silicon, CI Linux) | premier spec dédié ; en local, mode headed si besoin ; en CI, SwiftShader (activé par Playwright) ; le navigateur intégré reste la référence |
-| CI lente ou instable sur le rendu | la CI ne gère que `verify` et une fumée e2e ; la perf et les vérifications visuelles restent locales |
-| rAF bridé quand le panneau est caché | `step`, `pump`, boucle `MessageChannel` |
-| Perte de données (quota, onglet tué, deux onglets) | `persist()`, écriture immédiate à la sortie de l'onglet, bits `persisted`, drapeaux versionnés, verrou Web Locks, export/import |
-| Perte de contexte WebGL, plantage de worker | copies CPU conservées ; délai de 10 s, puis relance et remise en file |
-| Dérive de périmètre ou d'originalité, équilibrage peu amusant | contenu en données, test d'atteignabilité, checklist d'originalité, `balance.ts` + tests, parties test |
-| three.js recentré sur WebGPU | three confiné à `src/render` et GLSL isolé : un futur portage en TSL reste local |
+| Risque                                                        | Parade                                                                                                                                       |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Coutures de lumière fausses ou BFS trop coûteux               | lumière du worker jamais trop claire, état LIT avec compteurs d'attente, tests contre un BFS de référence, budget en nœuds, vue `light`      |
+| À-coups du thread principal (streaming, téléversements, GC)   | budgets, transferts, pools, zéro allocation, précompilation des shaders, seuils de perf dès M2                                               |
+| Le M4 masque des lenteurs sur un M1                           | seuils à 0,6× la cible, compteurs durs indépendants de la machine, ralentissement CPU ×1,7, test sur un M1 par toi si possible               |
+| Trop de draws sur GPU intégré                                 | sections de 32³, 3 matériaux partagés, frustum culling + culling des grottes, préréglages                                                    |
+| Perte du déterminisme                                         | interdictions vérifiées par le test `boundaries`, RNG dans l'état, goldens + `GEN_VERSION`, wrapper du bruit, tests `SerializingSimHost`     |
+| `@types/three` sous TS 7 non vérifié                          | `typecheck` dès M0 ; repli sur `typescript@~6.0.3`                                                                                           |
+| Pointer Lock capricieux (délai après Échap)                   | machine à états, overlay de reprise, liaison par `code`, `noLock`, pilotage via `__game`                                                     |
+| WebGL2 en headless (local Apple Silicon, CI Linux)            | premier spec dédié ; en local, mode headed si besoin ; en CI, SwiftShader (activé par Playwright) ; le navigateur intégré reste la référence |
+| CI lente ou instable sur le rendu                             | la CI ne gère que `verify` et une fumée e2e ; la perf et les vérifications visuelles restent locales                                         |
+| rAF bridé quand le panneau est caché                          | `step`, `pump`, boucle `MessageChannel`                                                                                                      |
+| Perte de données (quota, onglet tué, deux onglets)            | `persist()`, écriture immédiate à la sortie de l'onglet, bits `persisted`, drapeaux versionnés, verrou Web Locks, export/import              |
+| Perte de contexte WebGL, plantage de worker                   | copies CPU conservées ; délai de 10 s, puis relance et remise en file                                                                        |
+| Dérive de périmètre ou d'originalité, équilibrage peu amusant | contenu en données, test d'atteignabilité, checklist d'originalité, `balance.ts` + tests, parties test                                       |
+| three.js recentré sur WebGPU                                  | three confiné à `src/render` et GLSL isolé : un futur portage en TSL reste local                                                             |
 
 ## Hors périmètre v1
 
