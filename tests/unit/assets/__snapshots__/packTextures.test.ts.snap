@@ -1,0 +1,30 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`base pack textures > generates every texture deterministically 1`] = `
+{
+  "tex:clay": "1099753e",
+  "tex:copper_ore": "698fafd2",
+  "tex:darkstone": "3443e232",
+  "tex:dirt": "e90980c3",
+  "tex:foliage": "125f4f1b",
+  "tex:gate": "84fb1a25",
+  "tex:glass": "8fe7d105",
+  "tex:grass_side": "b91feb7a",
+  "tex:grass_top": "cb4e35b1",
+  "tex:gravel": "210f2dee",
+  "tex:kiln_front": "82318711",
+  "tex:kiln_front_lit": "7ee61b85",
+  "tex:kiln_side": "c02ea6f7",
+  "tex:kiln_top": "149e0fe2",
+  "tex:log_bark": "a2ffd0fa",
+  "tex:log_rings": "cbfe9c59",
+  "tex:planks": "781eb583",
+  "tex:sand": "6a5e4bea",
+  "tex:stone": "b6a29c69",
+  "tex:tall_grass": "79ea338d",
+  "tex:torch": "3c5131ed",
+  "tex:unknown": "9f2e39c5",
+  "tex:water": "c3382b5",
+  "tex:worldrock": "17e32bc9",
+}
+`;

@@ -15,6 +15,20 @@ export const en = {
   'error.fatal.title': 'Something went wrong',
   'error.fatal.intro': 'The game hit an unexpected error and had to stop.',
   'error.fatal.reload': 'Reload',
+  'hint.freecam':
+    'Free camera — click to look around, fly with the movement keys, Space and C to rise and sink, Shift to go faster.',
+  'debug.title': 'Debug',
+  'debug.fps': 'FPS',
+  'debug.frame': 'Frame work p95',
+  'debug.draws': 'Draw calls',
+  'debug.triangles': 'Triangles',
+  'debug.sections': 'Sections',
+  'debug.quads': 'Quads',
+  'debug.geometry': 'Geometry',
+  'debug.voxels': 'Voxel memory',
+  'debug.position': 'Position',
+  'debug.facing': 'Facing',
+  'debug.view': 'View',
 } as const;
 
 export type EngineStringKey = keyof typeof en;

@@ -153,3 +153,56 @@ body {
   background: #5c1f1a;
   color: #ffd6cf;
 }
+
+.debug-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 230px;
+  padding: 10px 12px 8px;
+  border: 1px solid rgba(232, 176, 74, 0.35);
+  border-radius: var(--radius);
+  background: var(--c-panel);
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.debug-overlay h2 {
+  margin: 0 0 6px;
+  color: var(--c-accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.debug-body {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 14px;
+  margin: 0;
+}
+
+.debug-body dt {
+  color: var(--c-ink-muted);
+}
+
+.debug-body dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.hint-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--c-panel);
+  color: var(--c-ink-muted);
+  font-size: 0.82rem;
+  text-align: center;
+  pointer-events: none;
+}

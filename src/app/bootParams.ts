@@ -13,6 +13,8 @@ export interface BootParams {
   readonly fixedStep: boolean;
   readonly selftest: string | null;
   readonly mute: boolean;
+  /** Debug render view: quads, ao or light. */
+  readonly view: string | null;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -28,6 +30,7 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   fixedStep: false,
   selftest: null,
   mute: false,
+  view: null,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
@@ -52,5 +55,6 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     fixedStep: flag(params, 'fixedStep'),
     selftest: params.get('selftest'),
     mute: flag(params, 'mute'),
+    view: params.get('view'),
   };
 }
