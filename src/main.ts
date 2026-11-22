@@ -14,7 +14,7 @@ if (__DEBUG_HOOK__) {
 await app.start();
 
 if (__DEBUG_HOOK__ && app.params.selftest) {
+  // The 'app is ready' case reports boot failures; a banner is always shown.
   const { runSelftests } = await import('./app/selftest/runner.ts');
-  await app.ready();
   await runSelftests(app, app.params.selftest);
 }

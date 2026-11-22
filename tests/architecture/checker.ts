@@ -90,11 +90,40 @@ export function lex(source: string): Lexed {
   const noComments = source.split('');
   const codeOnly = source.split('');
   const strings: { value: string; start: number; end: number }[] = [];
-  let i = 0;
   const n = source.length;
   const blank = (arr: string[], from: number, to: number) => {
     for (let k = from; k < to; k++) if (arr[k] !== '\n') arr[k] = ' ';
   };
+  /** Brace depth of each open `${…}` expression; non-empty while inside a template substitution. */
+  const exprDepth: number[] = [];
+
+  /** Scans a template literal from just after a backtick or a closing `}`; returns the next index. */
+  const scanTemplate = (from: number): number => {
+    let j = from;
+    while (j < n) {
+      const c = source[j]!;
+      if (c === '\\') {
+        j += 2;
+        continue;
+      }
+      if (c === '`') {
+        strings.push({ value: source.slice(from, j), start: from - 1, end: j + 1 });
+        blank(codeOnly, from, j);
+        return j + 1;
+      }
+      if (c === '$' && source[j + 1] === '{') {
+        strings.push({ value: source.slice(from, j), start: from - 1, end: j });
+        blank(codeOnly, from, j);
+        exprDepth.push(0);
+        return j + 2;
+      }
+      j++;
+    }
+    blank(codeOnly, from, n);
+    return n;
+  };
+
+  let i = 0;
   while (i < n) {
     const c = source[i]!;
     const next = source[i + 1];
@@ -110,17 +139,29 @@ export function lex(source: string): Lexed {
       blank(noComments, i, stop);
       blank(codeOnly, i, stop);
       i = stop;
-    } else if (c === "'" || c === '"' || c === '`') {
+    } else if (c === "'" || c === '"') {
       let j = i + 1;
-      while (j < n && source[j] !== c) {
+      while (j < n && source[j] !== c && source[j] !== '\n') {
         if (source[j] === '\\') j++;
-        if (c !== '`' && source[j] === '\n') break;
         j++;
       }
       const end = Math.min(n, j + 1);
       strings.push({ value: source.slice(i + 1, j), start: i, end });
       blank(codeOnly, i + 1, j);
       i = end;
+    } else if (c === '`') {
+      i = scanTemplate(i + 1);
+    } else if (exprDepth.length > 0 && c === '{') {
+      exprDepth[exprDepth.length - 1]!++;
+      i++;
+    } else if (exprDepth.length > 0 && c === '}') {
+      if (exprDepth[exprDepth.length - 1] === 0) {
+        exprDepth.pop();
+        i = scanTemplate(i + 1);
+      } else {
+        exprDepth[exprDepth.length - 1]!--;
+        i++;
+      }
     } else {
       i++;
     }
@@ -262,17 +303,38 @@ export function checkArchitecture(files: Readonly<Record<string, string>>): Viol
   return violations;
 }
 
-/** String literals passed as children (3rd argument onwards) of `h(...)` calls. */
+/**
+ * Literal text passed as children (3rd argument onwards) of `h(...)` calls, including text hidden
+ * in expressions (ternaries, `||`…). Strings inside nested `h(…)` and `t(…)` calls are ignored:
+ * nested `h` calls are checked on their own, and `t('key')` is the allowed way to show text.
+ */
 function hTextLiterals(code: string): string[] {
   const found: string[] = [];
   for (const m of code.matchAll(/(?<![.\w$])h\(/g)) {
     const args = splitArgs(code, m.index! + m[0].length);
-    args.slice(2).forEach((arg) => {
-      const trimmed = arg.trim();
-      if (/^['"`]/.test(trimmed) && /[A-Za-z]/.test(trimmed)) found.push(trimmed);
-    });
+    for (const arg of args.slice(2)) {
+      const stripped = stripCalls(stripCalls(arg, 'h'), 't');
+      for (const literal of lex(stripped).strings) {
+        if (/[A-Za-z]/.test(literal.value)) found.push(literal.value);
+      }
+    }
   }
   return found;
+}
+
+/** Replaces every `name(…)` call (balanced parentheses) with spaces. */
+function stripCalls(code: string, name: string): string {
+  const re = new RegExp(`(?<![.\\w$])${name}\\(`, 'g');
+  let out = code;
+  for (;;) {
+    re.lastIndex = 0;
+    const m = re.exec(out);
+    if (!m) return out;
+    const open = m.index + m[0].length;
+    const args = splitArgs(out, open);
+    const length = m[0].length + args.join(',').length + 1;
+    out = out.slice(0, m.index) + ' '.repeat(length) + out.slice(m.index + length);
+  }
 }
 
 function splitArgs(code: string, start: number): string[] {

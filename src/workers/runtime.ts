@@ -7,14 +7,23 @@ import type { HostMessage, WorkerPort } from '../world/protocol.ts';
 export function startWorldWorker(port: WorkerPort): void {
   let workerIndex = -1;
   port.listen((message: HostMessage) => {
-    switch (message.type) {
-      case 'init':
-        workerIndex = message.workerIndex;
-        port.post({ type: 'ready', workerIndex });
-        break;
-      case 'ping':
-        port.post({ type: 'pong', id: message.id, workerIndex });
-        break;
+    try {
+      switch (message.type) {
+        case 'init':
+          workerIndex = message.workerIndex;
+          port.post({ type: 'ready', workerIndex });
+          break;
+        case 'ping':
+          port.post({ type: 'pong', id: message.id, workerIndex });
+          break;
+      }
+    } catch (error) {
+      const id = 'id' in message ? message.id : -1;
+      port.post({
+        type: 'error',
+        id,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 }

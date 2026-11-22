@@ -29,8 +29,20 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
       },
     },
     {
-      name: 'renderer draws the test cube',
-      run: () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      name: 'renderer draws the test cube with valid shaders',
+      run: async (app) => {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const info = app.renderer?.webgl.info;
+        assert(info, 'no renderer');
+        assert(info.render.calls >= 1, `draw calls: ${info.render.calls}`);
+        assert(info.render.triangles === 12, `triangles: ${info.render.triangles}`);
+        const programs = (info.programs ?? []) as { diagnostics?: { runnable: boolean } }[];
+        assert(programs.length > 0, 'no shader program');
+        assert(
+          programs.every((p) => p.diagnostics?.runnable !== false),
+          'a shader program failed to compile or link',
+        );
+      },
     },
     {
       name: 'no errors and no missing strings',

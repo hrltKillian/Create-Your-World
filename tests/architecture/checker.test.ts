@@ -68,3 +68,35 @@ describe('architecture checker', () => {
     expect(extractImports("import { type A, B } from './a.ts';")[0]?.typeOnly).toBe(false);
   });
 });
+
+describe('architecture checker: template literals and hidden UI text', () => {
+  it('checks code inside template substitutions', () => {
+    expect(rules({ 'src/sim/a.ts': 'const s = `seed-${Math.random()}`;' })).toEqual([
+      'determinism',
+    ]);
+    expect(rules({ 'src/world/gen/a.ts': 'const s = `${Math.sin(1)}`;' })).toEqual([
+      'transcendental',
+    ]);
+    expect(rules({ 'src/workers/runtime.ts': 'const s = `${self.name}`;' })).toEqual([
+      'worker-global',
+    ]);
+    expect(rules({ 'src/sim/a.ts': 'const s = `a ${`nested ${Date.now()}`} b`;' })).toEqual([
+      'determinism',
+    ]);
+    expect(rules({ 'src/sim/a.ts': 'const s = `${{ a: 1 }.a} Math.random`;' })).toEqual([]);
+  });
+
+  it('flags literal text hidden in expressions passed to h()', () => {
+    expect(rules({ 'src/ui/a.ts': "h('p', null, ok ? 'Saved' : 'Saving');" })).toEqual([
+      'ui-text',
+      'ui-text',
+    ]);
+    expect(rules({ 'src/ui/a.ts': "h('p', null, name || 'Nobody');" })).toEqual(['ui-text']);
+    expect(
+      rules({
+        'src/ui/a.ts': "h('ul', null, ...xs.map((x) => h('li', { class: 'row' }, t(`k.${x}`))));",
+      }),
+    ).toEqual([]);
+    expect(rules({ 'src/ui/a.ts': "h('p', null, ok ? t('a') : t('b'));" })).toEqual([]);
+  });
+});

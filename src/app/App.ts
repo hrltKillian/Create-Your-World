@@ -13,12 +13,16 @@ export const MILESTONE = 0;
 
 export type AppState = 'boot' | 'unsupported' | 'fatal' | 'title';
 
+/** Errors kept for `__game.errors()`; later ones are only counted. */
+const MAX_ERRORS = 100;
+
 /** Composition root: capability gate, renderer, workers, screens and the frame loop. */
 export class App {
   state: AppState = 'boot';
   readonly params: BootParams;
   readonly frames = new FrameStats();
   readonly errors: string[] = [];
+  droppedErrors = 0;
   capabilities: CapabilityReport | null = null;
   renderer: Renderer | null = null;
   workers: WorkerPool | null = null;
@@ -63,6 +67,7 @@ export class App {
   }
 
   fail(error: unknown): void {
+    if (this.state === 'fatal') return;
     const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
     this.recordError(detail);
     this.state = 'fatal';
@@ -72,7 +77,8 @@ export class App {
   }
 
   recordError(message: string): void {
-    this.errors.push(message);
+    if (this.errors.length < MAX_ERRORS) this.errors.push(message);
+    else this.droppedErrors++;
   }
 
   private startScene(report: CapabilityReport): void {
@@ -85,14 +91,19 @@ export class App {
     let firstFrame = true;
     let last = -1;
     renderer.webgl.setAnimationLoop((now: number) => {
-      this.frames.frameStart(now);
-      const dt = last < 0 ? 0 : Math.min(now - last, 250) / 1000;
-      last = now;
-      title.frame(dt);
-      this.frames.frameEnd();
-      if (firstFrame) {
-        firstFrame = false;
-        this.resolveReady();
+      try {
+        this.frames.frameStart(now);
+        const dt = last < 0 ? 0 : Math.min(now - last, 250) / 1000;
+        last = now;
+        title.frame(dt);
+        this.frames.frameEnd();
+        if (firstFrame) {
+          firstFrame = false;
+          this.resolveReady();
+        }
+      } catch (error) {
+        // three schedules the next frame before calling us: stop the loop and show the error once.
+        this.fail(error);
       }
     });
 
