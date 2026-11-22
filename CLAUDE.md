@@ -56,11 +56,33 @@ Deterministic boot URL: `http://localhost:5173/?seed=42&storage=memory&noLock=1&
 - Zero allocations in hot loops; budgets are in nodes/ticks inside the sim, never milliseconds.
 - Every persistent state comes with a serializer, a default and a round-trip test. Bump
   `GEN_VERSION` when generation output changes and `SAVE_VERSION` when the save format changes.
-- One source per helper or constant: coordinates in `world/coords.ts` (`blockToColumn`,
-  `columnIndex`, `sectionKey`/`sectionKeyParts`), packed light in `world/light.ts` (`skyOf`,
-  `blockOf`, `FULL_SKY`), angles in `core/angles.ts`, player constants shared by sim, render and
-  input (eye heights, `HOTBAR_SLOTS`) in `core/player.ts`, box-vs-voxel collision in
-  `sim/collision.ts`, pack texture sets in `content/validate.ts` (`textureSets`).
+
+## Code principles (KISS, DRY, SRP)
+
+Decision 12 of `docs/conception.md` (« Principes de code »), for code, tests and tooling alike.
+They never override the rules above (determinism, zero allocations in hot loops, layers, i18n).
+
+- **KISS**: the simplest solution that meets the spec and its tests; no abstraction, option or
+  parameter "for later"; short functions with a linear flow; a hot loop stays readable, every
+  trick commented; no new dependency when a few lines do.
+- **DRY**: each rule, constant or computation lives in one place; extract duplicated logic at its
+  third occurrence at the latest, at the second if it carries a game rule.
+- **SRP**: one module or class, one reason to change. `Simulation` orders the tick and delegates
+  (column pipeline, command rules, players, debug commands); `App` composes, `GameSession` loops.
+  Split a file past ~400 lines or mixing reasons to change, unless it is the core of a hot loop
+  (then say why in a comment at its top).
+- Shared helpers, to import rather than copy:
+  - game numbers: `PHYSICS` (`sim/physics.ts`), `STAMINA` (`sim/player.ts`);
+  - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
+    `insideBorder`); packed light: `world/light.ts` (`skyOf`, `blockOf`, `FULL_SKY`);
+  - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
+    `HOTBAR_SLOTS`): `core/player.ts`;
+  - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
+    pack texture sets: `content/validate.ts` (`textureSets`);
+  - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
+  - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
+  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`);
+    only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
 
 ## Automation
 

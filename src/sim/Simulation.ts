@@ -1,11 +1,7 @@
 import type { Registry } from '../content/registry.ts';
 import { blockToColumn } from '../world/coords.ts';
-import {
-  createGenContext,
-  findSpawn,
-  type GenContext,
-  type WorldType,
-} from '../world/gen/generateColumn.ts';
+import { createGenContext, type GenContext, type WorldType } from '../world/gen/generateColumn.ts';
+import { findSpawn } from '../world/gen/spawn.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';

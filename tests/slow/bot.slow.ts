@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../src/content/registry.ts';
 import { runBot } from '../../src/sim/testing/runBot.ts';
+import { registry } from '../helpers/registry.ts';
 
-const registry = buildRegistry(basePack);
 /** Two in-game days (1 day = 36 000 ticks = 20 min). */
 const TWO_DAYS = 72_000;
 

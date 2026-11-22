@@ -1,20 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry, FLAG_SOLID } from '../../../src/content/registry.ts';
+import { FLAG_SOLID } from '../../../src/content/registry.ts';
 import { CameraRig } from '../../../src/render/CameraRig.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
-import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import type { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import { flatWorld } from '../../helpers/flatWorld.ts';
+import { registry } from '../../helpers/registry.ts';
 
-const registry = buildRegistry(basePack);
 const STONE = registry.defaultState('block:stone');
 const GRASS_PLANT = registry.defaultState('block:tall_grass');
-
-function world(): VoxelWorld {
-  const w = new VoxelWorld(registry.air, registry.unknownBlock);
-  for (let cx = -2; cx <= 2; cx++) for (let cz = -2; cz <= 2; cz++) w.ensureColumn(cx, cz);
-  for (let x = -40; x < 40; x++) for (let z = -40; z < 40; z++) w.setBlock(x, 63, z, STONE);
-  return w;
-}
 
 function solidAt(w: VoxelWorld, x: number, y: number, z: number): boolean {
   const state = w.getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
@@ -49,7 +42,7 @@ function clear(w: VoxelWorld, rig: CameraRig): boolean {
 
 describe('third-person camera', () => {
   it('sits about 4 m behind and 0.5 m above the eye in the open, through plants', () => {
-    const w = world();
+    const w = flatWorld();
     for (let z = 0; z < 8; z++) w.setBlock(0, 64, z, GRASS_PLANT);
     const rig = settle(w, 0.5, 64, 0.5, 0, 0);
     expect(rig.distance).toBeCloseTo(Math.hypot(4, 0.5), 2);
@@ -58,7 +51,7 @@ describe('third-person camera', () => {
   });
 
   it('stops in front of a wall 2 m behind the player', () => {
-    const w = world();
+    const w = flatWorld();
     for (let x = -3; x <= 3; x++) for (let y = 64; y < 69; y++) w.setBlock(x, y, 2, STONE);
     const rig = settle(w, 0.5, 64, 0, 0, 0);
     expect(rig.distance).toBeLessThan(2);
@@ -67,7 +60,7 @@ describe('third-person camera', () => {
   });
 
   it('stays out of a wall the player is leaning against', () => {
-    const w = world();
+    const w = flatWorld();
     for (let x = -3; x <= 3; x++) for (let y = 64; y < 69; y++) w.setBlock(x, y, 1, STONE);
     const rig = settle(w, 0.5, 64, 0.7, 0, 0);
     expect(clear(w, rig)).toBe(true);
@@ -75,7 +68,7 @@ describe('third-person camera', () => {
   });
 
   it('never enters the rock of a two-high, one-wide tunnel, whatever the view', () => {
-    const w = world();
+    const w = flatWorld();
     for (let x = -4; x <= 4; x++) {
       for (let z = -30; z <= 30; z++) {
         for (let y = 64; y <= 67; y++) if (x !== 0 || y >= 66) w.setBlock(x, y, z, STONE);
@@ -90,7 +83,7 @@ describe('third-person camera', () => {
   });
 
   it('stays out of a low ceiling while crouching', () => {
-    const w = world();
+    const w = flatWorld();
     for (let x = -4; x <= 4; x++) for (let z = -8; z <= 8; z++) w.setBlock(x, 66, z, STONE);
     const player = createPlayer(1, 0.5, 64, 0.5, 2);
     player.body.crouching = true;

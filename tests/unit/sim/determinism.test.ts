@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
 import { runBot } from '../../../src/sim/testing/runBot.ts';
-
-const registry = buildRegistry(basePack);
+import { registry } from '../../helpers/registry.ts';
 
 describe('simulation determinism', () => {
   it('gives the same hash on two runs of the wander bot', () => {

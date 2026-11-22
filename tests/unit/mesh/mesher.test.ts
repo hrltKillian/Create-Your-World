@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
 import { Rng } from '../../../src/core/rng.ts';
 import { localIndex } from '../../../src/world/coords.ts';
 import { meshSection, type SectionMesh } from '../../../src/world/mesh/greedyMesher.ts';
@@ -8,8 +6,8 @@ import { createPadded, fillPadded, type PaddedFill } from '../../../src/world/me
 import { packW0, packW1, unpackVertex } from '../../../src/world/mesh/vertexFormat.ts';
 import { pairBit } from '../../../src/world/mesh/visibility.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import { registry } from '../../helpers/registry.ts';
 
-const registry = buildRegistry(basePack);
 const S = (key: string) => registry.defaultState(key as `block:${string}`);
 const STONE = S('block:stone');
 const DIRT = S('block:dirt');

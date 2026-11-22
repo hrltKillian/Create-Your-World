@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
-import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
-import type { SimEvent } from '../../../src/sim/events.ts';
-import { LocalSimHost, SerializingSimHost } from '../../../src/sim/host.ts';
-import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
+import type { InputCommand } from '../../../src/sim/commands.ts';
 import { STAMINA } from '../../../src/sim/player.ts';
 import type { ColumnSource } from '../../../src/sim/ports.ts';
-import { Simulation } from '../../../src/sim/Simulation.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
-
-const registry = buildRegistry(basePack);
+import { createTestSim } from '../../helpers/simHarness.ts';
 
 function world(
   options: {
@@ -20,27 +13,17 @@ function world(
     allowDebug?: boolean;
   } = {},
 ) {
-  const sim = new Simulation({
+  const harness = createTestSim({
     seed: options.seed ?? 'player',
     worldType: options.worldType ?? 'flat',
-    registry,
-    source: new InlineColumnSource(registry),
-    maxInFlight: 8,
     allowDebug: options.allowDebug ?? true,
+    serialize: options.serialize,
   });
-  sim.addPlayer(1, 2);
-  const host = options.serialize ? new SerializingSimHost(sim) : new LocalSimHost(sim);
-  const events: SimEvent[] = [];
-  const tick = (n: number, input: Partial<InputCommand> = {}) => {
-    for (let i = 0; i < n; i++) {
-      host.send({ ...NEUTRAL_INPUT, ...input });
-      host.advance(1, events);
-    }
-  };
+  const player = harness.sim.addPlayer(1, 2);
   // Load the area around the spawn and let the player settle.
-  host.pumpWorld({ columns: 200 }, events);
-  tick(60);
-  return { sim, host, tick, events, player: sim.players.get(1)! };
+  harness.host.pumpWorld({ columns: 200 }, harness.events);
+  harness.tick(60);
+  return { ...harness, player };
 }
 
 describe('player in the simulation', () => {
@@ -92,18 +75,14 @@ describe('player in the simulation', () => {
   it('freezes the player until its column is ready', () => {
     // A source that never delivers anything.
     const source: ColumnSource = { connect: () => {}, request: () => {} };
-    const sim = new Simulation({
+    const { sim, step } = createTestSim({
       seed: 'frozen',
       worldType: 'flat',
-      registry,
-      source,
-      maxInFlight: 8,
       allowDebug: true,
+      source,
     });
     const player = sim.addPlayer(1, 2);
-    const host = new LocalSimHost(sim);
-    const events: SimEvent[] = [];
-    for (let i = 0; i < 60; i++) host.advance(1, events);
+    step(60);
     expect(player.body.y).toBe(sim.spawn.y);
   });
 
