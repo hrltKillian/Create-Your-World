@@ -33,6 +33,7 @@ const idle: MoveInput = {
   forward: 0,
   strafe: 0,
   jump: false,
+  jumpAllowed: true,
   sprint: false,
   crouch: false,
   yaw: 0,
@@ -163,25 +164,106 @@ describe('player physics', () => {
     expect(body.inWater).toBe(false);
   });
 
-  it('cannot climb a bank two blocks above the water', () => {
+  it('cannot climb a bank two blocks above the water, and does not leap against it', () => {
     const { body } = swimToBank(3, 2);
     expect(body.z).toBeGreaterThan(-2);
-    expect(body.feetInWater || body.y < 67 + 2).toBe(true);
+    expect(body.y).toBeLessThan(67 + 0.3);
   });
 
-  it('jumps normally when standing in shallow water', () => {
+  it.each([
+    [1, 0],
+    [1, 1],
+    [2, 1],
+    [3, 0],
+    [3, 1],
+  ])(
+    'climbs out from rest against the bank (%i deep, bank +%i) on the first try',
+    (depth, above) => {
+      const world = flat();
+      const surface = 64 + depth;
+      for (let x = -5; x < 5; x++) {
+        for (let z = -2; z < 10; z++)
+          for (let y = 64; y < surface; y++) world.setBlock(x, y, z, WATER);
+        for (let z = -38; z < -2; z++)
+          for (let y = 64; y < surface + above; y++) world.setBlock(x, y, z, STONE);
+      }
+      // Float against the bank without jumping, then hold jump.
+      const body = createBody(0.5, surface - 1, -1.69);
+      for (let i = 0; i < 60; i++)
+        stepBody(body, { ...idle, forward: 1 }, world, registry.tables, DT, out);
+      // Swim up from wherever it floats, then leap: the first leap must land on the bank.
+      let ticks = 0;
+      let leaps = 0;
+      let rising = false;
+      while (ticks < 90 && !(body.onGround && body.y >= surface + above - 1e-3)) {
+        stepBody(body, { ...idle, forward: 1, jump: true }, world, registry.tables, DT, out);
+        const leap = body.vy > PHYSICS.swimUp;
+        if (leap && !rising) leaps++;
+        rising = leap;
+        ticks++;
+      }
+      expect(body.y).toBeCloseTo(surface + above, 3);
+      expect(leaps).toBe(1);
+    },
+  );
+
+  it('swims along a tall cliff without leaping out of the water', () => {
     const world = flat();
-    for (let x = -5; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
-    const body = settle(world, 0.5, 64, 0.5);
-    expect(body.inWater && body.onGround).toBe(true);
-    stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
-    expect(out.jumped).toBe(true);
-    let apex = body.y;
-    for (let i = 0; i < 15; i++) {
-      stepBody(body, idle, world, registry.tables, DT, out);
-      apex = Math.max(apex, body.y);
+    for (let x = -5; x < 10; x++)
+      for (let z = -38; z < 38; z++) for (let y = 64; y < 67; y++) world.setBlock(x, y, z, WATER);
+    for (let x = -8; x < -5; x++)
+      for (let z = -38; z < 38; z++) for (let y = 64; y < 75; y++) world.setBlock(x, y, z, STONE);
+    const body = createBody(-4.6, 66, 30);
+    let maxY = 0;
+    for (let i = 0; i < 300; i++) {
+      // Heading north, turned slightly west into the cliff.
+      stepBody(
+        body,
+        { ...idle, forward: 1, jump: true, yaw: 0.15 },
+        world,
+        registry.tables,
+        DT,
+        out,
+      );
+      if (i > 60) maxY = Math.max(maxY, body.y);
     }
-    expect(apex - 64).toBeGreaterThan(0.6);
+    expect(body.x).toBeLessThan(-5 + 0.31);
+    expect(maxY).toBeLessThan(67 + 0.01);
+  });
+
+  it('jumps normally when standing in shallow water, tapped or held', () => {
+    for (const held of [1, 3, 30]) {
+      const world = flat();
+      for (let x = -5; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
+      const body = settle(world, 0.5, 64, 0.5);
+      expect(body.inWater && body.onGround).toBe(true);
+      let apex = body.y;
+      for (let i = 0; i < 30; i++) {
+        stepBody(body, { ...idle, jump: i < held }, world, registry.tables, DT, out);
+        apex = Math.max(apex, body.y);
+      }
+      expect(apex - 64).toBeCloseTo(1.26, 1);
+    }
+  });
+
+  it('does not jump without stamina, on land or in shallow water, but still swims up', () => {
+    const world = flat();
+    for (let x = 0; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
+    // On land: no lift at all. In water the swimmer still bobs up (about 0.84), below a jump (1.26).
+    for (const [x, limit] of [
+      [-2.5, 0.001],
+      [2.5, 0.9],
+    ] as const) {
+      const body = settle(world, x, 64, 0.5);
+      let apex = body.y;
+      const tired = { ...idle, jump: true, jumpAllowed: false };
+      for (let i = 0; i < 20; i++) {
+        stepBody(body, tired, world, registry.tables, DT, out);
+        expect(out.jumped).toBe(false);
+        apex = Math.max(apex, body.y);
+      }
+      expect(apex - 64).toBeLessThan(limit);
+    }
   });
 
   it('collides with box shapes (closed gate) but not open ones', () => {

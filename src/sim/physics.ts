@@ -2,6 +2,7 @@ import {
   COLLISION_BOXES,
   COLLISION_FULL,
   COLLISION_LIQUID,
+  FLAG_SOLID,
   type RawTables,
 } from '../content/registry.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
@@ -27,11 +28,8 @@ export const PHYSICS = {
   coyoteTicks: 3,
   jumpBufferTicks: 3,
   swimUp: 3.2,
-  /**
-   * Upward speed while swimming at the surface against a wall with jump held: enough to lift the
-   * feet a little over one block above the water, so every bank of height ≤ 1 can be climbed.
-   */
-  waterExit: 8,
+  /** Height the feet clear above a bank's top when climbing out of water. */
+  bankClearance: 0.1,
   epsilon: 1e-4,
 } as const;
 
@@ -49,8 +47,9 @@ export interface Body {
   /** The feet touch a liquid (water exit boost). */
   feetInWater: boolean;
   headInWater: boolean;
-  /** A horizontal move was blocked last tick (climbing out of water). */
-  hitWall: boolean;
+  /** Direction (−1, 0, 1) of horizontal moves blocked last tick, per axis (climbing out of water). */
+  wallX: number;
+  wallZ: number;
   crouching: boolean;
   /** Ticks since the body last stood on ground (coyote time). */
   airTicks: number;
@@ -65,7 +64,10 @@ export interface MoveInput {
   /** −1…1 along the view (forward) and to the right (strafe). */
   forward: number;
   strafe: number;
+  /** Jump key held (swimming up and climbing out of water need nothing more). */
   jump: boolean;
+  /** A real jump may start (the simulation clears it when stamina is too low). */
+  jumpAllowed: boolean;
   sprint: boolean;
   crouch: boolean;
   /** Radians, 0 looks north (−z). */
@@ -92,7 +94,8 @@ export function createBody(x: number, y: number, z: number): Body {
     inWater: false,
     feetInWater: false,
     headInWater: false,
-    hitWall: false,
+    wallX: 0,
+    wallZ: 0,
     crouching: false,
     airTicks: 0,
     jumpTicks: 99,
@@ -246,6 +249,35 @@ function overlapsSolid(world: VoxelWorld, tables: RawTables): boolean {
   return false;
 }
 
+function solidCell(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number): boolean {
+  const state = world.getBlock(x, y, z);
+  return (tables.flags[state]! & FLAG_SOLID) !== 0 || state === world.outside;
+}
+
+/**
+ * Upward speed that lifts the feet `bankClearance` over the bank the body is swimming into, when
+ * that bank's top is at most one block above the water surface and has head room; 0 otherwise
+ * (cliffs, piers too high, underwater steps): then the swimmer just swims up.
+ */
+function waterExitSpeed(body: Body, world: VoxelWorld, tables: RawTables): number {
+  if (body.wallX === 0 && body.wallZ === 0) return 0;
+  const bx = Math.floor(body.x);
+  const bz = Math.floor(body.z);
+  // Surface: the first non-liquid cell above the feet.
+  let surface = Math.floor(body.y + 0.05);
+  for (let i = 0; i < 3 && isLiquid(world, tables, bx, surface, bz); i++) surface++;
+  const reach = PHYSICS.width / 2 + 0.05;
+  const cx = body.wallX !== 0 ? Math.floor(body.x + body.wallX * reach) : bx;
+  const cz = body.wallX === 0 ? Math.floor(body.z + body.wallZ * reach) : bz;
+  let top: number;
+  if (solidCell(world, tables, cx, surface, cz)) top = surface + 1;
+  else if (solidCell(world, tables, cx, surface - 1, cz)) top = surface;
+  else return 0;
+  if (solidCell(world, tables, cx, top, cz) || solidCell(world, tables, cx, top + 1, cz)) return 0;
+  const rise = top + PHYSICS.bankClearance - body.y;
+  return rise > 0 ? Math.sqrt(2 * PHYSICS.gravity * rise) : 0;
+}
+
 function isLiquid(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number): boolean {
   return (
     tables.collision[world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))] ===
@@ -338,27 +370,34 @@ export function stepBody(
   if (input.jump && !body.jumpHeldLast) body.jumpTicks = 0;
   else body.jumpTicks++;
   body.jumpHeldLast = input.jump;
-  // Swimming at the surface into a bank with jump held climbs out (the feet clear one block).
-  const climbOut = input.jump && body.hitWall && body.feetInWater && !body.headInWater;
+  // Swimming at the surface into a climbable bank with jump held lifts the feet onto it.
+  const exit =
+    input.jump && body.feetInWater && !body.headInWater ? waterExitSpeed(body, world, tables) : 0;
   let dy: number;
   if (body.inWater) {
-    const g = PHYSICS.gravity * 0.25;
-    if (body.onGround && body.jumpTicks <= PHYSICS.jumpBufferTicks && !body.headInWater) {
+    if (
+      input.jumpAllowed &&
+      body.onGround &&
+      body.jumpTicks <= PHYSICS.jumpBufferTicks &&
+      !body.headInWater
+    ) {
       // Standing in shallow water: a normal jump.
       body.vy = PHYSICS.jump;
       body.jumpTicks = 99;
       body.onGround = false;
       out.jumped = true;
-    } else if (climbOut) {
-      body.vy = Math.max(body.vy, PHYSICS.waterExit);
-    } else if (input.jump) {
+    } else if (exit > 0) {
+      body.vy = Math.max(body.vy, exit);
+    } else if (input.jump && body.vy < PHYSICS.swimUp) {
       body.vy = Math.min(PHYSICS.swimUp, body.vy + 30 * dt);
     }
+    // Water slows swimming speeds only: a jump or a climb out keeps full gravity.
+    const g = body.vy > PHYSICS.swimUp ? PHYSICS.gravity : PHYSICS.gravity * 0.25;
     dy = body.vy * dt - 0.5 * g * dt * dt;
     body.vy = Math.max(-PHYSICS.swim * 1.5, body.vy - g * dt);
   } else {
-    if (climbOut) body.vy = Math.max(body.vy, PHYSICS.waterExit);
-    const canJump = body.onGround || body.airTicks <= PHYSICS.coyoteTicks;
+    if (exit > 0) body.vy = Math.max(body.vy, exit);
+    const canJump = input.jumpAllowed && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
     if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
       body.vy = PHYSICS.jump;
       body.jumpTicks = 99;
@@ -391,7 +430,8 @@ export function stepBody(
   }
 
   // X then Z; crouching on the ground never walks off an edge.
-  body.hitWall = false;
+  body.wallX = 0;
+  body.wallZ = 0;
   for (const axis of HORIZONTAL_AXES) {
     const delta = (axis === 0 ? body.vx : body.vz) * dt;
     if (delta === 0) continue;
@@ -406,9 +446,13 @@ export function stepBody(
       continue;
     }
     if (moved !== delta) {
-      if (axis === 0) body.vx = 0;
-      else body.vz = 0;
-      body.hitWall = true;
+      if (axis === 0) {
+        body.vx = 0;
+        body.wallX = Math.sign(delta);
+      } else {
+        body.vz = 0;
+        body.wallZ = Math.sign(delta);
+      }
     }
   }
 

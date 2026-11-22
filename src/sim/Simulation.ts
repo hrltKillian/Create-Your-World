@@ -10,7 +10,7 @@ import {
 } from '../world/gen/generateColumn.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
-import type { Command, InputCommand, StampedCommand } from './commands.ts';
+import { type Command, type InputCommand, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import { PHYSICS, type StepResult, stepBody } from './physics.ts';
 import { createPlayer, type PlayerState, restStamina, STAMINA, spendStamina } from './player.ts';
@@ -211,7 +211,8 @@ export class Simulation {
       {
         forward: input.forward,
         strafe: input.strafe,
-        jump: input.jump && (player.stamina >= STAMINA.jump || body.inWater),
+        jump: input.jump,
+        jumpAllowed: player.stamina >= STAMINA.jump,
         sprint: input.sprint && canSprint,
         crouch: input.crouch,
         yaw: input.yaw,
@@ -234,6 +235,8 @@ export class Simulation {
 
   /** Integrates and requests outside play (loading screen, tests). */
   pump(columns: number, out: SimEvent[]): void {
+    // Commands sent while no tick runs (paused, loading) still take effect.
+    this.applyCommands(out);
     this.integrate(columns, out);
     this.stream(out);
   }
@@ -266,7 +269,7 @@ export class Simulation {
   private apply(playerId: number, command: Command, out: SimEvent[]): void {
     switch (command.type) {
       case 'client.view': {
-        if (!finite(command.x, command.z, command.radius)) {
+        if (!finite(command.x, command.z, command.radius) || !insideBorder(command.x, command.z)) {
           out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
           break;
         }
@@ -284,8 +287,13 @@ export class Simulation {
       case 'input': {
         const player = this.players.get(playerId);
         if (!player) break;
-        if (validInput(command)) player.input = command;
-        else out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
+        if (validInput(command)) {
+          player.input = command;
+        } else {
+          // Never keep stale held buttons after a bad command.
+          player.input = { ...NEUTRAL_INPUT, yaw: player.yaw, pitch: player.pitch };
+          out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
+        }
         break;
       }
       case 'debug.teleport':
@@ -332,7 +340,7 @@ export class Simulation {
     const y1 = Math.min(WORLD_HEIGHT - 1, Math.floor(Math.max(c.y0, c.y1)));
     const z0 = Math.floor(Math.min(c.z0, c.z1));
     const z1 = Math.floor(Math.max(c.z0, c.z1));
-    if (y0 > y1) {
+    if (y0 > y1 || !insideBorder(x0, z0) || !insideBorder(x1, z1)) {
       out.push({ type: 'rejected', playerId, command: c.type, reason: 'outside the world' });
       return;
     }

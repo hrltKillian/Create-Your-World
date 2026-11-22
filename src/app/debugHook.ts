@@ -1,3 +1,4 @@
+import { clampPitch } from '../core/angles.ts';
 import { i18nMissing } from '../i18n/i18n.ts';
 import type { Action } from '../input/bindings.ts';
 import { rigDegrees } from '../render/rigs.ts';
@@ -90,7 +91,7 @@ export function installDebugHook(app: App): void {
       look: (yaw: number, pitch: number) => {
         if (!app.session) return;
         app.session.rig.yaw = yaw;
-        app.session.rig.pitch = pitch;
+        app.session.rig.pitch = clampPitch(pitch);
       },
       /** Holds an action for `ticks` ticks; in fixed-step mode it also advances those ticks. */
       press: (action: Action, ticks = 1) => {

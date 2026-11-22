@@ -16,6 +16,8 @@ import {
 /** How far the upper body sinks when crouching (blocks): standing 1.8 → crouching 1.5 box. */
 const CROUCH_DROP = 0.25;
 
+function skipBox(): void {}
+
 interface Tracked {
   rig: RigState;
   lastX: number;
@@ -88,12 +90,15 @@ export class EntityView {
     motion.pitch = player.pitch;
     motion.dt = dt;
     animate(tracked.rig, motion);
-    if (!visible) return;
-    const light = this.world.getLight(Math.floor(x), Math.floor(y + 1), Math.floor(z));
-    this.sky = (light >> 4) / 15;
-    this.block = (light & 15) / 15;
+    if (visible) {
+      const light = this.world.getLight(Math.floor(x), Math.floor(y + 1), Math.floor(z));
+      this.sky = (light >> 4) / 15;
+      this.block = (light & 15) / 15;
+    }
+    // Posed even when hidden (first person), so the rig's measurements stay current.
     this.root.makeRotationY(player.yaw).setPosition(x, y, z);
     const crouchDrop = b.crouching ? CROUCH_DROP : 0;
-    poseModel(model, tracked.rig, this.root, crouchDrop, this.addBox, this.scratch);
+    const visit = visible ? this.addBox : skipBox;
+    poseModel(model, tracked.rig, this.root, crouchDrop, visit, this.scratch);
   }
 }

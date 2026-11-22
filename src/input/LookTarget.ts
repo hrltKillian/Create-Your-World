@@ -6,8 +6,4 @@ export interface LookTarget {
   addLook(dYaw: number, dPitch: number): void;
 }
 
-export const PITCH_LIMIT = (89 * Math.PI) / 180;
-
-export function clampPitch(pitch: number): number {
-  return Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
-}
+export { clampPitch } from '../core/angles.ts';

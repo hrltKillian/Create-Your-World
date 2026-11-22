@@ -5,6 +5,7 @@ import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { LocalSimHost } from '../../../src/sim/host.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
+import type { ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
 import { Simulation } from '../../../src/sim/Simulation.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 
@@ -35,7 +36,7 @@ const rejected = (events: SimEvent[]) =>
   events.filter((e) => e.type === 'rejected').map((e) => e.type === 'rejected' && e.reason);
 
 describe('command validation', () => {
-  it('rejects non-finite or out-of-range input and keeps the previous input', () => {
+  it('rejects non-finite or out-of-range input and stops the player instead of keeping stale keys', () => {
     const { host, player, events, step } = setup();
     const bad: InputCommand[] = [
       { ...NEUTRAL_INPUT, forward: Number.NaN },
@@ -45,13 +46,14 @@ describe('command validation', () => {
       { ...NEUTRAL_INPUT, slot: 8 },
       { ...NEUTRAL_INPUT, slot: 1.5 },
     ];
-    host.send({ ...NEUTRAL_INPUT, forward: 1 });
+    host.send({ ...NEUTRAL_INPUT, forward: 1, yaw: 0.5 });
     step();
     events.length = 0;
     for (const command of bad) host.send(command);
     step();
     expect(rejected(events)).toEqual(bad.map(() => 'invalid'));
-    expect(player.input.forward).toBe(1);
+    expect(player.input.forward).toBe(0);
+    expect(player.input.yaw).toBe(0.5);
     expect(Number.isFinite(player.body.x)).toBe(true);
   });
 
@@ -124,6 +126,31 @@ describe('command validation', () => {
   });
 });
 
+describe('stamina gate', () => {
+  it('refuses real jumps without stamina in shallow water, as on land', () => {
+    const { host, player, step } = setup('flat');
+    const apex = (water: boolean) => {
+      const fill = water ? 'block:fresh_water' : 'block:air';
+      host.send({ type: 'debug.fill', x0: -3, y0: 65, z0: -3, x1: 3, y1: 65, z1: 3, state: fill });
+      host.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });
+      step(30);
+      host.send({ type: 'debug.setStat', stat: 'stamina', value: 0 });
+      // A one-tick tap: a real jump would rise 1.26.
+      host.send({ ...NEUTRAL_INPUT, jump: true });
+      step();
+      host.send({ ...NEUTRAL_INPUT });
+      let top = player.body.y;
+      for (let i = 0; i < 20; i++) {
+        step();
+        top = Math.max(top, player.body.y);
+      }
+      return top - 65;
+    };
+    expect(apex(false)).toBeLessThan(0.001);
+    expect(apex(true)).toBeLessThan(0.3);
+  });
+});
+
 describe('entities', () => {
   it('gives players unique entity ids and finds them through the spatial hash', () => {
     const { sim, host, player, step } = setup();
@@ -143,10 +170,11 @@ describe('entities', () => {
 });
 
 describe('state hash', () => {
-  it('changes with a block edit, a new input and a moved entity, and ignores storage form', () => {
-    const { sim, host, step } = setup();
-    const base = stateHash(sim);
-    host.send({
+  it('differs when only a block edit, an input or an entity position differs', () => {
+    const a = setup();
+    const b = setup();
+    expect(stateHash(a.sim)).toBe(stateHash(b.sim));
+    a.host.send({
       type: 'debug.fill',
       x0: 5,
       y0: 70,
@@ -156,18 +184,113 @@ describe('state hash', () => {
       z1: 5,
       state: 'block:stone',
     });
-    step();
-    const edited = stateHash(sim);
-    expect(edited).not.toBe(base);
-    // Expanding then compacting a section's storage does not change the hash.
-    const section = sim.world.getColumn(0, 0)!.sections[2]!;
+    a.step();
+    b.step();
+    expect(stateHash(a.sim)).not.toBe(stateHash(b.sim));
+
+    const c = setup();
+    const d = setup();
+    c.host.send({ ...NEUTRAL_INPUT, secondary: true });
+    d.host.send({ ...NEUTRAL_INPUT });
+    c.step();
+    d.step();
+    expect(stateHash(c.sim)).not.toBe(stateHash(d.sim));
+
+    const e = setup();
+    const f = setup();
+    e.host.send({
+      type: 'debug.teleport',
+      x: e.player.body.x + 3,
+      y: 'surface',
+      z: e.player.body.z,
+    });
+    e.step();
+    f.step();
+    expect(stateHash(e.sim)).not.toBe(stateHash(f.sim));
+  });
+
+  it('ignores how sections are stored (uniform or expanded blocks and light)', () => {
+    const { sim } = setup();
+    const section = sim.world.getColumn(0, 0)!.sections[5]!;
+    expect(section.blocks).toBeNull();
+    const before = stateHash(sim);
+    const stone = registry.defaultState('block:stone');
+    sim.world.setBlock(3, 5 * 32 + 3, 3, stone);
+    sim.world.setBlock(3, 5 * 32 + 3, 3, registry.air);
+    expect(section.blocks).not.toBeNull();
+    expect(stateHash(sim)).toBe(before);
+    section.setLight(7, 0x30);
+    section.setLight(7, section.uniformLight);
+    expect(section.light).not.toBeNull();
+    expect(stateHash(sim)).toBe(before);
     section.compact();
-    expect(stateHash(sim)).toBe(edited);
-    host.send({ ...NEUTRAL_INPUT, secondary: true });
+    expect(section.blocks).toBeNull();
+    expect(stateHash(sim)).toBe(before);
+  });
+
+  it('does not depend on the order in which generated columns arrive', () => {
+    /** Delivers each tick's requests in reverse order, one tick late. */
+    class ReversedSource implements ColumnSource {
+      readonly inner = new InlineColumnSource(registry);
+      private pending: [WorldSpec, number, number][] = [];
+      request(world: WorldSpec, cx: number, cz: number): void {
+        this.pending.push([world, cx, cz]);
+      }
+      flush(): void {
+        const batch = this.pending.reverse();
+        this.pending = [];
+        for (const [world, cx, cz] of batch) this.inner.request(world, cx, cz);
+      }
+    }
+    const run = (reversed: boolean) => {
+      const inline = new InlineColumnSource(registry);
+      const late = new ReversedSource();
+      const source = reversed ? late : inline;
+      const sim = new Simulation({ seed: 'order', registry, source, maxInFlight: 8 });
+      (reversed ? late.inner : inline).connect((r) => sim.deliver(r));
+      const host = new LocalSimHost(sim, 1);
+      host.send({ type: 'client.view', x: 40, z: -70, radius: 2, detached: true });
+      const events: SimEvent[] = [];
+      for (let i = 0; i < 200; i++) {
+        host.advance(1, events);
+        late.flush();
+      }
+      return sim;
+    };
+    const a = run(false);
+    const b = run(true);
+    expect(b.world.columns.size).toBe(a.world.columns.size);
+    expect(a.world.columns.size).toBeGreaterThan(9);
+    expect(stateHash(b)).toBe(stateHash(a));
+  });
+});
+
+describe('world border', () => {
+  it('refuses fills and views beyond the border instead of wrapping onto loaded columns', () => {
+    const { sim, host, events, step } = setup();
+    const before = sim.world.getBlock(5, 70, 5);
+    events.length = 0;
+    for (const x of [2 ** 53, 2 ** 32 + 5, 1_000_001]) {
+      host.send({
+        type: 'debug.fill',
+        x0: x,
+        y0: 70,
+        z0: 5,
+        x1: x,
+        y1: 70,
+        z1: 5,
+        state: 'block:stone',
+      });
+    }
+    host.send({ type: 'client.view', x: -16, z: 67_108_880, radius: 2, detached: true });
     step();
-    const withInput = stateHash(sim);
-    host.send({ ...NEUTRAL_INPUT });
-    step();
-    expect(stateHash(sim)).not.toBe(withInput);
+    expect(rejected(events)).toEqual([
+      'outside the world',
+      'outside the world',
+      'outside the world',
+      'invalid',
+    ]);
+    expect(sim.world.getBlock(5, 70, 5)).toBe(before);
+    expect(sim.world.getColumn(0, 0)!.cz).toBe(0);
   });
 });

@@ -118,7 +118,7 @@ export class InputManager {
       sprint: this.isDown('sprint'),
       crouch: this.isDown('crouch'),
       yaw: look.yaw,
-      pitch: look.pitch,
+      pitch: clampPitch(look.pitch),
       primary: this.isDown('primary') || this.latched.has('primary'),
       secondary: this.isDown('secondary') || this.latched.has('secondary'),
       slot: this.slot,

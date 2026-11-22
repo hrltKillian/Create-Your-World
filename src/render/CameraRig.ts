@@ -1,4 +1,5 @@
 import type { RawTables } from '../content/registry.ts';
+import { clampPitch } from '../core/angles.ts';
 import type { LookTarget } from '../input/LookTarget.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
@@ -33,7 +34,7 @@ export class CameraRig implements LookTarget {
 
   addLook(dYaw: number, dPitch: number): void {
     this.yaw += dYaw;
-    this.pitch += dPitch;
+    this.pitch = clampPitch(this.pitch + dPitch);
   }
 
   toggleMode(): void {

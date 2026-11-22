@@ -59,7 +59,8 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
   return {
     seed: params.get('seed'),
     skipMenu: flag(params, 'skipMenu'),
-    noLock: flag(params, 'noLock'),
+    // Automated selftests cannot click to capture the mouse.
+    noLock: flag(params, 'noLock') || params.has('selftest'),
     debug: flag(params, 'debug'),
     storage: params.get('storage') === 'memory' ? 'memory' : 'idb',
     forceNoWebGL: flag(params, 'forceNoWebGL'),

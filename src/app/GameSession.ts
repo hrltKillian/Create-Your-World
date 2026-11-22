@@ -24,6 +24,8 @@ import type { FreeCam } from './FreeCam.ts';
 
 const TICK = 1 / TICKS_PER_SECOND;
 const MAX_STEPS = 4;
+/** Closest third-person camera distance (m) at which the avatar is still drawn. */
+const AVATAR_MIN_DISTANCE = 0.6;
 /** Radius (columns) that must be meshed before the loading screen goes away. */
 export const LOADING_RADIUS = 3;
 const PLAYER_ID = 1;
@@ -129,8 +131,8 @@ export class GameSession {
       this.input.applyMouseLook(this.rig);
       if (this.input.consume('camera')) this.rig.toggleMode();
     }
-    if (this.paused) this.acc = 0;
-    else if (!this.fixedStep) {
+    // While paused the accumulator is frozen, so the view stays where it was.
+    if (!this.paused && !this.fixedStep) {
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < MAX_STEPS) {
@@ -225,7 +227,9 @@ export class GameSession {
       Math.floor(pose.y / 32) * 32,
       Math.floor(pose.z / 32) * 32,
     );
-    this.entities.drawPlayer(this.player, alpha, dt, this.rig.mode === 'third');
+    // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
+    const visible = this.rig.mode === 'third' && this.rig.distance >= AVATAR_MIN_DISTANCE;
+    this.entities.drawPlayer(this.player, alpha, dt, visible);
     this.batch.end();
     return pose;
   }
