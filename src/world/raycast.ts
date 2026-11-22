@@ -1,4 +1,4 @@
-import { COLLISION_LIQUID, PASS_NONE, type RawTables } from '../content/registry.ts';
+import { COLLISION_LIQUID, FLAG_SOLID, PASS_NONE, type RawTables } from '../content/registry.ts';
 import type { VoxelWorld } from './VoxelWorld.ts';
 
 /** Result of a voxel raycast. Reused between calls (no allocation). */
@@ -15,13 +15,20 @@ export interface RayHit {
   state: number;
 }
 
+/** What stops a ray: targetable blocks (drawn, not liquid), the same plus liquids, or solids. */
+export const RAY_TARGET = 0;
+export const RAY_TARGET_LIQUIDS = 1;
+/** Blocks with collision, and unloaded columns (camera probes). */
+export const RAY_SOLID = 2;
+export type RayMode = typeof RAY_TARGET | typeof RAY_TARGET_LIQUIDS | typeof RAY_SOLID;
+
 export function createRayHit(): RayHit {
   return { hit: false, x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, distance: 0, state: 0 };
 }
 
 /**
- * Amanatides & Woo voxel traversal. Stops at the first block that is drawn and is not a liquid
- * (targetable), within `maxDistance`. `(dx, dy, dz)` must be normalised.
+ * Amanatides & Woo voxel traversal. Stops at the first block matching `mode` (by default a drawn,
+ * non-liquid block) within `maxDistance`. `(dx, dy, dz)` must be normalised.
  */
 export function raycast(
   world: VoxelWorld,
@@ -34,7 +41,7 @@ export function raycast(
   dz: number,
   maxDistance: number,
   out: RayHit,
-  includeLiquids = false,
+  mode: RayMode = RAY_TARGET,
 ): RayHit {
   let x = Math.floor(ox);
   let y = Math.floor(oy);
@@ -58,10 +65,13 @@ export function raycast(
   out.hit = false;
   while (t <= maxDistance) {
     const state = world.getBlock(x, y, z);
-    const targetable =
-      tables.pass[state] !== PASS_NONE &&
-      (includeLiquids || tables.collision[state] !== COLLISION_LIQUID);
-    if (targetable && state !== world.outside) {
+    const stops =
+      mode === RAY_SOLID
+        ? (tables.flags[state]! & FLAG_SOLID) !== 0 || state === world.outside
+        : state !== world.outside &&
+          tables.pass[state] !== PASS_NONE &&
+          (mode === RAY_TARGET_LIQUIDS || tables.collision[state] !== COLLISION_LIQUID);
+    if (stops) {
       out.hit = true;
       out.x = x;
       out.y = y;

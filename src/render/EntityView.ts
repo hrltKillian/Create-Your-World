@@ -1,10 +1,20 @@
 import { Matrix4 } from 'three';
 import type { Registry } from '../content/registry.ts';
-import type { ModelDef } from '../content/schema.ts';
 import type { PlayerState } from '../sim/player.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { BoxBatch } from './BoxBatch.ts';
-import { animate, createRig, poseModel, type RigState } from './rigs.ts';
+import {
+  animate,
+  createRig,
+  type Motion,
+  type PreparedModel,
+  poseModel,
+  prepareModel,
+  type RigState,
+} from './rigs.ts';
+
+/** How far the upper body sinks when crouching (blocks): standing 1.8 → crouching 1.5 box. */
+const CROUCH_DROP = 0.25;
 
 interface Tracked {
   rig: RigState;
@@ -16,18 +26,34 @@ interface Tracked {
 export class EntityView {
   private readonly batch: BoxBatch;
   private readonly world: VoxelWorld;
-  private readonly avatar: ModelDef | null;
+  private readonly avatar: PreparedModel | null;
   private readonly layers: number[];
   private readonly rigs = new Map<number, Tracked>();
   private readonly root = new Matrix4();
   private readonly scratch: Matrix4[] = [];
+  /** Light of the entity being drawn, read by `addBox` (avoids a closure per entity). */
+  private sky = 1;
+  private block = 0;
+  private readonly motion: { -readonly [K in keyof Motion]: Motion[K] } = {
+    distance: 0,
+    speed: 0,
+    onGround: true,
+    crouching: false,
+    swimming: false,
+    pitch: 0,
+    dt: 0,
+  };
+  private readonly addBox = (i: number, box: Matrix4): void => {
+    this.batch.add(box, this.layers[i]!, this.sky, this.block);
+  };
 
   constructor(batch: BoxBatch, world: VoxelWorld, registry: Registry) {
     this.batch = batch;
     this.world = world;
     const key = registry.pack.manifest.bindings.avatarModel;
-    this.avatar = (registry.pack.models ?? []).find((m) => m.key === key) ?? null;
-    this.layers = (this.avatar?.parts ?? []).map((p) =>
+    const model = (registry.pack.models ?? []).find((m) => m.key === key);
+    this.avatar = model ? prepareModel(model) : null;
+    this.layers = (model?.parts ?? []).map((p) =>
       Math.max(0, registry.textureKeys.indexOf(p.texture)),
     );
   }
@@ -53,28 +79,21 @@ export class EntityView {
     const distance = Math.hypot(x - tracked.lastX, z - tracked.lastZ);
     tracked.lastX = x;
     tracked.lastZ = z;
-    animate(tracked.rig, {
-      distance,
-      speed: Math.hypot(b.vx, b.vz),
-      onGround: b.onGround,
-      crouching: b.crouching,
-      swimming: b.inWater,
-      pitch: player.pitch,
-      dt,
-    });
+    const motion = this.motion;
+    motion.distance = distance;
+    motion.speed = Math.hypot(b.vx, b.vz);
+    motion.onGround = b.onGround;
+    motion.crouching = b.crouching;
+    motion.swimming = b.inWater;
+    motion.pitch = player.pitch;
+    motion.dt = dt;
+    animate(tracked.rig, motion);
     if (!visible) return;
     const light = this.world.getLight(Math.floor(x), Math.floor(y + 1), Math.floor(z));
-    const sky = (light >> 4) / 15;
-    const block = (light & 15) / 15;
+    this.sky = (light >> 4) / 15;
+    this.block = (light & 15) / 15;
     this.root.makeRotationY(player.yaw).setPosition(x, y, z);
-    const crouchDrop = b.crouching ? 0.25 : 0;
-    poseModel(
-      model,
-      tracked.rig,
-      this.root,
-      crouchDrop,
-      (i, box) => this.batch.add(box, this.layers[i]!, sky, block),
-      this.scratch,
-    );
+    const crouchDrop = b.crouching ? CROUCH_DROP : 0;
+    poseModel(model, tracked.rig, this.root, crouchDrop, this.addBox, this.scratch);
   }
 }

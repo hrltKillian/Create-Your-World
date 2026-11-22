@@ -280,25 +280,29 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         session.rig.mode = 'third';
         try {
           const rig = () => session.entities.rig(session.player.id)!;
-          const ticks = async (n: number) => {
-            for (let i = 0; i < n; i++) {
+          // One tick per rendered frame for a wall-clock time, so the display rate does not matter.
+          const play = async (ms: number) => {
+            const t0 = performance.now();
+            while (performance.now() - t0 < ms) {
               session.step(1);
               await nextFrame();
             }
           };
-          app.input!.force('forward', 30);
-          await ticks(30);
+          app.input!.force('forward', 1e6);
+          await play(600);
+          app.input!.force('forward', 0);
           const swing = (rig().amplitude * 180) / Math.PI;
           assert(swing > 20, `walking swing ${swing.toFixed(1)}°`);
-          await ticks(45);
+          await play(1000);
           const idle = (rig().amplitude * 180) / Math.PI;
           assert(idle < 2, `idle swing ${idle.toFixed(1)}°`);
           const standing = rig().headPivotY;
-          app.input!.force('crouch', 10);
-          await ticks(10);
+          app.input!.force('crouch', 1e6);
+          await play(300);
           const crouched = rig().headPivotY;
-          assert(crouched < standing - 0.1, `head pivot ${standing} → ${crouched}`);
-          await ticks(10);
+          app.input!.force('crouch', 0);
+          assert(crouched < standing - 0.2, `head pivot ${standing} → ${crouched}`);
+          await play(300);
         } finally {
           session.rig.mode = mode;
         }
@@ -321,6 +325,13 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v' }));
         assert(session.rig.mode !== mode, `mode stayed ${mode}`);
         session.rig.mode = 'third';
+        // The camera eases out per frame: wait wall-clock time, not a frame count.
+        const settle = async () => {
+          const t0 = performance.now();
+          while (performance.now() - t0 < 700) await nextFrame();
+        };
+        await settle();
+        assert(session.rig.distance > 3, `open-field distance ${session.rig.distance.toFixed(2)}`);
         const ground = registry.states[session.sim.world.getBlock(0, 64, 0)]!.key;
         const air = registry.states[registry.air]!.key;
         // A wall 2 m behind the player (the camera looks along −z, so behind is +z).
@@ -336,7 +347,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         });
         session.step(1);
         try {
-          for (let i = 0; i < 5; i++) await nextFrame();
+          await settle();
           assert(session.rig.distance < 2, `camera distance ${session.rig.distance.toFixed(2)}`);
         } finally {
           session.host.send({

@@ -51,6 +51,22 @@ describe('SpatialHash', () => {
     }
   });
 
+  it('keeps cells apart when they share a bucket, and grows past its first capacity', () => {
+    const hash = new SpatialHash(8, 2);
+    for (let id = 1; id <= 300; id++)
+      hash.update(id, (id % 20) * 8 + 1, Math.floor(id / 20) * 8 + 1);
+    expect(hash.size).toBe(300);
+    const out: number[] = [];
+    // Exactly one entity per cell: no duplicates and no neighbours from other cells.
+    for (let id = 1; id <= 300; id++) {
+      expect(hash.query((id % 20) * 8 + 4, Math.floor(id / 20) * 8 + 4, 3, out)).toEqual([id]);
+    }
+    for (let id = 1; id <= 300; id += 2) hash.remove(id);
+    expect(hash.size).toBe(150);
+    hash.update(1000, 1, 1);
+    expect(hash.query(4, 4, 3, out)).toEqual([1000]);
+  });
+
   it('reuses the output array', () => {
     const hash = new SpatialHash();
     hash.update(1, 0, 0);

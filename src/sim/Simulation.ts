@@ -1,20 +1,21 @@
 import type { Registry } from '../content/registry.ts';
 import { type Column, columnFromResult } from '../world/Column.ts';
-import { columnKey, toColumn, WORLD_HEIGHT } from '../world/coords.ts';
+import { columnKey, insideBorder, toColumn, WORLD_HEIGHT } from '../world/coords.ts';
 import {
   createGenContext,
   findSpawn,
   type GenContext,
-  pointInfo,
+  surfaceY,
   type WorldType,
 } from '../world/gen/generateColumn.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
-import type { Command, StampedCommand } from './commands.ts';
+import type { Command, InputCommand, StampedCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import { PHYSICS, type StepResult, stepBody } from './physics.ts';
 import { createPlayer, type PlayerState, restStamina, STAMINA, spendStamina } from './player.ts';
 import type { ColumnSource, WorldSpec } from './ports.ts';
+import { SpatialHash } from './spatialHash.ts';
 import { MAX_STREAM_RADIUS, SPIRAL, streamRadii } from './streaming.ts';
 
 export const TICKS_PER_SECOND = 30;
@@ -55,6 +56,32 @@ export interface SimOptions {
 const DT = 1 / TICKS_PER_SECOND;
 /** Largest box a debug fill may touch. */
 const FILL_LIMIT = 65_536;
+/** Hotbar slots (InputCommand.slot is 0…HOTBAR_SLOTS−1). */
+const HOTBAR_SLOTS = 8;
+
+/** Every entity record of the world. Creatures and item drops join the union in M4 and M10. */
+export type Entity = PlayerState;
+
+/** Rejects non-finite numbers and out-of-range axes or slots (commands may come from a network). */
+function validInput(c: InputCommand): boolean {
+  return (
+    Number.isFinite(c.forward) &&
+    Number.isFinite(c.strafe) &&
+    Number.isFinite(c.yaw) &&
+    Number.isFinite(c.pitch) &&
+    Math.abs(c.forward) <= 1 &&
+    Math.abs(c.strafe) <= 1 &&
+    Math.abs(c.pitch) <= Math.PI / 2 &&
+    Number.isInteger(c.slot) &&
+    c.slot >= 0 &&
+    c.slot < HOTBAR_SLOTS
+  );
+}
+
+function finite(...values: number[]): boolean {
+  for (const v of values) if (!Number.isFinite(v)) return false;
+  return true;
+}
 
 /**
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
@@ -68,7 +95,14 @@ export class Simulation {
   readonly ctx: GenContext;
   readonly spawn: { readonly x: number; readonly y: number; readonly z: number };
   readonly allowDebug: boolean;
+  /** Players by connection id. */
   readonly players = new Map<number, PlayerState>();
+  /** Every entity by id, in insertion order (deterministic iteration). */
+  readonly entities = new Map<number, Entity>();
+  /** Entity positions on the x/z plane (cells of 8 blocks). */
+  readonly spatial = new SpatialHash(8);
+  /** Next entity id; ids are never reused. */
+  nextEntityId = 1;
   tick = 0;
   private readonly spec: WorldSpec;
   private readonly stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
@@ -97,15 +131,33 @@ export class Simulation {
     this.spec = { seed: this.seed, worldType: this.worldType };
   }
 
-  /** Adds a player at the spawn point (idempotent). */
+  /** Adds a player at the spawn point (idempotent per connection id). */
   addPlayer(id: number, viewRadius = 6): PlayerState {
     let player = this.players.get(id);
     if (!player) {
-      player = createPlayer(id, this.spawn.x, this.spawn.y, this.spawn.z, viewRadius);
+      const { x, y, z } = this.spawn;
+      player = createPlayer(id, x, y, z, viewRadius, this.nextEntityId++);
       this.players.set(id, player);
-      this.setView(id, this.spawn.x, this.spawn.z, viewRadius);
+      this.entities.set(player.id, player);
+      this.spatial.update(player.id, x, z);
+      this.setView(id, x, z, viewRadius);
     }
     return player;
+  }
+
+  /** Entities within `radius` (x/z distance) of a point, written into `out`. */
+  entitiesNear(x: number, z: number, radius: number, out: number[]): number[] {
+    this.spatial.query(x, z, radius, out);
+    let n = 0;
+    for (let i = 0; i < out.length; i++) {
+      const entity = this.entities.get(out[i]!);
+      if (!entity) continue;
+      const dx = entity.body.x - x;
+      const dz = entity.body.z - z;
+      if (dx * dx + dz * dz <= radius * radius) out[n++] = out[i]!;
+    }
+    out.length = n;
+    return out;
   }
 
   /** Queues a command (the host stamps the player and sequence number). */
@@ -174,8 +226,10 @@ export class Simulation {
     if (result.sprinting && moving) spendStamina(player, STAMINA.sprintPerSecond * DT);
     else restStamina(player, DT);
     if (result.landedFrom > 0)
-      out.push({ type: 'playerLanded', playerId: player.id, fall: result.landedFrom });
-    if (!this.detached.has(player.id)) this.setView(player.id, body.x, body.z, player.viewRadius);
+      out.push({ type: 'playerLanded', playerId: player.playerId, fall: result.landedFrom });
+    this.spatial.update(player.id, body.x, body.z);
+    if (!this.detached.has(player.playerId))
+      this.setView(player.playerId, body.x, body.z, player.viewRadius);
   }
 
   /** Integrates and requests outside play (loading screen, tests). */
@@ -212,6 +266,10 @@ export class Simulation {
   private apply(playerId: number, command: Command, out: SimEvent[]): void {
     switch (command.type) {
       case 'client.view': {
+        if (!finite(command.x, command.z, command.radius)) {
+          out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
+          break;
+        }
         const player = this.players.get(playerId);
         if (player) player.viewRadius = command.radius;
         if (command.detached || !player) {
@@ -225,7 +283,9 @@ export class Simulation {
       }
       case 'input': {
         const player = this.players.get(playerId);
-        if (player) player.input = command;
+        if (!player) break;
+        if (validInput(command)) player.input = command;
+        else out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
         break;
       }
       case 'debug.teleport':
@@ -241,10 +301,16 @@ export class Simulation {
         }
         const player = this.players.get(playerId);
         if (!player) break;
-        if (command.type === 'debug.teleport')
+        if (command.type === 'debug.teleport') {
+          const y = command.y === 'surface' ? 0 : command.y;
+          if (!finite(command.x, y, command.z) || !insideBorder(command.x, command.z)) {
+            out.push({ type: 'rejected', playerId, command: command.type, reason: 'invalid' });
+            break;
+          }
           this.teleport(player, command.x, command.y, command.z);
-        else if (command.stat === 'stamina')
+        } else if (command.stat === 'stamina' && finite(command.value)) {
           player.stamina = Math.max(0, Math.min(STAMINA.max, command.value));
+        }
         break;
       }
     }
@@ -256,24 +322,34 @@ export class Simulation {
     c: Extract<Command, { type: 'debug.fill' }>,
     out: SimEvent[],
   ): void {
-    const x0 = Math.min(c.x0, c.x1);
-    const x1 = Math.max(c.x0, c.x1);
-    const y0 = Math.max(0, Math.min(c.y0, c.y1));
-    const y1 = Math.min(WORLD_HEIGHT - 1, Math.max(c.y0, c.y1));
-    const z0 = Math.min(c.z0, c.z1);
-    const z1 = Math.max(c.z0, c.z1);
+    if (!finite(c.x0, c.y0, c.z0, c.x1, c.y1, c.z1)) {
+      out.push({ type: 'rejected', playerId, command: c.type, reason: 'invalid' });
+      return;
+    }
+    const x0 = Math.floor(Math.min(c.x0, c.x1));
+    const x1 = Math.floor(Math.max(c.x0, c.x1));
+    const y0 = Math.max(0, Math.floor(Math.min(c.y0, c.y1)));
+    const y1 = Math.min(WORLD_HEIGHT - 1, Math.floor(Math.max(c.y0, c.y1)));
+    const z0 = Math.floor(Math.min(c.z0, c.z1));
+    const z1 = Math.floor(Math.max(c.z0, c.z1));
+    if (y0 > y1) {
+      out.push({ type: 'rejected', playerId, command: c.type, reason: 'outside the world' });
+      return;
+    }
     if ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1) > FILL_LIMIT) {
       out.push({ type: 'rejected', playerId, command: c.type, reason: 'too large' });
       return;
     }
     const state = this.registry.stateIdOrUnknown(c.state);
+    let written = 0;
     for (let x = x0; x <= x1; x++) {
       for (let z = z0; z <= z1; z++) {
         if (!this.world.getColumn(toColumn(x), toColumn(z))) continue;
         for (let y = y0; y <= y1; y++) this.world.setBlock(x, y, z, state);
+        written++;
       }
     }
-    out.push({ type: 'blocksChanged', x0, y0, z0, x1, y1, z1 });
+    if (written > 0) out.push({ type: 'blocksChanged', x0, y0, z0, x1, y1, z1 });
   }
 
   /** Moves a player; 'surface' puts it on top of the ground (loaded heightmap or analytic height). */
@@ -283,7 +359,7 @@ export class Simulation {
       const column = this.world.getColumn(toColumn(Math.floor(x)), toColumn(Math.floor(z)));
       ty = column
         ? column.heightmap[(Math.floor(x) & 31) | ((Math.floor(z) & 31) << 5)]!
-        : pointInfo(this.ctx, Math.floor(x), Math.floor(z)).height + 1;
+        : surfaceY(this.ctx, Math.floor(x), Math.floor(z));
     } else {
       ty = Math.max(1, Math.min(WORLD_HEIGHT - PHYSICS.height, y));
     }
@@ -294,11 +370,14 @@ export class Simulation {
     body.vx = 0;
     body.vy = 0;
     body.vz = 0;
+    body.onGround = false;
+    body.airTicks = 0;
     body.fallStartY = ty;
     player.prevX = x;
     player.prevY = ty;
     player.prevZ = z;
-    if (!this.detached.has(player.id)) this.setView(player.id, x, z, player.viewRadius);
+    this.spatial.update(player.id, x, z);
+    if (!this.detached.has(player.playerId)) this.setView(player.playerId, x, z, player.viewRadius);
   }
 
   private withinUnload(cx: number, cz: number): boolean {

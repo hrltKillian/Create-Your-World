@@ -42,6 +42,8 @@ export class InputManager {
   private readonly element: HTMLElement;
   private readonly down = new Set<string>();
   private readonly edges = new Set<Action>();
+  /** Actions pressed since the last sample: a tap shorter than a tick still reaches the sim. */
+  private readonly latched = new Set<Action>();
   private readonly forced = new Map<Action, number>();
   private mouseDx = 0;
   private mouseDy = 0;
@@ -101,23 +103,28 @@ export class InputManager {
     this.mouseDy = 0;
   }
 
-  /** Builds this tick's command from the held keys and the view. */
+  /**
+   * Builds this tick's command from the held keys and the view. Buttons pressed and released
+   * since the previous sample count as held for this tick.
+   */
   sample(look: LookTarget): InputCommand {
     const axis = (plus: Action, minus: Action) =>
       (this.isDown(plus) ? 1 : 0) - (this.isDown(minus) ? 1 : 0);
-    return {
+    const command: InputCommand = {
       type: 'input',
       forward: axis('forward', 'back'),
       strafe: axis('right', 'left'),
-      jump: this.isDown('jump'),
+      jump: this.isDown('jump') || this.latched.has('jump'),
       sprint: this.isDown('sprint'),
       crouch: this.isDown('crouch'),
       yaw: look.yaw,
       pitch: look.pitch,
-      primary: this.isDown('primary'),
-      secondary: this.isDown('secondary'),
+      primary: this.isDown('primary') || this.latched.has('primary'),
+      secondary: this.isDown('secondary') || this.latched.has('secondary'),
       slot: this.slot,
     };
+    this.latched.clear();
+    return command;
   }
 
   /** Label of the first key bound to an action, on the player's keyboard layout. */
@@ -137,16 +144,22 @@ export class InputManager {
     this.pointer?.dispose();
   }
 
+  /** Forgets held keys, pending taps and edges (focus loss, pause, opening a screen). */
   readonly releaseAll = (): void => {
     this.down.clear();
+    this.latched.clear();
+    this.edges.clear();
     this.dragging = false;
   };
 
   private press(code: string): void {
     if (RESERVED_CODES.has(code)) return;
-    if (!this.down.has(code)) {
+    if (!this.down.has(code) && this.enabled) {
       const action = actionForCode(this.bindings, code);
-      if (action) this.edges.add(action);
+      if (action) {
+        this.edges.add(action);
+        this.latched.add(action);
+      }
     }
     this.down.add(code);
   }

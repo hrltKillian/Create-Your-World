@@ -1,16 +1,22 @@
-import { FLAG_SOLID, type RawTables } from '../content/registry.ts';
+import type { RawTables } from '../content/registry.ts';
 import type { LookTarget } from '../input/LookTarget.ts';
 import type { PlayerState } from '../sim/player.ts';
+import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { CameraPose } from './WorldView.ts';
 
 export type CameraMode = 'first' | 'third';
 
+/** Third-person offset: 4 m behind the eye and 0.5 m above it. */
 const THIRD_DISTANCE = 4;
 const THIRD_HEIGHT = 0.5;
-const MIN_DISTANCE = 0.6;
+/** Distance kept from the first solid block (the near plane is 0.05). */
+const WALL_MARGIN = 0.3;
+/** Side offset of the four extra probe rays around the main one. */
+const PROBE_SPREAD = 0.15;
 const CROUCH_EYE = 1.27;
 const STAND_EYE = 1.62;
+const hit = createRayHit();
 
 /**
  * Owns the view angles (input writes them every frame) and places the camera: at the interpolated
@@ -58,30 +64,41 @@ export class CameraRig implements LookTarget {
       this.distance = 0;
       return this.pose;
     }
-    // Behind the head along the view direction, stopping before solid blocks.
+    // From the eye (always inside the player's own box) towards the point behind and above it,
+    // stopping WALL_MARGIN before the first solid block on any of five parallel probe rays.
     const cp = Math.cos(this.pitch);
-    const dirX = Math.sin(this.yaw) * cp;
-    const dirY = -Math.sin(this.pitch);
-    const dirZ = Math.cos(this.yaw) * cp;
-    const headY = eyeY + THIRD_HEIGHT;
-    let free = THIRD_DISTANCE;
-    for (let d = 0.1; d <= THIRD_DISTANCE; d += 0.1) {
-      const state = world.getBlock(
-        Math.floor(x + dirX * d),
-        Math.floor(headY + dirY * d),
-        Math.floor(z + dirZ * d),
-      );
-      if ((tables.flags[state]! & FLAG_SOLID) !== 0) {
-        free = Math.max(MIN_DISTANCE, d - 0.3);
-        break;
-      }
+    const ox = Math.sin(this.yaw) * cp * THIRD_DISTANCE;
+    const oy = -Math.sin(this.pitch) * THIRD_DISTANCE + THIRD_HEIGHT;
+    const oz = Math.cos(this.yaw) * cp * THIRD_DISTANCE;
+    const length = Math.sqrt(ox * ox + oy * oy + oz * oz);
+    const ux = ox / length;
+    const uy = oy / length;
+    const uz = oz / length;
+    // Unit vectors across the ray: horizontal right, and up = right × direction.
+    let rx = -uz;
+    let rz = ux;
+    const rl = Math.sqrt(rx * rx + rz * rz) || 1;
+    rx /= rl;
+    rz /= rl;
+    const vx = -rz * uy;
+    const vy = rz * ux - rx * uz;
+    const vz = rx * uy;
+    let free = length;
+    for (let probe = 0; probe < 5; probe++) {
+      const side = probe === 1 ? 1 : probe === 2 ? -1 : 0;
+      const up = probe === 3 ? 1 : probe === 4 ? -1 : 0;
+      const px = x + (rx * side + vx * up) * PROBE_SPREAD;
+      const py = eyeY + vy * up * PROBE_SPREAD;
+      const pz = z + (rz * side + vz * up) * PROBE_SPREAD;
+      raycast(world, tables, px, py, pz, ux, uy, uz, free + WALL_MARGIN, hit, RAY_SOLID);
+      if (hit.hit) free = Math.min(free, Math.max(0, hit.distance - WALL_MARGIN));
     }
     // Pull in at once, ease out slowly.
     this.distance =
       free < this.distance ? free : this.distance + (free - this.distance) * Math.min(1, dt * 12);
-    this.pose.x = x + dirX * this.distance;
-    this.pose.y = headY + dirY * this.distance;
-    this.pose.z = z + dirZ * this.distance;
+    this.pose.x = x + ux * this.distance;
+    this.pose.y = eyeY + uy * this.distance;
+    this.pose.z = z + uz * this.distance;
     return this.pose;
   }
 }

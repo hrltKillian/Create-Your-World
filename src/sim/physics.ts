@@ -27,6 +27,11 @@ export const PHYSICS = {
   coyoteTicks: 3,
   jumpBufferTicks: 3,
   swimUp: 3.2,
+  /**
+   * Upward speed while swimming at the surface against a wall with jump held: enough to lift the
+   * feet a little over one block above the water, so every bank of height ≤ 1 can be climbed.
+   */
+  waterExit: 8,
   epsilon: 1e-4,
 } as const;
 
@@ -39,8 +44,13 @@ export interface Body {
   vy: number;
   vz: number;
   onGround: boolean;
+  /** Buoyancy and swimming (liquid at feet + 0.4). */
   inWater: boolean;
+  /** The feet touch a liquid (water exit boost). */
+  feetInWater: boolean;
   headInWater: boolean;
+  /** A horizontal move was blocked last tick (climbing out of water). */
+  hitWall: boolean;
   crouching: boolean;
   /** Ticks since the body last stood on ground (coyote time). */
   airTicks: number;
@@ -80,7 +90,9 @@ export function createBody(x: number, y: number, z: number): Body {
     vz: 0,
     onGround: false,
     inWater: false,
+    feetInWater: false,
     headInWater: false,
+    hitWall: false,
     crouching: false,
     airTicks: 0,
     jumpTicks: 99,
@@ -277,6 +289,7 @@ export function stepBody(
   }
   const height = bodyHeight(body);
   body.inWater = isLiquid(world, tables, body.x, body.y + 0.4, body.z);
+  body.feetInWater = body.inWater || isLiquid(world, tables, body.x, body.y + 0.05, body.z);
   body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
   const sprinting = input.sprint && !body.crouching && !body.inWater && input.forward > 0;
   out.sprinting = sprinting;
@@ -325,13 +338,26 @@ export function stepBody(
   if (input.jump && !body.jumpHeldLast) body.jumpTicks = 0;
   else body.jumpTicks++;
   body.jumpHeldLast = input.jump;
+  // Swimming at the surface into a bank with jump held climbs out (the feet clear one block).
+  const climbOut = input.jump && body.hitWall && body.feetInWater && !body.headInWater;
   let dy: number;
   if (body.inWater) {
     const g = PHYSICS.gravity * 0.25;
-    if (input.jump) body.vy = Math.min(PHYSICS.swimUp, body.vy + 30 * dt);
+    if (body.onGround && body.jumpTicks <= PHYSICS.jumpBufferTicks && !body.headInWater) {
+      // Standing in shallow water: a normal jump.
+      body.vy = PHYSICS.jump;
+      body.jumpTicks = 99;
+      body.onGround = false;
+      out.jumped = true;
+    } else if (climbOut) {
+      body.vy = Math.max(body.vy, PHYSICS.waterExit);
+    } else if (input.jump) {
+      body.vy = Math.min(PHYSICS.swimUp, body.vy + 30 * dt);
+    }
     dy = body.vy * dt - 0.5 * g * dt * dt;
     body.vy = Math.max(-PHYSICS.swim * 1.5, body.vy - g * dt);
   } else {
+    if (climbOut) body.vy = Math.max(body.vy, PHYSICS.waterExit);
     const canJump = body.onGround || body.airTicks <= PHYSICS.coyoteTicks;
     if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
       body.vy = PHYSICS.jump;
@@ -365,6 +391,7 @@ export function stepBody(
   }
 
   // X then Z; crouching on the ground never walks off an edge.
+  body.hitWall = false;
   for (const axis of HORIZONTAL_AXES) {
     const delta = (axis === 0 ? body.vx : body.vz) * dt;
     if (delta === 0) continue;
@@ -381,6 +408,7 @@ export function stepBody(
     if (moved !== delta) {
       if (axis === 0) body.vx = 0;
       else body.vz = 0;
+      body.hitWall = true;
     }
   }
 

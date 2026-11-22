@@ -15,7 +15,11 @@ import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
 import { crosshair } from '../ui/hud/crosshair.ts';
-import { clickToPlay, setClickToPlayResume } from '../ui/screens/clickToPlay.ts';
+import {
+  clickToPlay,
+  setClickToPlayControls,
+  setClickToPlayResume,
+} from '../ui/screens/clickToPlay.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
 import { hintBar } from '../ui/screens/hint.ts';
 import { loadingScreen } from '../ui/screens/loading.ts';
@@ -206,7 +210,7 @@ export class App {
     });
     this.input = input;
     if (this.params.kb) input.labels.force(this.params.kb);
-    void input.labels.loadLayoutMap(
+    const layoutLoaded = input.labels.loadLayoutMap(
       (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard,
     );
     const seed = this.params.seed ?? Math.floor(Math.random() * 1e9).toString(36);
@@ -238,9 +242,21 @@ export class App {
       : null;
     if (click && input.pointer) {
       this.root.append(click);
+      void layoutLoaded.then(() => setClickToPlayControls(click, this.controlsText(input)));
+      // Without the mouse captured the game is paused and ignores the keyboard.
+      const setPlaying = (playing: boolean) => {
+        session.paused = !playing;
+        input.enabled = playing;
+        if (!playing) input.releaseAll();
+      };
+      setPlaying(false);
       input.pointer.onChange = (locked) => {
         click.hidden = locked;
-        if (!locked) setClickToPlayResume(click);
+        setPlaying(locked);
+        if (!locked) {
+          setClickToPlayResume(click);
+          setClickToPlayControls(click, this.controlsText(input));
+        }
       };
     }
     this.installDebugToggle(overlay);

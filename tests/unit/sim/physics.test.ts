@@ -8,7 +8,12 @@ import {
   type StepResult,
   stepBody,
 } from '../../../src/sim/physics.ts';
-import { createRayHit, raycast } from '../../../src/world/raycast.ts';
+import {
+  createRayHit,
+  RAY_SOLID,
+  RAY_TARGET_LIQUIDS,
+  raycast,
+} from '../../../src/world/raycast.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 
 const registry = buildRegistry(basePack);
@@ -128,6 +133,57 @@ describe('player physics', () => {
     expect(body.y).toBeGreaterThan(y0);
   });
 
+  /** Water `depth` deep over the stone floor (top at 64 + depth), a bank to the north rising
+   * `above` blocks over the water surface; the swimmer starts in the water facing the bank. */
+  function swimToBank(depth: number, above: number) {
+    const world = flat();
+    const surface = 64 + depth;
+    for (let x = -5; x < 5; x++) {
+      for (let z = -2; z < 10; z++)
+        for (let y = 64; y < surface; y++) world.setBlock(x, y, z, WATER);
+      for (let z = -38; z < -2; z++)
+        for (let y = 64; y < surface + above; y++) world.setBlock(x, y, z, STONE);
+    }
+    const body = createBody(0.5, surface - 1, 2.5);
+    for (let i = 0; i < 300; i++)
+      stepBody(body, { ...idle, forward: 1, jump: true }, world, registry.tables, DT, out);
+    return { body, top: surface + above };
+  }
+
+  it.each([
+    [3, 0],
+    [3, 1],
+    [1, 0],
+    [1, 1],
+  ])('climbs out of %i-deep water onto a bank %i block(s) above the surface', (depth, above) => {
+    const { body, top } = swimToBank(depth, above);
+    expect(body.z).toBeLessThan(-2);
+    expect(body.y).toBeCloseTo(top, 3);
+    expect(body.onGround).toBe(true);
+    expect(body.inWater).toBe(false);
+  });
+
+  it('cannot climb a bank two blocks above the water', () => {
+    const { body } = swimToBank(3, 2);
+    expect(body.z).toBeGreaterThan(-2);
+    expect(body.feetInWater || body.y < 67 + 2).toBe(true);
+  });
+
+  it('jumps normally when standing in shallow water', () => {
+    const world = flat();
+    for (let x = -5; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
+    const body = settle(world, 0.5, 64, 0.5);
+    expect(body.inWater && body.onGround).toBe(true);
+    stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
+    expect(out.jumped).toBe(true);
+    let apex = body.y;
+    for (let i = 0; i < 15; i++) {
+      stepBody(body, idle, world, registry.tables, DT, out);
+      apex = Math.max(apex, body.y);
+    }
+    expect(apex - 64).toBeGreaterThan(0.6);
+  });
+
   it('collides with box shapes (closed gate) but not open ones', () => {
     const world = flat();
     world.setBlock(0, 64, -2, GATE);
@@ -144,6 +200,44 @@ describe('player physics', () => {
 });
 
 describe('raycast', () => {
+  it('solid mode passes through plants and water and stops at collision blocks', () => {
+    const world = flat();
+    world.setBlock(0, 64, -1, registry.defaultState('block:tall_grass'));
+    world.setBlock(0, 64, -2, WATER);
+    world.setBlock(0, 64, -3, GATE);
+    const hit = raycast(
+      world,
+      registry.tables,
+      0.5,
+      64.5,
+      0.5,
+      0,
+      0,
+      -1,
+      10,
+      createRayHit(),
+      RAY_SOLID,
+    );
+    expect(hit.hit).toBe(true);
+    expect(hit.z).toBe(-3);
+    // Unloaded columns count as solid for probes.
+    const edge = raycast(
+      world,
+      registry.tables,
+      0.5,
+      64.5,
+      0.5,
+      1,
+      0,
+      0,
+      200,
+      createRayHit(),
+      RAY_SOLID,
+    );
+    expect(edge.hit).toBe(true);
+    expect(edge.x).toBe(96);
+  });
+
   it('hits the first targetable block with the entry face normal', () => {
     const world = flat();
     world.setBlock(0, 65, -4, STONE);
@@ -167,7 +261,19 @@ describe('raycast', () => {
     world.setBlock(0, 64, -2, WATER);
     const dry = raycast(world, registry.tables, 0.5, 64.5, 0.5, 0, 0, -1, 4, createRayHit());
     expect(dry.hit).toBe(false);
-    const wet = raycast(world, registry.tables, 0.5, 64.5, 0.5, 0, 0, -1, 4, createRayHit(), true);
+    const wet = raycast(
+      world,
+      registry.tables,
+      0.5,
+      64.5,
+      0.5,
+      0,
+      0,
+      -1,
+      4,
+      createRayHit(),
+      RAY_TARGET_LIQUIDS,
+    );
     expect(wet.z).toBe(-2);
     const inside = raycast(world, registry.tables, 0.5, 63.5, 0.5, 0, -1, 0, 4, createRayHit());
     expect([inside.nx, inside.ny, inside.nz]).toEqual([0, 0, 0]);

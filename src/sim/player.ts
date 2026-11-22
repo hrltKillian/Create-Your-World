@@ -14,9 +14,13 @@ export const STAMINA = {
 } as const;
 
 /** A player entity (serialisable plain data). */
+/** A player's entity record (entities: player | creature | itemDrop from later milestones). */
 export interface PlayerState {
   readonly kind: 'player';
+  /** Entity id: unique in the world and never reused. */
   readonly id: number;
+  /** Connection (client) id that sends this player's commands. */
+  readonly playerId: number;
   body: Body;
   /** Feet position at the previous tick (render interpolation). */
   prevX: number;
@@ -34,15 +38,17 @@ export interface PlayerState {
 }
 
 export function createPlayer(
-  id: number,
+  playerId: number,
   x: number,
   y: number,
   z: number,
   viewRadius: number,
+  entityId = playerId,
 ): PlayerState {
   return {
     kind: 'player',
-    id,
+    id: entityId,
+    playerId,
     body: createBody(x, y, z),
     prevX: x,
     prevY: y,

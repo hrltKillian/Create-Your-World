@@ -17,3 +17,9 @@ export function setClickToPlayResume(overlay: HTMLElement): void {
   const title = overlay.querySelector('.click-title');
   if (title) title.textContent = t('play.resume');
 }
+
+/** Replaces the controls line (labels improve once the keyboard layout map has loaded). */
+export function setClickToPlayControls(overlay: HTMLElement, controls: string): void {
+  const line = overlay.querySelector('.click-controls');
+  if (line) line.textContent = controls;
+}

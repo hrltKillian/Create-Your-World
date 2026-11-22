@@ -62,6 +62,8 @@ export class GameSession {
   private readonly registry: Registry;
   private readonly events: SimEvent[] = [];
   private acc = 0;
+  /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
+  paused = false;
 
   constructor(
     options: SessionOptions,
@@ -127,7 +129,8 @@ export class GameSession {
       this.input.applyMouseLook(this.rig);
       if (this.input.consume('camera')) this.rig.toggleMode();
     }
-    if (!this.fixedStep) {
+    if (this.paused) this.acc = 0;
+    else if (!this.fixedStep) {
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < MAX_STEPS) {
@@ -141,6 +144,9 @@ export class GameSession {
     if (!this.loading && !this.freecam && !this.playerColumnLit()) this.loading = true;
     if (this.loading)
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
+    // Fixed-step sessions only tick on request; keep the world streaming meanwhile.
+    else if (this.fixedStep || this.paused)
+      this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
     this.flushEvents();
     const focus = this.focus();
     this.scheduler.update(focus.x, focus.y, focus.z, this.loading ? LOADING_BUDGETS : PLAY_BUDGETS);
@@ -156,9 +162,12 @@ export class GameSession {
     this.scheduler.update(focus.x, focus.y, focus.z, LOADING_BUDGETS);
   }
 
-  /** Steps the world without rendering (hidden pane, automation). */
+  /**
+   * Steps the world without rendering (hidden pane, automation). Fixed-step sessions only stream:
+   * their ticks are advanced explicitly, so the tick count stays deterministic.
+   */
   pumpOnce(): void {
-    this.tick();
+    if (!this.fixedStep && !this.paused) this.tick();
     this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
     this.flushEvents();
     const focus = this.focus();

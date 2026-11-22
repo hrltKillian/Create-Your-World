@@ -179,6 +179,12 @@ export function pointInfo(
   };
 }
 
+/** Feet height for standing on the terrain at a block column (analytic, no generation needed). */
+export function surfaceY(ctx: GenContext, x: number, z: number): number {
+  if (ctx.worldType === 'flat') return FLAT_SURFACE + 1;
+  return pointInfo(ctx, x, z).height + 1;
+}
+
 const tmp = emptySample();
 
 /** Generates the terrain of one column (sections, heightmap, biomes). Pure and deterministic. */
