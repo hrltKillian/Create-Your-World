@@ -6,7 +6,7 @@ import { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Command, StampedCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import type { ColumnSource } from './ports.ts';
-import { MAX_STREAM_RADIUS, SPIRAL, streamRadii, withinRadius } from './streaming.ts';
+import { MAX_STREAM_RADIUS, SPIRAL, streamRadii } from './streaming.ts';
 
 export const TICKS_PER_SECOND = 30;
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
@@ -24,6 +24,12 @@ interface PlayerView {
   cx: number;
   cz: number;
   radius: number;
+  /** Squared radii, cached when the view changes. */
+  generate2: number;
+  unload2: number;
+  /** Meshes are shown within RD and hidden beyond RD + 1 (hysteresis). */
+  show2: number;
+  hide2: number;
 }
 
 export interface SimOptions {
@@ -50,6 +56,8 @@ export class Simulation {
   private readonly arrivals: GenResult[] = [];
   private readonly requested = new Set<number>();
   private readonly states = new Map<number, number>();
+  /** MESHABLE columns the client was told to show (inside some player's render distance). */
+  private readonly shown = new Set<number>();
 
   constructor(options: SimOptions) {
     this.seed = options.seed;
@@ -99,30 +107,56 @@ export class Simulation {
   }
 
   private applyCommands(): void {
-    for (const { playerId, command } of this.commands.splice(0)) this.apply(playerId, command);
+    const commands = this.commands;
+    for (let i = 0; i < commands.length; i++)
+      this.apply(commands[i]!.playerId, commands[i]!.command);
+    commands.length = 0;
   }
 
   private apply(playerId: number, command: Command): void {
     switch (command.type) {
       case 'client.view': {
         const radius = Math.max(1, Math.min(MAX_STREAM_RADIUS - 3, Math.floor(command.radius)));
+        const r = streamRadii(radius);
         this.players.set(playerId, {
           cx: toColumn(Math.floor(command.x)),
           cz: toColumn(Math.floor(command.z)),
           radius,
+          generate2: r.generate * r.generate,
+          unload2: r.unload * r.unload,
+          show2: r.mesh * r.mesh,
+          hide2: (r.mesh + 1) * (r.mesh + 1),
         });
         break;
       }
     }
   }
 
-  private wanted(cx: number, cz: number, extra: number): boolean {
+  private withinUnload(cx: number, cz: number): boolean {
     for (const view of this.players.values()) {
-      const r = streamRadii(view.radius);
-      if (withinRadius(cx - view.cx, cz - view.cz, extra === 0 ? r.generate : r.unload))
-        return true;
+      const dx = cx - view.cx;
+      const dz = cz - view.cz;
+      if (dx * dx + dz * dz <= view.unload2) return true;
     }
     return false;
+  }
+
+  private withinShow(cx: number, cz: number): boolean {
+    for (const view of this.players.values()) {
+      const dx = cx - view.cx;
+      const dz = cz - view.cz;
+      if (dx * dx + dz * dz <= view.show2) return true;
+    }
+    return false;
+  }
+
+  private beyondHide(cx: number, cz: number): boolean {
+    for (const view of this.players.values()) {
+      const dx = cx - view.cx;
+      const dz = cz - view.cz;
+      if (dx * dx + dz * dz <= view.hide2) return false;
+    }
+    return true;
   }
 
   private integrate(limit: number, out: SimEvent[]): void {
@@ -131,7 +165,7 @@ export class Simulation {
       const result = this.arrivals.shift()!;
       const key = columnKey(result.cx, result.cz);
       this.requested.delete(key);
-      if (this.states.has(key) || !this.wanted(result.cx, result.cz, 1)) continue;
+      if (this.states.has(key) || !this.withinUnload(result.cx, result.cz)) continue;
       const column = columnFromResult(result, this.registry.air);
       this.world.columns.set(key, column);
       this.states.set(key, COLUMN_GENERATED);
@@ -140,7 +174,7 @@ export class Simulation {
     }
   }
 
-  /** Re-evaluates the pipeline state of a column and its 8 neighbours. */
+  /** Re-evaluates the pipeline state of a column and its neighbours. */
   private refreshAround(cx: number, cz: number, out: SimEvent[]): void {
     for (let dz = -1; dz <= 1; dz++)
       for (let dx = -1; dx <= 1; dx++) this.promoteLit(cx + dx, cz + dz);
@@ -148,6 +182,7 @@ export class Simulation {
       for (let dx = -2; dx <= 2; dx++) this.promoteMeshable(cx + dx, cz + dz, out);
   }
 
+  /** LIT = the 4 face neighbours are loaded (light seams can be stitched from M5 on). */
   private promoteLit(cx: number, cz: number): void {
     const key = columnKey(cx, cz);
     if (this.states.get(key) !== COLUMN_GENERATED) return;
@@ -156,6 +191,7 @@ export class Simulation {
       this.states.set(key, COLUMN_LIT);
   }
 
+  /** MESHABLE = all 8 neighbours are LIT; the column is shown if it is inside a render distance. */
   private promoteMeshable(cx: number, cz: number, out: SimEvent[]): void {
     const key = columnKey(cx, cz);
     if (this.states.get(key) !== COLUMN_LIT) return;
@@ -165,20 +201,39 @@ export class Simulation {
       }
     }
     this.states.set(key, COLUMN_MESHABLE);
+    if (this.withinShow(cx, cz)) this.show(key, cx, cz, out);
+  }
+
+  private show(key: number, cx: number, cz: number, out: SimEvent[]): void {
+    if (this.shown.has(key)) return;
+    this.shown.add(key);
     out.push({ type: 'columnMeshable', cx, cz });
   }
 
+  private hide(key: number, cx: number, cz: number, out: SimEvent[]): void {
+    if (!this.shown.delete(key)) return;
+    out.push({ type: 'columnHidden', cx, cz });
+  }
+
   private stream(out: SimEvent[]): void {
-    // Unload what no player needs any more.
+    // Unload what no player needs any more; show or hide meshable columns by render distance.
     for (const [key, column] of this.world.columns) {
-      if (!this.wanted(column.cx, column.cz, 1)) this.unload(key, column, out);
+      if (!this.withinUnload(column.cx, column.cz)) {
+        this.unload(key, column, out);
+        continue;
+      }
+      if (this.states.get(key) !== COLUMN_MESHABLE) continue;
+      if (this.shown.has(key)) {
+        if (this.beyondHide(column.cx, column.cz)) this.hide(key, column.cx, column.cz, out);
+      } else if (this.withinShow(column.cx, column.cz)) {
+        this.show(key, column.cx, column.cz, out);
+      }
     }
     // Request missing columns, nearest first.
     for (const view of this.players.values()) {
-      const r = streamRadii(view.radius).generate;
       for (const [dx, dz] of SPIRAL) {
         if (this.requested.size >= this.maxInFlight) return;
-        if (!withinRadius(dx, dz, r)) continue;
+        if (dx * dx + dz * dz > view.generate2) continue;
         const cx = view.cx + dx;
         const cz = view.cz + dz;
         const key = columnKey(cx, cz);
@@ -192,12 +247,22 @@ export class Simulation {
   private unload(key: number, column: Column, out: SimEvent[]): void {
     this.world.columns.delete(key);
     this.states.delete(key);
+    this.shown.delete(key);
     out.push({ type: 'columnUnloaded', cx: column.cx, cz: column.cz });
-    // LIT neighbours lose a face neighbour; MESHABLE ones keep their meshes (built with all neighbours).
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
-        const nk = columnKey(column.cx + dx, column.cz + dz);
-        if (this.states.get(nk) === COLUMN_LIT) this.states.set(nk, COLUMN_GENERATED);
+        if (dx === 0 && dz === 0) continue;
+        const nx = column.cx + dx;
+        const nz = column.cz + dz;
+        const nk = columnKey(nx, nz);
+        // Any neighbour lost a complete neighbourhood: it must be meshed again when it returns.
+        if (this.states.get(nk) === COLUMN_MESHABLE) {
+          this.states.set(nk, COLUMN_LIT);
+          this.hide(nk, nx, nz, out);
+        }
+        // Only face neighbours lose LIT (it depends on the 4 face neighbours alone).
+        if ((dx === 0 || dz === 0) && this.states.get(nk) === COLUMN_LIT)
+          this.states.set(nk, COLUMN_GENERATED);
       }
     }
   }

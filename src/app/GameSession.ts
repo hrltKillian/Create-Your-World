@@ -31,6 +31,8 @@ export class GameSession {
   readonly spawn: { x: number; y: number; z: number };
   renderDistance: number;
   loading = true;
+  /** performance.now() when the session was created (loading-time measurements). */
+  readonly startedAt = performance.now();
   private readonly view: WorldView;
   private readonly freecam: FreeCam;
   private readonly events: SimEvent[] = [];
@@ -81,7 +83,7 @@ export class GameSession {
     this.flushEvents();
     const pose = this.freecam.pose;
     this.scheduler.update(pose.x, pose.y, pose.z, this.loading ? LOADING_BUDGETS : PLAY_BUDGETS);
-    if (this.loading && this.chunksReady(LOADING_RADIUS)) this.loading = false;
+    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
   }
 
   /** Steps the world without rendering (hidden pane, automation). */
@@ -92,7 +94,12 @@ export class GameSession {
     this.flushEvents();
     const pose = this.freecam.pose;
     this.scheduler.update(pose.x, pose.y, pose.z, LOADING_BUDGETS);
-    if (this.loading && this.chunksReady(LOADING_RADIUS)) this.loading = false;
+    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
+  }
+
+  /** Radius that ends the loading screen: 3 columns, or less at a smaller render distance. */
+  loadingRadius(): number {
+    return Math.min(LOADING_RADIUS, this.renderDistance);
   }
 
   setRenderDistance(renderDistance: number): void {

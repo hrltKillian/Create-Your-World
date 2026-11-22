@@ -77,7 +77,31 @@ describe('worker pool', () => {
     await vi.advanceTimersByTimeAsync(10_001);
     await failed;
     expect(FakeWorker.instances[0]!.terminated).toBe(true);
+    // Respawned after a short back-off.
+    await vi.advanceTimersByTimeAsync(300);
     expect(FakeWorker.instances).toHaveLength(2);
     expect(pool.stats().restarts).toBe(1);
+  });
+
+  it('gives a slot up after 3 consecutive failures and reports a fatal error', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('Worker', FakeWorker);
+    FakeWorker.hang = true;
+    const pool = new WorkerPool(1);
+    let fatal = '';
+    pool.onFatal = (reason) => {
+      fatal = reason;
+    };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const job = pool.run({ kind: 'gen', seed: 'f', cx: attempt, cz: 0 });
+      const failed = expect(job).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(10_001);
+      await failed;
+      await vi.advanceTimersByTimeAsync(2_000);
+    }
+    expect(fatal).toMatch(/stopped working/);
+    await expect(pool.run({ kind: 'gen', seed: 'f', cx: 9, cz: 9 })).rejects.toThrow(
+      /stopped working/,
+    );
   });
 });

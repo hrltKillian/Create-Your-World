@@ -19,6 +19,8 @@ const log = createLogger('workers');
 export const WORKER_TIMEOUT_MS = 10_000;
 /** Normal-priority jobs in flight per worker (urgent jobs are never held back). */
 const NORMAL_IN_FLIGHT = 2;
+/** A slot that fails this many times in a row without a single good reply is given up. */
+const MAX_CONSECUTIVE_FAILURES = 3;
 
 /** Number of world workers: hardwareConcurrency − 2, between 1 and 4. */
 export function workerCount(hardwareConcurrency: number): number {
@@ -54,8 +56,13 @@ export class WorkerPool implements JobRunner {
   private readonly totalInFlight: number[] = [];
   private readonly tasks = new Map<number, Task>();
   private readonly queue: Task[] = [];
+  private readonly alive: boolean[] = [];
+  private readonly failures: number[] = [];
   private nextId = 1;
   private restarts = 0;
+  private fatal: string | null = null;
+  /** Called once when every worker has been given up (the app shows its fatal screen). */
+  onFatal: ((reason: string) => void) | null = null;
   private readonly done = { gen: 0, mesh: 0 };
   private readonly timings = { gen: [] as number[], mesh: [] as number[] };
 
@@ -65,6 +72,8 @@ export class WorkerPool implements JobRunner {
       this.workers.push(this.spawn(i));
       this.normalInFlight.push(0);
       this.totalInFlight.push(0);
+      this.alive.push(true);
+      this.failures.push(0);
     }
   }
 
@@ -83,8 +92,13 @@ export class WorkerPool implements JobRunner {
         worker: -1,
         timer: undefined,
       };
+      if (this.fatal !== null) {
+        reject(new Error(this.fatal));
+        return;
+      }
       this.tasks.set(id, task);
-      if (priority === 'urgent') this.send(task, this.leastLoaded(false));
+      const urgentTarget = priority === 'urgent' ? this.leastLoaded(false) : -1;
+      if (urgentTarget >= 0) this.send(task, urgentTarget);
       else {
         this.queue.push(task);
         this.dispatch();
@@ -169,6 +183,7 @@ export class WorkerPool implements JobRunner {
   private leastLoaded(normalOnly: boolean): number {
     let best = -1;
     for (let i = 0; i < this.workers.length; i++) {
+      if (!this.alive[i]) continue;
       if (normalOnly && this.normalInFlight[i]! >= NORMAL_IN_FLIGHT) continue;
       if (best < 0 || this.totalInFlight[i]! < this.totalInFlight[best]!) best = i;
     }
@@ -204,23 +219,52 @@ export class WorkerPool implements JobRunner {
     }
   }
 
-  /** Fails the worker's in-flight tasks (callers retry; transferred buffers cannot be resent). */
+  /**
+   * Fails the worker's in-flight tasks (callers retry; transferred buffers cannot be resent) and
+   * respawns it after a growing delay. After MAX_CONSECUTIVE_FAILURES the slot is given up; when no
+   * slot is left, every task fails and `onFatal` fires.
+   */
   private restart(index: number, reason: string): void {
+    if (!this.alive[index]) return;
     log.error(reason);
     this.restarts++;
+    this.alive[index] = false;
     for (const task of [...this.tasks.values()]) {
       if (task.worker !== index) continue;
       this.settle(task);
       task.reject(new Error(reason));
     }
     this.workers[index]?.terminate();
-    this.workers[index] = this.spawn(index);
+    const failures = ++this.failures[index]!;
+    if (failures >= MAX_CONSECUTIVE_FAILURES) {
+      log.error(`world worker ${index} failed ${failures} times in a row; giving it up`);
+      if (this.alive.every((a) => !a)) this.giveUp(reason);
+      return;
+    }
+    const delay = Math.min(10_000, 250 * 2 ** (failures - 1));
+    setTimeout(() => {
+      if (this.fatal !== null) return;
+      this.workers[index] = this.spawn(index);
+      this.alive[index] = true;
+      this.dispatch();
+    }, delay);
     this.dispatch();
+  }
+
+  private giveUp(reason: string): void {
+    this.fatal = `World workers stopped working: ${reason}`;
+    for (const task of [...this.tasks.values()]) {
+      this.settle(task);
+      task.reject(new Error(this.fatal));
+    }
+    this.queue.length = 0;
+    this.onFatal?.(this.fatal);
   }
 
   private onMessage(message: WorkerMessage): void {
     if (message.type === 'ready') return;
     const task = this.tasks.get(message.id);
+    if (task && task.worker >= 0 && message.type !== 'error') this.failures[task.worker] = 0;
     if (!task) {
       if (message.type === 'error') log.error(`world worker error: ${message.message}`);
       return;

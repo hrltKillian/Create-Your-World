@@ -99,9 +99,11 @@ export class App {
       this.registry = buildRegistry(basePack);
       addStrings(basePack.strings);
       this.workers = new WorkerPool(workerCount(navigator.hardwareConcurrency));
+      this.workers.onFatal = (reason) => this.fail(new Error(reason));
       this.renderer = new Renderer(this.root, {
         maxPixelRatio: 1.5,
-        fixedBuffer: this.params.bench ? BENCH_BUFFER : undefined,
+        // The bench build always renders at a fixed size so fill cost does not depend on the pane.
+        fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
       });
       if (this.params.scene === 'title') this.startTitle(report);
       else if (this.params.scene === 'testchunk') this.startTestScene(this.registry);

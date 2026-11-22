@@ -119,3 +119,59 @@ describe('world generation', () => {
     }
   });
 });
+
+describe('generation review fixes', () => {
+  it('puts the heightmap on the water surface above deep lakes', () => {
+    const ctx = createGenContext('1337', registry);
+    let checked = 0;
+    // Find deep-water cells analytically, then check the generated heightmap there.
+    for (let i = 0; i < 6400 && checked < 3; i++) {
+      const x = (i % 80) * 97 - 3900;
+      const z = Math.floor(i / 80) * 89 - 3600;
+      const info = pointInfo(ctx, x, z);
+      if (info.height >= ctx.def.seaLevel - 24) continue;
+      const column = generate('1337', Math.floor(x / 32), Math.floor(z / 32), ctx);
+      const cell = (x & 31) | ((z & 31) << 5);
+      expect(column.heightmap[cell]).toBe(ctx.def.seaLevel + 1);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('completes trees that cross a column border, whichever column is generated first', () => {
+    const ctx = createGenContext('trees', registry);
+    const log = registry.defaultState('block:broadleaf_log');
+    const leaves = registry.defaultState('block:foliage');
+    // Look for a broadleaf trunk 1 block from the east edge of a column.
+    for (let cz = -6; cz <= 6; cz++) {
+      for (let cx = -6; cx <= 6; cx++) {
+        const west = generate('trees', cx, cz, ctx);
+        for (let lz = 2; lz < 30; lz++) {
+          for (let y = 60; y < 200; y++) {
+            if (west.sections[y >> 5]!.getBlock(localIndex(31, y & 31, lz)) !== log) continue;
+            // The canopy (radius 2) must spill into the next column.
+            const east = generate('trees', cx + 1, cz, ctx);
+            let spill = 0;
+            for (let yy = y; yy < y + 10 && yy < 256; yy++) {
+              for (let lx = 0; lx < 2; lx++) {
+                for (let dz = -2; dz <= 2; dz++) {
+                  if (east.sections[yy >> 5]!.getBlock(localIndex(lx, yy & 31, lz + dz)) === leaves)
+                    spill++;
+                }
+              }
+            }
+            expect(spill).toBeGreaterThan(0);
+            // Same result when the east column is generated first with a fresh context.
+            const fresh = createGenContext('trees', registry);
+            const eastFirst = generate('trees', cx + 1, cz, fresh);
+            const westAfter = generate('trees', cx, cz, fresh);
+            expect(columnHash(fresh, eastFirst)).toBe(columnHash(ctx, east));
+            expect(columnHash(fresh, westAfter)).toBe(columnHash(ctx, west));
+            return;
+          }
+        }
+      }
+    }
+    throw new Error('no tree near a column border was found');
+  });
+});

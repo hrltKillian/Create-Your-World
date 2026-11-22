@@ -40,11 +40,10 @@ describe('streaming', () => {
         if (dx * dx + dz * dz <= 4) expect(sim.columnState(dx, dz)).toBe(COLUMN_MESHABLE);
       }
     }
-    const meshable = events.filter((e) => e.type === 'columnMeshable').length;
-    expect(meshable).toBe(
-      [...sim.world.columns.values()].filter((c) => sim.columnState(c.cx, c.cz) === COLUMN_MESHABLE)
-        .length,
-    );
+    // Only columns inside the render distance are shown (meshed).
+    const shown = events.filter((e) => e.type === 'columnMeshable');
+    for (const e of shown) expect(e.cx * e.cx + e.cz * e.cz).toBeLessThanOrEqual(4);
+    expect(shown.length).toBe(13);
   });
 
   it('integrates at most 2 columns per tick in play', () => {
@@ -78,5 +77,52 @@ describe('streaming', () => {
     run(b.host, 100, -50, 2, 90);
     expect(hashWorld(a.sim)).toBe(hashWorld(b.sim));
     expect(a.sim.tick).toBe(90);
+  });
+});
+
+describe('streaming review fixes', () => {
+  const at = (c: number) => c * 32 + 16;
+  const allMeshable = (sim: Simulation, cx: number, cz: number, rd: number) => {
+    for (let dz = -rd; dz <= rd; dz++) {
+      for (let dx = -rd; dx <= rd; dx++) {
+        if (dx * dx + dz * dz <= rd * rd && sim.columnState(cx + dx, cz + dz) !== COLUMN_MESHABLE)
+          return `${cx + dx},${cz + dz}`;
+      }
+    }
+    return null;
+  };
+
+  it('never leaves a column stuck after unloading diagonal neighbours', () => {
+    const { sim, host } = makeHost('stuck');
+    run(host, at(0), at(0), 3, 300);
+    run(host, at(5), at(0), 3, 300);
+    run(host, at(4), at(-1), 3, 300);
+    expect(allMeshable(sim, 4, -1, 3)).toBeNull();
+  });
+
+  it('keeps every column within RD meshable on a random walk with turns', () => {
+    const { sim, host } = makeHost('walk');
+    let cx = 0;
+    let cz = 0;
+    for (let step = 0; step < 40; step++) {
+      const dir = (step * 7 + (step >> 2)) % 4;
+      cx += dir === 0 ? 1 : dir === 1 ? -1 : 0;
+      cz += dir === 2 ? 1 : dir === 3 ? -1 : 0;
+      run(host, at(cx), at(cz), 3, 60);
+    }
+    run(host, at(cx), at(cz), 3, 300);
+    expect(allMeshable(sim, cx, cz, 3)).toBeNull();
+  });
+
+  it('hides meshes beyond RD + 1 when the render distance shrinks, and shows them again', () => {
+    const { host } = makeHost('hide');
+    run(host, at(0), at(0), 6, 400);
+    const hidden = run(host, at(0), at(0), 2, 10).filter((e) => e.type === 'columnHidden');
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const e of hidden) expect(e.cx * e.cx + e.cz * e.cz).toBeGreaterThan(9);
+    // Columns still loaded come back at once; the others are generated again first.
+    const shown = run(host, at(0), at(0), 6, 10).filter((e) => e.type === 'columnMeshable');
+    expect(shown.length).toBeGreaterThan(0);
+    for (const e of shown) expect(e.cx * e.cx + e.cz * e.cz).toBeLessThanOrEqual(36);
   });
 });

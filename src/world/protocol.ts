@@ -61,6 +61,12 @@ export interface MeshResult {
   readonly passes: readonly [PassPayload, PassPayload, PassPayload];
   readonly connectivity: number;
   readonly ms: number;
+  /** The job's padded arrays, handed back so the main thread can reuse them. */
+  readonly padded: {
+    readonly ids: Uint16Array;
+    readonly light: Uint8Array;
+    readonly biomes: Uint8Array;
+  };
 }
 
 export type Job = GenJob | MeshJob;
@@ -97,7 +103,14 @@ export function jobTransfers(job: Job): ArrayBuffer[] {
 
 /** Buffers a result hands back to the main thread. */
 export function resultTransfers(result: JobResult): ArrayBuffer[] {
-  if (result.kind === 'mesh') return result.passes.map((p) => p.data.buffer as ArrayBuffer);
+  if (result.kind === 'mesh') {
+    return [
+      ...result.passes.map((p) => p.data.buffer as ArrayBuffer),
+      result.padded.ids.buffer as ArrayBuffer,
+      result.padded.light.buffer as ArrayBuffer,
+      result.padded.biomes.buffer as ArrayBuffer,
+    ];
+  }
   const out: ArrayBuffer[] = [
     result.heightmap.buffer as ArrayBuffer,
     result.biomes.buffer as ArrayBuffer,

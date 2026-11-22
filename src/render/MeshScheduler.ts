@@ -1,7 +1,12 @@
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import { columnKeyX, columnKeyZ, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
-import { createPadded, fillPadded, type PaddedFill } from '../world/mesh/padded.ts';
+import {
+  createPadded,
+  fillPadded,
+  type PaddedFill,
+  type PaddedVoxels,
+} from '../world/mesh/padded.ts';
 import type { JobRunner, MeshResult } from '../world/protocol.ts';
 import type { ChunkMeshes } from './ChunkMeshes.ts';
 
@@ -42,6 +47,7 @@ export class MeshScheduler {
   private readonly pending = new Map<number, PendingSection>();
   private readonly inFlight = new Map<number, number>();
   private readonly ready: MeshResult[] = [];
+  private readonly freePadded: PaddedVoxels[] = [];
   private uploaded = 0;
   private stale = 0;
 
@@ -55,7 +61,7 @@ export class MeshScheduler {
   onEvent(event: SimEvent): void {
     if (event.type === 'columnMeshable') {
       for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) this.queue(event.cx, sy, event.cz);
-    } else if (event.type === 'columnUnloaded') {
+    } else if (event.type === 'columnUnloaded' || event.type === 'columnHidden') {
       for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) {
         const key = sectionKey(event.cx, sy, event.cz);
         this.pending.delete(key);
@@ -72,17 +78,19 @@ export class MeshScheduler {
   /** Dispatches jobs (nearest to the camera first) and uploads finished meshes. */
   update(cameraX: number, cameraY: number, cameraZ: number, budgets: MeshBudgets): void {
     this.upload(budgets);
-    let dispatched = 0;
+    // Every popped section counts, empty ones included, so a frame never scans without bound.
+    let popped = 0;
     while (
-      dispatched < budgets.dispatchPerFrame &&
+      popped < budgets.dispatchPerFrame &&
       this.inFlight.size < budgets.maxInFlight &&
       this.pending.size > 0
     ) {
-      const next = this.nearest(cameraX, cameraY, cameraZ);
-      if (!next) break;
-      const [key, section] = next;
+      const key = this.nearest(cameraX, cameraY, cameraZ);
+      if (key < 0) break;
+      const section = this.pending.get(key)!;
       this.pending.delete(key);
-      if (this.dispatch(key, section)) dispatched++;
+      this.dispatch(key, section);
+      popped++;
     }
   }
 
@@ -107,32 +115,42 @@ export class MeshScheduler {
     return this.pending.size === 0 && this.inFlight.size === 0 && this.ready.length === 0;
   }
 
-  private nearest(x: number, y: number, z: number): [number, PendingSection] | null {
-    let best: [number, PendingSection] | null = null;
+  /** Key of the pending section nearest to the camera (−1 when empty). */
+  private nearest(x: number, y: number, z: number): number {
+    let best = -1;
     let bestD = Number.POSITIVE_INFINITY;
-    for (const entry of this.pending) {
-      const s = entry[1];
+    this.pending.forEach((s, key) => {
       const dx = s.cx * 32 + 16 - x;
       const dy = s.sy * 32 + 16 - y;
       const dz = s.cz * 32 + 16 - z;
       const d = dx * dx + dy * dy * 0.5 + dz * dz;
       if (d < bestD) {
         bestD = d;
-        best = entry;
+        best = key;
       }
-    }
+    });
     return best;
+  }
+
+  /** All 8 neighbour columns must be loaded, or the padded border would be wrong. */
+  private neighboursLoaded(cx: number, cz: number): boolean {
+    const world = this.view.world;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) if (!world.getColumn(cx + dx, cz + dz)) return false;
+    }
+    return true;
   }
 
   private dispatch(key: number, s: PendingSection): boolean {
     const world = this.view.world;
     const section = world.getSection(s.cx, s.sy, s.cz);
-    if (!section) return false;
+    // Gone or no longer complete: the simulation emits columnMeshable again when it is.
+    if (!section || !this.neighboursLoaded(s.cx, s.cz)) return false;
     if (section.isEmpty(this.fill.air)) {
       this.chunks.remove(key);
       return false;
     }
-    const padded = createPadded();
+    const padded = this.freePadded.pop() ?? createPadded();
     fillPadded(world, s.cx, s.sy, s.cz, this.fill, padded);
     section.compact();
     const version = section.version;
@@ -162,6 +180,7 @@ export class MeshScheduler {
       bytes < budgets.uploadBytesPerFrame
     ) {
       const result = this.ready.shift()!;
+      if (this.freePadded.length < 16) this.freePadded.push(result.padded);
       const expected = this.inFlight.get(result.key);
       this.inFlight.delete(result.key);
       // Section key = column key × 8 + sy.

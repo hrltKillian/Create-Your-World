@@ -221,7 +221,8 @@ export function generateColumn(ctx: GenContext, column: Column): void {
   for (let cell = 0; cell < 1024; cell++) {
     const lx = cell & 31;
     const lz = cell >> 5;
-    let y = Math.min(WORLD_HEIGHT - 1, heights[cell]! + 24);
+    // Start above the tallest thing generation can place (water surface or trees).
+    let y = Math.min(WORLD_HEIGHT - 1, Math.max(heights[cell]!, sea) + 24);
     while (y > 0 && getLocal(column, lx, y, lz) === ctx.registry.air) y--;
     column.heightmap[cell] = y + 1;
   }

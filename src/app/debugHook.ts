@@ -9,6 +9,15 @@ import type { App } from './App.ts';
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
  * `__DEBUG_HOOK__`, so it never ships in production builds.
  */
+/** Yields to the event loop without timer throttling (works in hidden or background panes). */
+function yieldTask(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => resolve();
+    channel.port2.postMessage(0);
+  });
+}
+
 export function installDebugHook(app: App): void {
   const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   const api = {
@@ -84,9 +93,13 @@ export function installDebugHook(app: App): void {
         generateColumn(session.ctx, column);
         return columnHash(session.ctx, column);
       },
-      /** Resolves once every column within `radius` of the camera is meshed; returns the time it took. */
+      /**
+       * Resolves once every column within `radius` of the camera is meshed. Returns the wait and the
+       * time since the session started. While the page is hidden (no animation frames), it steps the
+       * world itself so automation keeps working.
+       */
       waitForChunks: async ({
-        radius = 3,
+        radius,
         timeout = 20_000,
       }: {
         radius?: number;
@@ -94,13 +107,18 @@ export function installDebugHook(app: App): void {
       } = {}) => {
         const session = app.session;
         if (!session) throw new Error('No world session');
+        const r = radius ?? session.loadingRadius();
         const t0 = performance.now();
-        while (!session.chunksReady(radius)) {
+        let lastFrames = app.frames.frameTotal();
+        while (!session.chunksReady(r)) {
           if (performance.now() - t0 > timeout)
             throw new Error(`chunks not ready after ${timeout} ms`);
-          await new Promise((r) => setTimeout(r, 16));
+          await yieldTask();
+          if (document.hidden || app.frames.frameTotal() === lastFrames) session.pumpOnce();
+          lastFrames = app.frames.frameTotal();
         }
-        return { ms: performance.now() - t0 };
+        const now = performance.now();
+        return { ms: now - t0, sinceStart: now - session.startedAt };
       },
       /** Steps the world for `ms` of wall time without rendering (useful when the pane is hidden). */
       pump: async (ms = 1000) => {
@@ -109,7 +127,7 @@ export function installDebugHook(app: App): void {
         const end = performance.now() + ms;
         while (performance.now() < end) {
           session.pumpOnce();
-          await new Promise((r) => setTimeout(r, 0));
+          await yieldTask();
         }
       },
       setRenderDistance: (rd: number) => app.session?.setRenderDistance(rd),

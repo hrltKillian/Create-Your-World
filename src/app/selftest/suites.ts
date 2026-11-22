@@ -5,6 +5,8 @@ export interface SelftestCase {
   readonly name: string;
   /** Only meaningful in these app states (others report the case as skipped). */
   readonly scenes?: readonly App['state'][];
+  /** Overrides the runner's default per-case timeout (ms). */
+  readonly timeoutMs?: number;
   run(app: App): Promise<void> | void;
 }
 
@@ -120,17 +122,20 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   ],
   m2: [
     {
-      name: 'the generated world streams around the camera (radius 3 meshed)',
+      name: 'the generated world streams around the camera (loading radius meshed)',
       scenes: ['loading', 'world'],
+      timeoutMs: 30_000,
       run: async (app) => {
         await app.ready();
         const session = app.session;
         assert(session, 'no world session');
         const t0 = performance.now();
-        while (!session.chunksReady(3)) {
-          assert(performance.now() - t0 < 20_000, 'radius 3 not meshed after 20 s');
+        while (!session.chunksReady(session.loadingRadius())) {
+          assert(performance.now() - t0 < 25_000, 'loading radius not meshed after 25 s');
           await new Promise((r) => setTimeout(r, 50));
         }
+        // The loading screen goes away on the next frame.
+        await nextFrame();
         assert(app.state === 'world', `state is ${app.state}`);
         assert(app.view!.chunks.stats().meshes > 0, 'no chunk meshes');
       },
@@ -156,6 +161,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
     {
       name: 'lowering the render distance frees geometry, raising it streams again',
       scenes: ['world'],
+      timeoutMs: 100_000,
       run: async (app) => {
         const session = app.session!;
         const rd = session.renderDistance;
@@ -168,23 +174,35 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         };
         await waitFor(`radius ${rd} meshed`, () => session.chunksReady(rd));
         const before = app.view!.chunks.stats().meshes;
-        const columnsBefore = session.sim.world.columns.size;
-        // The new unload radius (RD' + 3.5) must be inside the old generation radius (RD + 2.5).
         const smaller = Math.max(1, rd - 4);
-        const unload = smaller + 3.5;
-        session.setRenderDistance(smaller);
-        let keep = 0;
-        for (let dz = -12; dz <= 12; dz++) {
-          for (let dx = -12; dx <= 12; dx++) if (dx * dx + dz * dz <= unload * unload) keep++;
+        try {
+          session.setRenderDistance(smaller);
+          // Columns beyond RD' + 1 are hidden: their meshes are freed (data stays until RD' + 3.5).
+          await waitFor('hiding', () => session.scheduler.idle() && session.chunksReady(smaller));
+          for (let i = 0; i < 3; i++) await nextFrame();
+          const after = app.view!.chunks.stats().meshes;
+          assert(after < before, `meshes ${before} → ${after}`);
+          // Only columns within RD' + 1 may keep meshes.
+          const pose = app.freecam!.pose;
+          const ccx = Math.floor(Math.floor(pose.x) / 32);
+          const ccz = Math.floor(Math.floor(pose.z) / 32);
+          let allowed = 0;
+          for (let dz = -smaller - 2; dz <= smaller + 2; dz++) {
+            for (let dx = -smaller - 2; dx <= smaller + 2; dx++) {
+              if (dx * dx + dz * dz <= (smaller + 1) * (smaller + 1))
+                allowed += session.sim.world.getColumn(ccx + dx, ccz + dz) ? 8 : 0;
+            }
+          }
+          assert(
+            app.view!.chunks.stats().sections <= allowed,
+            `sections ${app.view!.chunks.stats().sections} > ${allowed}`,
+          );
+        } finally {
+          session.setRenderDistance(rd);
         }
-        await waitFor('unloading', () => session.sim.world.columns.size <= keep);
-        const after = app.view!.chunks.stats().meshes;
-        const columnsAfter = session.sim.world.columns.size;
-        session.setRenderDistance(rd);
-        assert(columnsAfter < columnsBefore, `columns ${columnsBefore} → ${columnsAfter}`);
-        // Meshed columns sit within RD; they only unload (with their meshes) when RD' + 3.5 < RD.
-        if (unload < rd) assert(after < before, `meshes ${before} → ${after}`);
-        await waitFor('radius 3 meshed again', () => session.chunksReady(3));
+        await waitFor('loading radius meshed again', () =>
+          session.chunksReady(session.loadingRadius()),
+        );
       },
     },
     {

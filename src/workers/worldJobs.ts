@@ -64,6 +64,7 @@ export class WorldJobs {
       passes: mesh.passes,
       connectivity: mesh.connectivity,
       ms: this.now() - start,
+      padded: { ids: job.ids, light: job.light, biomes: job.biomes },
     };
   }
 }

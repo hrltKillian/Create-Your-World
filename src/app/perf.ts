@@ -21,8 +21,16 @@ export class FrameStats {
     this.frameStartedAt = performance.now();
   }
 
+  private frameCount = 0;
+
+  /** Frames completed so far (automation uses it to detect a throttled animation loop). */
+  frameTotal(): number {
+    return this.frameCount;
+  }
+
   /** Call at the very end of the animation-loop callback. */
   frameEnd(): void {
+    this.frameCount++;
     this.work[this.cursor] = performance.now() - this.frameStartedAt;
     this.cursor = (this.cursor + 1) % WINDOW;
     this.count = Math.min(WINDOW, this.count + 1);
