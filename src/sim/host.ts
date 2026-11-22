@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Command } from './commands.ts';
 import type { SimEvent } from './events.ts';
+import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /** Read-only view of the simulation for rendering, UI and audio. */
@@ -9,8 +10,10 @@ export interface SimView {
   readonly world: VoxelWorld;
   readonly registry: Registry;
   readonly seed: string;
+  readonly playerId: number;
   tick(): number;
   columnState(cx: number, cz: number): number;
+  player(id?: number): Readonly<PlayerState> | undefined;
 }
 
 /** Client ⇄ simulation contract. A future RemoteSimHost implements it over the network. */
@@ -24,24 +27,30 @@ export interface SimHost {
   readonly canPause: boolean;
 }
 
+function makeView(sim: Simulation, playerId: number): SimView {
+  return {
+    world: sim.world,
+    registry: sim.registry,
+    seed: sim.seed,
+    playerId,
+    tick: () => sim.tick,
+    columnState: (cx, cz) => sim.columnState(cx, cz),
+    player: (id = playerId) => sim.players.get(id),
+  };
+}
+
 /** v1 host: the simulation runs in this page; the view exposes live objects without copies. */
 export class LocalSimHost implements SimHost {
   readonly view: SimView;
   readonly canPause = true;
-  private readonly sim: Simulation;
-  private readonly playerId: number;
+  protected readonly sim: Simulation;
+  protected readonly playerId: number;
   private seq = 0;
 
   constructor(sim: Simulation, playerId = 1) {
     this.sim = sim;
     this.playerId = playerId;
-    this.view = {
-      world: sim.world,
-      registry: sim.registry,
-      seed: sim.seed,
-      tick: () => sim.tick,
-      columnState: (cx, cz) => sim.columnState(cx, cz),
-    };
+    this.view = makeView(sim, playerId);
   }
 
   send(command: Command): void {
@@ -54,5 +63,29 @@ export class LocalSimHost implements SimHost {
 
   pumpWorld(budget: { readonly columns: number }, out: SimEvent[]): void {
     this.sim.pump(budget.columns, out);
+  }
+}
+
+/**
+ * Same as LocalSimHost, but every command and event goes through JSON, which proves the protocol
+ * would survive a network (`?host=serialize` and tests).
+ */
+export class SerializingSimHost extends LocalSimHost {
+  private readonly scratch: SimEvent[] = [];
+
+  override send(command: Command): void {
+    super.send(JSON.parse(JSON.stringify(command)) as Command);
+  }
+
+  override advance(ticks: number, out: SimEvent[]): void {
+    this.scratch.length = 0;
+    super.advance(ticks, this.scratch);
+    for (const event of JSON.parse(JSON.stringify(this.scratch)) as SimEvent[]) out.push(event);
+  }
+
+  override pumpWorld(budget: { readonly columns: number }, out: SimEvent[]): void {
+    this.scratch.length = 0;
+    super.pumpWorld(budget, this.scratch);
+    for (const event of JSON.parse(JSON.stringify(this.scratch)) as SimEvent[]) out.push(event);
   }
 }

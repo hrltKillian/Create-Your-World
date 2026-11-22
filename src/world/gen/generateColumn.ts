@@ -5,6 +5,7 @@ import type { Column } from '../Column.ts';
 import { localIndex, SECTION_BITS, SECTION_MASK, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
 import { pickBiome } from './biomes.ts';
 import { Climate, type ClimateSample, emptySample, interpolateSample } from './climate.ts';
+import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
 import { surfaceHeight } from './terrain.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
@@ -30,9 +31,12 @@ interface ResolvedBiome {
   readonly plants: readonly { readonly state: number; readonly chance: number }[];
 }
 
-/** Everything generation needs, built once per (seed, content pack). */
+export type WorldType = 'default' | 'flat';
+
+/** Everything generation needs, built once per (seed, world type, content pack). */
 export interface GenContext {
   readonly seed: string;
+  readonly worldType: WorldType;
   readonly seedHash: number;
   readonly registry: Registry;
   readonly def: WorldgenDef;
@@ -46,7 +50,11 @@ export interface GenContext {
   readonly stateHash: Uint32Array;
 }
 
-export function createGenContext(seed: string, registry: Registry): GenContext {
+export function createGenContext(
+  seed: string,
+  registry: Registry,
+  worldType: WorldType = 'default',
+): GenContext {
   const pack = registry.pack;
   const def = pack.worldgen;
   if (!def || !pack.biomes || pack.biomes.length === 0)
@@ -87,6 +95,7 @@ export function createGenContext(seed: string, registry: Registry): GenContext {
   });
   return {
     seed,
+    worldType,
     seedHash: fnv1aString(seed),
     registry,
     def,
@@ -174,6 +183,19 @@ const tmp = emptySample();
 
 /** Generates the terrain of one column (sections, heightmap, biomes). Pure and deterministic. */
 export function generateColumn(ctx: GenContext, column: Column): void {
+  if (ctx.worldType === 'flat') {
+    // The flat test world uses the first spawn biome's surface (or the last biome).
+    const index = ctx.spawnBiomes.values().next().value ?? ctx.biomes.length - 1;
+    const biome = ctx.biomes[index]!;
+    generateFlatColumn(column, {
+      bedrock: ctx.bedrock,
+      stone: ctx.stone,
+      filler: biome.filler,
+      surface: biome.surface,
+    });
+    column.biomes.fill(index);
+    return;
+  }
   const cache = new LatticeCache();
   const defs = ctx.biomes.map((b) => b.def);
   const x0 = column.cx * SECTION_SIZE;
@@ -351,6 +373,7 @@ export function columnHash(ctx: GenContext, column: Column): number {
 
 /** Provisional spawn (M2–M5): nearest dry column of a spawn biome, spiralling out from the origin. */
 export function findSpawn(ctx: GenContext, maxRadius = 64): { x: number; y: number; z: number } {
+  if (ctx.worldType === 'flat') return { x: 0.5, y: FLAT_SURFACE + 1, z: 0.5 };
   const cache = new LatticeCache();
   for (let r = 0; r <= maxRadius; r++) {
     for (let dz = -r; dz <= r; dz++) {

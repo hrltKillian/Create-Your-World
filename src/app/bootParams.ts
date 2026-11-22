@@ -19,6 +19,11 @@ export interface BootParams {
   readonly rd: number | null;
   /** Benchmark run (fixed drawing-buffer size). */
   readonly bench: string | null;
+  readonly worldType: 'default' | 'flat';
+  /** Keyboard layout used for key labels (otherwise detected). */
+  readonly kb: 'qwerty' | 'azerty' | 'qwertz' | null;
+  /** 'serialize' routes commands and events through JSON. */
+  readonly host: string | null;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -37,6 +42,9 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   view: null,
   rd: null,
   bench: null,
+  worldType: 'default',
+  kb: null,
+  host: null,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
@@ -64,5 +72,8 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     view: params.get('view'),
     rd: params.has('rd') ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6)) : null,
     bench: params.get('bench'),
+    worldType: params.get('worldType') === 'flat' ? 'flat' : 'default',
+    kb: (['qwerty', 'azerty', 'qwertz'] as const).find((k) => k === params.get('kb')) ?? null,
+    host: params.get('host'),
   };
 }

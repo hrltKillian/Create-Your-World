@@ -1,4 +1,6 @@
 import { i18nMissing } from '../i18n/i18n.ts';
+import type { Action } from '../input/bindings.ts';
+import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { Column } from '../world/Column.ts';
@@ -21,7 +23,7 @@ function yieldTask(): Promise<void> {
 export function installDebugHook(app: App): void {
   const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   const api = {
-    version: 2,
+    version: 3,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -66,8 +68,66 @@ export function installDebugHook(app: App): void {
       },
     },
     camera: {
-      get: (): CameraPose | null => (app.freecam ? { ...app.freecam.pose } : null),
+      get: (): CameraPose | null =>
+        app.freecam ? { ...app.freecam.pose } : app.session ? { ...app.session.rig.pose } : null,
       set: (pose: Partial<CameraPose>) => app.freecam?.set(pose),
+      /** Mode ('first' | 'third') and current third-person distance. */
+      mode: () =>
+        app.session ? { mode: app.session.rig.mode, distance: app.session.rig.distance } : null,
+      toggle: () => app.session?.rig.toggleMode(),
+    },
+    sim: {
+      /** Advances n ticks now (use with ?fixedStep=1). */
+      step: (n = 1) => app.session?.step(n),
+      tick: () => app.session?.sim.tick ?? 0,
+      hash: async () => {
+        const { stateHash } = await import('../sim/stateHash.ts');
+        return app.session ? stateHash(app.session.sim) : null;
+      },
+    },
+    input: {
+      /** Sets the view angles (radians). */
+      look: (yaw: number, pitch: number) => {
+        if (!app.session) return;
+        app.session.rig.yaw = yaw;
+        app.session.rig.pitch = pitch;
+      },
+      /** Holds an action for `ticks` ticks; in fixed-step mode it also advances those ticks. */
+      press: (action: Action, ticks = 1) => {
+        if (!app.input || !app.session) return;
+        app.input.force(action, ticks);
+        if (app.params.fixedStep) app.session.step(ticks);
+      },
+      release: () => app.input?.releaseAll(),
+      keyLabel: (action: Action) => app.input?.keyLabel(action) ?? null,
+    },
+    player: {
+      get: () => {
+        const p = app.session?.player;
+        if (!p) return null;
+        const b = p.body;
+        return {
+          x: b.x,
+          y: b.y,
+          z: b.z,
+          vx: b.vx,
+          vy: b.vy,
+          vz: b.vz,
+          onGround: b.onGround,
+          inWater: b.inWater,
+          crouching: b.crouching,
+          stamina: p.stamina,
+          exhausted: p.exhausted,
+          yaw: p.yaw,
+          pitch: p.pitch,
+        };
+      },
+      teleport: (x: number, y: number | 'surface', z: number) => {
+        app.session?.host.send({ type: 'debug.teleport', x, y, z });
+        if (app.params.fixedStep) app.session?.step(1);
+      },
+      setStamina: (value: number) =>
+        app.session?.host.send({ type: 'debug.setStat', stat: 'stamina', value }),
     },
     world: {
       /** Text key of the block state at a position (or null outside the loaded world). */
@@ -130,6 +190,19 @@ export function installDebugHook(app: App): void {
           await yieldTask();
         }
       },
+      /** Fills a box (inclusive corners) with a block state key, e.g. the key `world.block` returns. */
+      fill: (
+        x0: number,
+        y0: number,
+        z0: number,
+        x1: number,
+        y1: number,
+        z1: number,
+        state: string,
+      ) => {
+        app.session?.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
+        if (app.params.fixedStep) app.session?.step(1);
+      },
       setRenderDistance: (rd: number) => app.session?.setRenderDistance(rd),
       memory: () => ({
         voxelBytes: app.world?.voxelBytes() ?? 0,
@@ -152,6 +225,13 @@ export function installDebugHook(app: App): void {
           : null;
       },
       chunks: () => app.view?.chunks.stats() ?? null,
+      /** Animation angles (degrees) and head pivot height of an entity's rig. */
+      rig: (who: 'player' | number = 'player') => {
+        const session = app.session;
+        if (!session) return null;
+        const rig = session.entities.rig(who === 'player' ? session.player.id : who);
+        return rig ? { angles: rigDegrees(rig), headPivotY: rig.headPivotY } : null;
+      },
       debugView: (view?: DebugView) => {
         if (view !== undefined) {
           if (!DEBUG_VIEWS.includes(view))

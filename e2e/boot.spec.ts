@@ -27,3 +27,8 @@ test('the test scene passes its selftests', async ({ page }) => {
 test('the generated world streams and passes its selftests', async ({ page }) => {
   expect(await selftest(page, 'seed=7&rd=3&selftest=m0,m2')).toMatch(/^SELFTEST PASS/);
 });
+
+test('the player walks, animates and switches cameras on the flat world', async ({ page }) => {
+  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&rd=3&selftest=m0,m3';
+  expect(await selftest(page, query)).toMatch(/^SELFTEST PASS/);
+});
