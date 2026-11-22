@@ -1,22 +1,40 @@
+import { generatePackTexture } from '../assets/procedural/patterns.ts';
+import { basePack } from '../content/packs/base/index.ts';
+import { buildRegistry, type Registry } from '../content/registry.ts';
 import { setLogSink } from '../core/log.ts';
+import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
+import { addStrings } from '../i18n/i18n.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
+import { createTextureArray } from '../render/textureArray.ts';
+import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
+import { WorldView } from '../render/WorldView.ts';
+import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
+import { hintBar } from '../ui/screens/hint.ts';
 import { titleOverlay } from '../ui/screens/title.ts';
 import { unsupportedScreen } from '../ui/screens/unsupported.ts';
+import { sectionKey } from '../world/coords.ts';
+import { buildTestScene, TEST_SCENE_SURFACE } from '../world/gen/testScene.ts';
+import { meshSection } from '../world/mesh/greedyMesher.ts';
+import { createPadded, fillPadded } from '../world/mesh/padded.ts';
+import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type BootParams, parseBootParams } from './bootParams.ts';
+import { FreeCam } from './FreeCam.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 0;
+export const MILESTONE = 1;
 
-export type AppState = 'boot' | 'unsupported' | 'fatal' | 'title';
+export type AppState = 'boot' | 'unsupported' | 'fatal' | 'title' | 'testchunk';
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
+const DEBUG_KEYS = new Set(['F3', 'Backquote', 'IntlBackslash']);
+const RENDER_DISTANCE = 6;
 
-/** Composition root: capability gate, renderer, workers, screens and the frame loop. */
+/** Composition root: capability gate, content, renderer, workers, screens and the frame loop. */
 export class App {
   state: AppState = 'boot';
   readonly params: BootParams;
@@ -26,6 +44,12 @@ export class App {
   capabilities: CapabilityReport | null = null;
   renderer: Renderer | null = null;
   workers: WorkerPool | null = null;
+  registry: Registry | null = null;
+  world: VoxelWorld | null = null;
+  view: WorldView | null = null;
+  freecam: FreeCam | null = null;
+  overlay: DebugOverlay | null = null;
+  debugView: DebugView = 'none';
 
   private readonly root: HTMLElement;
   private readonly readyPromise: Promise<void>;
@@ -59,8 +83,12 @@ export class App {
         this.resolveReady();
         return;
       }
+      this.registry = buildRegistry(basePack);
+      addStrings(basePack.strings);
       this.workers = new WorkerPool(workerCount(navigator.hardwareConcurrency));
-      this.startScene(report);
+      this.renderer = new Renderer(this.root, { maxPixelRatio: 1.5 });
+      if (this.params.scene === 'title') this.startTitle(report);
+      else this.startTestScene(this.registry);
     } catch (error) {
       this.fail(error);
     }
@@ -81,13 +109,125 @@ export class App {
     else this.droppedErrors++;
   }
 
-  private startScene(report: CapabilityReport): void {
-    const renderer = new Renderer(this.root, { maxPixelRatio: 1.5 });
-    this.renderer = renderer;
+  setDebugView(view: DebugView): void {
+    this.debugView = view;
+    this.view?.setDebugView(view);
+  }
+
+  /** Meshes every non-empty section of the loaded world on the main thread (M1; workers in M2). */
+  meshWorld(): void {
+    const { world, registry, view } = this;
+    if (!world || !registry || !view) return;
+    const padded = createPadded();
+    const fill = {
+      belowBlock: registry.unknownBlock,
+      missingBlock: registry.air,
+      missingLight: 0xf0,
+      air: registry.air,
+    };
+    for (const column of world.columns.values()) {
+      column.sections.forEach((section, sy) => {
+        const key = sectionKey(column.cx, sy, column.cz);
+        if (section.isEmpty(registry.air)) {
+          view.chunks.remove(key);
+          return;
+        }
+        fillPadded(world, column.cx, sy, column.cz, fill, padded);
+        view.chunks.update(
+          key,
+          column.cx * 32,
+          sy * 32,
+          column.cz * 32,
+          meshSection(padded, registry.tables),
+        );
+      });
+    }
+  }
+
+  private startTitle(report: CapabilityReport): void {
+    const renderer = this.renderer!;
     const title = new TitleScene(renderer);
     this.root.append(titleOverlay(MILESTONE, report.touchOnly));
     this.state = 'title';
+    this.runLoop((dt) => title.frame(dt));
+  }
 
+  private startTestScene(registry: Registry): void {
+    const renderer = this.renderer!;
+    const pack = registry.pack;
+    const size = pack.manifest.textureSize;
+    const textures = createTextureArray(
+      pack.textures.map((def) => generatePackTexture(def, size)),
+      size,
+    );
+    const tints = ['#ffffff', pack.tints.grass, pack.tints.foliage, pack.tints.water];
+    const view = new WorldView(renderer, textures, tints, RENDER_DISTANCE);
+    this.view = view;
+    const world = new VoxelWorld(registry.air, registry.unknownBlock);
+    this.world = world;
+    buildTestScene(world, registry);
+    this.meshWorld();
+    const requested = this.params.view as DebugView | null;
+    if (requested && DEBUG_VIEWS.includes(requested)) this.setDebugView(requested);
+
+    const freecam = new FreeCam(
+      renderer.webgl.domElement,
+      { x: 0, y: TEST_SCENE_SURFACE + 9, z: 14, yaw: 0, pitch: -0.42 },
+      !this.params.noLock,
+    );
+    this.freecam = freecam;
+    const overlay = new DebugOverlay(this.params.debug);
+    this.overlay = overlay;
+    this.root.append(overlay.element, hintBar('hint.freecam'));
+    window.addEventListener('keydown', (event) => {
+      if (DEBUG_KEYS.has(event.code)) {
+        event.preventDefault();
+        overlay.toggle();
+      }
+    });
+    this.state = 'testchunk';
+
+    let sinceOverlay = 0;
+    this.runLoop((dt) => {
+      freecam.update(dt);
+      view.setPose(freecam.pose);
+      view.frame(dt);
+      sinceOverlay += dt;
+      if (sinceOverlay >= 0.25) {
+        sinceOverlay = 0;
+        this.refreshOverlay();
+      }
+    });
+  }
+
+  private refreshOverlay(): void {
+    const { overlay, view, freecam, world } = this;
+    if (!overlay?.isVisible() || !view || !freecam || !world) return;
+    const info = this.renderer!.webgl.info;
+    const snap = this.frames.snapshot();
+    const chunks = view.chunks.stats();
+    const pose = freecam.pose;
+    const yawDeg = ((((-pose.yaw * 180) / Math.PI) % 360) + 360) % 360;
+    overlay.setLines([
+      { label: 'debug.fps', value: fmtNumber(snap.fps) },
+      { label: 'debug.frame', value: `${fmtNumber(snap.workP95, 2)} ms` },
+      { label: 'debug.draws', value: fmtNumber(info.render.calls) },
+      { label: 'debug.triangles', value: fmtNumber(info.render.triangles) },
+      { label: 'debug.sections', value: fmtNumber(chunks.sections) },
+      { label: 'debug.quads', value: fmtNumber(chunks.quads) },
+      { label: 'debug.geometry', value: fmtBytes(chunks.geometryBytes) },
+      { label: 'debug.voxels', value: fmtBytes(world.voxelBytes()) },
+      {
+        label: 'debug.position',
+        value: `${fmtNumber(pose.x, 1)} ${fmtNumber(pose.y, 1)} ${fmtNumber(pose.z, 1)}`,
+      },
+      { label: 'debug.facing', value: `${fmtNumber(yawDeg)}°` },
+      { label: 'debug.view', value: this.debugView },
+    ]);
+  }
+
+  private runLoop(frame: (dt: number) => void): void {
+    const renderer = this.renderer!;
     let firstFrame = true;
     let last = -1;
     renderer.webgl.setAnimationLoop((now: number) => {
@@ -95,7 +235,7 @@ export class App {
         this.frames.frameStart(now);
         const dt = last < 0 ? 0 : Math.min(now - last, 250) / 1000;
         last = now;
-        title.frame(dt);
+        frame(dt);
         this.frames.frameEnd();
         if (firstFrame) {
           firstFrame = false;
@@ -106,7 +246,6 @@ export class App {
         this.fail(error);
       }
     });
-
     document.addEventListener('visibilitychange', () => {
       last = -1;
       this.frames.resetClock();
