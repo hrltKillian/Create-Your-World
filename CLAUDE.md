@@ -66,6 +66,9 @@ Deterministic boot URL: `http://localhost:5173/?seed=42&storage=memory&noLock=1&
   `worldType=flat`, `rd`, `view`, `kb`, `host=serialize`, `bench` — more arrive with later milestones.
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
+- `src/app/automation.ts` holds the waits (`nextFrame`, `yieldTask`, `waitUntil`, `waitForChunks`,
+  `framesFor`) and the `teleport`/`fill` debug commands shared by `debugHook.ts` and the selftests;
+  selftest suites end with `noErrorsCase()`.
 
 ## Originality checklist
 

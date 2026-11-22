@@ -72,6 +72,11 @@ export class InputManager {
     return false;
   }
 
+  /** +1 while `plus` is held, −1 while `minus` is, 0 for both or neither. */
+  axis(plus: Action, minus: Action): number {
+    return (this.isDown(plus) ? 1 : 0) - (this.isDown(minus) ? 1 : 0);
+  }
+
   /** True once per key press (edge-latched until consumed). */
   consume(action: Action): boolean {
     return this.edges.delete(action);
@@ -108,12 +113,10 @@ export class InputManager {
    * since the previous sample count as held for this tick.
    */
   sample(look: LookTarget): InputCommand {
-    const axis = (plus: Action, minus: Action) =>
-      (this.isDown(plus) ? 1 : 0) - (this.isDown(minus) ? 1 : 0);
     const command: InputCommand = {
       type: 'input',
-      forward: axis('forward', 'back'),
-      strafe: axis('right', 'left'),
+      forward: this.axis('forward', 'back'),
+      strafe: this.axis('right', 'left'),
       jump: this.isDown('jump') || this.latched.has('jump'),
       sprint: this.isDown('sprint'),
       crouch: this.isDown('crouch'),

@@ -5,7 +5,7 @@ import type { WorkerPool } from '../platform/WorkerPool.ts';
 import { BoxBatch } from '../render/BoxBatch.ts';
 import { CameraRig } from '../render/CameraRig.ts';
 import { EntityView } from '../render/EntityView.ts';
-import { MeshScheduler } from '../render/MeshScheduler.ts';
+import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import type { SimEvent } from '../sim/events.ts';
@@ -146,19 +146,14 @@ export class GameSession {
     // Fixed-step sessions only tick on request; keep the world streaming meanwhile.
     else if (this.fixedStep || this.paused)
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, this.loading ? LOADING_BUDGETS : PLAY_BUDGETS);
-    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
+    this.afterTicks(this.loading ? LOADING_BUDGETS : PLAY_BUDGETS, true);
     return this.render(dt);
   }
 
-  /** Advances `n` ticks right now (fixed-step automation). */
+  /** Advances `n` ticks right now (fixed-step automation). The loading flag is left to frames. */
   step(n: number): void {
     for (let i = 0; i < n; i++) this.tick();
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, LOADING_BUDGETS);
+    this.afterTicks(LOADING_BUDGETS, false);
   }
 
   /**
@@ -168,10 +163,7 @@ export class GameSession {
   pumpOnce(): void {
     if (!this.fixedStep && !this.paused) this.tick();
     this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, LOADING_BUDGETS);
-    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
+    this.afterTicks(LOADING_BUDGETS, true);
   }
 
   /** Radius that ends the loading screen: 3 columns, or less at a smaller render distance. */
@@ -249,19 +241,26 @@ export class GameSession {
     });
   }
 
-  private flushEvents(): void {
+  /**
+   * Common tail of `frame`, `step` and `pumpOnce`: hands the tick events to the mesh scheduler,
+   * meshes around the focus and, when `endLoading`, drops the loading flag once the area is ready.
+   */
+  private afterTicks(budgets: MeshBudgets, endLoading: boolean): void {
     for (const event of this.events) this.scheduler.onEvent(event);
     this.events.length = 0;
+    const focus = this.focus();
+    this.scheduler.update(focus.x, focus.y, focus.z, budgets);
+    if (endLoading && this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
   }
 }
 
-const PLAY_BUDGETS = {
+const PLAY_BUDGETS: MeshBudgets = {
   maxInFlight: 8,
   dispatchPerFrame: 4,
   uploadsPerFrame: 8,
   uploadBytesPerFrame: 1 << 20,
 };
-const LOADING_BUDGETS = {
+const LOADING_BUDGETS: MeshBudgets = {
   maxInFlight: 16,
   dispatchPerFrame: 16,
   uploadsPerFrame: 48,

@@ -3,8 +3,8 @@ import { basePack } from '../content/packs/base/index.ts';
 import { buildRegistry, type Registry } from '../content/registry.ts';
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
-import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
-import { addStrings, t } from '../i18n/i18n.ts';
+import { addStrings } from '../i18n/i18n.ts';
+import { DEFAULT_BINDINGS } from '../input/bindings.ts';
 import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
@@ -15,25 +15,19 @@ import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
 import { crosshair } from '../ui/hud/crosshair.ts';
-import {
-  clickToPlay,
-  setClickToPlayControls,
-  setClickToPlayResume,
-} from '../ui/screens/clickToPlay.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
 import { hintBar } from '../ui/screens/hint.ts';
 import { loadingScreen } from '../ui/screens/loading.ts';
 import { titleOverlay } from '../ui/screens/title.ts';
 import { unsupportedScreen } from '../ui/screens/unsupported.ts';
-import { sectionKey, toColumn, toLocal } from '../world/coords.ts';
-import { buildTestScene, TEST_SCENE_SURFACE } from '../world/gen/testScene.ts';
-import { meshSection } from '../world/mesh/greedyMesher.ts';
-import { createPadded, fillPadded } from '../world/mesh/padded.ts';
+import { buildTestScene, meshTestScene, TEST_SCENE_SURFACE } from '../world/gen/testScene.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type BootParams, parseBootParams } from './bootParams.ts';
+import { debugLines } from './debugLines.ts';
 import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
 import { FrameStats } from './perf.ts';
+import { installPlayGate } from './playGate.ts';
 
 export const MILESTONE = 3;
 
@@ -48,8 +42,12 @@ export type AppState =
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
-const DEBUG_KEYS = new Set(['F3', 'Backquote', 'IntlBackslash']);
+const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
+/** Seconds between two refreshes of the debug overlay. */
+const OVERLAY_REFRESH = 0.25;
 const RENDER_DISTANCE = 6;
+/** Tint slot 0 of the voxel shader: untinted. */
+const NO_TINT = '#ffffff';
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
 const BENCH_BUFFER = [2160, 1350] as const;
 
@@ -141,36 +139,6 @@ export class App {
     this.view?.setDebugView(view);
   }
 
-  /** Meshes every non-empty section of the loaded world on the main thread (M1; workers in M2). */
-  meshWorld(): void {
-    const { world, registry, view } = this;
-    if (!world || !registry || !view) return;
-    const padded = createPadded();
-    const fill = {
-      belowBlock: registry.unknownBlock,
-      missingBlock: registry.air,
-      missingLight: 0xf0,
-      air: registry.air,
-    };
-    for (const column of world.columns.values()) {
-      column.sections.forEach((section, sy) => {
-        const key = sectionKey(column.cx, sy, column.cz);
-        if (section.isEmpty(registry.air)) {
-          view.chunks.remove(key);
-          return;
-        }
-        fillPadded(world, column.cx, sy, column.cz, fill, padded);
-        view.chunks.update(
-          key,
-          column.cx * 32,
-          sy * 32,
-          column.cz * 32,
-          meshSection(padded, registry.tables),
-        );
-      });
-    }
-  }
-
   private startTitle(report: CapabilityReport): void {
     const renderer = this.renderer!;
     const title = new TitleScene(renderer);
@@ -194,25 +162,18 @@ export class App {
 
   /** Default mode: an endless generated world, explored on foot (or with ?freecam=1). */
   private startWorld(registry: Registry): void {
-    const renderer = this.renderer!;
-    const canvas = renderer.webgl.domElement;
     const pack = registry.pack;
     const renderDistance = this.params.rd ?? RENDER_DISTANCE;
     const view = this.createWorldView(pack, biomeTints(pack), renderDistance);
     this.view = view;
-    const freecam = this.params.freecam
-      ? new FreeCam(canvas, { x: 0, y: 100, z: 0, yaw: 0, pitch: 0 }, !this.params.noLock)
-      : null;
-    this.freecam = freecam;
-    const input = new InputManager(canvas, {
-      pointerLock: !this.params.noLock && !freecam,
-      language: navigator.language,
-    });
-    this.input = input;
-    if (this.params.kb) input.labels.force(this.params.kb);
+    const input = this.createInput();
     const layoutLoaded = input.labels.loadLayoutMap(
       (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard,
     );
+    const freecam = this.params.freecam
+      ? new FreeCam(input, { x: 0, y: 100, z: 0, yaw: 0, pitch: 0 })
+      : null;
+    this.freecam = freecam;
     const seed = this.params.seed ?? Math.floor(Math.random() * 1e9).toString(36);
     const session = new GameSession(
       {
@@ -231,41 +192,16 @@ export class App {
     );
     this.session = session;
     this.world = session.sim.world;
-    const overlay = new DebugOverlay(this.params.debug);
-    this.overlay = overlay;
+    const overlay = this.mountDebug();
     const loading = loadingScreen();
     const cross = crosshair();
     this.root.append(cross, overlay.element, loading);
     if (freecam) this.root.append(hintBar('hint.freecam'));
-    const click = input.pointer
-      ? clickToPlay(this.controlsText(input), () => input.pointer?.request())
-      : null;
-    if (click && input.pointer) {
-      this.root.append(click);
-      void layoutLoaded.then(() => setClickToPlayControls(click, this.controlsText(input)));
-      // Without the mouse captured the game is paused and ignores the keyboard.
-      const setPlaying = (playing: boolean) => {
-        session.paused = !playing;
-        input.enabled = playing;
-        if (!playing) input.releaseAll();
-      };
-      setPlaying(false);
-      input.pointer.onChange = (locked) => {
-        click.hidden = locked;
-        setPlaying(locked);
-        if (!locked) {
-          setClickToPlayResume(click);
-          setClickToPlayControls(click, this.controlsText(input));
-        }
-      };
-    }
-    this.installDebugToggle(overlay);
+    // The free camera flies without the click-to-play pause.
+    else installPlayGate(this.root, input, session, layoutLoaded);
     this.state = 'loading';
-    const requested = this.params.view as DebugView | null;
-    if (requested && DEBUG_VIEWS.includes(requested)) this.setDebugView(requested);
 
-    let sinceOverlay = 0;
-    this.runLoop((dt) => {
+    this.runSceneLoop((dt) => {
       const t0 = performance.now();
       const pose = session.frame(dt);
       const t1 = performance.now();
@@ -278,69 +214,73 @@ export class App {
         this.state = session.loading ? 'loading' : 'world';
         loading.hidden = !session.loading;
       }
-      sinceOverlay += dt;
-      if (sinceOverlay >= 0.25) {
-        sinceOverlay = 0;
-        this.refreshOverlay();
-      }
     });
   }
 
-  /** Controls line with the labels of the player's own keyboard layout. */
-  controlsText(input: InputManager): string {
-    return t('play.controls', {
-      forward: input.keyLabel('forward'),
-      left: input.keyLabel('left'),
-      back: input.keyLabel('back'),
-      right: input.keyLabel('right'),
-      jump: input.keyLabel('jump'),
-      sprint: input.keyLabel('sprint'),
-      crouch: input.keyLabel('crouch'),
-      camera: input.keyLabel('camera'),
+  /** Developer test scene (M1): a fixed hand-built area, meshed once, seen from a free camera. */
+  private startTestScene(registry: Registry): void {
+    const pack = registry.pack;
+    const view = this.createWorldView(pack, packTints(pack), RENDER_DISTANCE);
+    this.view = view;
+    const world = new VoxelWorld(registry.air, registry.unknownBlock);
+    this.world = world;
+    buildTestScene(world, registry);
+    meshTestScene(world, registry, view.chunks);
+    const freecam = new FreeCam(this.createInput(), {
+      x: 0,
+      y: TEST_SCENE_SURFACE + 9,
+      z: 14,
+      yaw: 0,
+      pitch: -0.42,
+    });
+    this.freecam = freecam;
+    const overlay = this.mountDebug();
+    this.root.append(overlay.element, hintBar('hint.freecam'));
+    this.state = 'testchunk';
+
+    this.runSceneLoop((dt) => {
+      freecam.update(dt);
+      view.setPose(freecam.pose);
+      view.frame(dt);
     });
   }
 
-  private installDebugToggle(overlay: DebugOverlay): void {
+  /** The one InputManager of a scene, on the canvas (Pointer Lock unless `?noLock=1`). */
+  private createInput(): InputManager {
+    const input = new InputManager(this.renderer!.webgl.domElement, {
+      pointerLock: !this.params.noLock,
+      language: navigator.language,
+    });
+    if (this.params.kb) input.labels.force(this.params.kb);
+    this.input = input;
+    return input;
+  }
+
+  /**
+   * The debug overlay of a scene (the caller places its element), toggled with the debug keys,
+   * and the `?view=` debug render view.
+   */
+  private mountDebug(): DebugOverlay {
+    const overlay = new DebugOverlay(this.params.debug);
+    this.overlay = overlay;
     window.addEventListener('keydown', (event) => {
       if (DEBUG_KEYS.has(event.code)) {
         event.preventDefault();
         overlay.toggle();
       }
     });
-  }
-
-  private startTestScene(registry: Registry): void {
-    const renderer = this.renderer!;
-    const pack = registry.pack;
-    const tints = ['#ffffff', pack.tints.grass, pack.tints.foliage, pack.tints.water];
-    const view = this.createWorldView(pack, tints, RENDER_DISTANCE);
-    this.view = view;
-    const world = new VoxelWorld(registry.air, registry.unknownBlock);
-    this.world = world;
-    buildTestScene(world, registry);
-    this.meshWorld();
     const requested = this.params.view as DebugView | null;
     if (requested && DEBUG_VIEWS.includes(requested)) this.setDebugView(requested);
+    return overlay;
+  }
 
-    const freecam = new FreeCam(
-      renderer.webgl.domElement,
-      { x: 0, y: TEST_SCENE_SURFACE + 9, z: 14, yaw: 0, pitch: -0.42 },
-      !this.params.noLock,
-    );
-    this.freecam = freecam;
-    const overlay = new DebugOverlay(this.params.debug);
-    this.overlay = overlay;
-    this.root.append(overlay.element, hintBar('hint.freecam'));
-    this.installDebugToggle(overlay);
-    this.state = 'testchunk';
-
+  /** The frame loop of a 3D scene, with the debug overlay refreshed every OVERLAY_REFRESH s. */
+  private runSceneLoop(update: (dt: number) => void): void {
     let sinceOverlay = 0;
     this.runLoop((dt) => {
-      freecam.update(dt);
-      view.setPose(freecam.pose);
-      view.frame(dt);
+      update(dt);
       sinceOverlay += dt;
-      if (sinceOverlay >= 0.25) {
+      if (sinceOverlay >= OVERLAY_REFRESH) {
         sinceOverlay = 0;
         this.refreshOverlay();
       }
@@ -348,55 +288,9 @@ export class App {
   }
 
   private refreshOverlay(): void {
-    const { overlay, view, world } = this;
-    const freecam = this.freecam ?? (this.session ? { pose: this.session.rig.pose } : null);
-    if (!overlay?.isVisible() || !view || !freecam || !world) return;
-    const info = this.renderer!.webgl.info;
-    const snap = this.frames.snapshot();
-    const chunks = view.chunks.stats();
-    const pose = freecam.pose;
-    const yawDeg = ((((-pose.yaw * 180) / Math.PI) % 360) + 360) % 360;
-    overlay.setLines([
-      { label: 'debug.fps', value: fmtNumber(snap.fps) },
-      { label: 'debug.frame', value: `${fmtNumber(snap.workP95, 2)} ms` },
-      { label: 'debug.draws', value: fmtNumber(info.render.calls) },
-      { label: 'debug.triangles', value: fmtNumber(info.render.triangles) },
-      { label: 'debug.sections', value: fmtNumber(chunks.sections) },
-      { label: 'debug.quads', value: fmtNumber(chunks.quads) },
-      { label: 'debug.geometry', value: fmtBytes(chunks.geometryBytes) },
-      { label: 'debug.voxels', value: fmtBytes(world.voxelBytes()) },
-      {
-        label: 'debug.position',
-        value: `${fmtNumber(pose.x, 1)} ${fmtNumber(pose.y, 1)} ${fmtNumber(pose.z, 1)}`,
-      },
-      { label: 'debug.facing', value: `${fmtNumber(yawDeg)}°` },
-      { label: 'debug.view', value: this.debugView },
-      ...this.worldLines(pose.x, pose.z),
-    ]);
-  }
-
-  private worldLines(x: number, z: number): { label: string; value: string }[] {
-    const session = this.session;
-    if (!session || !this.registry || !this.world) return [];
-    const column = this.world.getColumn(toColumn(Math.floor(x)), toColumn(Math.floor(z)));
-    const sorted = [...(this.registry.pack.biomes ?? [])].sort((a, b) => a.order - b.order);
-    const biome = column
-      ? sorted[column.biomes[toLocal(Math.floor(x)) | (toLocal(Math.floor(z)) << 5)]!]
-      : undefined;
-    const mesh = session.scheduler.stats();
-    const pool = this.workers?.stats();
-    return [
-      { label: 'debug.seed', value: session.seed },
-      { label: 'debug.biome', value: biome ? t(biome.nameKey) : '—' },
-      { label: 'debug.columns', value: fmtNumber(this.world.columns.size) },
-      { label: 'debug.meshQueue', value: `${mesh.pending} / ${mesh.inFlight}` },
-      {
-        label: 'debug.workerTimes',
-        value: pool
-          ? `${fmtNumber(pool.meanMs.gen, 1)} / ${fmtNumber(pool.meanMs.mesh, 1)} ms`
-          : '—',
-      },
-    ];
+    if (!this.overlay?.isVisible()) return;
+    const lines = debugLines(this);
+    if (lines) this.overlay.setLines(lines);
   }
 
   private runLoop(frame: (dt: number) => void): void {
@@ -451,11 +345,16 @@ export class App {
 
 /** Tint table of the voxel shader: slot 0 = no tint, then grass/foliage/water per biome (by order). */
 export function biomeTints(pack: ContentPack): string[] {
-  const out = ['#ffffff'];
   const biomes = [...(pack.biomes ?? [])].sort((a, b) => a.order - b.order);
-  if (biomes.length === 0) return [...out, pack.tints.grass, pack.tints.foliage, pack.tints.water];
+  if (biomes.length === 0) return packTints(pack);
+  const out = [NO_TINT];
   for (const biome of biomes) out.push(biome.tints.grass, biome.tints.foliage, biome.tints.water);
   return out;
+}
+
+/** Tint table without biomes: no tint, then the pack's own grass/foliage/water tints. */
+function packTints(pack: ContentPack): string[] {
+  return [NO_TINT, pack.tints.grass, pack.tints.foliage, pack.tints.water];
 }
 
 interface KeyboardLayoutSource {

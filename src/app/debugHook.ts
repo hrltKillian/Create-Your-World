@@ -7,22 +7,13 @@ import type { CameraPose } from '../render/WorldView.ts';
 import { Column } from '../world/Column.ts';
 import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
 import type { App } from './App.ts';
+import { fill, nextFrame, teleport, waitForChunks, yieldTask } from './automation.ts';
 
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
  * `__DEBUG_HOOK__`, so it never ships in production builds.
  */
-/** Yields to the event loop without timer throttling (works in hidden or background panes). */
-function yieldTask(): Promise<void> {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => resolve();
-    channel.port2.postMessage(0);
-  });
-}
-
 export function installDebugHook(app: App): void {
-  const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   const api = {
     version: 3,
     params: app.params,
@@ -123,10 +114,7 @@ export function installDebugHook(app: App): void {
           pitch: p.pitch,
         };
       },
-      teleport: (x: number, y: number | 'surface', z: number) => {
-        app.session?.host.send({ type: 'debug.teleport', x, y, z });
-        if (app.params.fixedStep) app.session?.step(1);
-      },
+      teleport: (x: number, y: number | 'surface', z: number) => teleport(app, x, y, z),
       setStamina: (value: number) =>
         app.session?.host.send({ type: 'debug.setStat', stat: 'stamina', value }),
     },
@@ -168,16 +156,8 @@ export function installDebugHook(app: App): void {
       } = {}) => {
         const session = app.session;
         if (!session) throw new Error('No world session');
-        const r = radius ?? session.loadingRadius();
         const t0 = performance.now();
-        let lastFrames = app.frames.frameTotal();
-        while (!session.chunksReady(r)) {
-          if (performance.now() - t0 > timeout)
-            throw new Error(`chunks not ready after ${timeout} ms`);
-          await yieldTask();
-          if (document.hidden || app.frames.frameTotal() === lastFrames) session.pumpOnce();
-          lastFrames = app.frames.frameTotal();
-        }
+        await waitForChunks(app, radius ?? session.loadingRadius(), timeout);
         const now = performance.now();
         return { ms: now - t0, sinceStart: now - session.startedAt };
       },
@@ -200,10 +180,7 @@ export function installDebugHook(app: App): void {
         y1: number,
         z1: number,
         state: string,
-      ) => {
-        app.session?.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
-        if (app.params.fixedStep) app.session?.step(1);
-      },
+      ) => fill(app, x0, y0, z0, x1, y1, z1, state),
       setRenderDistance: (rd: number) => app.session?.setRenderDistance(rd),
       memory: () => ({
         voxelBytes: app.world?.voxelBytes() ?? 0,

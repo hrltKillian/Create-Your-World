@@ -1,29 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InputManager } from '../../../src/input/InputManager.ts';
-
-/** Minimal window/element stand-ins: the manager only adds and removes listeners. */
-class Target {
-  private readonly listeners = new Map<string, Set<(e: unknown) => void>>();
-  addEventListener(type: string, fn: (e: unknown) => void) {
-    if (!this.listeners.has(type)) this.listeners.set(type, new Set());
-    this.listeners.get(type)!.add(fn);
-  }
-  removeEventListener(type: string, fn: (e: unknown) => void) {
-    this.listeners.get(type)?.delete(fn);
-  }
-  dispatch(type: string, event: Record<string, unknown>) {
-    for (const fn of this.listeners.get(type) ?? []) fn({ preventDefault() {}, ...event });
-  }
-}
+import { FakeTarget, installFakeWindow, removeFakeWindow } from '../../helpers/fakeTarget.ts';
 
 const look = { yaw: 0, pitch: 0, addLook() {} };
-let win: Target;
+let win: FakeTarget;
 let input: InputManager;
 
 beforeEach(() => {
-  win = new Target();
-  (globalThis as unknown as { window: Target }).window = win;
-  input = new InputManager(new Target() as unknown as HTMLElement, {
+  win = installFakeWindow();
+  input = new InputManager(new FakeTarget() as unknown as HTMLElement, {
     pointerLock: false,
     language: 'en-US',
   });
@@ -31,7 +16,7 @@ beforeEach(() => {
 
 afterEach(() => {
   input.dispose();
-  delete (globalThis as { window?: unknown }).window;
+  removeFakeWindow();
 });
 
 const key = (type: 'keydown' | 'keyup', code: string, k: string) =>
