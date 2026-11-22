@@ -153,6 +153,8 @@ export interface TextureDef {
 export interface PackBindings {
   readonly air: BlockKey;
   readonly unknownBlock: BlockKey;
+  /** Biomes where a new player may appear. */
+  readonly spawnBiomes?: readonly BiomeKey[];
 }
 
 export interface PackManifest {
@@ -162,6 +164,79 @@ export interface PackManifest {
   /** Texture resolution in pixels (square). */
   readonly textureSize: number;
   readonly bindings: PackBindings;
+}
+
+export type FeatureKey = `feature:${string}`;
+
+/** Climate fields sampled by world generation (all roughly in [−1, 1]) plus the surface height. */
+export type ClimateField = 'C' | 'E' | 'M' | 'T' | 'H' | 'X' | 'h';
+
+export interface ClimateCondition {
+  readonly field: ClimateField;
+  readonly lt?: number;
+  readonly gt?: number;
+}
+
+/** Piecewise-linear curve: sorted [input, output] points. */
+export type Spline = readonly (readonly [number, number])[];
+
+export interface WorldgenDef {
+  readonly seaLevel: number;
+  readonly deepStoneBelowY: number;
+  /** Climate lattice spacing in blocks (bilinear interpolation in between). */
+  readonly climateStep: number;
+  /** Noise wavelengths in blocks. */
+  readonly scales: Readonly<
+    Record<
+      'continental' | 'erosion' | 'ridges' | 'temperature' | 'humidity' | 'toxicity' | 'detail',
+      number
+    >
+  >;
+  /** Temperature band along z: triangle wave (cold to the north at −period/4, hot to the south). */
+  readonly latitude: { readonly amplitude: number; readonly period: number };
+  readonly continentalSpline: Spline;
+  /** Erosion → amplitude of the ridges term. */
+  readonly erosionSpline: Spline;
+  readonly detailAmplitude: number;
+  /** Biome thresholds are jittered by ± this amount per column to dither borders. */
+  readonly biomeJitter: number;
+  readonly bedrock: BlockKey;
+  readonly stone: BlockKey;
+  readonly deepStone: BlockKey;
+}
+
+export interface BiomeDef {
+  readonly key: BiomeKey;
+  readonly nameKey: string;
+  /** Biomes are tested in ascending order; the first whose conditions all hold wins. */
+  readonly order: number;
+  readonly all?: readonly ClimateCondition[];
+  /** At least one must hold (when present). */
+  readonly any?: readonly ClimateCondition[];
+  readonly climate: { readonly dayC: number; readonly nightC: number };
+  readonly toxicityPerMin?: { readonly day: number; readonly night: number };
+  readonly surface: BlockKey;
+  readonly filler: BlockKey;
+  /** Surface block when under the liquid level. */
+  readonly seabed: BlockKey;
+  readonly liquid: BlockKey;
+  /** Replaces the top liquid layer (frozen lakes). */
+  readonly liquidCap?: BlockKey;
+  readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
+  readonly fog: string;
+  /** Trees and plants: feature, and chance per 8×8 cell (trees) or per surface block (plants). */
+  readonly trees?: readonly { readonly feature: FeatureKey; readonly chance: number }[];
+  readonly plants?: readonly { readonly block: BlockKey; readonly chance: number }[];
+}
+
+export interface TreeFeatureDef {
+  readonly key: FeatureKey;
+  readonly kind: 'broadleaf' | 'conifer';
+  readonly log: BlockKey;
+  readonly leaves: BlockKey;
+  readonly height: readonly [number, number];
+  /** The tree only grows on these blocks. */
+  readonly soil: readonly BlockKey[];
 }
 
 /** Layout of the developer test scene (`?scene=testchunk`), described with the pack's own blocks. */
@@ -185,4 +260,7 @@ export interface ContentPack {
   /** Tint colours by tint channel ('grass', 'foliage', 'water'). */
   readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
   readonly devScene?: DevSceneDef;
+  readonly worldgen?: WorldgenDef;
+  readonly biomes?: readonly BiomeDef[];
+  readonly features?: readonly TreeFeatureDef[];
 }

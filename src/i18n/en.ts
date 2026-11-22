@@ -29,6 +29,12 @@ export const en = {
   'debug.position': 'Position',
   'debug.facing': 'Facing',
   'debug.view': 'View',
+  'debug.seed': 'Seed',
+  'debug.biome': 'Biome',
+  'debug.columns': 'Columns',
+  'debug.meshQueue': 'Mesh queue / in flight',
+  'debug.workerTimes': 'Gen / mesh (worker)',
+  'loading.world': 'Generating the world…',
 } as const;
 
 export type EngineStringKey = keyof typeof en;

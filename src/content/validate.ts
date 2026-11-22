@@ -121,9 +121,15 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   if (pack.blocks[0]?.key !== bindings.air) {
     add('manifest.bindings.air', `the air block "${bindings.air}" must be the first block`);
   }
-  for (const [name, key] of Object.entries(bindings)) {
-    if (!blockKeys.has(key)) add(`manifest.bindings.${name}`, `unknown block "${key}"`);
+  for (const name of ['air', 'unknownBlock'] as const) {
+    if (!blockKeys.has(bindings[name]))
+      add(`manifest.bindings.${name}`, `unknown block "${bindings[name]}"`);
   }
+  const biomeKeys = new Set((pack.biomes ?? []).map((b) => b.key as string));
+  (bindings.spawnBiomes ?? []).forEach((key, i) => {
+    if (!biomeKeys.has(key)) add(`manifest.bindings.spawnBiomes[${i}]`, `unknown biome "${key}"`);
+  });
+  validateWorld(pack, blockKeys, add);
   const scene = pack.devScene;
   if (scene) {
     const refs: [string, string | undefined][] = [
@@ -215,4 +221,62 @@ function checkLight(
   if (value === undefined) return;
   if (!Number.isInteger(value) || value < 0 || value > 15)
     add(path, `must be an integer 0–15 (got ${value})`);
+}
+
+function validateWorld(
+  pack: ContentPack,
+  blockKeys: ReadonlySet<string>,
+  add: (path: string, message: string) => void,
+): void {
+  const block = (path: string, key: string | undefined) => {
+    if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
+  };
+  const w = pack.worldgen;
+  if (w) {
+    block('worldgen.bedrock', w.bedrock);
+    block('worldgen.stone', w.stone);
+    block('worldgen.deepStone', w.deepStone);
+    for (const name of ['continentalSpline', 'erosionSpline'] as const) {
+      const spline = w[name];
+      if (spline.length < 2) add(`worldgen.${name}`, 'needs at least two points');
+      for (let i = 1; i < spline.length; i++) {
+        if (!(spline[i]![0] > spline[i - 1]![0]))
+          add(`worldgen.${name}[${i}]`, 'inputs must increase');
+      }
+    }
+  }
+  const featureKeys = new Set((pack.features ?? []).map((f) => f.key as string));
+  (pack.features ?? []).forEach((f, i) => {
+    block(`features[${i}].log`, f.log);
+    block(`features[${i}].leaves`, f.leaves);
+    f.soil.forEach((key, s) => {
+      block(`features[${i}].soil[${s}]`, key);
+    });
+    if (f.height[0] > f.height[1]) add(`features[${i}].height`, 'min > max');
+  });
+  const seen = new Set<string>();
+  (pack.biomes ?? []).forEach((b, i) => {
+    const path = `biomes[${i}]`;
+    if (seen.has(b.key)) add(`${path}.key`, `duplicate biome "${b.key}"`);
+    seen.add(b.key);
+    if (pack.strings[b.nameKey] === undefined)
+      add(`${path}.nameKey`, `no string for "${b.nameKey}"`);
+    block(`${path}.surface`, b.surface);
+    block(`${path}.filler`, b.filler);
+    block(`${path}.seabed`, b.seabed);
+    block(`${path}.liquid`, b.liquid);
+    block(`${path}.liquidCap`, b.liquidCap);
+    (b.trees ?? []).forEach((t, k) => {
+      if (!featureKeys.has(t.feature))
+        add(`${path}.trees[${k}].feature`, `unknown feature "${t.feature}"`);
+    });
+    (b.plants ?? []).forEach((p, k) => {
+      block(`${path}.plants[${k}].block`, p.block);
+    });
+    for (const channel of ['grass', 'foliage', 'water'] as const) {
+      if (!HEX.test(b.tints[channel])) add(`${path}.tints.${channel}`, 'must be a #rrggbb colour');
+    }
+  });
+  if (pack.biomes && pack.biomes.length > 10)
+    add('biomes', 'at most 10 biomes fit the 32 tint slots');
 }

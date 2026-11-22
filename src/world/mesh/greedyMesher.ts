@@ -9,10 +9,10 @@ import {
   SHAPE_CUBE,
   SHAPE_LIQUID,
 } from '../../content/registry.ts';
-import { SECTION_SIZE } from '../coords.ts';
+import { SECTION_SIZE, SECTION_VOLUME } from '../coords.ts';
 import { PADDED, PADDED_AREA, type PaddedVoxels, paddedIndex } from './padded.ts';
 import { packW0, packW1, QUAD_WORDS } from './vertexFormat.ts';
-import { sectionConnectivity } from './visibility.ts';
+import { ALL_CONNECTED, sectionConnectivity } from './visibility.ts';
 
 /**
  * Section mesher (runs in workers). Full cubes are merged greedily per face direction and slice;
@@ -44,6 +44,8 @@ const FACE_AXIS = [0, 0, 1, 1, 2, 2] as const;
 const FACE_SIGN = [1, -1, 1, -1, 1, -1] as const;
 const AXIS_STEP = [1, PADDED_AREA, PADDED] as const; // padded index step along x, y, z
 const FACE_STEP = [1, -1, PADDED_AREA, -PADDED_AREA, PADDED, -PADDED] as const;
+/** Padded index of local (0, 0, 0). */
+const ORIGIN = 1 + PADDED + PADDED_AREA;
 
 const AO_SIDE_FULL = 3;
 const FACE_UP_INDEX = 2;
@@ -85,7 +87,6 @@ const tmpPos = new Int32Array(3);
 const tmpOrder = new Uint8Array(4);
 const tmpAo = new Uint8Array(4);
 const tmpBounds = new Int32Array(6);
-const tmpCell = new Int32Array(3);
 const ORDER_POSITIVE = [0, 1, 2, 3] as const;
 const ORDER_NEGATIVE = [0, 3, 2, 1] as const;
 
@@ -100,6 +101,16 @@ function passBuffer(pass: number): QuadBuffer | null {
     default:
       return null;
   }
+}
+
+/** Tint slot in the shader's colour table: 0 = none, else 1 + biome × 3 + (channel − 1). */
+export function tintIndex(channel: number, biome: number): number {
+  return channel === 0 ? 0 : 1 + biome * 3 + channel - 1;
+}
+
+function biomeAt(voxels: PaddedVoxels, p: number): number {
+  // p = x + 1 + (z + 1) * PADDED + (y + 1) * PADDED_AREA → drop the y term.
+  return voxels.biomes[p % PADDED_AREA]!;
 }
 
 /** Whether the face of `id` towards neighbour `nid` is visible. */
@@ -210,18 +221,53 @@ export function meshSection(
 ): SectionMesh {
   const greedy = options.greedy ?? true;
   for (const buffer of buffers) buffer.reset();
-  meshCubes(voxels, tables, greedy);
-  meshShapes(voxels, tables);
-  return {
-    passes: [buffers[0]!.take(), buffers[1]!.take(), buffers[2]!.take()],
-    connectivity: sectionConnectivity(voxels.ids, tables),
-  };
+  const summary = summarize(voxels.ids, tables);
+  // A fully opaque interior can only show faces on its 6 boundary slices.
+  if (summary.renderable) meshCubes(voxels, tables, greedy, summary.opaque === SECTION_VOLUME);
+  if (summary.shapes) meshShapes(voxels, tables);
+  const connectivity =
+    summary.opaque === SECTION_VOLUME
+      ? 0
+      : summary.opaque === 0
+        ? ALL_CONNECTED
+        : sectionConnectivity(voxels.ids, tables);
+  return { passes: [buffers[0]!.take(), buffers[1]!.take(), buffers[2]!.take()], connectivity };
 }
 
-function meshCubes(voxels: PaddedVoxels, tables: RawTables, greedy: boolean): void {
+const summaryResult = { renderable: false, shapes: false, opaque: 0 };
+
+/** One pass over the 32³ interior: anything to draw, any shaped block, how many opaque cells. */
+function summarize(ids: Uint16Array, tables: RawTables): typeof summaryResult {
+  let renderable = false;
+  let shapes = false;
+  let opaque = 0;
+  for (let y = 0; y < SECTION_SIZE; y++) {
+    for (let z = 0; z < SECTION_SIZE; z++) {
+      let p = ORIGIN + y * PADDED_AREA + z * PADDED;
+      for (let x = 0; x < SECTION_SIZE; x++, p++) {
+        const id = ids[p]!;
+        if ((tables.flags[id]! & FLAG_OPAQUE) !== 0) opaque++;
+        if (tables.pass[id] !== 0) {
+          renderable = true;
+          if (tables.shape[id] !== SHAPE_CUBE) shapes = true;
+        }
+      }
+    }
+  }
+  summaryResult.renderable = renderable;
+  summaryResult.shapes = shapes;
+  summaryResult.opaque = opaque;
+  return summaryResult;
+}
+
+function meshCubes(
+  voxels: PaddedVoxels,
+  tables: RawTables,
+  greedy: boolean,
+  boundaryOnly: boolean,
+): void {
   const { ids } = voxels;
   const n = SECTION_SIZE;
-  const cell = tmpCell;
   for (let face = 0; face < 6; face++) {
     const axis = FACE_AXIS[face]!;
     const u = (axis + 1) % 3;
@@ -229,14 +275,16 @@ function meshCubes(voxels: PaddedVoxels, tables: RawTables, greedy: boolean): vo
     const step = FACE_STEP[face]!;
     const positive = FACE_SIGN[face]! > 0;
     for (let w = 0; w < n; w++) {
+      if (boundaryOnly && w !== (positive ? n - 1 : 0)) continue;
       // Build the 32×32 mask of visible faces in this slice.
       let any = false;
+      const slice = ORIGIN + w * AXIS_STEP[axis]!;
+      const du = AXIS_STEP[u]!;
+      const dv = AXIS_STEP[v]!;
       for (let vv = 0; vv < n; vv++) {
+        const row = slice + vv * dv;
         for (let uu = 0; uu < n; uu++) {
-          cell[axis] = w;
-          cell[u] = uu;
-          cell[v] = vv;
-          const p = paddedIndex(cell[0]!, cell[1]!, cell[2]!);
+          const p = row + uu * du;
           const id = ids[p]!;
           const m = uu + vv * n;
           maskKey[m] = 0;
@@ -258,7 +306,7 @@ function meshCubes(voxels: PaddedVoxels, tables: RawTables, greedy: boolean): vo
           maskKey[m] =
             ((1 << 31) |
               tables.faceLayer[fi]! |
-              (tables.faceTint[fi]! << 9) |
+              (tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)) << 9) |
               (tables.faceFlags[fi]! << 14) |
               (pass << 17) |
               (lowered << 19)) >>>
@@ -347,7 +395,8 @@ function meshShapes(voxels: PaddedVoxels, tables: RawTables): void {
         const buffer = passBuffer(tables.pass[id]!);
         if (!buffer) continue;
         if (shape === SHAPE_LIQUID) meshLiquid(voxels, tables, buffer, p, id, x, y, z);
-        else if (shape === SHAPE_CROSS) meshCross(tables, buffer, id, light[p]!, x, y, z);
+        else if (shape === SHAPE_CROSS)
+          meshCross(tables, buffer, id, light[p]!, biomeAt(voxels, p), x, y, z);
         else if (shape === SHAPE_BOXES) meshBoxes(voxels, tables, buffer, p, id, x, y, z);
       }
     }
@@ -378,7 +427,7 @@ function meshLiquid(
       face,
       0,
       0,
-      tables.faceTint[fi]!,
+      tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)),
       tables.faceFlags[fi]!,
     );
     tmpBounds[0] = x * 16;
@@ -396,6 +445,7 @@ function meshCross(
   buffer: QuadBuffer,
   id: number,
   cellLight: number,
+  biome: number,
   x: number,
   y: number,
   z: number,
@@ -412,7 +462,7 @@ function meshCross(
       6 + k,
       sky,
       blk,
-      tables.faceTint[fi]!,
+      tintIndex(tables.faceTint[fi]!, biome),
       tables.faceFlags[fi]!,
     );
     const ax = k === 0 ? x0 : x0 + 16;
@@ -468,7 +518,7 @@ function meshBoxes(
         face,
         sky,
         blk,
-        tables.faceTint[fi]!,
+        tintIndex(tables.faceTint[fi]!, biomeAt(voxels, p)),
         tables.faceFlags[fi]!,
       );
       emitBox(buffer, face, tmpBounds, w1, false);

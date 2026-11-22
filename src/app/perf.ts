@@ -9,6 +9,8 @@ export class FrameStats {
   private cursor = 0;
   private lastFrame = -1;
   private frameStartedAt = 0;
+  private readonly spans = new Map<string, Float64Array>();
+  private readonly spanCursor = new Map<string, number>();
 
   /** Call at the very start of the animation-loop callback. */
   frameStart(now: number): void {
@@ -24,6 +26,30 @@ export class FrameStats {
     this.work[this.cursor] = performance.now() - this.frameStartedAt;
     this.cursor = (this.cursor + 1) % WINDOW;
     this.count = Math.min(WINDOW, this.count + 1);
+  }
+
+  /** Records the time a subsystem took during this frame (ring buffer per name). */
+  span(name: string, ms: number): void {
+    let buffer = this.spans.get(name);
+    if (!buffer) {
+      buffer = new Float64Array(WINDOW);
+      this.spans.set(name, buffer);
+    }
+    const cursor = this.spanCursor.get(name) ?? 0;
+    buffer[cursor] = ms;
+    this.spanCursor.set(name, (cursor + 1) % WINDOW);
+  }
+
+  /** p95 of each recorded subsystem span. */
+  spanP95(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [name, buffer] of this.spans) {
+      const values = Array.from(buffer)
+        .filter((v) => v > 0)
+        .sort((a, b) => a - b);
+      out[name] = percentile(values, 0.95);
+    }
+    return out;
   }
 
   /** Resets the interval baseline (after a hidden tab or a pause). */
