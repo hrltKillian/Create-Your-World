@@ -23,35 +23,50 @@ export interface WaitOptions {
   readonly timeoutMs: number;
   /** Start of the timeout error: "<label> after <timeoutMs> ms". */
   readonly label: string;
-  /** Called after every yield, for example to step the world when frames do not. */
+  /** Called after every poll, for example to step the world when frames do not. */
   readonly pump?: () => void;
+  /** Wall time between polls while the page is visible (hidden pages poll between tasks). */
+  readonly pollMs?: number;
 }
 
-/** Polls `done` between event-loop tasks until it holds; throws once `timeoutMs` has passed. */
+/** No frame for this long means the animation loop is stalled (hidden or throttled pane). */
+const STALL_MS = 50;
+
+/** Polls `done` until it holds; throws once `timeoutMs` has passed. */
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
   while (!done()) {
     if (performance.now() - t0 > options.timeoutMs)
       throw new Error(`${options.label} after ${options.timeoutMs} ms`);
-    await yieldTask();
+    // Timers are throttled in hidden pages: only sleep while visible.
+    if (options.pollMs && !document.hidden)
+      await new Promise((resolve) => setTimeout(resolve, options.pollMs));
+    else await yieldTask();
     options.pump?.();
   }
 }
 
 /**
- * Waits until every column within `radius` of the focus is meshed. While the page is hidden or
- * the animation loop stalls, it steps the world itself so automation keeps working.
+ * Waits until every column within `radius` of the focus is meshed, loading through the normal
+ * frame loop. Only when the page is hidden or no frame has rendered for STALL_MS does it step the
+ * world itself, so automation still works in a hidden pane without racing the real loading.
  */
 export async function waitForChunks(app: App, radius: number, timeoutMs: number): Promise<void> {
   const session = app.session;
   if (!session) throw new Error('No world session');
   let frames = app.frames.frameTotal();
+  let lastFrameAt = performance.now();
   await waitUntil(() => session.chunksReady(radius), {
     timeoutMs,
     label: `radius ${radius} not meshed`,
     pump: () => {
-      if (document.hidden || app.frames.frameTotal() === frames) session.pumpOnce();
-      frames = app.frames.frameTotal();
+      const now = performance.now();
+      if (app.frames.frameTotal() !== frames) {
+        frames = app.frames.frameTotal();
+        lastFrameAt = now;
+      } else if (document.hidden || now - lastFrameAt > STALL_MS) {
+        session.pumpOnce();
+      }
     },
   });
 }

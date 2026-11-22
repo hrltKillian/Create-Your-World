@@ -147,13 +147,13 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const { Column } = await import('../../world/Column.ts');
         const { columnHash, generateColumn } = await import('../../world/gen/generateColumn.ts');
         const session = app.session!;
-        const streamed = [...session.sim.world.columns.values()].slice(0, 3);
+        const streamed = [...session.host.view.world.columns.values()].slice(0, 3);
         assert(streamed.length > 0, 'nothing streamed');
         for (const column of streamed) {
           const fresh = new Column(column.cx, column.cz, app.registry!.air);
-          generateColumn(session.ctx, fresh);
-          const a = columnHash(session.ctx, column);
-          const b = columnHash(session.ctx, fresh);
+          generateColumn(session.host.view.gen, fresh);
+          const a = columnHash(session.host.view.gen, column);
+          const b = columnHash(session.host.view.gen, fresh);
           assert(a === b, `column ${column.cx},${column.cz}: worker ${a} ≠ main ${b}`);
         }
       },
@@ -168,7 +168,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         // Frames do not tick the simulation in fixed-step mode.
         const pump = app.params.fixedStep ? () => session.step(1) : undefined;
         const waitFor = (what: string, done: () => boolean) =>
-          waitUntil(done, { timeoutMs: 30_000, label: `${what} not reached`, pump });
+          waitUntil(done, { timeoutMs: 30_000, label: `${what} not reached`, pump, pollMs: 50 });
         await waitFor(`radius ${rd} meshed`, () => session.chunksReady(rd));
         const before = app.view!.chunks.stats().meshes;
         const smaller = Math.max(1, rd - 4);
@@ -188,7 +188,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
           for (let dz = -smaller - 2; dz <= smaller + 2; dz++) {
             for (let dx = -smaller - 2; dx <= smaller + 2; dx++) {
               if (dx * dx + dz * dz <= (smaller + 1) * (smaller + 1))
-                allowed += session.sim.world.getColumn(ccx + dx, ccz + dz) ? 8 : 0;
+                allowed += session.host.view.world.getColumn(ccx + dx, ccz + dz) ? 8 : 0;
             }
           }
           assert(
@@ -310,7 +310,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const settle = () => framesFor(700);
         await settle();
         assert(session.rig.distance > 3, `open-field distance ${session.rig.distance.toFixed(2)}`);
-        const ground = registry.states[session.sim.world.getBlock(0, 64, 0)]!.key;
+        const ground = registry.states[session.host.view.world.getBlock(0, 64, 0)]!.key;
         const air = registry.states[registry.air]!.key;
         // A wall 2 m behind the player (the camera looks along −z, so behind is +z).
         fill(app, -2, 65, 2, 2, 68, 2, ground);

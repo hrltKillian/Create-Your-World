@@ -1,7 +1,7 @@
 import type { Registry } from '../../content/registry.ts';
 import type { WorldType } from '../../world/gen/generateColumn.ts';
 import type { SimEvent } from '../events.ts';
-import { LocalSimHost, SerializingSimHost } from '../host.ts';
+import { createHost, type LocalSimHost } from '../host.ts';
 import { InlineColumnSource } from '../InlineColumnSource.ts';
 import type { ColumnSource } from '../ports.ts';
 import { Simulation } from '../Simulation.ts';
@@ -39,6 +39,6 @@ export function createInlineSim(options: InlineSimOptions): InlineSim {
     maxInFlight: 8,
     allowDebug: options.allowDebug,
   });
-  const host = options.serialize ? new SerializingSimHost(sim) : new LocalSimHost(sim);
+  const host = createHost(sim, 1, options.serialize);
   return { sim, host, events: [] };
 }

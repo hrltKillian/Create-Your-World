@@ -191,7 +191,7 @@ export class App {
       input,
     );
     this.session = session;
-    this.world = session.sim.world;
+    this.world = session.host.view.world;
     const overlay = this.mountDebug();
     const loading = loadingScreen();
     const cross = crosshair();

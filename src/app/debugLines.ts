@@ -42,7 +42,7 @@ function worldLines(app: App, x: number, z: number): DebugLine[] {
   const bz = Math.floor(z);
   const column = world.getColumn(toColumn(bx), toColumn(bz));
   const biome = column
-    ? session.ctx.biomes[column.biomes[columnIndex(toLocal(bx), toLocal(bz))]!]
+    ? session.host.view.gen.biomes[column.biomes[columnIndex(toLocal(bx), toLocal(bz))]!]
     : undefined;
   const mesh = session.scheduler.stats();
   const pool = app.workers?.stats();

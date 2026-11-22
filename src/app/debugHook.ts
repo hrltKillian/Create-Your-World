@@ -71,11 +71,8 @@ export function installDebugHook(app: App): void {
     sim: {
       /** Advances n ticks now (use with ?fixedStep=1). */
       step: (n = 1) => app.session?.step(n),
-      tick: () => app.session?.sim.tick ?? 0,
-      hash: async () => {
-        const { stateHash } = await import('../sim/stateHash.ts');
-        return app.session ? stateHash(app.session.sim) : null;
-      },
+      tick: () => app.session?.host.view.tick() ?? 0,
+      hash: () => app.session?.host.view.hash() ?? null,
     },
     input: {
       /** Sets the view angles (radians). */
@@ -131,16 +128,16 @@ export function installDebugHook(app: App): void {
       biome: (x: number, z: number) => {
         const session = app.session;
         if (!session) return null;
-        const info = pointInfo(session.ctx, Math.floor(x), Math.floor(z));
-        return { biome: session.ctx.biomes[info.biome]!.def.key, height: info.height };
+        const info = pointInfo(session.host.view.gen, Math.floor(x), Math.floor(z));
+        return { biome: session.host.view.gen.biomes[info.biome]!.def.key, height: info.height };
       },
       /** Hash of a column generated on the main thread (compare with the Node golden tests). */
       genHash: (cx: number, cz: number) => {
         const session = app.session;
         if (!session || !app.registry) return null;
         const column = new Column(cx, cz, app.registry.air);
-        generateColumn(session.ctx, column);
-        return columnHash(session.ctx, column);
+        generateColumn(session.host.view.gen, column);
+        return columnHash(session.host.view.gen, column);
       },
       /**
        * Resolves once every column within `radius` of the camera is meshed. Returns the wait and the

@@ -376,10 +376,10 @@ export interface SimHost {
   send(cmd: Command): void; // queued; host stamps playerId + seq
   advance(ticks: number, out: SimEvent[]): void; // appends into a caller-owned array (no per-tick allocation)
   pumpWorld(budget: WorldPumpBudget): void; // ingest + light outside play (loading screen, tests)
-  readonly canPause: boolean;
 }
 ```
 
+- **`createLocalServer()`** construit la `Simulation`, le joueur et l'hôte ; le client ne garde que le `SimHost` et lit tout via `host.view`.
 - **`LocalSimHost`** (v1) : `view` expose les objets vivants typés `DeepReadonly`, sans copie.
 - **`SerializingSimHost`** (`?host=serialize` et tests) : chaque commande et chaque événement passe par JSON, ce qui prouve que le protocole tient sur le réseau.
 - **`RemoteSimHost`** (après la v1) : même interface, avec une réplique du monde et une prédiction locale via la fonction pure `stepBody()`.

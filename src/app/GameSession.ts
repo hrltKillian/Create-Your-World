@@ -9,14 +9,10 @@ import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import type { SimEvent } from '../sim/events.ts';
-import { LocalSimHost, SerializingSimHost, type SimHost } from '../sim/host.ts';
+import type { SimHost } from '../sim/host.ts';
+import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
-import {
-  INTEGRATE_PER_TICK,
-  LOADING_FACTOR,
-  Simulation,
-  TICKS_PER_SECOND,
-} from '../sim/Simulation.ts';
+import { INTEGRATE_PER_TICK, LOADING_FACTOR, TICKS_PER_SECOND } from '../sim/Simulation.ts';
 import { blockToColumn, SECTION_SIZE, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { FreeCam } from './FreeCam.ts';
@@ -46,12 +42,12 @@ export interface SessionOptions {
 export class GameSession {
   readonly seed: string;
   readonly host: SimHost;
-  readonly sim: Simulation;
   readonly scheduler: MeshScheduler;
   readonly rig = new CameraRig();
   readonly entities: EntityView;
   readonly batch: BoxBatch;
-  readonly player: PlayerState;
+  /** The local player's live (read-only) state, from the host's view. */
+  readonly player: Readonly<PlayerState>;
   renderDistance: number;
   loading = true;
   /** performance.now() when the session was created (loading-time measurements). */
@@ -80,18 +76,18 @@ export class GameSession {
     this.freecam = options.freecam;
     this.fixedStep = options.fixedStep;
     this.renderDistance = options.renderDistance;
-    this.sim = new Simulation({
+    this.host = createLocalServer({
       seed: options.seed,
       worldType: options.worldType,
       registry,
       source: new WorkerColumnSource(pool),
       maxInFlight: pool.size * 2,
       allowDebug: options.allowDebug,
+      playerId: PLAYER_ID,
+      viewRadius: options.renderDistance,
+      serialize: options.serialize,
     });
-    this.player = this.sim.addPlayer(PLAYER_ID, options.renderDistance);
-    this.host = options.serialize
-      ? new SerializingSimHost(this.sim, PLAYER_ID)
-      : new LocalSimHost(this.sim, PLAYER_ID);
+    this.player = this.host.view.player()!;
     this.scheduler = new MeshScheduler(this.host.view, pool, view.chunks, {
       belowBlock: registry.unknownBlock,
       missingBlock: registry.unknownBlock,
@@ -105,10 +101,6 @@ export class GameSession {
     if (this.freecam)
       this.freecam.set({ x: spawn.x, y: spawn.y + 18, z: spawn.z, yaw: 0, pitch: -0.35 });
     this.sendView();
-  }
-
-  get ctx() {
-    return this.sim.ctx;
   }
 
   get spawn(): { readonly x: number; readonly y: number; readonly z: number } {
