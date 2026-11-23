@@ -1,0 +1,299 @@
+import { describe, expect, it } from 'vitest';
+import { basePack } from '../../../src/content/packs/base/index.ts';
+import { buildRegistry } from '../../../src/content/registry.ts';
+import type { Command } from '../../../src/sim/commands.ts';
+import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
+import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
+import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
+import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
+import type { Simulation } from '../../../src/sim/Simulation.ts';
+import { dropRecord, playerRecord, readDrop, readPlayer } from '../../../src/sim/saveRecords.ts';
+import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
+import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
+import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
+import { unpackSections } from '../../../src/world/codec/columnRecord.ts';
+import { SaveVersionError } from '../../../src/world/codec/migrations.ts';
+import { columnKey, localIndex } from '../../../src/world/coords.ts';
+import { registry } from '../../helpers/registry.ts';
+import { restoreFrom, saveTo, settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
+import { withTicks } from '../../helpers/simHarness.ts';
+
+type TestSim = ReturnType<typeof withTicks>;
+
+const stateKey = (sim: Simulation, x: number, y: number, z: number) =>
+  sim.registry.states[sim.world.getBlock(x, y, z)]!.key;
+
+const drops = (sim: Simulation) =>
+  [...sim.entities.values()].filter((e): e is ItemDropState => e.kind === 'itemDrop');
+
+/** Sends one command and runs the tick that applies it. */
+function send(s: TestSim, command: Command): void {
+  s.host.send(command);
+  s.step();
+}
+
+function fill(s: TestSim, x: number, y: number, z: number, state: string): void {
+  send(s, { type: 'debug.fill', x0: x, y0: y, z0: z, x1: x, y1: y, z1: z, state });
+}
+
+/** A flat world (grass at y 64) with player 1 loaded around (0.5, 65, 0.5). */
+function flatSim(seed: string, reg = registry): TestSim {
+  const s = withTicks(
+    createInlineSim({ registry: reg, seed, worldType: 'flat', allowDebug: true }),
+  );
+  s.sim.addPlayer(1, 2);
+  settle(s.sim);
+  return s;
+}
+
+describe('memory storage', () => {
+  it('writes batches, removes columns, deletes worlds and keeps small values', async () => {
+    const world = snapshotSim(flatSim('mem').sim, TEST_WORLD, new Set()).world;
+    const column = (cx: number): ColumnRecord => ({
+      worldId: world.id,
+      cx,
+      cz: 0,
+      v: 1,
+      codec: 'raw',
+      payload: new Uint8Array([0]),
+      entities: [],
+      lastTick: 0,
+    });
+    const storage = new MemoryStorage();
+    const batch: SaveBatch = { world, players: [], columns: [column(1), column(2)], removed: [] };
+    await storage.write(batch);
+    await storage.write({ ...batch, world: { ...world, id: 'other' }, columns: [] });
+    await storage.write({ ...batch, columns: [], removed: [{ cx: 1, cz: 0 }] });
+    expect((await storage.listWorlds()).map((w) => w.id)).toEqual([world.id, 'other']);
+    expect((await storage.loadWorld(world.id))!.columns.map((c) => c.cx)).toEqual([2]);
+    await storage.deleteWorld(world.id);
+    expect(await storage.loadWorld(world.id)).toBeUndefined();
+    expect((await storage.listWorlds()).map((w) => w.id)).toEqual(['other']);
+    expect(await storage.getKv('lastWorld')).toBeUndefined();
+    await storage.setKv('lastWorld', 'other');
+    expect(await storage.getKv('lastWorld')).toBe('other');
+  });
+});
+
+describe('save records', () => {
+  it('round-trip the world, the player and the drops, before any column is loaded', async () => {
+    const s = flatSim('records');
+    send(s, { type: 'debug.give', item: 'item:flint_pickaxe', count: 1 });
+    send(s, { type: 'debug.give', item: 'item:dirt', count: 70 });
+    s.tick(20, { forward: 1, yaw: 0.7, pitch: -0.2 });
+    spawnDrop(s.sim, { item: 'item:sand', count: 4 }, 3.5, 70, 2.5, 1, 0, 0, 5);
+    fill(s, 2, 70, 2, 'block:stone');
+    send(s, { type: 'debug.setTime', hours: 21 });
+    s.step(7);
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+    const stored = (await storage.loadWorld(TEST_WORLD.id))!;
+    expect(stored.world).toMatchObject({
+      ...TEST_WORLD,
+      saveVersion: 1,
+      seed: 'records',
+      worldType: 'flat',
+      tick: s.sim.tick,
+      nextEntityId: s.sim.nextEntityId,
+      spawn: s.sim.spawn,
+    });
+    expect(stored.players[0]!.inventory[1]).toEqual({ item: 'item:dirt', count: 50 });
+    const r = await restoreFrom(storage);
+    expect(r.restored.info).toEqual(TEST_WORLD);
+    expect(r.restored.contentChanged).toBe(false);
+    expect(r.restored.stored).toEqual(new Set([columnKey(0, 0)]));
+    expect(r.sim.tick).toBe(s.sim.tick);
+    expect(r.sim.time).toEqual(s.sim.time);
+    expect(r.sim.spawn).toEqual(s.sim.spawn);
+    expect(r.sim.nextEntityId).toBe(s.sim.nextEntityId);
+    const player = r.sim.players.get(1)!;
+    expect(playerRecord('w', player)).toEqual(playerRecord('w', s.sim.players.get(1)!));
+    expect(player.input).toMatchObject({ forward: 0, yaw: player.yaw, pitch: player.pitch });
+    expect(drops(r.sim).map(dropRecord)).toEqual(drops(s.sim).map(dropRecord));
+    expect(persistentHash(r.sim)).toBe(persistentHash(s.sim));
+  });
+
+  it('read malformed records as defaults', () => {
+    const spawn = { x: 1, y: 2, z: 3 };
+    expect(readPlayer(undefined, registry, spawn)).toBeNull();
+    expect(readPlayer({ playerId: 1, id: 0 }, registry, spawn)).toBeNull();
+    const saved = { playerId: 4, id: 9, body: { x: 'far' }, stamina: null, inventory: 'none' };
+    const fresh = readPlayer(saved, registry, spawn)!;
+    expect(fresh.body).toMatchObject(spawn);
+    expect(fresh.stamina).toBe(100);
+    expect(fresh.inventory.every((slot) => slot === null)).toBe(true);
+    const drop = (fields: object) =>
+      readDrop({ kind: 'itemDrop', id: 2, item: 'item:dirt', count: 1, ...fields }, registry);
+    expect(drop({ body: spawn, count: 0 })).toBeNull();
+    expect(drop({ body: { x: 1 } })).toBeNull();
+    expect(drop({ body: spawn, age: -1 })).toMatchObject({
+      age: 0,
+      pickupDelay: 0,
+      thrower: -1,
+      body: { ...spawn, vx: 0, onGround: false },
+    });
+  });
+});
+
+describe('restoring a world', () => {
+  it('keeps both edits of a column reloaded, edited in another section and saved again', async () => {
+    const storage = new MemoryStorage();
+    const first = flatSim('two-edits');
+    fill(first, 5, 70, 5, 'block:stone'); // section 2
+    let stored = await saveTo(storage, first.sim);
+    const second = await restoreFrom(storage);
+    settle(second.sim);
+    expect(stateKey(second.sim, 5, 70, 5)).toBe('block:stone');
+    expect(second.sim.world.getColumn(0, 0)!.persisted).toBe(1 << 2);
+    fill(second, 6, 170, 6, 'block:torch'); // section 5
+    stored = await saveTo(storage, second.sim, stored);
+    const third = await restoreFrom(storage);
+    expect(third.sim.edits.get(columnKey(0, 0))!.map((s) => s.sy)).toEqual([2, 5]);
+    settle(third.sim);
+    expect(stateKey(third.sim, 5, 70, 5)).toBe('block:stone');
+    expect(stateKey(third.sim, 6, 170, 6)).toBe('block:torch');
+    expect(stored).toEqual(new Set([columnKey(0, 0)]));
+  });
+
+  it('gives the same persistent state after save, reload and resume (ticks 1500 → 3000)', async () => {
+    const seed = 'resume';
+    /** The wander bot, with edits in two sections, items and a throw near the player at 1400. */
+    const drive = (s: TestSim, bot: Bot, to: number) => {
+      while (s.sim.tick < to) {
+        const player = s.sim.players.get(1)!;
+        if (s.sim.tick === 1400) {
+          const x = Math.floor(player.body.x) + 3;
+          const z = Math.floor(player.body.z) + 3;
+          const box = { x0: x, z0: z, x1: x + 2, z1: z };
+          s.host.send({ type: 'debug.fill', ...box, y0: 150, y1: 152, state: 'block:planks' });
+          s.host.send({ type: 'debug.fill', ...box, y0: 220, y1: 220, state: 'block:stone' });
+          s.host.send({ type: 'debug.give', item: 'item:dirt', count: 5 });
+          s.host.send({ type: 'inv.drop', slot: 0, all: false });
+        }
+        s.host.send(bot.next(player, s.sim.tick));
+        s.host.advance(1, s.events);
+        s.events.length = 0;
+      }
+    };
+    const start = () => {
+      const s = withTicks(createInlineSim({ registry, seed, allowDebug: true }));
+      s.sim.addPlayer(1, 2);
+      return s;
+    };
+    const straight = start();
+    drive(straight, wanderBot(seed), 3000);
+
+    const first = start();
+    const bot = wanderBot(seed);
+    drive(first, bot, 1500);
+    expect(drops(first.sim)).toHaveLength(1);
+    const storage = new MemoryStorage();
+    await saveTo(storage, first.sim);
+    const resumed = await restoreFrom(storage);
+    expect(persistentHash(resumed.sim)).toBe(persistentHash(first.sim));
+    settle(resumed.sim);
+    drive(resumed, bot, 3000);
+
+    expect(resumed.sim.tick).toBe(3000);
+    expect(resumed.sim.players.get(1)!.body).toEqual(straight.sim.players.get(1)!.body);
+    expect(persistentHash(resumed.sim)).toBe(persistentHash(straight.sim));
+  });
+
+  it('keeps item drops with their column, frozen while it is unloaded', async () => {
+    const s = flatSim('drops');
+    const drop = spawnDrop(s.sim, { item: 'item:sand', count: 3 }, 20.5, 66, 20.5);
+    s.step(30);
+    expect(drop.body.onGround).toBe(true);
+    send(s, { type: 'debug.teleport', x: 8 * 32 + 16, y: 'surface', z: 16 });
+    s.step(100);
+    expect(s.sim.world.getColumn(0, 0)).toBeUndefined();
+    const age = drop.age;
+    s.step(50);
+    expect(s.sim.entities.get(drop.id)).toBe(drop);
+    expect(drop.age).toBe(age);
+    const storage = new MemoryStorage();
+    expect(await saveTo(storage, s.sim)).toEqual(new Set([columnKey(0, 0)]));
+    const r = await restoreFrom(storage);
+    expect(drops(r.sim)).toEqual([drop]);
+    send(r, { type: 'debug.teleport', x: 20.5, y: 'surface', z: 21.5 });
+    r.step(150);
+    // Its column loaded again, the drop is picked up.
+    expect(r.sim.entities.has(drop.id)).toBe(false);
+    expect(r.sim.players.get(1)!.inventory.some((slot) => slot?.item === 'item:sand')).toBe(true);
+    // The next save removes the emptied column record.
+    const batch = snapshotSim(r.sim, TEST_WORLD, r.restored.stored);
+    expect(batch.columns).toEqual([]);
+    expect(batch.removed).toEqual([{ cx: 0, cz: 0 }]);
+  });
+
+  it('remaps the states of a save to a pack whose ids moved', async () => {
+    const blocks = [basePack.blocks[0]!, ...basePack.blocks.slice(1).reverse()];
+    const reordered = buildRegistry({ ...basePack, blocks });
+    expect(reordered.stateId('block:torch')).not.toBe(registry.stateId('block:torch'));
+    const s = flatSim('remap');
+    fill(s, 3, 70, 3, 'block:broadleaf_log[axis=x]');
+    fill(s, 4, 70, 3, 'block:torch');
+    fill(s, 5, 64, 3, 'block:air');
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+    const r = await restoreFrom(storage, reordered);
+    expect(r.restored.contentChanged).toBe(true);
+    settle(r.sim);
+    const cells = [
+      [3, 70, 3],
+      [4, 70, 3],
+      [5, 64, 3],
+      [6, 64, 3],
+      [3, 63, 3],
+    ] as const;
+    for (const [x, y, z] of cells)
+      expect(stateKey(r.sim, x, y, z), `${x},${y},${z}`).toBe(stateKey(s.sim, x, y, z));
+  });
+
+  it('turns keys the pack lacks into the unknown block and item, the item keeping its key', async () => {
+    const stone = basePack.blocks.find((b) => b.key === 'block:stone')!;
+    const relic = { ...stone, key: 'block:relic' } as const;
+    const s = flatSim('relic', buildRegistry({ ...basePack, blocks: [...basePack.blocks, relic] }));
+    fill(s, 2, 66, 2, 'block:relic');
+    send(s, { type: 'debug.give', item: 'item:relic', count: 3 });
+    spawnDrop(s.sim, { item: 'item:relic', count: 2 }, 9.5, 65, 9.5);
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+
+    const r = await restoreFrom(storage);
+    settle(r.sim);
+    expect(r.sim.world.getBlock(2, 66, 2)).toBe(registry.unknownBlock);
+    const unknown = { item: registry.unknownItem, original: 'item:relic' };
+    expect(r.sim.players.get(1)!.inventory[0]).toEqual({ ...unknown, count: 3 });
+    expect(drops(r.sim)[0]).toMatchObject({ ...unknown, count: 2 });
+    // Saved again, the items go back to their own key; the block stays unknown.
+    const again = snapshotSim(r.sim, TEST_WORLD, new Set());
+    expect(again.players[0]!.inventory[0]).toEqual({ item: 'item:relic', count: 3 });
+    expect(again.columns[0]!.entities[0]!.item).toBe('item:relic');
+    const [section] = unpackSections(again.columns[0]!.payload, (id) => id);
+    expect(section!.blocks![localIndex(2, 2, 2)]).toBe(registry.unknownBlock);
+  });
+
+  it('refuses a save from a newer version and skips unreadable columns', async () => {
+    const s = flatSim('versions');
+    fill(s, 1, 70, 1, 'block:stone');
+    fill(s, 40, 70, 1, 'block:stone');
+    const batch = snapshotSim(s.sim, TEST_WORLD, new Set());
+    const newer = new MemoryStorage();
+    await newer.write({ ...batch, world: { ...batch.world, saveVersion: 2 } });
+    await expect(restoreFrom(newer)).rejects.toThrow(SaveVersionError);
+    const damaged = new MemoryStorage();
+    const [good, bad] = batch.columns;
+    const garbage = {
+      ...bad!,
+      codec: 'deflate-raw',
+      payload: new Uint8Array([0xff, 0xff]),
+    } as const;
+    await damaged.write({ ...batch, columns: [good!, garbage] });
+    const r = await restoreFrom(damaged);
+    expect(r.restored.stored).toEqual(new Set([columnKey(0, 0)]));
+    expect([...r.sim.edits.keys()]).toEqual([columnKey(0, 0)]);
+    const options = { registry, source: new InlineColumnSource(registry), maxInFlight: 1 };
+    expect(await restoreSim(damaged, 'missing', options, zlibDeflater)).toBeUndefined();
+  });
+});

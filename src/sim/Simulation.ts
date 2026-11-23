@@ -37,6 +37,8 @@ export interface SimOptions {
   readonly maxInFlight: number;
   /** Accept debug.* commands (dev builds and tests). */
   readonly allowDebug?: boolean;
+  /** Spawn point of a saved world (otherwise searched for: findSpawn). */
+  readonly spawn?: { readonly x: number; readonly y: number; readonly z: number };
 }
 
 /** Every entity record of the world (creatures join the union in M10). */
@@ -81,7 +83,7 @@ export class Simulation implements ColumnSink {
     this.world = new VoxelWorld(options.registry.air, options.registry.unknownBlock);
     this.light = new LightEngine(options.registry.tables);
     this.ctx = createGenContext(this.seed, this.registry, this.worldType);
-    this.spawn = findSpawn(this.ctx);
+    this.spawn = options.spawn ?? findSpawn(this.ctx);
     this.columns = new ColumnPipeline(
       this.world,
       options.registry.air,
@@ -96,15 +98,19 @@ export class Simulation implements ColumnSink {
 
   /** Adds a player at the spawn point (idempotent per connection id). */
   addPlayer(id: number, viewRadius = 6): PlayerState {
-    let player = this.players.get(id);
-    if (!player) {
-      const { x, y, z } = this.spawn;
-      player = createPlayer(id, x, y, z, viewRadius, this.nextEntityId++);
-      this.players.set(id, player);
-      this.entities.set(player.id, player);
-      this.spatial.update(player.id, x, z);
-      this.columns.setView(id, x, z, viewRadius);
-    }
+    const player = this.players.get(id);
+    if (player) return player;
+    const { x, y, z } = this.spawn;
+    return this.join(createPlayer(id, x, y, z, viewRadius, this.nextEntityId++));
+  }
+
+  /** Puts a player record (new, or restored from a save) in the world and streams around it. */
+  join(player: PlayerState): PlayerState {
+    const { x, z } = player.body;
+    this.players.set(player.playerId, player);
+    this.entities.set(player.id, player);
+    this.spatial.update(player.id, x, z);
+    this.columns.setView(player.playerId, x, z, player.viewRadius);
     return player;
   }
 

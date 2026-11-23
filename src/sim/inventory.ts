@@ -10,6 +10,8 @@ export interface ItemStack {
   item: string;
   count: number;
   durability?: number;
+  /** Saved key of an item the pack no longer has (`item` is then the pack's unknown item). */
+  original?: string;
 }
 
 /** Plain JSON: one entry per slot, null when empty. */
@@ -34,6 +36,7 @@ export function addItem(
   item: string,
   count: number,
   durability?: number,
+  original?: string,
 ): number {
   const max = registry.maxStack(item);
   let left = count;
@@ -47,8 +50,10 @@ export function addItem(
   for (let i = 0; i < inventory.length && left > 0; i++) {
     if (inventory[i]) continue;
     const moved = Math.min(left, max);
-    inventory[i] =
-      durability === undefined ? { item, count: moved } : { item, count: moved, durability };
+    const stack: ItemStack = { item, count: moved };
+    if (durability !== undefined) stack.durability = durability;
+    if (original !== undefined) stack.original = original;
+    inventory[i] = stack;
     left -= moved;
   }
   return left;
@@ -129,16 +134,39 @@ export function countItem(inventory: Inventory, item: string): number {
   return total;
 }
 
+/** Saved item key: an unknown item goes back to the key it was saved with. */
+export function savedItemKey(stack: Readonly<ItemStack>): string {
+  return stack.original ?? stack.item;
+}
+
+/**
+ * Loaded item key (docs « Clés inconnues au chargement »): a key the pack does not have becomes the
+ * pack's unknown item, which keeps the key (saved back as it was).
+ */
+export function loadItemKey(stack: ItemStack, registry: Registry): void {
+  if (registry.itemId(stack.item) >= 0) return;
+  stack.original = stack.item;
+  stack.item = registry.unknownItem;
+}
+
 /** Copy for saving (text keys, plain JSON). */
 export function serializeInventory(inventory: Inventory): Inventory {
-  return inventory.map((stack) => (stack ? { ...stack } : null));
+  return inventory.map((stack) => {
+    if (!stack) return null;
+    const saved: ItemStack = { item: savedItemKey(stack), count: stack.count };
+    if (stack.durability !== undefined) saved.durability = stack.durability;
+    return saved;
+  });
 }
 
 const isWhole = (v: unknown, min: number): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= min;
 
-/** Reads a saved inventory: malformed slots become empty, the slot count is fixed. */
-export function deserializeInventory(data: unknown): Inventory {
+/**
+ * Reads a saved inventory: malformed slots become empty, the slot count is fixed, unknown items
+ * keep their key (loadItemKey).
+ */
+export function deserializeInventory(data: unknown, registry: Registry): Inventory {
   const inventory = createInventory();
   if (!Array.isArray(data)) return inventory;
   for (let i = 0; i < INVENTORY_SLOTS; i++) {
@@ -146,6 +174,7 @@ export function deserializeInventory(data: unknown): Inventory {
     if (!saved || typeof saved.item !== 'string' || !isWhole(saved.count, 1)) continue;
     const stack: ItemStack = { item: saved.item, count: saved.count };
     if (isWhole(saved.durability, 0)) stack.durability = saved.durability;
+    loadItemKey(stack, registry);
     inventory[i] = stack;
   }
   return inventory;

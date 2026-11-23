@@ -41,6 +41,7 @@ export interface ResolvedBiome {
 
 /** `flat` and `arena` are test worlds: flat ground (the arena adds a few features near the spawn). */
 export type WorldType = 'default' | 'flat' | 'arena';
+export const WORLD_TYPES: readonly WorldType[] = ['default', 'flat', 'arena'];
 
 /** Everything generation needs, built once per (seed, world type, content pack). */
 export interface GenContext {

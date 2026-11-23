@@ -271,6 +271,8 @@ export interface ArenaDef {
 export interface PackBindings {
   readonly air: BlockKey;
   readonly unknownBlock: BlockKey;
+  /** What a saved item of a key the pack no longer has becomes (it keeps the saved key). */
+  readonly unknownItem: ItemKey;
   /** Biomes where a new player may appear. */
   readonly spawnBiomes?: readonly BiomeKey[];
   /** Model drawn for players in third person. */

@@ -16,6 +16,9 @@ export function validateItems(
   add: AddIssue,
 ): void {
   const itemKeys = checkItems(pack, blockKeys, textureKeys, add);
+  const unknownItem = pack.manifest.bindings.unknownItem;
+  if (!itemKeys.has(unknownItem))
+    add('manifest.bindings.unknownItem', `unknown item "${unknownItem}"`);
   checkTiers(pack, add);
   const lootKeys = checkLoot(pack, itemKeys, add);
   pack.blocks.forEach((block, i) => {

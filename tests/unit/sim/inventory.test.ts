@@ -102,9 +102,26 @@ describe('inventory', () => {
     addItem(inventory, registry, 'item:dirt', 70);
     addItem(inventory, registry, 'item:flint_pickaxe', 1, 12);
     const saved = JSON.parse(JSON.stringify(serializeInventory(inventory)));
-    expect(deserializeInventory(saved)).toEqual(inventory);
-    expect(deserializeInventory(undefined)).toEqual(createInventory());
-    const repaired = deserializeInventory([{ item: 'item:dirt', count: 0 }, { count: 3 }, null]);
+    expect(deserializeInventory(saved, registry)).toEqual(inventory);
+    expect(deserializeInventory(undefined, registry)).toEqual(createInventory());
+    const repaired = deserializeInventory(
+      [{ item: 'item:dirt', count: 0 }, { count: 3 }, null],
+      registry,
+    );
     expect(repaired).toEqual(createInventory());
+  });
+
+  it('loads an item the pack lacks as the unknown item, saved back with its own key', () => {
+    const [stack] = deserializeInventory([{ item: 'item:retired', count: 3 }], registry);
+    expect(stack).toEqual({ item: registry.unknownItem, count: 3, original: 'item:retired' });
+    expect(serializeInventory([stack!])).toEqual([{ item: 'item:retired', count: 3 }]);
+    // It keeps its key through moves and pickups (never stacking: its maximum is 1).
+    const inventory = createInventory();
+    expect(addItem(inventory, registry, stack!.item, 2, undefined, stack!.original)).toBe(0);
+    expect(inventory.slice(0, 3)).toEqual([
+      { item: registry.unknownItem, count: 1, original: 'item:retired' },
+      { item: registry.unknownItem, count: 1, original: 'item:retired' },
+      null,
+    ]);
   });
 });

@@ -49,7 +49,8 @@ export function giveItems(
   stack: ItemStack,
   out: SimEvent[],
 ): void {
-  const left = addItem(player.inventory, sim.registry, stack.item, stack.count, stack.durability);
+  const { item, count, durability, original } = stack;
+  const left = addItem(player.inventory, sim.registry, item, count, durability, original);
   if (left < stack.count) out.push({ type: 'inventoryChanged', playerId: player.playerId });
   if (left > 0) {
     const b = player.body;
