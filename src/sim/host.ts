@@ -4,7 +4,7 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Command } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
-import type { Simulation } from './Simulation.ts';
+import type { Entity, Simulation } from './Simulation.ts';
 import { stateHash } from './stateHash.ts';
 
 /** Read-only view of the simulation for rendering, UI and audio. */
@@ -16,6 +16,8 @@ export interface SimView {
   /** Read-only generation context (analytic biome and height queries, golden hashes). */
   readonly gen: GenContext;
   readonly playerId: number;
+  /** Every entity (players, item drops) by id, in a deterministic order. */
+  readonly entities: ReadonlyMap<number, Readonly<Entity>>;
   tick(): number;
   /** Canonical state hash (determinism checks and tests). */
   hash(): number;
@@ -41,6 +43,7 @@ function makeView(sim: Simulation, playerId: number): SimView {
     spawn: sim.spawn,
     gen: sim.ctx,
     playerId,
+    entities: sim.entities,
     tick: () => sim.tick,
     hash: () => stateHash(sim),
     columnState: (cx, cz) => sim.columnState(cx, cz),

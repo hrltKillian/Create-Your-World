@@ -1,5 +1,6 @@
-/** URL parameters that drive deterministic boots for tests and debugging (dev and bench only). */
+import type { WorldType } from '../world/gen/generateColumn.ts';
 
+/** URL parameters that drive deterministic boots for tests and debugging (dev and bench only). */
 export interface BootParams {
   readonly seed: string | null;
   readonly skipMenu: boolean;
@@ -19,7 +20,7 @@ export interface BootParams {
   readonly rd: number | null;
   /** Benchmark run (fixed drawing-buffer size). */
   readonly bench: string | null;
-  readonly worldType: 'default' | 'flat';
+  readonly worldType: WorldType;
   /** Keyboard layout used for key labels (otherwise detected). */
   readonly kb: 'qwerty' | 'azerty' | 'qwertz' | null;
   /** 'serialize' routes commands and events through JSON. */
@@ -73,7 +74,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     view: params.get('view'),
     rd: params.has('rd') ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6)) : null,
     bench: params.get('bench'),
-    worldType: params.get('worldType') === 'flat' ? 'flat' : 'default',
+    worldType: (['flat', 'arena'] as const).find((w) => w === params.get('worldType')) ?? 'default',
     kb: (['qwerty', 'azerty', 'qwertz'] as const).find((k) => k === params.get('kb')) ?? null,
     host: params.get('host'),
   };

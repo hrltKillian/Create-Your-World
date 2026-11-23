@@ -57,7 +57,7 @@ function set(index: number, kind = SOLID): Pixel {
 
 type PatternFn = (seed: number, n: number, x: number, y: number, size: number) => Pixel;
 
-const PATTERNS: Readonly<Record<TexturePattern, PatternFn>> = {
+const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon' | 'fracture'>, PatternFn>> = {
   speckle: (seed, n, x, y, size) => {
     const v = 0.65 * tileNoise(seed, x, y, size, 4) + 0.35 * hashUnit(seed, x, y);
     return set(pick(v + dither(x, y) * 0.35, 0, n));
@@ -186,15 +186,86 @@ const PATTERNS: Readonly<Record<TexturePattern, PatternFn>> = {
   checker: (_seed, n, x, y) => set(((x >> 2) + (y >> 2)) % 2 === 0 ? 0 : Math.min(1, n - 1)),
 };
 
+/** Pixel of an icon mask (rows from the top, scaled to the texture size). */
+function maskPixel(mask: readonly string[], x: number, y: number, size: number): Pixel {
+  const row = mask[Math.floor(((size - 1 - y) * mask.length) / size)] ?? '';
+  const ch = row[Math.floor((x * row.length) / size)] ?? '.';
+  return ch === '.' ? set(0, HOLE) : set(Number(ch));
+}
+
+/** The 8 neighbour steps of a crack walk, turning counter-clockwise from +x. */
+const STEP_X = [1, 1, 0, -1, -1, -1, 0, 1];
+const STEP_Y = [0, 1, 1, 1, 0, -1, -1, -1];
+/** Crack grid: walks run on 16 cells whatever the texture size. */
+const CRACK_GRID = 16;
+const CRACK_CORE = 1;
+const CRACK_RIM = 2;
+
+/**
+ * Cells of a crack overlay at a stage, on the 16-cell grid: 0 none, CRACK_CORE, CRACK_RIM (the cell
+ * under a crack, lighter). Branches walk from the centre with seeded turns; later branches fork
+ * off the third cell of earlier ones. Stage s has 2 + s branches of 3 + s cells, and a walk only
+ * depends on (seed, branch, step), so every stage contains the cracks of the stages before it.
+ */
+function fractureCells(seed: number, stage: number): Uint8Array {
+  const cells = new Uint8Array(CRACK_GRID * CRACK_GRID);
+  const branches = 2 + stage;
+  const length = 3 + stage;
+  const forkX: number[] = [];
+  const forkY: number[] = [];
+  const forkD: number[] = [];
+  for (let b = 0; b < branches; b++) {
+    let x = 7 + (hash32(seed, b, 1) % 2);
+    let y = 7 + (hash32(seed, b, 2) % 2);
+    let d = (b * 2 + (hash32(seed, b, 3) % 2)) & 7;
+    const parent = b - 4;
+    if (parent >= 0 && parent < forkX.length) {
+      x = forkX[parent]!;
+      y = forkY[parent]!;
+      d = (forkD[parent]! + (hash32(seed, b, 4) % 2 === 0 ? 1 : 7)) & 7;
+    }
+    for (let k = 0; k < length; k++) {
+      if (x < 0 || y < 0 || x >= CRACK_GRID || y >= CRACK_GRID) break;
+      cells[y * CRACK_GRID + x] = CRACK_CORE;
+      if (k === 2) {
+        forkX.push(x);
+        forkY.push(y);
+        forkD.push(d);
+      }
+      const turn = hash32(seed, b, k, 5) % 5;
+      if (turn === 0) d = (d + 1) & 7;
+      else if (turn === 1) d = (d + 7) & 7;
+      x += STEP_X[d]!;
+      y += STEP_Y[d]!;
+    }
+  }
+  for (let i = CRACK_GRID; i < cells.length; i++)
+    if (cells[i] === CRACK_CORE && cells[i - CRACK_GRID] === 0) cells[i - CRACK_GRID] = CRACK_RIM;
+  return cells;
+}
+
+/** Pixel of a crack overlay: palette 0 for the crack, 1 for its rim, else a hole. */
+function fracturePixel(cells: Uint8Array, x: number, y: number, size: number): Pixel {
+  const cell =
+    cells[Math.floor((y * CRACK_GRID) / size) * CRACK_GRID + Math.floor((x * CRACK_GRID) / size)];
+  return cell === CRACK_CORE ? set(0) : cell === CRACK_RIM ? set(1) : set(0, HOLE);
+}
+
 /** Generates one pack texture as RGBA bytes, applying the texture's alpha convention. */
 export function generatePackTexture(def: TextureDef, size: number): Uint8Array {
   const colors = def.palette.map(parseHex);
   const out = new Uint8Array(size * size * 4);
-  const fn = PATTERNS[def.pattern];
   const alpha = def.alpha ?? 'opaque';
+  const pattern = def.pattern;
+  const cracks = pattern === 'fracture' ? fractureCells(def.seed, def.stage ?? 0) : null;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const p = fn(def.seed, colors.length, x, y, size);
+      const p =
+        pattern === 'fracture'
+          ? fracturePixel(cracks!, x, y, size)
+          : pattern === 'icon'
+            ? maskPixel(def.mask ?? [], x, y, size)
+            : PATTERNS[pattern](def.seed, colors.length, x, y, size);
       const color = colors[Math.min(colors.length - 1, Math.max(0, p.index))]!;
       const o = (y * size + x) * 4;
       out[o] = color[0];

@@ -81,11 +81,32 @@ describe('content validation of shapes and state overrides', () => {
     expect(validatePack(pack).some((i) => /whenState\.open\.collision$/.test(i.path))).toBe(true);
   });
 
+  it('requires the half state on tall blocks (doors)', () => {
+    const pack = broken((p) => {
+      const gate = p.blocks.find((b) => b.key === 'block:gate')!;
+      gate.states = ['facing4', 'open'];
+    });
+    const gate = basePack.blocks.findIndex((b) => b.key === 'block:gate');
+    expect(validatePack(pack).map((i) => i.path)).toEqual([`blocks[${gate}].placement.tall`]);
+  });
+
   it('requires a tint-aware texture on tinted opaque blocks', () => {
     const pack = broken((p) => {
       const grass = p.blocks.find((b) => b.key === 'block:grass')!;
       grass.textures = { all: 'tex:dirt' };
     });
     expect(validatePack(pack).some((i) => /\.tint$/.test(i.path))).toBe(true);
+  });
+
+  it('gives a crack stage to fracture textures, and only to them', () => {
+    const pack = broken((p) => {
+      const cracks = p.textures.filter((t) => t.pattern === 'fracture');
+      cracks[0]!.stage = 8;
+      delete cracks[1]!.stage;
+      p.textures[1]!.stage = 2;
+    });
+    const at = (i: number) => `textures[${i}].stage`;
+    const first = basePack.textures.findIndex((t) => t.pattern === 'fracture');
+    expect(validatePack(pack).map((i) => i.path)).toEqual([at(1), at(first), at(first + 1)]);
   });
 });

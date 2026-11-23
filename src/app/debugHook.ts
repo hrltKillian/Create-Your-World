@@ -1,13 +1,25 @@
-import { clampPitch } from '../core/angles.ts';
 import { i18nMissing } from '../i18n/i18n.ts';
 import type { Action } from '../input/bindings.ts';
 import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
+import { serializeInventory } from '../sim/inventory.ts';
 import { Column } from '../world/Column.ts';
 import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
 import type { App } from './App.ts';
-import { fill, nextFrame, teleport, waitForChunks, yieldTask } from './automation.ts';
+import {
+  blockKey,
+  fill,
+  give,
+  hotbarView,
+  look,
+  nextFrame,
+  press,
+  setBlock,
+  teleport,
+  waitForChunks,
+  yieldTask,
+} from './automation.ts';
 
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
@@ -15,7 +27,7 @@ import { fill, nextFrame, teleport, waitForChunks, yieldTask } from './automatio
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 3,
+    version: 4,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -37,6 +49,8 @@ export function installDebugHook(app: App): void {
       snapshot: () => ({ ...app.frames.snapshot(), spans: app.frames.spanP95() }),
       pool: () => app.workers?.stats() ?? null,
       mesh: () => app.session?.scheduler.stats() ?? null,
+      /** Time (ms) from the first edit of the last mesh batch to the swap of its meshes. */
+      editToMeshMs: () => app.session?.scheduler.editToMeshMs ?? null,
       /**
        * Flies the camera in a straight line for `seconds` (pane must be visible) and returns frame
        * statistics: CPU work p95, share of intervals over 20 ms, subsystem p95.
@@ -76,17 +90,9 @@ export function installDebugHook(app: App): void {
     },
     input: {
       /** Sets the view angles (radians). */
-      look: (yaw: number, pitch: number) => {
-        if (!app.session) return;
-        app.session.rig.yaw = yaw;
-        app.session.rig.pitch = clampPitch(pitch);
-      },
+      look: (yaw: number, pitch: number) => look(app, yaw, pitch),
       /** Holds an action for `ticks` ticks; in fixed-step mode it also advances those ticks. */
-      press: (action: Action, ticks = 1) => {
-        if (!app.input || !app.session) return;
-        app.input.force(action, ticks);
-        if (app.params.fixedStep) app.session.step(ticks);
-      },
+      press: (action: Action, ticks = 1) => press(app, action, ticks),
       release: () => app.input?.releaseAll(),
       keyLabel: (action: Action) => app.input?.keyLabel(action) ?? null,
     },
@@ -114,13 +120,19 @@ export function installDebugHook(app: App): void {
       teleport: (x: number, y: number | 'surface', z: number) => teleport(app, x, y, z),
       setStamina: (value: number) =>
         app.session?.host.send({ type: 'debug.setStat', stat: 'stamina', value }),
+      /** A copy of the 32 slots (0–7 hotbar, 8–31 bag): null or { item, count, durability? }. */
+      inventory: () => {
+        const p = app.session?.player;
+        return p ? serializeInventory(p.inventory) : null;
+      },
+      /** Adds items by key (e.g. a flint tool); what does not fit drops at the player's feet. */
+      give: (item: string, count = 1) => give(app, item, count),
     },
     world: {
       /** Text key of the block state at a position (or null outside the loaded world). */
-      block: (x: number, y: number, z: number) => {
-        if (!app.world || !app.registry) return null;
-        return app.registry.states[app.world.getBlock(x, y, z)]?.key ?? null;
-      },
+      block: (x: number, y: number, z: number) => blockKey(app, x, y, z),
+      /** Sets one block from a state key, e.g. the key `block` returns. */
+      setBlock: (x: number, y: number, z: number, state: string) => setBlock(app, x, y, z, state),
       voxelBytes: () => app.world?.voxelBytes() ?? 0,
       seed: () => app.session?.seed ?? null,
       spawn: () => app.session?.spawn ?? null,
@@ -205,8 +217,36 @@ export function installDebugHook(app: App): void {
         const session = app.session;
         if (!session) return null;
         const rig = session.entities.rig(who === 'player' ? session.player.id : who);
-        return rig ? { angles: rigDegrees(rig), headPivotY: rig.headPivotY } : null;
+        return rig
+          ? { angles: rigDegrees(rig), headPivotY: rig.headPivotY, strike: rig.strike }
+          : null;
       },
+      /** The block under the crosshair (null: none) and the placement ghost (null: none). */
+      target: () => {
+        const aim = app.session?.aim;
+        if (!aim) return null;
+        const { hit, ghost } = aim;
+        return {
+          block: hit.hit
+            ? { x: hit.x, y: hit.y, z: hit.z, nx: hit.nx, ny: hit.ny, nz: hit.nz }
+            : null,
+          ghost: ghost.state >= 0 ? { x: ghost.x, y: ghost.y, z: ghost.z } : null,
+        };
+      },
+      /** Crack stage shown on the mined block (−1: none). */
+      crack: () => app.session?.play.overlay.crackStage ?? -1,
+      /** First-person hand view: drawn this frame, stroke progress (0 at rest), boxes. */
+      hand: () => {
+        const hand = app.session?.play.hand;
+        return hand ? { visible: hand.visible, swing: hand.swing, boxes: hand.batch.size } : null;
+      },
+      /** Boxes in the world batch this frame and live break particles. */
+      boxes: () => {
+        const play = app.session?.play;
+        return play ? { boxes: play.batch.size, particles: play.particles.alive() } : null;
+      },
+      /** Sections whose mesh on screen is older than their data (0 once edits are visible). */
+      sectionVersionLag: () => app.session?.scheduler.sectionVersionLag() ?? null,
       debugView: (view?: DebugView) => {
         if (view !== undefined) {
           if (!DEBUG_VIEWS.includes(view))
@@ -223,6 +263,22 @@ export function installDebugHook(app: App): void {
       i18nMissing,
       text: (selector: string) => document.querySelector(selector)?.textContent ?? null,
       toggleDebug: () => app.overlay?.toggle(),
+      /** Opens or closes the bag like its key does (no argument: toggles); returns whether it is open. */
+      bag: (open?: boolean) => {
+        const inventory = app.inventory;
+        if (!inventory) return false;
+        if (open === undefined || open !== inventory.bag.isOpen()) inventory.toggleBag();
+        return inventory.bag.isOpen();
+      },
+      /** The open screen ('bag'), null while playing. */
+      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : null),
+      /** What the hotbar shows: the selected slot and each slot's count text. */
+      hotbar: () => hotbarView(app),
+    },
+    audio: {
+      /** Keys of the sounds played (oldest first), logged even when muted or not yet resumed. */
+      log: () => app.audio?.log() ?? [],
+      state: () => app.audio?.state() ?? null,
     },
   };
   window.__game = api;

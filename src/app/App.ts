@@ -1,6 +1,8 @@
 import { generatePackTexture } from '../assets/procedural/patterns.ts';
+import { AudioEngine } from '../audio/AudioEngine.ts';
+import { AudioCues } from '../audio/cues.ts';
 import { basePack } from '../content/packs/base/index.ts';
-import { buildRegistry, type Registry } from '../content/registry.ts';
+import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/registry.ts';
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { addStrings } from '../i18n/i18n.ts';
@@ -26,10 +28,11 @@ import { type BootParams, parseBootParams } from './bootParams.ts';
 import { debugLines } from './debugLines.ts';
 import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
+import { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
-import { installPlayGate } from './playGate.ts';
+import { PlayGate } from './playGate.ts';
 
-export const MILESTONE = 3;
+export const MILESTONE = 4;
 
 export type AppState =
   | 'boot'
@@ -46,8 +49,6 @@ const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
 /** Seconds between two refreshes of the debug overlay. */
 const OVERLAY_REFRESH = 0.25;
 const RENDER_DISTANCE = 6;
-/** Tint slot 0 of the voxel shader: untinted. */
-const NO_TINT = '#ffffff';
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
 const BENCH_BUFFER = [2160, 1350] as const;
 
@@ -68,6 +69,9 @@ export class App {
   overlay: DebugOverlay | null = null;
   session: GameSession | null = null;
   input: InputManager | null = null;
+  audio: AudioEngine | null = null;
+  /** Hotbar and bag of the play session (none with the free camera). */
+  inventory: InventoryUi | null = null;
   debugView: DebugView = 'none';
 
   private readonly root: HTMLElement;
@@ -147,24 +151,37 @@ export class App {
     this.runLoop((dt) => title.frame(dt));
   }
 
+  /** `layers`: the pack's textures (RGBA bytes, see `packLayers`). */
   private createWorldView(
     pack: ContentPack,
+    layers: readonly Uint8Array[],
     tints: readonly string[],
     renderDistance: number,
   ): WorldView {
-    const size = pack.manifest.textureSize;
-    const textures = createTextureArray(
-      pack.textures.map((def) => generatePackTexture(def, size)),
-      size,
-    );
+    const textures = createTextureArray(layers, pack.manifest.textureSize);
     return new WorldView(this.renderer!, textures, tints, renderDistance);
+  }
+
+  /** The sound engine: recipes pre-rendered now, the AudioContext made or resumed on a click. */
+  private createAudio(pack: ContentPack): AudioEngine {
+    const audio = new AudioEngine(pack.sfx ?? [], { muted: this.params.mute });
+    this.audio = audio;
+    audio.prerender().catch((error: unknown) => this.recordError(`[audio] ${String(error)}`));
+    window.addEventListener('pointerdown', () => audio.resume());
+    // « Onglet caché »: silent while hidden; shown again, a context made by a click resumes.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) audio.suspend();
+      else if (audio.state() !== 'idle') audio.resume();
+    });
+    return audio;
   }
 
   /** Default mode: an endless generated world, explored on foot (or with ?freecam=1). */
   private startWorld(registry: Registry): void {
     const pack = registry.pack;
     const renderDistance = this.params.rd ?? RENDER_DISTANCE;
-    const view = this.createWorldView(pack, biomeTints(pack), renderDistance);
+    const layers = packLayers(pack);
+    const view = this.createWorldView(pack, layers, biomeTints(pack), renderDistance);
     this.view = view;
     const input = this.createInput();
     const layoutLoaded = input.labels.loadLayoutMap(
@@ -192,13 +209,25 @@ export class App {
     );
     this.session = session;
     this.world = session.host.view.world;
+    // The session's play objects (overlays, hand view) are in place: compile while loading.
+    view.precompile().catch((error: unknown) => this.recordError(`[render] ${String(error)}`));
+    const audio = this.createAudio(pack);
+    // The ear starts at the spawn eye (then follows the camera every frame).
+    const eye = session.rig.pose;
+    audio.setListener(eye.x, eye.y, eye.z, eye.yaw, eye.pitch);
+    const cues = new AudioCues(audio, pack.sounds?.pickup);
+    session.listeners.push((event) => cues.onEvent(event));
     const overlay = this.mountDebug();
     const loading = loadingScreen();
     const cross = crosshair();
     this.root.append(cross, overlay.element, loading);
     if (freecam) this.root.append(hintBar('hint.freecam'));
-    // The free camera flies without the click-to-play pause.
-    else installPlayGate(this.root, input, session, layoutLoaded);
+    else {
+      // The free camera flies without the click-to-play pause, the hotbar or the bag.
+      const gate = new PlayGate(this.root, input, session, layoutLoaded);
+      this.inventory = new InventoryUi(this.root, registry, layers, session, input, gate, audio);
+    }
+    const inventory = this.inventory;
     this.state = 'loading';
 
     this.runSceneLoop((dt) => {
@@ -207,6 +236,8 @@ export class App {
       const t1 = performance.now();
       view.setPose(pose);
       view.frame(dt);
+      inventory?.bridge.frame(dt);
+      audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
       cross.classList.toggle('hidden', session.rig.mode === 'third' || freecam !== null);
       this.frames.span('world', t1 - t0);
       this.frames.span('render', performance.now() - t1);
@@ -220,7 +251,7 @@ export class App {
   /** Developer test scene (M1): a fixed hand-built area, meshed once, seen from a free camera. */
   private startTestScene(registry: Registry): void {
     const pack = registry.pack;
-    const view = this.createWorldView(pack, packTints(pack), RENDER_DISTANCE);
+    const view = this.createWorldView(pack, packLayers(pack), packTints(pack), RENDER_DISTANCE);
     this.view = view;
     const world = new VoxelWorld(registry.air, registry.unknownBlock);
     this.world = world;
@@ -352,9 +383,9 @@ export function biomeTints(pack: ContentPack): string[] {
   return out;
 }
 
-/** Tint table without biomes: no tint, then the pack's own grass/foliage/water tints. */
-function packTints(pack: ContentPack): string[] {
-  return [NO_TINT, pack.tints.grass, pack.tints.foliage, pack.tints.water];
+/** RGBA bytes of every pack texture, in layer order (the texture array and the item icons). */
+function packLayers(pack: ContentPack): Uint8Array[] {
+  return pack.textures.map((def) => generatePackTexture(def, pack.manifest.textureSize));
 }
 
 interface KeyboardLayoutSource {

@@ -1,23 +1,26 @@
 import type { Registry } from '../content/registry.ts';
+import { clampPitch } from '../core/angles.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { WorkerColumnSource } from '../platform/WorkerColumnSource.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
-import { BoxBatch } from '../render/BoxBatch.ts';
 import { CameraRig } from '../render/CameraRig.ts';
-import { EntityView } from '../render/EntityView.ts';
+import type { EntityView } from '../render/EntityView.ts';
 import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
+import { type PlayFrame, PlayView } from '../render/PlayView.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
+import { TICK_SECONDS } from '../sim/clock.ts';
+import { NEUTRAL_INPUT } from '../sim/commands.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
-import { INTEGRATE_PER_TICK, LOADING_FACTOR, TICKS_PER_SECOND } from '../sim/Simulation.ts';
-import { blockToColumn, SECTION_SIZE, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
+import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
+import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
+import { ClientAim } from './ClientAim.ts';
 import type { FreeCam } from './FreeCam.ts';
 
-const TICK = 1 / TICKS_PER_SECOND;
 const MAX_STEPS = 4;
 /** Closest third-person camera distance (m) at which the avatar is still drawn. */
 const AVATAR_MIN_DISTANCE = 0.6;
@@ -44,8 +47,11 @@ export class GameSession {
   readonly host: SimHost;
   readonly scheduler: MeshScheduler;
   readonly rig = new CameraRig();
+  /** Avatar, drops, particles, block overlays and the hand view. */
+  readonly play: PlayView;
   readonly entities: EntityView;
-  readonly batch: BoxBatch;
+  /** The block under the crosshair and the placement ghost, from the client's eye. */
+  readonly aim: ClientAim;
   /** The local player's live (read-only) state, from the host's view. */
   readonly player: Readonly<PlayerState>;
   renderDistance: number;
@@ -58,13 +64,17 @@ export class GameSession {
   private readonly fixedStep: boolean;
   private readonly registry: Registry;
   private readonly events: SimEvent[] = [];
+  /** Reused every frame (no allocation). */
+  private readonly playFrame: { -readonly [K in keyof PlayFrame]: PlayFrame[K] };
   private acc = 0;
   /** Column and radius of the last view sent to the host. */
   private sentCx = Number.NaN;
   private sentCz = Number.NaN;
   private sentRadius = Number.NaN;
   /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
-  paused = false;
+  private paused = false;
+  /** Client systems that react to the simulation's events besides rendering (UI, audio). */
+  readonly listeners: ((event: SimEvent) => void)[] = [];
 
   constructor(
     options: SessionOptions,
@@ -98,13 +108,43 @@ export class GameSession {
       missingLight: 0,
       air: registry.air,
     });
-    this.batch = new BoxBatch(view.materials.uniforms.uTextures.value, view.materials.uniforms);
-    view.scene.add(this.batch.mesh);
-    this.entities = new EntityView(this.batch, this.host.view.world, registry);
+    this.play = new PlayView(view, this.host.view);
+    this.entities = this.play.entities;
+    this.aim = new ClientAim(this.host.view.world, registry, this.player);
+    // Puts the eye at the spawn before the first frame, so the first ticks aim from there.
+    this.rig.update(this.player, 1, this.host.view.world, registry.tables, 0);
+    this.playFrame = {
+      player: this.player,
+      alpha: 1,
+      dt: 0,
+      pose: this.rig.pose,
+      eye: this.rig.eye,
+      firstPerson: true,
+      avatarVisible: false,
+      targets: this.aim,
+    };
     const spawn = this.host.view.spawn;
     if (this.freecam)
       this.freecam.set({ x: spawn.x, y: spawn.y + 18, z: spawn.z, yaw: 0, pitch: -0.35 });
     this.sendView();
+  }
+
+  /**
+   * Stops or restarts the ticks. Pausing also sends a neutral input (same view and slot): the
+   * simulation applies commands without ticking, so nothing it holds (primary for the strike poses,
+   * secondary) stays pressed while paused.
+   */
+  setPaused(paused: boolean): void {
+    if (paused && !this.paused) {
+      const rig = this.rig;
+      this.host.send({
+        ...NEUTRAL_INPUT,
+        yaw: rig.yaw,
+        pitch: clampPitch(rig.pitch),
+        slot: this.input.slot,
+      });
+    }
+    this.paused = paused;
   }
 
   get spawn(): { readonly x: number; readonly y: number; readonly z: number } {
@@ -123,14 +163,17 @@ export class GameSession {
     else {
       this.input.applyMouseLook(this.rig);
       if (this.input.consume('camera')) this.rig.toggleMode();
+      // G throws one item of the selected slot, Shift+G the whole stack.
+      if (this.input.consume('drop'))
+        this.host.send({ type: 'inv.drop', slot: this.input.slot, all: this.input.shiftHeld() });
     }
     // While paused the accumulator is frozen, so the view stays where it was.
     if (!this.paused && !this.fixedStep) {
       this.acc += dt;
       let steps = 0;
-      while (this.acc >= TICK && steps < MAX_STEPS) {
+      while (this.acc >= TICK_SECONDS && steps < MAX_STEPS) {
         this.tick();
-        this.acc -= TICK;
+        this.acc -= TICK_SECONDS;
         steps++;
       }
       if (steps === MAX_STEPS) this.acc = 0;
@@ -203,14 +246,18 @@ export class GameSession {
 
   private tick(): void {
     this.sendView();
-    if (!this.freecam) this.host.send(this.input.sample(this.rig));
+    if (!this.freecam) {
+      // The view may have turned since the last frame (automation steps several ticks at once).
+      this.updateAim();
+      this.host.send(this.input.sample(this.rig, this.aim.target()));
+    }
     this.host.advance(1, this.events);
     this.input.tickForced();
   }
 
   private render(dt: number): CameraPose {
     if (this.freecam) return this.freecam.pose;
-    const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK);
+    const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK_SECONDS);
     const pose = this.rig.update(
       this.player,
       alpha,
@@ -218,16 +265,22 @@ export class GameSession {
       this.registry.tables,
       dt,
     );
-    this.batch.begin(
-      blockToColumn(pose.x) * SECTION_SIZE,
-      blockToColumn(pose.y) * SECTION_SIZE,
-      blockToColumn(pose.z) * SECTION_SIZE,
-    );
+    const rig = this.rig;
+    this.updateAim();
+    const frame = this.playFrame;
+    frame.alpha = alpha;
+    frame.dt = dt;
+    frame.firstPerson = rig.mode === 'first';
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
-    const visible = this.rig.mode === 'third' && this.rig.distance >= AVATAR_MIN_DISTANCE;
-    this.entities.drawPlayer(this.player, alpha, dt, visible);
-    this.batch.end();
+    frame.avatarVisible = rig.mode === 'third' && rig.distance >= AVATAR_MIN_DISTANCE;
+    this.play.draw(frame);
     return pose;
+  }
+
+  /** The block under the crosshair from the interpolated eye, and the placement ghost. */
+  private updateAim(): void {
+    const rig = this.rig;
+    this.aim.update(rig.eye, rig.yaw, rig.pitch, this.input.slot, this.input.isDown('crouch'));
   }
 
   /** Sends the view only when the focus changed column or the radius changed (no queue growth). */
@@ -258,7 +311,11 @@ export class GameSession {
    * meshes around the focus and, when `endLoading`, drops the loading flag once the area is ready.
    */
   private afterTicks(budgets: MeshBudgets, endLoading: boolean): void {
-    for (const event of this.events) this.scheduler.onEvent(event);
+    for (const event of this.events) {
+      this.scheduler.onEvent(event);
+      this.play.onEvent(event);
+      for (const listener of this.listeners) listener(event);
+    }
     this.events.length = 0;
     const focus = this.focus();
     this.scheduler.update(focus.x, focus.y, focus.z, budgets);

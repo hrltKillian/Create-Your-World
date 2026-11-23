@@ -23,6 +23,12 @@ const key = (type: 'keydown' | 'keyup', code: string, k: string) =>
   win.dispatch(type, { code, key: k, repeat: false });
 
 describe('InputManager', () => {
+  it('sends the client target only when there is one', () => {
+    expect('target' in input.sample(look)).toBe(false);
+    const target = { x: 1, y: 63, z: -2, face: 2 };
+    expect(input.sample(look, target).target).toEqual(target);
+  });
+
   it('keeps a tap that starts and ends between two ticks for one tick', () => {
     key('keydown', 'Space', ' ');
     key('keyup', 'Space', ' ');
@@ -51,6 +57,16 @@ describe('InputManager', () => {
     key('keydown', 'KeyW', 'w');
     input.releaseAll();
     expect(input.sample(look).forward).toBe(0);
+  });
+
+  it('knows when either Shift key is held (Shift+G throws the stack)', () => {
+    expect(input.shiftHeld()).toBe(false);
+    key('keydown', 'ShiftRight', 'Shift');
+    expect(input.shiftHeld()).toBe(true);
+    key('keyup', 'ShiftRight', 'Shift');
+    key('keydown', 'KeyG', 'g');
+    expect(input.consume('drop')).toBe(true);
+    expect(input.shiftHeld()).toBe(false);
   });
 
   it('holds forced actions for a number of ticks', () => {

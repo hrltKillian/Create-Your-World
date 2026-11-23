@@ -66,6 +66,9 @@ void main() {
 }
 `;
 
+/** Texels under this alpha are holes in cutout layers (chunks and boxes). A GLSL float. */
+export const CUTOUT_ALPHA = '0.35';
+
 export const voxelFragment = /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
@@ -95,7 +98,7 @@ float lightCurve(float level) {
 void main() {
   vec4 texel = texture(uTextures, vec3(vUv, vLayer));
   #ifdef ALPHA_CUTOUT
-  if (texel.a < 0.35) discard;
+  if (texel.a < ${CUTOUT_ALPHA}) discard;
   #endif
 
   vec3 base = texel.rgb;

@@ -1,7 +1,7 @@
 /**
  * Headless runner (plain Node, no build).
  *   npm run headless -- --ping
- *   npm run headless -- --seed=42 --ticks=3000 --bot=wander [--world=flat] [--rd=2] [--serialize]
+ *   npm run headless -- --seed=42 --ticks=3000 --bot=wander [--world=flat|arena] [--rd=2] [--serialize]
  * Prints one JSON line: {hash, tps, columns, ...}.
  */
 import { parseArgs } from 'node:util';
@@ -54,7 +54,8 @@ if (values.seed !== undefined) {
   if (!Number.isInteger(ticks) || ticks < 0) fail(`--ticks must be a whole number`);
   if (!Number.isInteger(rd) || rd < 1 || rd > 10) fail(`--rd must be 1–10`);
   if (!BOT_KINDS.includes(values.bot as BotKind)) fail(`--bot must be one of ${BOT_KINDS}`);
-  if (values.world !== 'default' && values.world !== 'flat') fail(`--world must be default|flat`);
+  if (!['default', 'flat', 'arena'].includes(values.world))
+    fail(`--world must be default|flat|arena`);
   const registry = buildRegistry(basePack);
   const t0 = performance.now();
   const result = runBot({

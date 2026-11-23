@@ -19,6 +19,7 @@ const still: Motion = {
   crouching: false,
   swimming: false,
   pitch: 0,
+  striking: false,
   dt: 1 / 60,
 };
 
@@ -76,6 +77,28 @@ describe('avatar rig', () => {
     expect((rig.amplitude * 180) / Math.PI).toBeGreaterThan(20);
     for (let i = 0; i < 60; i++) animate(rig, still);
     expect((rig.amplitude * 180) / Math.PI).toBeLessThan(2);
+  });
+
+  it('raises the right arm into a chopping strike pose while primary is held', () => {
+    const rig = createRig();
+    for (let i = 0; i < 30; i++) animate(rig, { ...still, striking: true });
+    expect(rig.strike).toBeGreaterThan(0.9);
+    const raised: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      animate(rig, { ...still, striking: true });
+      raised.push(rig.angles.armR!);
+    }
+    // Forward and up (negative angles), chopping between two heights; the left arm stays down.
+    expect(Math.max(...raised)).toBeLessThan(-0.6);
+    expect(Math.max(...raised) - Math.min(...raised)).toBeGreaterThan(0.5);
+    expect(Math.abs(rig.angles.armL!)).toBeLessThan(0.1);
+    for (let i = 0; i < 30; i++) animate(rig, still);
+    expect(rig.strike).toBeLessThan(0.05);
+    expect(Math.abs(rig.angles.armR!)).toBeLessThan(0.15);
+  });
+
+  it('finds the arm that holds items', () => {
+    expect(names[explorer.hand]).toBe('armR');
   });
 
   it('rejects a part listed before its parent', () => {

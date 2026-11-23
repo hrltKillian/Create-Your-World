@@ -1,11 +1,15 @@
 import { combinations, effective, internBoxes, stateKey } from './blockStates.ts';
+import { buildItemTables, type ItemTables, packItems } from './items.ts';
 import type {
   BlockDef,
   BlockKey,
   BlockShape,
   Box16,
   ContentPack,
+  ItemDef,
+  LootTableDef,
   RenderPass,
+  SfxKey,
   StateProp,
   TexKey,
 } from './schema.ts';
@@ -45,6 +49,17 @@ export const TINT_NONE = 0;
 export const TINT_GRASS = 1;
 export const TINT_FOLIAGE = 2;
 export const TINT_WATER = 3;
+
+/** Colour of TINT_NONE (slot 0 of the voxel shader's tint table): untinted. sRGB hex. */
+export const NO_TINT = '#ffffff';
+
+/**
+ * The pack's own colour of each tint channel, indexed by TINT_* (sRGB hex): the tint table of
+ * worlds without biomes, item icons and item models.
+ */
+export function packTints(pack: ContentPack): string[] {
+  return [NO_TINT, pack.tints.grass, pack.tints.foliage, pack.tints.water];
+}
 
 /**
  * Lookup tables indexed by the raw 16-bit voxel value (a flattened block-state id).
@@ -108,9 +123,15 @@ export class Registry {
   readonly textureKeys: readonly TexKey[];
   readonly air: number;
   readonly unknownBlock: number;
+  /** Items by numeric id: the implicit block items, then the pack's items. */
+  readonly items: readonly ItemDef[];
+  readonly itemTables: ItemTables;
   private readonly blockIndex: ReadonlyMap<string, number>;
   private readonly stateIndex: ReadonlyMap<string, number>;
+  private readonly itemIndex: ReadonlyMap<string, number>;
+  private readonly lootIndex: ReadonlyMap<string, LootTableDef>;
   private readonly defaults: Uint16Array;
+  private readonly withStateMemo = new Map<StateProp, Map<string, Int32Array>>();
 
   constructor(
     pack: ContentPack,
@@ -129,6 +150,10 @@ export class Registry {
     this.defaults = defaults;
     this.air = this.defaultState(pack.manifest.bindings.air);
     this.unknownBlock = this.defaultState(pack.manifest.bindings.unknownBlock);
+    this.items = packItems(pack);
+    this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
+    this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));
+    this.lootIndex = new Map((pack.loot ?? []).map((table) => [table.key, table]));
   }
 
   blockDef(stateId: number): BlockDef {
@@ -160,12 +185,48 @@ export class Registry {
     return this.states[stateId]?.props[prop];
   }
 
-  /** Same block with one state property changed. */
+  /** Numeric id of an item key, −1 if the pack has no such item. */
+  itemId(key: string): number {
+    return this.itemIndex.get(key) ?? -1;
+  }
+
+  /** Largest stack of an item (1 for unknown items). */
+  maxStack(key: string): number {
+    const id = this.itemId(key);
+    return id < 0 ? 1 : this.itemTables.maxStack[id]!;
+  }
+
+  loot(key: string): LootTableDef | undefined {
+    return this.lootIndex.get(key);
+  }
+
+  /** Sound of a gameplay action on a block, from its sound material (none without bindings). */
+  blockSfx(stateId: number, action: 'break' | 'hit' | 'place'): SfxKey | undefined {
+    return this.pack.sounds?.blocks[this.blockDef(stateId).sound][action];
+  }
+
+  /**
+   * Same block with one state property changed. Memoised per (property, value), so callers that
+   * run every frame (the placement ghost) do not build keys again.
+   */
   withState(stateId: number, prop: StateProp, value: string): number {
     const info = this.states[stateId];
     if (!info || info.props[prop] === undefined) return stateId;
-    const block = this.blocks[info.block]!;
-    return this.stateId(stateKey(block, { ...info.props, [prop]: value }));
+    let byValue = this.withStateMemo.get(prop);
+    if (!byValue) {
+      byValue = new Map();
+      this.withStateMemo.set(prop, byValue);
+    }
+    let memo = byValue.get(value);
+    if (!memo) {
+      memo = new Int32Array(this.states.length).fill(-1);
+      byValue.set(value, memo);
+    }
+    if (memo[stateId]! < 0) {
+      const block = this.blocks[info.block]!;
+      memo[stateId] = this.stateId(stateKey(block, { ...info.props, [prop]: value }));
+    }
+    return memo[stateId]!;
   }
 }
 

@@ -1,14 +1,17 @@
 import {
+  BufferGeometry,
   Color,
   type DataArrayTexture,
   Fog,
   Group,
+  Mesh,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
   WebGLRenderTarget,
 } from 'three';
 import { ChunkMeshes } from './ChunkMeshes.ts';
+import type { HandView } from './HandView.ts';
 import type { Renderer } from './Renderer.ts';
 import { Sky } from './Sky.ts';
 import { createVoxelMaterials, type DebugView, type VoxelMaterials } from './voxelMaterial.ts';
@@ -43,6 +46,7 @@ export class WorldView {
   private readonly chunkRoot = new Group();
   private readonly sky = new Sky(ZENITH, HORIZON);
   private readonly fog: Fog;
+  private hand: HandView | null = null;
   private elapsed = 0;
 
   constructor(
@@ -63,7 +67,40 @@ export class WorldView {
     renderer.setResizeHandler((width, height) => {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
+      if (this.hand) {
+        this.hand.camera.aspect = width / height;
+        this.hand.camera.updateProjectionMatrix();
+      }
     });
+  }
+
+  /** The first-person hand view, drawn after the world on a cleared depth buffer when visible. */
+  attachHand(hand: HandView): void {
+    this.hand = hand;
+    hand.camera.aspect = this.camera.aspect;
+    hand.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Compiles every shader program of play while loading (docs/conception.md « Précompilation »),
+   * so nothing stalls a frame on first use: one probe mesh per chunk material joins the scene
+   * for the call, then the world and hand scenes are compiled. three compiles every object of a
+   * scene, shown or not, so the hidden overlays (outline, crack, ghost) and the empty box batches
+   * need no probe. `compileAsync` compiles synchronously, then waits for the driver.
+   */
+  async precompile(): Promise<void> {
+    const webgl = this.renderer.webgl;
+    const m = this.materials;
+    const geometry = new BufferGeometry();
+    const probes = [m.opaque, m.cutout, m.translucent].map(
+      (material) => new Mesh(geometry, material),
+    );
+    this.chunkRoot.add(...probes);
+    const world = webgl.compileAsync(this.scene, this.camera);
+    this.chunkRoot.remove(...probes);
+    geometry.dispose();
+    const hand = this.hand ? webgl.compileAsync(this.hand.scene, this.hand.camera) : null;
+    await Promise.all([world, hand]);
   }
 
   /** Fog and far plane follow the render distance (in columns). */
@@ -91,6 +128,13 @@ export class WorldView {
     const webgl = this.renderer.webgl;
     webgl.info.reset();
     webgl.render(this.scene, this.camera);
+    const hand = this.hand;
+    if (hand?.visible && hand.batch.size > 0) {
+      webgl.autoClear = false;
+      webgl.clearDepth();
+      webgl.render(hand.scene, hand.camera);
+      webgl.autoClear = true;
+    }
   }
 
   /** Renders the current view into a small target and returns colour statistics. */

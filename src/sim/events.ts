@@ -16,6 +16,62 @@ export type SimEvent =
       readonly y1: number;
       readonly z1: number;
     }
+  /** A player broke a block (`state` is the block it was: particles, statistics). */
+  | {
+      readonly type: 'blockBroken';
+      readonly playerId: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+      readonly state: number;
+    }
+  | {
+      readonly type: 'blockPlaced';
+      readonly playerId: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+      readonly state: number;
+    }
+  /** Crack stage (0–7) of the block a player mines; −1 when mining stops. */
+  | {
+      readonly type: 'mineProgress';
+      readonly playerId: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+      readonly stage: number;
+    }
+  | {
+      readonly type: 'itemPickedUp';
+      readonly playerId: number;
+      /** The item drop entity (gone if it was picked up whole). */
+      readonly entityId: number;
+      readonly item: string;
+      readonly count: number;
+    }
+  | { readonly type: 'inventoryChanged'; readonly playerId: number }
+  /**
+   * A HUD hint for one player, e.g. « Tool too weak: copper pickaxe required », sent once when the
+   * player starts mining a block (a new target, or again after releasing) that the held tool
+   * cannot harvest. `key` is an engine i18n key (`TOOL_TOO_WEAK_HINT`); every value of `params` is
+   * itself an i18n key (pack names: `tier`, `tool`). To show it: translate each value, then
+   * `t(key, translatedParams)`.
+   */
+  | {
+      readonly type: 'hint';
+      readonly playerId: number;
+      readonly key: string;
+      readonly params: Readonly<Record<string, string>>;
+    }
+  /** A sound effect played at a world position. */
+  | {
+      readonly type: 'sound';
+      readonly sfx: string;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
   | {
       readonly type: 'rejected';
       readonly playerId: number;

@@ -10,6 +10,7 @@ import {
   SECTION_SIZE,
   WORLD_HEIGHT,
 } from '../coords.ts';
+import { placeArena, type ResolvedArena, resolveArena } from './arena.ts';
 import { pickBiome } from './biomes.ts';
 import { Climate, type ClimateSample, emptySample, interpolateSample } from './climate.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
@@ -38,7 +39,8 @@ interface ResolvedBiome {
   readonly plants: readonly { readonly state: number; readonly chance: number }[];
 }
 
-export type WorldType = 'default' | 'flat';
+/** `flat` and `arena` are test worlds: flat ground (the arena adds a few features near the spawn). */
+export type WorldType = 'default' | 'flat' | 'arena';
 
 /** Everything generation needs, built once per (seed, world type, content pack). */
 export interface GenContext {
@@ -55,6 +57,13 @@ export interface GenContext {
   readonly spawnBiomes: ReadonlySet<number>;
   /** FNV hash of each state's text key (golden hashes survive content reordering). */
   readonly stateHash: Uint32Array;
+  /** Features of the arena world (null for the other world types). */
+  readonly arena: ResolvedArena | null;
+}
+
+/** Whether a world type is flat ground at FLAT_SURFACE. */
+export function isFlatWorld(worldType: WorldType): boolean {
+  return worldType !== 'default';
 }
 
 export function createGenContext(
@@ -113,6 +122,7 @@ export function createGenContext(
     deepStone: state(def.deepStone),
     spawnBiomes: new Set(biomes.flatMap((b, i) => (spawnKeys.has(b.def.key) ? [i] : []))),
     stateHash,
+    arena: worldType === 'arena' ? resolveArena(registry) : null,
   };
 }
 
@@ -188,7 +198,7 @@ export function pointInfo(
 
 /** Feet height for standing on the terrain at a block column (analytic, no generation needed). */
 export function surfaceY(ctx: GenContext, x: number, z: number): number {
-  if (ctx.worldType === 'flat') return FLAT_SURFACE + 1;
+  if (isFlatWorld(ctx.worldType)) return FLAT_SURFACE + 1;
   return pointInfo(ctx, x, z).height + 1;
 }
 
@@ -196,8 +206,8 @@ const tmp = emptySample();
 
 /** Generates the terrain of one column (sections, heightmap, biomes). Pure and deterministic. */
 export function generateColumn(ctx: GenContext, column: Column): void {
-  if (ctx.worldType === 'flat') {
-    // The flat test world uses the first spawn biome's surface (or the last biome).
+  if (isFlatWorld(ctx.worldType)) {
+    // The flat test worlds use the first spawn biome's surface (or the last biome).
     const index = ctx.spawnBiomes.values().next().value ?? ctx.biomes.length - 1;
     const biome = ctx.biomes[index]!;
     generateFlatColumn(column, {
@@ -207,6 +217,7 @@ export function generateColumn(ctx: GenContext, column: Column): void {
       surface: biome.surface,
     });
     column.biomes.fill(index);
+    if (ctx.arena) placeArena(column, ctx.arena);
     return;
   }
   const cache = new LatticeCache();

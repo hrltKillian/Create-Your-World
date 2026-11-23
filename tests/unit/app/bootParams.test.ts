@@ -12,6 +12,12 @@ describe('boot params', () => {
     expect(p.skipMenu).toBe(false);
   });
 
+  it('knows the test world types', () => {
+    expect(parseBootParams('?worldType=arena', true).worldType).toBe('arena');
+    expect(parseBootParams('?worldType=flat', true).worldType).toBe('flat');
+    expect(parseBootParams('?worldType=moon', true).worldType).toBe('default');
+  });
+
   it('ignores every parameter in production', () => {
     expect(parseBootParams('?seed=42&forceNoWebGL=1', false)).toEqual(DEFAULT_BOOT_PARAMS);
   });

@@ -1,10 +1,13 @@
 import {
   type BlockDef,
   type ContentPack,
+  CRACK_STAGES,
   STATE_VALUES,
   type TextureAlpha,
   type TextureSlot,
 } from './schema.ts';
+import { validateItems } from './validateItems.ts';
+import { validateSounds } from './validateSounds.ts';
 
 export interface ContentIssue {
   /** Exact location in the pack, e.g. `blocks[3].textures.top`. */
@@ -49,6 +52,9 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateWorld(pack, blockKeys, add);
   validateModels(pack, textures.keys, add);
   validateDevScene(pack, blockKeys, add);
+  validateArena(pack, blockKeys, add);
+  validateItems(pack, blockKeys, textures.keys, add);
+  validateSounds(pack, add);
   checkTints(pack.tints, 'tints', add);
   return issues;
 }
@@ -69,6 +75,14 @@ function validateTextures(pack: ContentPack, add: AddIssue): void {
     tex.palette.forEach((color, c) => {
       if (!HEX.test(color)) add(`${path}.palette[${c}]`, `"${color}" is not a #rrggbb colour`);
     });
+    if ((tex.pattern === 'icon') !== (tex.mask !== undefined))
+      add(`${path}.mask`, 'the icon pattern, and only it, needs a mask');
+    if ((tex.pattern === 'fracture') !== (tex.stage !== undefined))
+      add(`${path}.stage`, 'the fracture pattern, and only it, needs a stage');
+    const stage = tex.stage;
+    if (stage !== undefined && !(Number.isInteger(stage) && stage >= 0 && stage < CRACK_STAGES))
+      add(`${path}.stage`, `must be an integer from 0 to ${CRACK_STAGES - 1} (got ${stage})`);
+    checkMask(tex.mask, tex.palette.length, `${path}.mask`, add);
   });
   if (pack.textures.length > MAX_TEXTURE_LAYERS) {
     add(
@@ -129,6 +143,8 @@ function checkStates(
     seen.add(prop);
     combos *= STATE_VALUES[prop]?.length ?? 1;
   });
+  if (block.placement?.tall === 2 && !seen.has('half'))
+    add(`${path}.placement.tall`, 'a tall block needs the "half" state');
   for (const [prop, override] of Object.entries(block.whenState ?? {})) {
     if (!seen.has(prop)) add(`${path}.whenState.${prop}`, `block has no "${prop}" state`);
     for (const [slot, key] of Object.entries(override?.textures ?? {})) {
@@ -220,6 +236,40 @@ function validateDevScene(pack: ContentPack, blockKeys: ReadonlySet<string>, add
   ];
   for (const [path, key] of refs)
     if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
+}
+
+/** Blocks named by the arena test world. */
+function validateArena(pack: ContentPack, blockKeys: ReadonlySet<string>, add: AddIssue): void {
+  const arena = pack.arena;
+  if (!arena) return;
+  const refs: [string, string][] = [
+    ...Object.entries(arena.cabin).map(([k, key]): [string, string] => [`arena.cabin.${k}`, key]),
+    ['arena.pond.liquid', arena.pond.liquid],
+    ['arena.pond.shore', arena.pond.shore],
+    ['arena.gravel', arena.gravel],
+    ['arena.tree.log', arena.tree.log],
+    ['arena.tree.leaves', arena.tree.leaves],
+    ...arena.oreWall.map((key, i): [string, string] => [`arena.oreWall[${i}]`, key]),
+  ];
+  for (const [path, key] of refs) if (!blockKeys.has(key)) add(path, `unknown block "${key}"`);
+}
+
+/** Icon masks: rows of equal length, `.` or a digit naming a palette colour. */
+function checkMask(
+  mask: readonly string[] | undefined,
+  colors: number,
+  path: string,
+  add: AddIssue,
+): void {
+  if (!mask) return;
+  if (mask.length === 0) add(path, 'mask is empty');
+  mask.forEach((row, r) => {
+    if (row.length !== mask[0]!.length) add(`${path}[${r}]`, 'rows must have the same length');
+    for (const ch of row) {
+      if (ch !== '.' && !(ch >= '0' && ch <= '9' && Number(ch) < colors))
+        add(`${path}[${r}]`, `"${ch}" is neither "." nor a palette index`);
+    }
+  });
 }
 
 interface RuleView {

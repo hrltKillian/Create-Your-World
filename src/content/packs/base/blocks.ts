@@ -97,8 +97,9 @@ export const blocks = [
     tint: 'grass',
     collision: 'full',
     opaque: true,
-    hardness: 0.6,
-    drops: 'self',
+    // Rooted turf is tougher than loose dirt, and gives dirt.
+    hardness: 0.9,
+    drops: 'loot:grass',
     sound: 'soil',
   },
   {
@@ -251,9 +252,10 @@ export const blocks = [
     hardness: 2,
     tool: 'axe',
     drops: 'self',
-    states: ['facing4', 'open'],
+    // Two blocks tall: a lower and an upper half, drawn and colliding alike.
+    states: ['facing4', 'open', 'half'],
     whenState: { open: { shape: { boxes: GATE_OPEN }, collision: 'none', light: { filter: 0 } } },
-    placement: { orient: 'facing', support: 'below' },
+    placement: { orient: 'facing', support: 'below', tall: 2 },
     sound: 'wood',
   },
   {

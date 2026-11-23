@@ -26,22 +26,32 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M3 — Player and cameras.** `npm run dev` now drops you on foot into a new world (random seed).
-Click the canvas to capture the mouse, then walk, sprint, jump, crouch and swim; the simulation runs
-at 30 Hz with its own physics (swept AABB collision, coyote time, jump buffering, stamina).
+**M4 — Mining and building.** `npm run dev`, click the canvas to capture the mouse, and start
+digging: blocks break, drop as small spinning items that fly to you, and stack in the hotbar.
 
-- Move with the keys in the WASD position (ZQSD on AZERTY, same physical keys); the click screen
-  shows the labels of your own keyboard. Space jumps, Shift sprints (uses stamina), C crouches
-  (you will not walk off edges), Space swims up.
-- V switches between first and third person. In third person the explorer avatar animates (walk,
-  run, crouch, jump, swim) and the camera slides in front of walls.
-- F3 (fn+F3 on a Mac), the key left of 1, or the `@` key toggles the debug panel.
-- `?seed=42` picks a world, `?rd=4` a render distance, `?worldType=flat` an endless flat field,
-  `?freecam=1` the M2 free camera, `?kb=azerty` forces keyboard labels.
-- `?scene=testchunk` opens the M1 block showcase; `?selftest=all` runs the in-browser checks (the
-  movement checks need `?worldType=flat&fixedStep=1`).
-- `npm run headless -- --seed=42 --ticks=3000 --bot=wander` runs the simulation in plain Node with a
-  wandering bot and prints its state hash (the same on every run).
+- Hold the left button to mine the block under the crosshair (outline, then 8 crack stages); the
+  right arm strikes in third person and the hand chops in first person. Harder blocks take longer,
+  the right tool is faster, and stone mined by hand gives nothing (a hint at the top says which
+  tool it needs).
+- The right button places the selected block where the ghost shows it (hold to keep placing);
+  it opens and closes gates (two blocks tall: placed, opened and broken whole), and crouch (C) +
+  right button places against them instead. Every placeable block has an item, even glass.
+- 1–8 or the mouse wheel pick a hotbar slot; E or Tab opens the bag (drag a stack, right-drag
+  half of it, Shift+click sends it across, a number key over a slot swaps). G throws one item,
+  Shift+G the whole stack; a thrown item comes back only once you have walked away from it.
+- Sounds are synthesized in the browser at startup and start after the first click; `?mute=1`
+  silences them.
+- `?worldType=arena` adds a small test area at the spawn: a closed cabin with a gate and a
+  window, a pond, gravel, a tree and a wall of rock and ore pillars. `?worldType=flat` is the
+  endless field.
+- Flint tools have no recipe yet: in dev, `__game.player.give('item:flint_pickaxe')` (also
+  `flint_hatchet`, `flint_knife`, `flint_spear`); `__game.player.inventory()` lists the slots.
+- `?selftest=m4&worldType=flat&fixedStep=1` runs the in-browser M4 checks (dig, place, edit to
+  mesh in 3 frames, strike pose, break sound, no shader compiled during play); `?selftest=all`
+  runs every suite.
+- From M3: WASD/ZQSD to move, Space jump, Shift sprint, V first/third person, F3 debug panel,
+  `?seed=42`, `?rd=4`, `?freecam=1`, `?kb=azerty`; `npm run headless -- --seed=42 --ticks=3000
+  --bot=wander` runs the simulation in plain Node (`--world=arena` for the arena).
 
 ## Roadmap
 
