@@ -1,22 +1,63 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
-import type { InventoryCommand } from '../sim/commands.ts';
+import type { BlockEntityCommand, InventoryCommand } from '../sim/commands.ts';
 import type { Slots } from './itemSlot.ts';
+
+/** What a gesture on a slot screen sends: an inventory edit, or a move with the open block entity. */
+export type SlotCommand = InventoryCommand | BlockEntityCommand;
+
+/**
+ * Slot numbers of a screen: the inventory (hotbar 0–7, then the bag) below `base`, then the slots
+ * of the open block entity (a chest or a station), moved with `move` (null: the bag alone).
+ */
+export interface SlotContext {
+  readonly base: number;
+  readonly move: 'container.move' | 'station.move' | null;
+}
 
 /** A right-button drag carries half of the stack (rounded up). */
 export function splitCount(count: number): number {
   return Math.ceil(count / 2);
 }
 
-/** First empty slot in the same part (hotbar or bag) as `slot`, else in the other part, or −1. */
-export function emptySlotNear(slots: Slots, slot: number): number {
-  const inHotbar = slot < HOTBAR_SLOTS;
+/** Part of a slot number: 0 the hotbar, 1 the bag, 2 the open block entity. */
+function partOf(context: SlotContext, slot: number): number {
+  if (slot < HOTBAR_SLOTS) return 0;
+  return slot < context.base ? 1 : 2;
+}
+
+/** First empty slot in the same part (hotbar, bag, block entity) as `slot`, else anywhere, or −1. */
+export function emptySlotNear(context: SlotContext, slots: Slots, slot: number): number {
+  const part = partOf(context, slot);
   let other = -1;
   for (let i = 0; i < slots.length; i++) {
     if (slots[i]) continue;
-    if (i < HOTBAR_SLOTS === inHotbar) return i;
+    if (partOf(context, i) === part) return i;
     if (other < 0) other = i;
   }
   return other;
+}
+
+/**
+ * Moves `count` items (undefined: the whole stack) between two slots: an inventory move, or the
+ * open block entity's move when either slot is one of its own (null in the bag alone).
+ */
+export function moveCommand(
+  context: SlotContext,
+  from: number,
+  to: number,
+  count?: number,
+): SlotCommand | null {
+  const counted = count === undefined ? {} : { count };
+  if (from < context.base && to < context.base) return { type: 'inv.move', from, to, ...counted };
+  return context.move ? { type: context.move, from, to, ...counted } : null;
+}
+
+/**
+ * Shift+click: sends a whole stack across, hotbar ⇄ bag in the bag alone, else inventory ⇄ the open
+ * block entity.
+ */
+export function quickMoveCommand(context: SlotContext, slot: number): SlotCommand {
+  return context.move ? { type: context.move, from: slot } : { type: 'inv.quickMove', slot };
 }
 
 /**
@@ -24,19 +65,18 @@ export function emptySlotNear(slots: Slots, slot: number): number {
  * slot, which cancels). A split released on its own slot goes to the nearest empty slot.
  */
 export function dropCommand(
+  context: SlotContext,
   slots: Slots,
   from: number,
   to: number,
   count: number,
-): InventoryCommand | null {
+): SlotCommand | null {
   const stack = slots[from];
   if (!stack) return null;
   const whole = count >= stack.count;
-  const target = to === from && !whole ? emptySlotNear(slots, from) : to;
+  const target = to === from && !whole ? emptySlotNear(context, slots, from) : to;
   if (target < 0 || target === from) return null;
-  return whole
-    ? { type: 'inv.move', from, to: target }
-    : { type: 'inv.move', from, to: target, count };
+  return moveCommand(context, from, target, whole ? undefined : count);
 }
 
 /**
@@ -44,12 +84,13 @@ export function dropCommand(
  * slot, or brings the hotbar stack to the hovered slot when it is empty.
  */
 export function hotkeyCommand(
+  context: SlotContext,
   slots: Slots,
   hovered: number,
   hotbarSlot: number,
-): InventoryCommand | null {
+): SlotCommand | null {
   if (hovered < 0 || hovered === hotbarSlot) return null;
-  if (slots[hovered]) return { type: 'inv.move', from: hovered, to: hotbarSlot };
-  if (slots[hotbarSlot]) return { type: 'inv.move', from: hotbarSlot, to: hovered };
+  if (slots[hovered]) return moveCommand(context, hovered, hotbarSlot);
+  if (slots[hotbarSlot]) return moveCommand(context, hotbarSlot, hovered);
   return null;
 }

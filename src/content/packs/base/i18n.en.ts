@@ -110,6 +110,8 @@ export const strings = {
   'item.waterskin_boiled': 'Leather Waterskin of Boiled Water',
   'item.waterskin_foul': 'Leather Waterskin of Foul Water',
   'item.unknown': 'Unknown Item',
+  'tag.log': 'Any Log',
+  'tag.sand': 'Any Sand',
   'where.stick': 'Shaken from leaves and dry shrubs, or split from planks',
   'where.plant_fiber': 'Pulled from tall grass',
   'where.flint': 'Turns up in gravel by the water',

@@ -323,10 +323,10 @@ export function installDebugHook(app: App): void {
         return inventory.bag.isOpen();
       },
       /**
-       * The open screen: 'bag', a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null
-       * while playing.
+       * The open screen: 'bag', 'container' or 'station' over the world, a menu ('main', 'worlds',
+       * 'newWorld', 'settings', 'pause'), or null while playing.
        */
-      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : (app.game?.menus.screen() ?? null)),
+      screen: () => app.inventory?.screen() ?? app.game?.menus.screen() ?? null,
       /** What the hotbar shows: the selected slot and each slot's count text. */
       hotbar: () => hotbarView(app),
     },

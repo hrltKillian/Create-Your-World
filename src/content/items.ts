@@ -29,6 +29,11 @@ export function harvests(block: BlockDef, tool: ToolDef | undefined): boolean {
   return tier >= (block.minTier ?? 0);
 }
 
+/** i18n key of a tag's name (the Logbook's « Any Log »): `tag:log` → `tag.log`. */
+export function tagNameKey(tag: string): string {
+  return `tag.${tag.slice(tag.indexOf(':') + 1)}`;
+}
+
 /** Key of the implicit item of a block: `block:dirt` → `item:dirt`. */
 export function blockItemKey(block: BlockKey): ItemKey {
   return `item:${block.slice(block.indexOf(':') + 1)}`;

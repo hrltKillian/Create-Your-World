@@ -118,6 +118,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `app/OpenWorld.ts`; the menu layer: `app/Menus.ts`, its screens in `ui/screens/` with
     `menuButton`/`menuPanel`/`slider` in `ui/screens/menuParts.ts`; player settings
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
+  - slot screens (Bag with the Logbook, Container, Station): `app/inventoryUi.ts` opens and closes
+    them (the bag on its key, chests and stations on `blockEntityOpened`/`blockEntityClosed`),
+    `app/UiBridge.ts` refreshes them (`queueView`, `stationStatus`); `ui/slotBoard.ts`
+    (`SlotBoard`: drag and drop, hover caption, hotkeys; `ScreenDeps`), the gesture commands
+    `ui/inventoryGestures.ts` (`SlotContext`: block entity slots from 32), the pure Logbook
+    `ui/logbook.ts` (`logbookRows`, `batchCount`); item and tag names and icons `ui/itemSlot.ts`
+    (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
+    DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
@@ -156,6 +164,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   world opened again; resolves once its loading radius is meshed), `save.worlds()` (`{ id, name,
   seed, savedAt }`, last played first), `save.inspect(id?)` (records per store, the open world by
   default) and `save.wipeAll()` (deletes every world no tab holds: `{ deleted, kept }`).
+- M8 screens: `ui.screen()` also names `'container'` and `'station'` (opened by secondary on the
+  block); Logbook rows carry `data-recipe`, tabs `data-tab`, its buttons `data-action`
+  (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click cancels); the Container
+  screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31 the inventory, 32+ the
+  open chest or station: inputs, fuel, outputs).
 - Save checks (IndexedDB, the default storage): `?worldType=flat&fixedStep=1&selftest=m0,m7`; with
   `&forceNoIdb=1` the banner case runs instead of the IndexedDB ones. m7 drives the menus by clicks
   (`selftest/menuSteps.ts`), deletes the worlds it made and ends on the Worlds screen. The second

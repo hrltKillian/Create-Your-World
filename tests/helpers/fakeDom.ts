@@ -1,7 +1,7 @@
 /**
  * Minimal DOM stand-in for UI tests under Node: what `h()` and the HUD and screen views touch
  * (elements, attributes, classes, text, `hidden`, `disabled`, `remove()`), with `.class`
- * selectors for `querySelector`. Listeners are accepted and never called.
+ * selectors for `querySelector`. Listeners are kept; `dispatch` calls them (a stand-in for a click).
  */
 export class FakeNode {}
 
@@ -48,11 +48,26 @@ export class FakeElement extends FakeNode {
     this.attributes.delete(name);
   }
 
-  addEventListener(): void {}
+  private readonly listeners = new Map<string, ((event: unknown) => void)[]>();
+
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  /** Calls the listeners of an event type. */
+  dispatch(type: string, event: unknown = {}): void {
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
 
   append(...nodes: (FakeElement | string)[]): void {
     for (const node of nodes) if (typeof node !== 'string') node.parent = this;
     this.childNodes.push(...nodes);
+  }
+
+  replaceChildren(...nodes: (FakeElement | string)[]): void {
+    for (const node of this.childNodes) if (typeof node !== 'string') node.parent = null;
+    this.childNodes.length = 0;
+    this.append(...nodes);
   }
 
   remove(): void {
@@ -70,6 +85,17 @@ export class FakeElement extends FakeNode {
       if (found) return found;
     }
     return null;
+  }
+
+  /** Every descendant element, depth first, that passes a test. */
+  findAll(test: (element: FakeElement) => boolean): FakeElement[] {
+    const found: FakeElement[] = [];
+    for (const child of this.childNodes) {
+      if (typeof child === 'string') continue;
+      if (test(child)) found.push(child);
+      found.push(...child.findAll(test));
+    }
+    return found;
   }
 
   /** The first descendant matching a `.class` selector. */

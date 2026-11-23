@@ -1,4 +1,4 @@
-import { blockItemKey, packItems } from './items.ts';
+import { blockItemKey, packItems, tagNameKey } from './items.ts';
 import {
   type ContentPack,
   type ImplicitItemTraits,
@@ -103,6 +103,8 @@ function checkItems(
 function checkTraits(pack: ContentPack, traits: ImplicitItemTraits, path: string, add: AddIssue) {
   (traits.tags ?? []).forEach((tag, t) => {
     if (!tag.startsWith('tag:')) add(`${path}.tags[${t}]`, `"${tag}" must start with "tag:"`);
+    else if (pack.strings[tagNameKey(tag)] === undefined)
+      add(`${path}.tags[${t}]`, `no string for "${tagNameKey(tag)}"`);
   });
   if (traits.fuel && !positive(traits.fuel.seconds)) add(`${path}.fuel.seconds`, 'must be > 0');
   if (traits.hintKey !== undefined && pack.strings[traits.hintKey] === undefined)
