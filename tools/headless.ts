@@ -2,7 +2,7 @@
  * Headless runner (plain Node, no build).
  *   npm run headless -- --ping
  *   npm run headless -- --seed=42 --ticks=3000 --bot=wander [--world=flat|arena] [--rd=2] [--serialize]
- * Prints one JSON line: {hash, tps, columns, ...}.
+ * Prints one JSON line: {hash, tps, columns, census, ...}.
  */
 import { parseArgs } from 'node:util';
 import { basePack } from '../src/content/packs/base/index.ts';
@@ -80,6 +80,7 @@ if (values.seed !== undefined) {
       pos: [result.x, result.y, result.z].map((v) => Math.round(v * 100) / 100),
       deaths: result.deaths,
       respawns: result.respawns,
+      census: result.census,
     }),
   );
   process.exit(0);

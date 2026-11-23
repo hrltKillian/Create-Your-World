@@ -54,6 +54,8 @@ export class GameSession {
   loading = true;
   /** performance.now() when the session was created (loading-time measurements). */
   readonly startedAt = performance.now();
+  /** Wall time of the last simulation tick alone, in ms (the mobs benchmark). */
+  tickMs = 0;
   private readonly view: WorldView;
   private readonly input: InputManager;
   private readonly freecam: FreeCam | null;
@@ -246,7 +248,9 @@ export class GameSession {
       this.updateAim();
       this.host.send(this.input.sample(this.rig, this.aim.target()));
     }
+    const t0 = performance.now();
     this.host.advance(1, this.events);
+    this.tickMs = performance.now() - t0;
     this.input.tickForced();
   }
 

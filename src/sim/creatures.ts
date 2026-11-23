@@ -1,10 +1,11 @@
+import type { Registry } from '../content/registry.ts';
 import type { CreatureDef } from '../content/schema.ts';
 import { hashUnit } from '../core/hash.ts';
 import { blockToColumn } from '../world/coords.ts';
 import { COLUMN_LIT } from './ColumnPipeline.ts';
 import { bodyHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
-import type { Simulation } from './Simulation.ts';
+import type { Entity, Simulation } from './Simulation.ts';
 
 /*
  * Creatures (docs « Créatures et combat », « Entités »): plain JSON entity records in
@@ -216,6 +217,38 @@ export function reachGap(
   const across = Math.max(0, Math.sqrt(dx * dx + dz * dz) - (def.hitbox[0] + PHYSICS.width) / 2);
   const up = Math.max(0, b.y - (a.y + def.hitbox[1]), a.y - (b.y + bodyHeight(b)));
   return Math.sqrt(across * across + up * up);
+}
+
+/** Living creatures (none dying or burrowing away): `__game.entities.census()`, headless runs. */
+export interface CreatureCensus {
+  readonly total: number;
+  /** Hostile ones on the surface and in caves (the spawn caps). */
+  readonly surfaceHostiles: number;
+  readonly caveHostiles: number;
+  /** Count per creature key, every creature of the pack listed in its order. */
+  readonly byCreature: Readonly<Record<string, number>>;
+}
+
+/** Counts the living creatures among entity records (automation and tests, not the tick). */
+export function creatureCensus(
+  entities: ReadonlyMap<number, Readonly<Entity>>,
+  registry: Registry,
+): CreatureCensus {
+  const byCreature: Record<string, number> = {};
+  for (const def of registry.pack.creatures ?? []) byCreature[def.key] = 0;
+  let total = 0;
+  let surfaceHostiles = 0;
+  let caveHostiles = 0;
+  for (const c of entities.values()) {
+    if (c.kind !== 'creature' || isGone(c)) continue;
+    total++;
+    byCreature[c.creature] = (byCreature[c.creature] ?? 0) + 1;
+    const def = registry.creature(c.creature);
+    if (!def || !isHostile(def)) continue;
+    if (c.cave) caveHostiles++;
+    else surfaceHostiles++;
+  }
+  return { total, surfaceHostiles, caveHostiles, byCreature };
 }
 
 /** Scratch list of nearby entity ids (no allocation once warmed up). */

@@ -13,9 +13,10 @@ import type { SavedSection } from '../world/protocol.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
 import { forgetCell } from './blockRemoval.ts';
+import { hurtCreature } from './combat.ts';
 import { finite, reject, validCell } from './commandRules.ts';
 import type { DebugCommand, DebugStat } from './commands.ts';
-import { spawnCreature } from './creatures.ts';
+import { isGone, spawnCreature } from './creatures.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack } from './inventory.ts';
@@ -51,6 +52,16 @@ export function applyDebugCommand(
   }
   if (command.type === 'debug.spawn') {
     spawn(sim, playerId, command, out);
+    return;
+  }
+  if (command.type === 'debug.killCreature') {
+    const c = sim.entities.get(command.id);
+    if (c?.kind !== 'creature' || isGone(c)) reject(out, playerId, command.type, 'no creature');
+    else {
+      // All its health, whatever its armour or a recent blow (no attacker, no knockback).
+      c.invulnerable = 0;
+      hurtCreature(sim, c, c.health, c.body.x, c.body.z, 0, -1, out);
+    }
     return;
   }
   const player = sim.players.get(playerId);

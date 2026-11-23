@@ -18,6 +18,7 @@ import {
 import {
   assert,
   drawsCase,
+  emitterOf,
   keepingClock,
   needsFlatPlayer,
   noErrorsCase,
@@ -28,6 +29,7 @@ import {
   type SelftestCase,
   standAt,
   stateKey,
+  TORCH_LIGHT,
 } from './support.ts';
 
 /**
@@ -50,7 +52,6 @@ const FLOOR = FLAT_SURFACE + 1;
 /** « luminance à 12 h ≥ 2,5 × celle de 0 h ». */
 const DAY_NIGHT_RATIO = 2.5;
 /** « torche 14, et 11 à 3 blocs »: one level lost per block of air. */
-const TORCH_LIGHT = 14;
 const TORCH_REACH = 3;
 
 function describeClock(time: ClockView): string {
@@ -72,13 +73,6 @@ async function lumaAt(app: App, hours: number): Promise<number> {
 function assertLit(app: App, x: number, z: number): void {
   const state = app.session!.host.view.columnState(blockToColumn(x), blockToColumn(z));
   assert(state >= COLUMN_LIT, `the column of (${x}, ${z}) is not lit (state ${state})`);
-}
-
-/** The block state that emits `level` (the torch, found without naming content). */
-function emitterOf(app: App, level: number): number {
-  const state = app.registry!.tables.emit.indexOf(level);
-  assert(state >= 0, `no block state emits light ${level}`);
-  return state;
 }
 
 export const M5_SUITE: readonly SelftestCase[] = [

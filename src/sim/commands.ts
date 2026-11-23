@@ -139,6 +139,8 @@ export type DebugCommand =
       readonly y: number | 'surface';
       readonly z: number;
     }
+  /** Kills a creature by its entity id: a death like any other (its loot drops). */
+  | { readonly type: 'debug.killCreature'; readonly id: number }
   | {
       /** Fills a box (inclusive corners) of loaded blocks with a block state given by its text key. */
       readonly type: 'debug.fill';

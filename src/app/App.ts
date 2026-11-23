@@ -33,7 +33,7 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 9;
+export const MILESTONE = 10;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;

@@ -37,6 +37,14 @@ import {
   waitForChunks,
   yieldTask,
 } from './automation.ts';
+import { flyBenchmark, mobsBenchmark } from './benchmarks.ts';
+import {
+  census,
+  creatureList,
+  killCreature,
+  placeCreature,
+  spawnLog,
+} from './creatureAutomation.ts';
 import { equip, god, kill, playerStats, setStat, shelterHere } from './survivalAutomation.ts';
 import { byLastPlayed, deleteClosedWorld } from './worlds.ts';
 
@@ -57,7 +65,7 @@ export function installDebugHook(app: App): void {
     return storage;
   };
   const api = {
-    version: 9,
+    version: 10,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -82,26 +90,12 @@ export function installDebugHook(app: App): void {
       /** Time (ms) from the first edit of the last mesh batch to the swap of its meshes. */
       editToMeshMs: () => app.session?.scheduler.editToMeshMs ?? null,
       /**
-       * Flies the camera in a straight line for `seconds` (pane must be visible) and returns frame
-       * statistics: CPU work p95, share of intervals over 20 ms, subsystem p95.
+       * `fly`: the free camera flown straight for `seconds` (pane visible): frame work p95, share
+       * of intervals over 20 ms, subsystem p95. `mobs`: 25 creatures around the player by night
+       * for `seconds` of ticks: the simulation tick's median, p95 and max (ms).
        */
-      benchmark: async (kind: 'fly' = 'fly', seconds = 10) => {
-        const cam = app.freecam;
-        if (!cam) throw new Error('No camera');
-        const start = { ...cam.pose };
-        cam.set({ y: Math.max(start.y, 110), pitch: -0.2, yaw: -Math.PI / 2 });
-        const t0 = performance.now();
-        await new Promise<void>((resolve) => {
-          const tick = () => {
-            const t = (performance.now() - t0) / 1000;
-            cam.set({ x: start.x + t * 20 });
-            if (t >= seconds) resolve();
-            else requestAnimationFrame(tick);
-          };
-          requestAnimationFrame(tick);
-        });
-        return { kind, seconds, ...app.frames.snapshot(), spans: app.frames.spanP95() };
-      },
+      benchmark: (kind: 'fly' | 'mobs' = 'fly', seconds = 10) =>
+        kind === 'mobs' ? mobsBenchmark(app, seconds) : flyBenchmark(app, seconds),
     },
     camera: {
       get: (): CameraPose | null =>
@@ -179,6 +173,19 @@ export function installDebugHook(app: App): void {
       },
       /** Adds items by key (e.g. a flint tool); what does not fit drops at the player's feet. */
       give: (item: string, count = 1) => give(app, item, count),
+    },
+    entities: {
+      /** Places a creature (key; feet, or 'surface'), facing the player, now; its id or null. */
+      spawn: (creature: string, x: number, y: number | 'surface', z: number) =>
+        placeCreature(app, creature, x, y, z),
+      /** Every creature: id, key, feet, yaw, health, mode, target, sees, watched, herd, cave. */
+      list: () => creatureList(app),
+      /** Kills a creature now (its loot drops; removed after its fall); false: none living. */
+      kill: (id: number) => killCreature(app, id),
+      /** Living creatures: total, hostiles on the surface and in caves, per creature key. */
+      census: () => census(app),
+      /** The last hostile spawns: tick, creature, feet, effective light, cave. */
+      spawnLog: () => spawnLog(app),
     },
     craft: {
       /** Queues `count` crafts of a recipe (its key) like the Logbook's buttons; checked by the sim. */

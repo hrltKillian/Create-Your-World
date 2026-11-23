@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unawareOf } from '../../../src/sim/ai/senses.ts';
 import { hurtCreature } from '../../../src/sim/combat.ts';
-import { type CreatureState, isAlert } from '../../../src/sim/creatures.ts';
+import { type CreatureState, creatureCensus, isAlert } from '../../../src/sim/creatures.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { creatureRecord, readCreature } from '../../../src/sim/saveRecords.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -176,6 +176,38 @@ describe('creatures', () => {
     }
     expect(sideways).toBeGreaterThan(0.3);
     expect(s.player.survival.toxicity).toBeGreaterThan(0);
+  });
+
+  it('debug.killCreature kills a creature like a blow would, loot included; the census counts the living', () => {
+    const s = world('debug-kill', 23);
+    const shellback = place(s, 'creature:shellback', 0.5, -6.5);
+    const prowler = place(s, 'creature:prowler', 4.5, -6.5);
+    const census = () => creatureCensus(s.sim.entities, registry);
+    expect(census()).toMatchObject({ total: 2, surfaceHostiles: 1, caveHostiles: 0 });
+    expect(census().byCreature).toEqual({
+      'creature:trotter': 0,
+      'creature:shagback': 0,
+      'creature:prowler': 1,
+      'creature:swarmling': 0,
+      'creature:shellback': 1,
+    });
+    // Whatever its front plate or a recent blow.
+    shellback.invulnerable = 5;
+    const events = s.send({ type: 'debug.killCreature', id: shellback.id });
+    expect(rejections(events)).toEqual([]);
+    expect(eventsOf(events, 'creatureDied')).toMatchObject([{ id: shellback.id, attacker: -1 }]);
+    expect(shellback.mode).toBe('dying');
+    expect(census()).toMatchObject({ total: 1, surfaceHostiles: 1 });
+    s.step(30);
+    expect(s.sim.entities.has(shellback.id)).toBe(false);
+    const drops = [...s.sim.entities.values()].flatMap((e) =>
+      e.kind === 'itemDrop' ? [e.item] : [],
+    );
+    expect(drops).toContain('item:shell_plate');
+    // Gone, or not a creature: refused.
+    for (const id of [shellback.id, s.player.id, 9999])
+      expect(rejections(s.send({ type: 'debug.killCreature', id }))).toHaveLength(1);
+    expect(s.sim.entities.has(prowler.id)).toBe(true);
   });
 
   it('saves a creature record and reads it back as it was; hostile or unknown ones are dropped', () => {

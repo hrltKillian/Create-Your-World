@@ -26,34 +26,37 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M9 — Survival and hazards.** `npm run dev`, then open `http://localhost:5173/?skipMenu=1`
-(or `?worldType=arena&skipMenu=1` for the cabin, pond and workshop close by).
+**M10 — Creatures and combat.** `npm run dev`, then open `http://localhost:5173/?skipMenu=1`
+(or `?worldType=flat&skipMenu=1&spawns=1&grace=0&time=23` for a night on the endless field).
 
-- The HUD: health, hunger and thirst vials at the bottom left (with the thermometer and its trend,
-  toxicity once it rises, breath under water), the stamina arc beside the crosshair, the compass
-  with N/E/S/W, the sun or moon, your objective's direction and a marker per Abandoned Pack, the
-  clock (« 07:30 · Day 1 »), the aimed block's name (and the tool tier it needs), the objectives up
-  to the first iron ingot at the top right, the effects on the right, and vignettes for low
-  health, cold, heat, toxins and water. « The sun is setting… » at 18:30, « Night N survived » at
-  06:00.
-- Water first: hold the right button on fresh water with an empty hand to sip (+8 thirst);
-  right-click it with a Clay Flask to fill it (Raw Water, 3 charges), boil it at a campfire, and
-  hold the right button to drink a charge. Food and drinks are held to be eaten.
-- The cold of the tundra, the heat of the desert and the toxic air of the marsh: a closed shelter
-  softens the climate (a campfire warms it), worn gear helps (the Bag's 5 equipment slots: fur
-  against the cold, hat and veil against the heat, the filter mask against the marsh).
-- Sleep on a bedroll between 19:30 and 05:00 in a closed shelter: the night passes, and you wake
-  there after a death. Dying leaves everything in an Abandoned Pack (right-click it to take it
-  back); the death screen tells why; you come back Weakened for 2 minutes.
-- From the dev console: `__game.player.stats()`, `player.setStat('thirst', 10)` (any gauge),
-  `player.kill('cold')`, `player.god()`, `player.equip(slot)`, `world.shelter()`,
-  `world.findBiome('biome:tundra')` then `player.teleport(x, 'surface', z)`, `time.set(23)`,
-  `ui.text('#hud-clock')`.
-- `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` runs the in-browser M9 checks in the generated world:
-  Cold in the tundra night, a cabin with a campfire enclosed and warm, sleep until 06:00, the
-  marsh's toxicity with and without the mask, a sip, a filled flask, boiled water, a death and its
-  respawn, and the pack's compass marker after `save.reload()` (that case needs IndexedDB, the
-  default storage: it is skipped with `?storage=memory`). `npm run e2e` runs them too.
+- Five creatures of our own, box models with procedural gaits: the Trotter (meadows and forests,
+  herds of 2–4, bolts when startled or hurt), the six-legged Shagback (tundra and highlands: hurt
+  one and its herd charges), the Prowler (low and four-legged with glowing amber eyes: it hunts by
+  night and in caves, slows to 30 % while you look at it, shuns light, burrows at dawn and hits
+  harder every night), Swarmlings (marsh nights and caves: packs that close in zigzags and poison)
+  and the Shellback (desert: it rams whoever comes within 6 blocks; its brow plate stops 60 % of a
+  blow from the front, and a wall stuns it). Each has its synthesized voice.
+- Hostiles spawn only where the effective light is 4 or less (a torch keeps them beyond 9 blocks)
+  and never in the first 3 real minutes of a world; herds are placed when a column is first
+  generated and saved with it; hostiles are never saved.
+- Combat: click a creature within reach to strike (the blow lands on the release), hold 0.5 s for
+  a charged blow (×1.8, more knockback), strike a calm creature from outside its view for ×1.5. The
+  Flint Spear (6) reaches 4 blocks; knives, hatchets and blades follow the weapon table. Attacks are
+  telegraphed: step out of reach or behind a wall to dodge. A hit marker and arcs show where
+  blows land and come from. Creatures leave meat and hide, fur, Prowler Sinew, glands or plates.
+- From the dev console: `__game.entities.spawn('creature:prowler', x, 'surface', z)` (it faces
+  you), `entities.list()`, `entities.kill(id)`, `entities.census()`,
+  `entities.spawnLog()`, `perf.benchmark('mobs')`; `?spawns=0|1` (natural spawns, by default in
+  generated worlds only) and `?grace=0`.
+- `?worldType=flat&fixedStep=1&selftest=m0,m10` runs the in-browser M10 combat checks: a Prowler
+  hunt at 23:00, stealthy and plain spear blows (9 and 6) on Trotters trapped in pits, a Trotter's
+  loot and the mobs benchmark (tick p95 ≤ 1.5 ms). With `&rd=4&spawns=1&grace=0` the spawn checks
+  run instead: none at noon, at least 3 hostiles by night, all in the dark and away from torches.
+  `npm run e2e` runs both setups.
+- From M9: the survival HUD (vials, stamina arc, compass, clock, objectives, effects, vignettes),
+  water, food and drinks, the cold, heat and toxic air of the biomes with shelters and worn gear,
+  sleep on a bedroll, death and the Abandoned Pack; `__game.player.stats()`, `setStat()`, `kill()`,
+  `god()`, `equip()`, `world.shelter()`; `?seed=7&rd=4&fixedStep=1&selftest=m0,m9`.
 - From M8: the Bag with its Logbook (tabs, ×1/×5/Max, a queue of 5), chests and stations (drag and
   drop, Shift+click, « Take all »), every tier up to iron; `__game.craft.enqueue(recipe)`,
   `container.contents(x, y, z)`, `ui.open(x?, y?, z?)` (no cell: the bag), `ui.click(selector)`,
