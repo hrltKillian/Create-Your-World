@@ -249,8 +249,10 @@ function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 function mergeDrops(sim: Simulation): void {
   const r2 = DROPS.mergeRadius * DROPS.mergeRadius;
   for (const a of sim.entities.values()) {
-    if (a.kind !== 'itemDrop' || dormant(sim, a)) continue;
+    // Only a drop with room left can absorb its neighbours (tools never stack).
+    if (a.kind !== 'itemDrop' || a.durability !== undefined || dormant(sim, a)) continue;
     const max = sim.registry.maxStack(a.item);
+    if (a.count >= max) continue;
     sim.spatial.query(a.body.x, a.body.z, DROPS.mergeRadius, near);
     for (let i = 0; i < near.length && a.count < max; i++) {
       const b = sim.entities.get(near[i]!);

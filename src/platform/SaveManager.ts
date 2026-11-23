@@ -83,6 +83,8 @@ export class SaveManager {
   private queued: Promise<boolean> | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private retryMs = RETRY_MS;
+  /** Delay the last failed save asked for before the next try (kept across a failed quit). */
+  private nextTryMs = AUTOSAVE_MS;
   private closed = false;
   /** The page events followed (`watchPage`), and how to stop following them. */
   private page: PageTargets | null = null;
@@ -183,7 +185,8 @@ export class SaveManager {
     if (!saved) {
       this.closed = false;
       if (this.page) this.watchPage(this.page);
-      this.start();
+      // Keep the failed save's own delay (doubled retries, or the autosave after a full disk).
+      this.schedule(this.nextTryMs);
     }
     return saved;
   }
@@ -225,11 +228,9 @@ export class SaveManager {
       log.warn('save failed', { error: String(error) });
       const quota = (error as { name?: unknown } | null)?.name === 'QuotaExceededError';
       this.setStatus(quota ? 'quota' : 'error');
-      if (quota) this.schedule(AUTOSAVE_MS);
-      else {
-        this.schedule(this.retryMs);
-        this.retryMs = Math.min(this.retryMs * 2, MAX_RETRY_MS);
-      }
+      this.nextTryMs = quota ? AUTOSAVE_MS : this.retryMs;
+      this.schedule(this.nextTryMs);
+      if (!quota) this.retryMs = Math.min(this.retryMs * 2, MAX_RETRY_MS);
       return false;
     }
   }

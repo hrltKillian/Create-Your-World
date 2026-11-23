@@ -84,4 +84,17 @@ describe('SpatialHash', () => {
     expect(hash.query(0, 0, 1, out)).toBe(out);
     expect(out).toEqual([1]);
   });
+
+  it('returns ids of crowded cells in ascending order without quadratic work', () => {
+    const hash = new SpatialHash(8);
+    for (let id = 1; id <= 200; id++) hash.update(id, 1 + (id % 7) * 0.9, 1 + (id % 5) * 1.1);
+    const out: number[] = [];
+    hash.query(3, 3, 2, out);
+    expect(out).toEqual([...out].sort((a, b) => a - b));
+    expect(out).toHaveLength(200);
+    const t0 = performance.now();
+    for (let i = 0; i < 200; i++) hash.query(3, 3, 2, out);
+    // The bucket lists newest first; without reversing each run the sort was ~20× slower.
+    expect(performance.now() - t0).toBeLessThan(40);
+  });
 });

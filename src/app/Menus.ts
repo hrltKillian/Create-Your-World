@@ -161,6 +161,12 @@ export class Menus {
     if (quitting) this.pause.setStatus('save.status.saving');
   }
 
+  /** A later save went through: the failure box of a failed Save & quit goes away. */
+  clearQuitFailed(): void {
+    this.pause.setFailed(false);
+    this.render();
+  }
+
   /** Save & quit failed, the world still open: the pause menu says so, with what to do next. */
   quitFailed(): void {
     this.pause.setBusy(false);

@@ -159,6 +159,21 @@ describe('save manager', () => {
     expect(storage.batches).toHaveLength(saves + 1);
   });
 
+  it('keeps retrying with its own delay after a failed Save & quit, not the 30 s autosave', async () => {
+    const { manager, storage, edit } = setup();
+    edit(3, 3);
+    storage.failure = new Error('The disk went away');
+    manager.start();
+    expect(await manager.close()).toBe(false);
+    const before = storage.batches.length;
+    await advance(RETRY_MS - 1);
+    expect(storage.batches).toHaveLength(before);
+    storage.failure = null;
+    await advance(1);
+    expect(storage.batches).toHaveLength(before + 1);
+    expect(manager.status).toBe('saved');
+  });
+
   it('keeps the world in memory and waits for the next autosave when the disk is full', async () => {
     const { manager, storage, statuses, edit } = setup();
     edit(3, 3);

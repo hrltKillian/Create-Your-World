@@ -72,12 +72,19 @@ export class SpatialHash {
     const gz1 = Math.floor((z + radius) / s);
     for (let gx = Math.floor((x - radius) / s); gx <= gx1; gx++) {
       for (let gz = Math.floor((z - radius) / s); gz <= gz1; gz++) {
+        const start = out.length;
         for (let slot = this.head[this.bucket(gx, gz)]!; slot >= 0; slot = this.next[slot]!) {
           if (this.cellX[slot] === gx && this.cellZ[slot] === gz) out.push(this.ids[slot]!);
         }
+        // Buckets list newest first: reverse the cell's run so it is mostly ascending.
+        for (let a = start, b = out.length - 1; a < b; a++, b--) {
+          const t = out[a]!;
+          out[a] = out[b]!;
+          out[b] = t;
+        }
       }
     }
-    // Insertion sort, in place: a few ids, mostly in order already.
+    // Insertion sort, in place: near-linear on the mostly ascending runs above.
     for (let i = 1; i < out.length; i++) {
       const id = out[i]!;
       let j = i - 1;

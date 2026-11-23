@@ -123,6 +123,18 @@ describe('save & quit', () => {
     expect(s.failures).toEqual([]);
   });
 
+  it('hides the failure once a later save of the open world succeeds', async () => {
+    const s = setup();
+    const { open } = await pausedWorld(s);
+    s.storage.failure = new Error('The disk went away');
+    expect(await s.game.saveAndQuit()).toBe(false);
+    expect(s.failedShown()).toBe(true);
+    s.storage.failure = null;
+    expect(await open.saves.save()).toBe(true);
+    expect(s.failedShown()).toBe(false);
+    expect(s.game.state).toBe('paused');
+  });
+
   it('quits without saving once the last save failed, and saves no more', async () => {
     const s = setup();
     const { id } = await pausedWorld(s);

@@ -306,6 +306,7 @@ export class Game {
 
   private onSaveStatus(status: SaveStatus): void {
     this.menus.setSaveStatus(SAVE_STATUS_KEYS[status]);
+    if (status === 'saved' && this.state === 'paused') this.menus.clearQuitFailed();
     if (status === 'quota') this.open?.inventory?.hint.show(t('save.status.quota'));
   }
 

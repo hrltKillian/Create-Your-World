@@ -234,7 +234,6 @@
   font-size: 0.8rem;
 }
 
-.world-actions,
 /* Save & quit failed: the world is still open (Retry, or Quit without saving once confirmed). */
 .pause-failed {
   margin-top: 14px;
@@ -258,6 +257,7 @@
   color: var(--c-danger);
 }
 
+.world-actions,
 .world-confirm {
   display: flex;
   flex-wrap: wrap;
