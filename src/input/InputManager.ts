@@ -77,6 +77,11 @@ export class InputManager {
     return (this.isDown(plus) ? 1 : 0) - (this.isDown(minus) ? 1 : 0);
   }
 
+  /** True while either Shift key is held (Shift+G throws the whole stack). */
+  shiftHeld(): boolean {
+    return this.down.has('ShiftLeft') || this.down.has('ShiftRight');
+  }
+
   /** True once per key press (edge-latched until consumed). */
   consume(action: Action): boolean {
     return this.edges.delete(action);

@@ -203,12 +203,48 @@ export interface LootTableDef {
   readonly entries: readonly LootEntry[];
 }
 
-/** Sound effects the engine plays for gameplay actions, keyed by the block's sound material. */
+/**
+ * Sound effects the engine plays for gameplay actions (keyed by the block's sound material) and
+ * for the interface.
+ */
 export interface SoundBindings {
   readonly blocks: Readonly<
     Record<SoundMaterial, { readonly break: SfxKey; readonly hit: SfxKey; readonly place: SfxKey }>
   >;
   readonly pickup: SfxKey;
+  /** Interface click (bag, slots). */
+  readonly click: SfxKey;
+}
+
+export type SfxSource = 'noise' | 'sine' | 'triangle' | 'square' | 'sawtooth';
+
+/**
+ * One layer of a synthesized sound: white noise or a tone, through an optional filter, shaped by
+ * a linear attack and an exponential decay.
+ */
+export interface SfxLayer {
+  readonly source: SfxSource;
+  /** Tones only: frequency (Hz) at the start and at the end (exponential glide). */
+  readonly freq?: readonly [number, number];
+  readonly filter?: {
+    readonly type: 'lowpass' | 'highpass' | 'bandpass';
+    readonly freq: number;
+    readonly q?: number;
+  };
+  /** Peak gain, 0–1. */
+  readonly gain: number;
+  /** Seconds before the layer starts. */
+  readonly delay?: number;
+  /** Seconds to the peak (> 0). */
+  readonly attack: number;
+  /** Seconds from the peak to silence. */
+  readonly decay: number;
+}
+
+/** A synthesized sound effect (pre-rendered once at startup): its layers are mixed together. */
+export interface SfxDef {
+  readonly key: SfxKey;
+  readonly layers: readonly SfxLayer[];
 }
 
 /** Layout of the `arena` test world around its spawn, described with the pack's own blocks. */
@@ -363,6 +399,8 @@ export interface ContentPack {
   readonly tiers?: readonly TierDef[];
   readonly loot?: readonly LootTableDef[];
   readonly sounds?: SoundBindings;
+  /** Synthesis recipes of every sound effect the bindings name. */
+  readonly sfx?: readonly SfxDef[];
   readonly worldgen?: WorldgenDef;
   readonly biomes?: readonly BiomeDef[];
   readonly features?: readonly TreeFeatureDef[];

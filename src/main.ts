@@ -1,4 +1,5 @@
 import './ui/styles/main.css';
+import './ui/styles/inventory.css';
 import { App } from './app/App.ts';
 
 const root = document.getElementById('app');

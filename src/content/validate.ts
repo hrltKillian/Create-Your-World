@@ -7,6 +7,7 @@ import {
   type TextureSlot,
 } from './schema.ts';
 import { validateItems } from './validateItems.ts';
+import { validateSounds } from './validateSounds.ts';
 
 export interface ContentIssue {
   /** Exact location in the pack, e.g. `blocks[3].textures.top`. */
@@ -53,6 +54,7 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateDevScene(pack, blockKeys, add);
   validateArena(pack, blockKeys, add);
   validateItems(pack, blockKeys, textures.keys, add);
+  validateSounds(pack, add);
   checkTints(pack.tints, 'tints', add);
   return issues;
 }

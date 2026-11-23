@@ -3,7 +3,7 @@ import type { SoundBindings, SoundMaterial } from '../../schema.ts';
 const material = (m: SoundMaterial) =>
   ({ break: `sfx:break_${m}`, hit: `sfx:hit_${m}`, place: `sfx:place_${m}` }) as const;
 
-/** One synthesized break, hit and place sound per sound material, and the pickup sound. */
+/** One break, hit and place sound per sound material, the pickup sound and the UI click. */
 export const sounds: SoundBindings = {
   blocks: {
     stone: material('stone'),
@@ -18,4 +18,5 @@ export const sounds: SoundBindings = {
     cloth: material('cloth'),
   },
   pickup: 'sfx:pickup',
+  click: 'sfx:click',
 };

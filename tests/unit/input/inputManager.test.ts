@@ -59,6 +59,16 @@ describe('InputManager', () => {
     expect(input.sample(look).forward).toBe(0);
   });
 
+  it('knows when either Shift key is held (Shift+G throws the stack)', () => {
+    expect(input.shiftHeld()).toBe(false);
+    key('keydown', 'ShiftRight', 'Shift');
+    expect(input.shiftHeld()).toBe(true);
+    key('keyup', 'ShiftRight', 'Shift');
+    key('keydown', 'KeyG', 'g');
+    expect(input.consume('drop')).toBe(true);
+    expect(input.shiftHeld()).toBe(false);
+  });
+
   it('holds forced actions for a number of ticks', () => {
     input.force('forward', 2);
     expect(input.sample(look).forward).toBe(1);

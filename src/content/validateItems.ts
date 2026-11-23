@@ -8,7 +8,7 @@ const MAX_DURABILITY = 65_535;
 
 const isCount = (v: number, min: number) => Number.isInteger(v) && v >= min;
 
-/** Items, tool tiers, loot tables (and the block drops naming them) and sound bindings. */
+/** Items, tool tiers and loot tables (and the block drops naming them). */
 export function validateItems(
   pack: ContentPack,
   blockKeys: ReadonlySet<string>,
@@ -22,16 +22,6 @@ export function validateItems(
     if (block.drops.startsWith('loot:') && !lootKeys.has(block.drops))
       add(`blocks[${i}].drops`, `unknown loot table "${block.drops}"`);
   });
-  const sounds = pack.sounds;
-  if (sounds) {
-    const keys: [string, string][] = [['sounds.pickup', sounds.pickup]];
-    for (const [material, actions] of Object.entries(sounds.blocks)) {
-      for (const [action, key] of Object.entries(actions))
-        keys.push([`sounds.blocks.${material}.${action}`, key]);
-    }
-    for (const [path, key] of keys)
-      if (!key.startsWith('sfx:')) add(path, `"${key}" must start with "sfx:"`);
-  }
 }
 
 /** Pack items (the implicit block items come from valid blocks). Returns every item key. */

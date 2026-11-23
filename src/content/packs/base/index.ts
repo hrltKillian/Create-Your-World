@@ -5,6 +5,7 @@ import { strings } from './i18n.en.ts';
 import { itemIcons, items } from './items.ts';
 import { loot } from './loot.ts';
 import { models } from './models.ts';
+import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
 import { crackTextures, textures } from './textures.ts';
 import { tiers } from './tiers.ts';
@@ -52,6 +53,7 @@ export const basePack: ContentPack = {
   tiers,
   loot,
   sounds,
+  sfx,
   worldgen,
   biomes,
   features,

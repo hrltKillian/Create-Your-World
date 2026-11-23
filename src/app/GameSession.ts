@@ -71,6 +71,8 @@ export class GameSession {
   private sentRadius = Number.NaN;
   /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
   paused = false;
+  /** Client systems that react to the simulation's events besides rendering (UI, audio). */
+  readonly listeners: ((event: SimEvent) => void)[] = [];
 
   constructor(
     options: SessionOptions,
@@ -141,6 +143,9 @@ export class GameSession {
     else {
       this.input.applyMouseLook(this.rig);
       if (this.input.consume('camera')) this.rig.toggleMode();
+      // G throws one item of the selected slot, Shift+G the whole stack.
+      if (this.input.consume('drop'))
+        this.host.send({ type: 'inv.drop', slot: this.input.slot, all: this.input.shiftHeld() });
     }
     // While paused the accumulator is frozen, so the view stays where it was.
     if (!this.paused && !this.fixedStep) {
@@ -289,6 +294,7 @@ export class GameSession {
     for (const event of this.events) {
       this.scheduler.onEvent(event);
       this.play.onEvent(event);
+      for (const listener of this.listeners) listener(event);
     }
     this.events.length = 0;
     const focus = this.focus();

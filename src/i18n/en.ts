@@ -46,7 +46,14 @@ export const en = {
   'play.click': 'Click to play',
   'play.resume': 'Click to resume',
   'play.controls':
-    '{forward}{left}{back}{right} move · {jump} jump · {sprint} sprint · {crouch} crouch · {camera} camera',
+    '{forward}{left}{back}{right} move · {jump} jump · {sprint} sprint · {crouch} crouch · {bag} bag · {drop} drop · {camera} camera',
+  'hud.hotbar': 'Hotbar',
+  'slot.worn': '{name} · {left}/{max} uses left',
+  'bag.title': 'Bag',
+  'bag.close': '{key} or Esc to close',
+  'bag.hotbar': 'Hotbar',
+  'bag.help':
+    'Drag to move · right-drag to split · Shift+click to send across · {first}–{last} over a slot to swap',
 } as const;
 
 export type EngineStringKey = keyof typeof en;

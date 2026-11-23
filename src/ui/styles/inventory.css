@@ -1,0 +1,181 @@
+/* Hotbar tray, bag screen and their item slots. State changes only flip opacity and transform. */
+
+:root {
+  --slot-size: 46px;
+}
+
+.slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--slot-size);
+  height: var(--slot-size);
+  border-radius: 11px 11px 11px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+/* Highlight ring (selected or hovered slot), faded in with opacity. */
+.slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(232, 176, 74, 0.14);
+  box-shadow: inset 0 0 0 2px var(--c-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slot-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.slot-key {
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  color: var(--c-ink-muted);
+  font: 600 0.6rem var(--font-mono);
+  opacity: 0.75;
+}
+
+.slot-count {
+  position: absolute;
+  right: 5px;
+  bottom: 2px;
+  font: 700 0.78rem var(--font);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.slot-wear {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 5px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.slot-wear-fill {
+  display: block;
+  height: 100%;
+  background: hsl(calc(var(--wear, 1) * 110) 70% 52%);
+  transform: scaleX(var(--wear, 1));
+  transform-origin: left;
+}
+
+.hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  display: flex;
+  gap: 6px;
+  padding: 9px 10px 8px;
+  border-top: 2px solid rgba(232, 176, 74, 0.4);
+  border-radius: 18px 18px 12px 12px;
+  background: var(--c-panel);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.hotbar .slot {
+  transition: transform 0.12s ease-out;
+}
+
+.hotbar .slot.selected {
+  transform: translateY(-5px);
+}
+
+.hotbar .slot.selected::after {
+  opacity: 1;
+}
+
+.screen-bag {
+  background: rgba(8, 13, 16, 0.45);
+}
+
+.bag-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px 12px;
+  border: 1px solid rgba(232, 176, 74, 0.25);
+  border-radius: 18px;
+  background: var(--c-panel);
+  user-select: none;
+}
+
+.bag-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.bag-header h2 {
+  margin: 0;
+  color: var(--c-accent);
+  font-size: 0.9rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.bag-close,
+.bag-help {
+  margin: 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+}
+
+.bag-section {
+  margin: 4px 0 0;
+  color: var(--c-ink-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.bag-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), var(--slot-size));
+  justify-content: center;
+  gap: 6px;
+}
+
+.bag-caption {
+  min-height: 1.3em;
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+}
+
+.screen-bag .slot.filled {
+  cursor: grab;
+}
+
+.screen-bag .slot:hover::after {
+  opacity: 0.55;
+}
+
+.slot.dragging .slot-icon,
+.slot.dragging .slot-count {
+  opacity: 0.3;
+}
+
+.slot-ghost {
+  position: fixed;
+  left: calc(var(--slot-size) / -2);
+  top: calc(var(--slot-size) / -2);
+  z-index: 10;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}

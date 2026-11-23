@@ -253,6 +253,27 @@ export function installDebugHook(app: App): void {
       i18nMissing,
       text: (selector: string) => document.querySelector(selector)?.textContent ?? null,
       toggleDebug: () => app.overlay?.toggle(),
+      /** Opens or closes the bag like its key does (no argument: toggles); returns whether it is open. */
+      bag: (open?: boolean) => {
+        const inventory = app.inventory;
+        if (!inventory) return false;
+        if (open === undefined || open !== inventory.bag.isOpen()) inventory.toggleBag();
+        return inventory.bag.isOpen();
+      },
+      /** What the hotbar shows: the selected slot and each slot's count text. */
+      hotbar: () => {
+        const hotbar = app.inventory?.hotbar;
+        if (!hotbar) return null;
+        const counts = [...hotbar.element.querySelectorAll('.slot-count')].map(
+          (e) => e.textContent,
+        );
+        return { selected: hotbar.selected, counts };
+      },
+    },
+    audio: {
+      /** Keys of the sounds played (oldest first), logged even when muted or not yet resumed. */
+      log: () => app.audio?.log() ?? [],
+      state: () => app.audio?.state() ?? null,
     },
   };
   window.__game = api;
