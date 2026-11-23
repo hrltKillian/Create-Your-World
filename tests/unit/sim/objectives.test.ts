@@ -19,6 +19,7 @@ const gather = chain[0]!;
 const byStation = objective((c) => c.items === undefined && c.stations?.length === 1);
 const night = objective((c) => c.nights === 1);
 const shelter = objective((c) => c.enclosed === true);
+const drink = objective((c) => c.drank === true);
 
 /** Gives one of each item a step asks for; returns that tick's events. */
 function giveItems(s: ReturnType<typeof playerTestSim>, step: (typeof chain)[number]) {
@@ -94,6 +95,20 @@ describe('objectives', () => {
     expect(conditionHolds(sim, player, { enclosed: true })).toBe(true);
     // The shelter step also wants its station near.
     expect(conditionHolds(sim, player, shelter.condition)).toBe(false);
+  });
+
+  it('asks for a drink besides the items of the flask step, and the fired flask', () => {
+    const s = playerTestSim({ seed: 'objectives-drink' });
+    const items = drink.condition.items!;
+    // The flask is the fired one: the campfire makes it (a station process's output).
+    const fired = registry.pack.processes!.filter((p) => items.includes(p.output.item));
+    expect(fired.map((p) => p.station)).toContain('station:campfire');
+    giveItems(s, drink);
+    nextCheck(s);
+    expect(s.player.objectives).not.toContain(drink.key);
+    expect(conditionHolds(s.sim, s.player, { drank: true })).toBe(false);
+    s.player.drank = true;
+    expect(nextCheck(s)).toEqual([{ type: 'objectiveDone', playerId: 1, objective: drink.key }]);
   });
 
   it('checks nothing for a dead player', () => {

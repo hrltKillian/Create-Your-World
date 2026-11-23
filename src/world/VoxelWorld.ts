@@ -1,11 +1,13 @@
 import { Column } from './Column.ts';
 import {
+  columnIndex,
   columnKey,
   localIndex,
   SECTION_BITS,
   SECTION_MASK,
   SECTIONS_PER_COLUMN,
   toColumn,
+  toLocal,
   WORLD_HEIGHT,
 } from './coords.ts';
 import { FULL_SKY } from './light.ts';
@@ -54,6 +56,36 @@ export class VoxelWorld {
     if (!column) return this.outside;
     const section = column.sections[y >> SECTION_BITS]!;
     return section.getBlock(localIndex(x & SECTION_MASK, y & SECTION_MASK, z & SECTION_MASK));
+  }
+
+  /**
+   * `getBlock` in a column already looked up (`getColumn(toColumn(x), toColumn(z))`, undefined
+   * when unloaded): scans that read many cells of one column resolve it once, not per voxel.
+   */
+  blockIn(column: Column | undefined, x: number, y: number, z: number): number {
+    if (y < 0) return this.outside;
+    if (y >= WORLD_HEIGHT) return this.air;
+    if (!column) return this.outside;
+    const section = column.sections[y >> SECTION_BITS]!;
+    return section.getBlock(localIndex(x & SECTION_MASK, y & SECTION_MASK, z & SECTION_MASK));
+  }
+
+  /** `getLight` in a column already looked up (see `blockIn`). */
+  lightIn(column: Column | undefined, x: number, y: number, z: number): number {
+    if (y >= WORLD_HEIGHT) return FULL_SKY;
+    if (y < 0 || !column) return 0;
+    return column.sections[y >> SECTION_BITS]!.getLight(
+      localIndex(x & SECTION_MASK, y & SECTION_MASK, z & SECTION_MASK),
+    );
+  }
+
+  /**
+   * The heightmap at a block column (the y above its highest block), −1 when its column is not
+   * loaded.
+   */
+  heightAt(x: number, z: number): number {
+    const column = this.getColumn(toColumn(x), toColumn(z));
+    return column ? column.heightmap[columnIndex(toLocal(x), toLocal(z))]! : -1;
   }
 
   /** Sets a block in a loaded (or newly created) column. Returns false outside the height range. */

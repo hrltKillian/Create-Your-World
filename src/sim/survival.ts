@@ -100,6 +100,26 @@ export function createSurvival(b: BalanceDef): SurvivalState {
 
 const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
 
+/** The survival gauges a debug command or a save may set, each kept within its range. */
+export type Gauge = 'health' | 'hunger' | 'thirst' | 'temperature' | 'toxicity' | 'breath';
+
+/** The top of each gauge's range: 0…top, the temperature −top…+top (the one range table). */
+const GAUGE_TOP: Readonly<Record<Gauge, (b: BalanceDef) => number>> = {
+  health: (b) => b.health.max,
+  hunger: (b) => b.hunger.max,
+  thirst: (b) => b.thirst.max,
+  temperature: (b) => b.temperature.limit,
+  toxicity: (b) => b.toxicity.max,
+  breath: (b) => b.breath.seconds,
+};
+export const GAUGES = Object.keys(GAUGE_TOP) as readonly Gauge[];
+
+/** A value of a gauge kept within its range. */
+export function clampGauge(gauge: Gauge, value: number, b: BalanceDef): number {
+  const top = GAUGE_TOP[gauge](b);
+  return Math.max(gauge === 'temperature' ? -top : 0, Math.min(top, value));
+}
+
 /**
  * Adds to the gauges (negative amounts take away), each kept within its range: what food, drinks,
  * sips and a night's sleep do.

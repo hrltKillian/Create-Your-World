@@ -78,6 +78,8 @@ export interface PlayerRecord {
   readonly graves: readonly BlockCell[];
   /** Keys of the objectives done, in order (from save version 3). */
   readonly objectives: readonly string[];
+  /** Has drunk at least once (from save version 4). */
+  readonly drank: boolean;
 }
 
 /** An item drop as saved with its column (its render interpolation is not kept). */

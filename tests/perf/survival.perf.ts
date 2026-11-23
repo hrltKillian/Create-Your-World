@@ -10,7 +10,8 @@ import { registry } from '../helpers/registry.ts';
  * scan around the player, medians after a warm-up.
  */
 const SHELTER_MEDIAN_MS = 0.05;
-const HEAT_MEDIAN_MS = 0.05;
+/** One column lookup per block column of the scan, not per voxel: about 10 µs (23 before). */
+const HEAT_MEDIAN_MS = 0.02;
 
 const median = (values: number[]) =>
   [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;

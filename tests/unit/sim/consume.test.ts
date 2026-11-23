@@ -57,10 +57,14 @@ describe('consumables', () => {
     const s = holding('item:raw_meat', 1);
     s.tick(ticksOf(consume('item:raw_meat').seconds), { secondary: true });
     expect(s.player.survival.toxicity).toBeCloseTo(consume('item:raw_meat').toxicity!, 1);
+    // Food that quenches nothing is no drink.
+    expect(s.player.drank).toBe(false);
     s.tick(1);
     s.give('item:antidote_tea');
     s.tick(ticksOf(consume('item:antidote_tea').seconds), { secondary: true });
     expect(s.player.survival.toxicity).toBe(0);
+    expect(consume('item:antidote_tea').thirst).toBeGreaterThan(0);
+    expect(s.player.drank).toBe(true);
     s.tick(1);
     s.give('item:bandage');
     const health = s.player.survival.health;

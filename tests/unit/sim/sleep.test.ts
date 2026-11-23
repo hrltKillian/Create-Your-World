@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SLEEP_NIGHT_HINT, SLEEP_SHELTER_HINT } from '../../../src/sim/sleep.ts';
+import { NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
+import { createHost } from '../../../src/sim/host.ts';
+import { SLEEP_NIGHT_HINT, SLEEP_SHELTER_HINT, SLEEP_WAIT_HINT } from '../../../src/sim/sleep.ts';
 import {
   DAY_TICKS,
   dayOf,
@@ -87,6 +89,92 @@ describe('sleeping', () => {
     s.tick(60, { ...ON_BED, primary: true });
     expect(s.block(BED.x, BED.y, BED.z)).toBe('block:air');
     expect(s.player.respawn).toBeNull();
+  });
+
+  it('forgets the respawn point once a debug fill replaces the bedroll', () => {
+    const s = hut('sleep-fill');
+    s.send({ type: 'debug.setTime', hours: 22 });
+    lieDown(s);
+    expect(s.player.respawn).toEqual(BED);
+    s.fill(BED.x, BED.y, BED.z, BED.x, BED.y, BED.z, 'block:air');
+    expect(s.player.respawn).toBeNull();
+  });
+});
+
+/** The hut with a second player inside, beside a second bedroll (both players' commands). */
+function twoSleepers(seed: string) {
+  const s = hut(seed);
+  const BED2 = { x: 1, y: 65, z: -1 };
+  s.fill(BED2.x, BED2.y, BED2.z, BED2.x, BED2.y, BED2.z, 'block:bedroll[facing4=n]');
+  const second = s.sim.addPlayer(2, 2);
+  const host2 = createHost(s.sim, 2);
+  s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });
+  host2.send({ ...NEUTRAL_INPUT });
+  s.send({ type: 'debug.setTime', hours: 22 });
+  s.step(40);
+  s.sim.teleport(second, 1.5, 65, 0.5);
+  s.step(2);
+  /** Both players for one tick (player 1's input, then player 2's); returns the events. */
+  const both = (one: Record<string, unknown>, two: Record<string, unknown>) => {
+    s.events.length = 0;
+    s.host.send({ ...NEUTRAL_INPUT, ...one });
+    host2.send({ ...NEUTRAL_INPUT, ...two });
+    s.step(1);
+    return [...s.events];
+  };
+  const onBed2 = { target: { ...BED2, face: 2 } };
+  return { ...s, second, both, BED2, onBed2 };
+}
+
+describe('sleeping with two players (allPlayersSleeping)', () => {
+  it('waits until every living player sleeps, then wakes each at its own bedroll', () => {
+    const s = twoSleepers('sleep-two');
+    const night = s.sim.time.ticks;
+    const { hunger } = s.player.survival;
+    const first = s.both({ ...ON_BED, secondary: true }, {});
+    expect(eventsOf(first, 'hint').map((e) => [e.playerId, e.key])).toEqual([[1, SLEEP_WAIT_HINT]]);
+    expect(eventsOf(first, 'slept')).toEqual([]);
+    expect(s.player.sleeping).toMatchObject(BED);
+    s.both({}, {});
+    // Still night, nobody paid anything yet.
+    expect(s.sim.time.ticks).toBe(night + 2);
+    expect(s.player.respawn).toBeNull();
+    const day = dayOf(s.sim.time.ticks);
+    const events = s.both({}, { ...s.onBed2, secondary: true });
+    expect(hourOf(s.sim.time.ticks)).toBeCloseTo(b.sleep.wakeHour, 2);
+    expect(eventsOf(events, 'slept').map((e) => e.playerId)).toEqual([1, 2]);
+    expect(s.player.respawn).toEqual(BED);
+    expect(s.second.respawn).toEqual(s.BED2);
+    expect(s.player.survival.hunger).toBeCloseTo(hunger - b.sleep.hunger, 1);
+    expect(dayOf(s.sim.time.ticks)).toBe(day + 1);
+    expect([s.player.sleeping, s.second.sleeping]).toEqual([null, null]);
+  });
+
+  it('gets a sleeper up when they move or are hurt, so the night does not pass', () => {
+    const s = twoSleepers('sleep-disturbed');
+    s.both({ ...ON_BED, secondary: true }, {});
+    expect(s.player.sleeping).not.toBeNull();
+    s.both({ forward: 1 }, {});
+    expect(s.player.sleeping).toBeNull();
+    const night = s.sim.time.ticks;
+    s.both({}, { ...s.onBed2, secondary: true });
+    expect(s.sim.time.ticks).toBe(night + 1);
+    expect(s.second.sleeping).not.toBeNull();
+    s.second.survival.health -= 5;
+    s.both({}, {});
+    expect(s.second.sleeping).toBeNull();
+    expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);
+  });
+
+  it('lets the night pass once the one awake player dies', () => {
+    const s = twoSleepers('sleep-death');
+    s.both({}, { ...s.onBed2, secondary: true });
+    expect(s.second.sleeping).not.toBeNull();
+    s.player.survival.health = 0;
+    const events = s.both({}, {});
+    expect(eventsOf(events, 'died')).toHaveLength(1);
+    expect(eventsOf(events, 'slept').map((e) => e.playerId)).toEqual([2]);
+    expect(hourOf(s.sim.time.ticks)).toBeCloseTo(b.sleep.wakeHour, 2);
   });
 });
 

@@ -22,11 +22,13 @@ import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
 import { SHELTERS, type Shelter } from './shelter.ts';
 import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
 import {
+  clampGauge,
   createSurvival,
   DEATH_CAUSES,
   type DeathCause,
   EFFECT_KEYS,
   type EffectKey,
+  GAUGES,
   type SurvivalState,
   type TimedEffect,
 } from './survival.ts';
@@ -37,14 +39,20 @@ import {
  * the spawn), a malformed drop or block entity is dropped.
  */
 
-/** Copies the fields of `saved` that have the type of `target`'s (finite numbers, booleans). */
+/**
+ * Copies the number and boolean fields of `saved` onto those of `target` when they have the same
+ * type (a finite number on a number, a boolean on a boolean); fields of other types (text, lists)
+ * are left for the caller to read.
+ */
 function assignFields<T extends object>(target: T, saved: unknown): T {
   if (!saved || typeof saved !== 'object') return target;
   const from = saved as Record<string, unknown>;
   const to = target as Record<string, unknown>;
   for (const key of Object.keys(to)) {
     const value = from[key];
-    const fits = typeof to[key] === 'boolean' ? typeof value === 'boolean' : isFiniteNumber(value);
+    const kind = typeof to[key];
+    const fits =
+      kind === 'boolean' ? typeof value === 'boolean' : kind === 'number' && isFiniteNumber(value);
     if (fits) to[key] = value;
   }
   return target;
@@ -72,6 +80,7 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     respawn: player.respawn ? { ...player.respawn } : null,
     graves: player.graves.map((cell) => ({ ...cell })),
     objectives: [...player.objectives],
+    drank: player.drank,
   };
 }
 
@@ -126,9 +135,13 @@ function readCell(data: unknown): BlockCell | null {
   return { x, y, z };
 }
 
-/** A saved survival state: full gauges for what is missing or malformed. */
+/**
+ * A saved survival state: full gauges for what is missing or malformed, the gauges kept within
+ * their ranges.
+ */
 function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
   const survival = assignFields(createSurvival(balance), data);
+  for (const gauge of GAUGES) survival[gauge] = clampGauge(gauge, survival[gauge], balance);
   const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
   if (SHELTERS.includes(saved.shelter as Shelter)) survival.shelter = saved.shelter as Shelter;
   if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
@@ -170,6 +183,7 @@ export function readPlayer(
   const graves = Array.isArray(saved.graves) ? saved.graves.map(readCell) : [];
   player.graves = graves.filter((cell) => cell !== null);
   player.objectives = readKeys(saved.objectives);
+  player.drank = saved.drank === true;
   return player;
 }
 
@@ -214,8 +228,14 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
   return drop;
 }
 
+/** The slots of a block entity as saved (text item keys). */
+const savedSlots = (slots: Inventory): Inventory =>
+  slots.map((stack) => (stack ? savedStack(stack) : null));
+
 export function blockEntityRecord(entity: Readonly<BlockEntity>): BlockEntityRecord {
-  return { ...entity, slots: entity.slots.map((stack) => (stack ? savedStack(stack) : null)) };
+  if (entity.kind === 'grave')
+    return { ...entity, slots: savedSlots(entity.slots), worn: savedSlots(entity.worn) };
+  return { ...entity, slots: savedSlots(entity.slots) };
 }
 
 /** Most slots a saved block entity may have (a pack holds as many as a dead player's stacks). */
@@ -247,7 +267,16 @@ export function readBlockEntity(
     };
   if (saved.kind === 'grave') {
     const size = Math.min(slots.length, MAX_SLOTS);
-    return { kind: 'grave', x, y, z, slots: deserializeSlots(slots, size, registry) };
+    // A pack saved before the worn items were kept apart holds them among its slots.
+    const worn = (saved as { worn?: unknown }).worn;
+    return {
+      kind: 'grave',
+      x,
+      y,
+      z,
+      slots: deserializeSlots(slots, size, registry),
+      worn: deserializeSlots(Array.isArray(worn) ? worn : [], WEAR_SLOTS.length, registry),
+    };
   }
   if (saved.kind !== 'station' || typeof saved.station !== 'string') return null;
   const def = registry.crafting.station(saved.station);

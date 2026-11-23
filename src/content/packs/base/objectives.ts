@@ -24,12 +24,12 @@ const step = (
 /**
  * The 15 steps up to the first iron ingot (docs « Objectifs jusqu'au fer »). Items count once the
  * player has had them, so a step done early is not asked again; stations count within crafting
- * reach. The journeys north (cold) and south (heat) point the compass; the marsh has no direction.
+ * reach. The flask is the fired one (shaped from clay, then fired on a campfire), after a drink. The journeys north (cold) and south (heat) point the compass; the marsh has no direction.
  */
 export const objectives: readonly ObjectiveDef[] = [
   step('gather', { items: ['item:plant_fiber', 'item:stick', 'item:flint'] }),
   step('tools', { items: ['item:flint_hatchet', 'item:torch'] }),
-  step('flask', { items: ['item:unfired_flask'] }),
+  step('flask', { drank: true, items: ['item:flask_empty'] }),
   step('workbench', { stations: ['station:workbench'] }),
   step('shelter', { enclosed: true, stations: ['station:campfire'] }),
   step('night', { nights: 1 }),

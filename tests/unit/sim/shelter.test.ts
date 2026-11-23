@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { shelterAt } from '../../../src/sim/shelter.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { createBody, eyeHeight } from '../../../src/sim/physics.ts';
+import { headY, shelterAt, shelterOfBody } from '../../../src/sim/shelter.ts';
 import { columnIndex, toLocal, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import type { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { litWorld, STONE } from '../../helpers/lightWorld.ts';
@@ -43,8 +44,8 @@ function floor(world: VoxelWorld): void {
   for (let x = -32; x < 64; x++) for (let z = -32; z < 64; z++) put(world, x, 63, z, STONE);
 }
 
-/** The shelter at the head cell (2, 65, 2) of a hut. */
-function shelterOf({ walls = true, roof = PLANKS, cells = [] }: Hut) {
+/** The world of a hut (lit). */
+function hutWorld({ walls = true, roof = PLANKS, cells = [] }: Hut) {
   const { world } = litWorld(1, (w) => {
     floor(w);
     for (let x = 0; x <= 4; x++)
@@ -55,7 +56,12 @@ function shelterOf({ walls = true, roof = PLANKS, cells = [] }: Hut) {
       }
     for (const [x, y, z, state] of cells) put(w, x, y, z, state);
   });
-  return shelterAt(world, registry.tables, 2, 65, 2, rules);
+  return world;
+}
+
+/** The shelter at the head cell (2, 65, 2) of a hut. */
+function shelterOf(hut: Hut) {
+  return shelterAt(hutWorld(hut), registry.tables, 2, 65, 2, rules);
 }
 
 describe('shelter test', () => {
@@ -102,6 +108,43 @@ describe('shelter test', () => {
         }
     });
     expect(shelterAt(world, registry.tables, 0, 65, 0, rules)).toBe('covered');
+  });
+});
+
+describe('shelter of a body', () => {
+  it('tests a body from the cell of its eyes, standing or crouching', () => {
+    const world = hutWorld({});
+    const body = createBody(2.5, 64, 2.5);
+    expect(headY(body)).toBe(Math.floor(64 + eyeHeight(body)));
+    expect(headY(body)).toBe(65);
+    expect(shelterOfBody(world, registry.tables, body, rules)).toBe('enclosed');
+    body.crouching = true;
+    expect(headY(body)).toBe(Math.floor(64 + eyeHeight(body)));
+    const open = hutWorld({ walls: false, roof: AIR });
+    expect(shelterOfBody(open, registry.tables, body, rules)).toBe('exposed');
+  });
+
+  it('looks each column up once per column the flood crosses, not once per cell', () => {
+    const world = hutWorld({});
+    const lookups = vi.spyOn(world, 'getColumn');
+    expect(shelterAt(world, registry.tables, 2, 65, 2, rules)).toBe('enclosed');
+    // The whole hut lies in one column.
+    expect(lookups.mock.calls.length).toBe(1);
+    lookups.mockClear();
+    // A hut astride four columns: the flood goes back and forth between them.
+    const astride = litWorld(1, (w) => {
+      floor(w);
+      for (let x = -2; x <= 2; x++)
+        for (let z = -2; z <= 2; z++) {
+          put(w, x, 68, z, PLANKS);
+          if (Math.abs(x) === 2 || Math.abs(z) === 2)
+            for (let y = 64; y <= 67; y++) put(w, x, y, z, PLANKS);
+        }
+    }).world;
+    const astrideLookups = vi.spyOn(astride, 'getColumn');
+    expect(shelterAt(astride, registry.tables, 0, 65, 0, rules)).toBe('enclosed');
+    // 3×3×3 cells of air and their walls: far fewer lookups than cells read.
+    expect(astrideLookups.mock.calls.length).toBeLessThan(60);
   });
 });
 

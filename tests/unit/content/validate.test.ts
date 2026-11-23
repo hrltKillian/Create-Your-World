@@ -202,6 +202,27 @@ describe('content validation of the balance', () => {
     );
   });
 
+  it('takes heat sources only: no cold or zero heat, which the thermal model would ignore', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    const torch = pack.blocks.find((b: { key: string }) => b.key === 'block:torch');
+    const magma = pack.blocks.find((b: { key: string }) => b.key === 'block:magma');
+    torch.heat = { celsius: -5, radius: 2 };
+    magma.heat = { celsius: 0, radius: 2 };
+    expect(
+      validatePack(pack)
+        .map((i) => i.path)
+        .sort(),
+    ).toEqual(
+      [
+        `blocks[${pack.blocks.indexOf(torch)}].heat.celsius`,
+        `blocks[${pack.blocks.indexOf(magma)}].heat.celsius`,
+      ].sort(),
+    );
+    torch.heat = { celsius: 1, radius: 2 };
+    magma.heat = { celsius: 127, radius: 2 };
+    expect(validatePack(pack)).toEqual([]);
+  });
+
   it('gives each block state its heat, lit stations only while lit', () => {
     const registry = buildRegistry(basePack);
     const heat = (key: string) => registry.tables.heat[registry.stateId(key)];
@@ -225,7 +246,7 @@ describe('content validation of the objectives', () => {
     second.textKey = 'objective.nope';
     second.compass = 'up';
     third.condition = { items: ['item:nope', 'tag:nope'], stations: ['station:nope'], nights: 1.5 };
-    fourth.condition = { enclosed: false };
+    fourth.condition = { enclosed: false, drank: false };
     const issues = validatePack(pack as ContentPack).map((i) => i.path);
     expect(issues).toEqual([
       'objectives[1].key',

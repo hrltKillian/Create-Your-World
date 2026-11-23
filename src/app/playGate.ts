@@ -73,6 +73,14 @@ export class PlayGate {
     return !this.screenOpen;
   }
 
+  /**
+   * A screen holds the gate (keyboard taken, mouse free), even between two screens: a chest
+   * closed by a death leaves it to the death screen.
+   */
+  screenIsOpen(): boolean {
+    return this.screenOpen;
+  }
+
   /** A screen takes the keyboard and frees the mouse; the simulation keeps running. */
   openScreen(): void {
     this.screenOpen = true;

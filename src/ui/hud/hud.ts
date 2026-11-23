@@ -5,6 +5,7 @@ import { Compass } from './compass.ts';
 import { EffectList } from './effects.ts';
 import { Flash } from './flash.ts';
 import { ObjectivesPanel } from './objectives.ts';
+import { PickupFeed } from './pickups.ts';
 import { StaminaArc } from './staminaArc.ts';
 import { TargetLine } from './targetLine.ts';
 import { Vignettes } from './vignettes.ts';
@@ -12,10 +13,10 @@ import { Vitals } from './vitals.ts';
 
 /**
  * The survival HUD of a play session (docs « Interface », original layout): vignettes under
- * everything; vitals at the bottom left; the stamina arc beside the crosshair; the compass, the
- * clock and the target name at the top centre; objectives at the top right; effects on the right;
- * the day's banners and the sleep fade; and the death screen. Built once; `app/HudBridge.ts`
- * refreshes it.
+ * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc beside
+ * the crosshair; the compass, the clock and the target name at the top centre; objectives at the
+ * top right; effects on the right; the day's banners, the biome's name on entering it and the
+ * sleep fade; and the death screen. Built once; `app/HudBridge.ts` refreshes it.
  */
 export class Hud {
   /** Everything but the death screen (no pointer events). */
@@ -29,6 +30,8 @@ export class Hud {
   readonly objectives: ObjectivesPanel;
   readonly effects = new EffectList();
   readonly banner = new Flash('hud-banner', 'hud-banner');
+  readonly biome = new Flash('hud-biome', 'hud-biome');
+  readonly pickups = new PickupFeed();
   readonly sleep = new Flash('hud-sleep', 'hud-sleep');
   readonly death: DeathScreen;
 
@@ -44,8 +47,10 @@ export class Hud {
       h('div', { class: 'hud-top' }, this.compass.element, this.clock, this.target.element),
       this.stamina.element,
       this.vitals.element,
+      this.pickups.element,
       h('div', { class: 'hud-right' }, this.objectives.element, this.effects.element),
       this.banner.element,
+      this.biome.element,
       this.sleep.element,
     );
   }

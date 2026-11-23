@@ -78,6 +78,8 @@ if (values.seed !== undefined) {
       tps: Math.round(result.ticks / Math.max(seconds, 1e-6)),
       columns: result.columns,
       pos: [result.x, result.y, result.z].map((v) => Math.round(v * 100) / 100),
+      deaths: result.deaths,
+      respawns: result.respawns,
     }),
   );
   process.exit(0);

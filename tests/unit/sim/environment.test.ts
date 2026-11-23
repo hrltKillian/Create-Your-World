@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TICKS_PER_SECOND } from '../../../src/sim/clock.ts';
 import {
+  type Contact,
   feltTemperature,
   heatAround,
   inCave,
   type ThermalInput,
+  touch,
 } from '../../../src/sim/environment.ts';
+import { createPlayer } from '../../../src/sim/player.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
 import { thermalStatus } from '../../../src/sim/survival.ts';
 import { emptyWorld } from '../../helpers/flatWorld.ts';
@@ -72,6 +75,25 @@ describe('thermal model', () => {
     const sum = heatAround(world, registry.tables, at.x, at.y, at.z, b.climate.heatSources);
     expect(sum).toBeCloseTo(sources[0]! + sources[1]!, 9);
     expect(heatAround(world, registry.tables, 20.5, 64.5, 20.5, 2)).toBe(0);
+  });
+
+  it('looks a column up once per block column of the heat scan, and once for the feet', () => {
+    const world = emptyWorld(1);
+    world.setBlock(0, 64, 0, registry.stateId('block:campfire[lit=1]'));
+    const lookups = vi.spyOn(world, 'getColumn');
+    const heat = heatAround(world, registry.tables, 0.5, 64.5, 1.5, b.climate.heatSources);
+    expect(heat).toBeGreaterThan(0);
+    // The scan is a cube of side 2r + 1 (r: the largest heat radius + 1).
+    let r = 0;
+    for (let s = 0; s < registry.tables.stateCount; s++)
+      r = Math.max(r, registry.tables.heatRadius[s]! + 1);
+    expect(lookups.mock.calls.length).toBe((2 * r + 1) ** 2);
+    lookups.mockClear();
+    const player = createPlayer(1, 0.5, 64, 0.5, 2, b);
+    player.body.onGround = true;
+    const contact: Contact = { toxicity: 0, damage: 0 };
+    touch(registry, world, player, contact);
+    expect(lookups.mock.calls.length).toBe(1);
   });
 
   it('finds caves: no sky at the head, deep enough under the surface', () => {

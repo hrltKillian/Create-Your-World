@@ -37,9 +37,12 @@ describe('sips', () => {
     const fresh = liquid('block:fresh_water');
     s.tick(sip - 1, { ...DOWN, secondary: true });
     expect(s.player.survival.thirst).toBeCloseTo(s.start - drain(sip - 1), 6);
+    expect(s.player.drank).toBe(false);
     s.events.length = 0;
     s.tick(1, { ...DOWN, secondary: true });
     expect(s.player.survival.thirst).toBeCloseTo(s.start + fresh.thirstPerSip - drain(sip), 6);
+    // The player has drunk (an objective asks for it).
+    expect(s.player.drank).toBe(true);
     expect(s.player.survival.toxicity).toBeCloseTo(fresh.toxicityPerSip, 2);
     expect(eventsOf(s.events, 'consumed')).toEqual([
       { type: 'consumed', playerId: 1, item: 'block:fresh_water' },

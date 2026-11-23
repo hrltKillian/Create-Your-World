@@ -101,8 +101,9 @@ export type SimEvent =
   | { readonly type: 'slept'; readonly playerId: number; readonly day: number }
   /**
    * A player died of `cause` (the death screen shows `death.cause.<cause>`; '' when nothing hurt
-   * them). What they carried lies in the Abandoned Pack at the cell (x, y, z), now one of their
-   * `graves`, or on the ground there when no pack could be left.
+   * them). With `pack`, what they carried lies in the Abandoned Pack at the cell (x, y, z), now one
+   * of their `graves`; without, they carried nothing, or it lies on the ground there (no pack could
+   * be left).
    */
   | {
       readonly type: 'died';
@@ -111,6 +112,7 @@ export type SimEvent =
       readonly x: number;
       readonly y: number;
       readonly z: number;
+      readonly pack: boolean;
     }
   /** A dead player came back (feet position): at the bedroll slept on last, else the spawn. */
   | {

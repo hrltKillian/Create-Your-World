@@ -28,6 +28,7 @@ function midGame() {
   player.respawn = { x: 4, y: 65, z: -3 };
   player.graves.push({ x: 10, y: 65, z: 10 }, { x: -20, y: 40, z: 7 });
   player.objectives.push('objective:first');
+  player.drank = true;
   s.step(45);
   return { ...s, player };
 }
@@ -42,6 +43,7 @@ describe('survival saves', () => {
     const player = resumed.sim.players.get(1)!;
     expect(playerRecord('w', player)).toEqual(playerRecord('w', first.player));
     expect(player.survival).toEqual(first.player.survival);
+    expect(player.drank).toBe(true);
     expect(persistentHash(resumed.sim)).toBe(persistentHash(first.sim));
     settle(resumed.sim);
     straight.step(200);
@@ -84,6 +86,38 @@ describe('survival saves', () => {
     expect(player.objectives).toEqual(['objective:a']);
     const bare = readPlayer({ playerId: 1, id: 1 }, registry, spawn)!;
     expect(bare.survival).toEqual(createSurvival(b));
-    expect(bare).toMatchObject({ respawn: null, graves: [], objectives: [] });
+    expect(bare).toMatchObject({ respawn: null, graves: [], objectives: [], drank: false });
+  });
+
+  it('copy a field only onto one of its own type, and keep the gauges within their ranges', () => {
+    const spawn = { x: 1, y: 2, z: 3 };
+    const survival = {
+      // Numbers where lists and text belong, text and lists where numbers and flags belong.
+      effects: 3,
+      cause: 5,
+      shelter: 7,
+      dead: 1,
+      god: 'yes',
+      calmTicks: [4],
+      // Gauges out of their ranges.
+      health: 500,
+      hunger: -20,
+      thirst: Number.POSITIVE_INFINITY,
+      temperature: -1000,
+      toxicity: 250,
+      breath: -3,
+    };
+    const player = readPlayer({ playerId: 1, id: 1, survival, drank: 'yes' }, registry, spawn)!;
+    const fresh = createSurvival(b);
+    expect(player.survival).toEqual({
+      ...fresh,
+      health: b.health.max,
+      hunger: 0,
+      temperature: -b.temperature.limit,
+      toxicity: b.toxicity.max,
+      breath: 0,
+    });
+    expect(Array.isArray(player.survival.effects)).toBe(true);
+    expect(player.drank).toBe(false);
   });
 });

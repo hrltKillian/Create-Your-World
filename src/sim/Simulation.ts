@@ -25,6 +25,7 @@ import { stepObjectives } from './objectives.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
+import { stepSleep } from './sleep.ts';
 import { SpatialHash } from './spatialHash.ts';
 import { stepStations } from './stations.ts';
 import { stepSurvival } from './survival.ts';
@@ -57,7 +58,7 @@ export type Entity = PlayerState | ItemDropState;
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, item drops,
  * inventory, equipment, block entities (chests, stations, packs), craft queues, survival, deaths,
- * objectives and debug commands.
+ * sleep, objectives and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -195,6 +196,7 @@ export class Simulation implements ColumnSink {
     stepSurvival(this, out, first);
     stepItemDrops(this, out);
     stepDeaths(this, out);
+    stepSleep(this, out);
     clockEvents(clock, this.time.ticks, out);
     this.columns.integrate(INTEGRATE_PER_TICK);
     stepLight(this.light, SEAM_NODES_PER_TICK, out);

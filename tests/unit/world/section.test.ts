@@ -46,6 +46,24 @@ describe('section storage', () => {
     expect(world.getBlock(500, 70, 500)).toBe(9);
     expect(world.getBlock(0, 300, 0)).toBe(0);
   });
+
+  it('reads blocks, light and heights through a column looked up once', () => {
+    const world = new VoxelWorld(0, 99);
+    world.setBlock(-1, 70, -33, 7);
+    world.setLight(-1, 70, -33, 0x5a);
+    const column = world.getColumn(-1, -2)!;
+    column.heightmap[31 | (31 << 5)] = 71;
+    for (const y of [-1, 0, 70, 255, 256]) {
+      expect(world.blockIn(column, -1, y, -33)).toBe(world.getBlock(-1, y, -33));
+      expect(world.lightIn(column, -1, y, -33)).toBe(world.getLight(-1, y, -33));
+    }
+    expect(world.blockIn(undefined, 400, 70, 0)).toBe(99);
+    expect(world.lightIn(undefined, 400, 70, 0)).toBe(0);
+    expect(world.heightAt(-1, -33)).toBe(71);
+    expect(world.heightAt(-2, -33)).toBe(0);
+    // An unloaded column has no height.
+    expect(world.heightAt(400, 0)).toBe(-1);
+  });
 });
 
 describe('column slots', () => {

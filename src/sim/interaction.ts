@@ -5,6 +5,7 @@ import { WORLD_HEIGHT } from '../world/coords.ts';
 import { createRayHit } from '../world/raycast.ts';
 import { blockEntityAt, createBlockEntity, removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
+import { forgetCell } from './blockRemoval.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { holdUse } from './consume.ts';
@@ -31,7 +32,7 @@ import {
 } from './placement.ts';
 import { NO_USE, type PlayerState, STAMINA, spendStamina } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { forgetBed, sleepOn } from './sleep.ts';
+import { sleepOn } from './sleep.ts';
 import { AIM_HIT, AIM_OUT_OF_REACH, aim } from './targeting.ts';
 
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
@@ -173,7 +174,7 @@ function breakBlock(
   const kept = blockEntityAt(sim, x, y, z) !== undefined;
   if (!editBlock(sim.world, sim.light, x, y, z, registry.air, out)) return;
   if (kept) removeBlockEntity(sim, x, y, z);
-  if (registry.blockDef(state).blockEntity === 'bed') forgetBed(sim, x, y, z);
+  forgetCell(sim, x, y, z, state);
   out.push({ type: 'blockBroken', playerId: player.playerId, x, y, z, state });
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });

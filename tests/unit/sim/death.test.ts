@@ -29,6 +29,9 @@ function totals(...lists: readonly Inventory[]): Record<string, number> {
   return out;
 }
 
+/** The item keys of slots (null for an empty one). */
+const keysOf = (slots: Inventory) => slots.map((stack) => stack?.item ?? null);
+
 /** Everything a player carries, the craft queue's reserved ingredients included. */
 const carried = (p: PlayerState) =>
   totals(p.inventory, p.equipment, ...p.craft.map((entry) => entry.reserved));
@@ -60,12 +63,16 @@ describe('death', () => {
     expect(s.player.craft).toEqual([]);
     expect(s.block(FEET.x, FEET.y, FEET.z)).toBe('block:abandoned_pack');
     const pack = packAt(s, FEET.x, FEET.y, FEET.z)!;
-    expect(totals(pack.slots)).toEqual(before);
-    // Worn and used stacks keep their uses.
+    expect(totals(pack.slots, pack.worn)).toEqual(before);
+    // Worn and used stacks keep their uses; the worn ones stay apart, in their slots.
     expect(pack.slots).toContainEqual({ item: 'item:flint_pickaxe', count: 1, durability: 17 });
+    expect(keysOf(pack.worn)).toEqual([null, null, 'item:fur_coat', null, null]);
+    expect(totals(pack.slots)['item:fur_coat']).toBeUndefined();
     expect(s.player.graves).toEqual([FEET]);
     expect(s.player.survival.dead).toBe(true);
-    expect(eventsOf(events, 'died')).toEqual([{ type: 'died', playerId: 1, cause: '', ...FEET }]);
+    expect(eventsOf(events, 'died')).toEqual([
+      { type: 'died', playerId: 1, cause: '', ...FEET, pack: true },
+    ]);
     // Nothing on the ground.
     expect([...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop')).toEqual([]);
   });
@@ -149,6 +156,66 @@ describe('death', () => {
     expect(back).toEqual({ ...before, 'item:dirt': before['item:dirt']! + 20 });
   });
 
+  it('puts the worn items back on, never a spare from the bag in their place', () => {
+    const s = playerTestSim({ seed: 'recover-worn' });
+    // A spare body piece in the bag, before the coat in the pack's order.
+    s.give('item:leather_tunic');
+    s.give('item:fur_coat');
+    s.send({ type: 'equip.move', from: 1 });
+    s.give('item:waxed_boots');
+    expect(s.player.equipment[2]?.item).toBe('item:fur_coat');
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    s.send({ type: 'player.respawn' });
+    s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 2.5 });
+    // The coat goes back on; the bag's spare tunic and the boots, never worn, go to the bag.
+    s.tick(1, { target: { ...FEET, face: 4 }, secondary: true });
+    s.tick(1);
+    expect(packAt(s, FEET.x, FEET.y, FEET.z)).toBeUndefined();
+    expect(keysOf(s.player.equipment)).toEqual([null, null, 'item:fur_coat', null, null]);
+    const bag = totals(s.player.inventory);
+    expect(bag).toEqual({ 'item:leather_tunic': 1, 'item:waxed_boots': 1 });
+  });
+
+  it('sends a worn item whose slot is taken again to the bag', () => {
+    const s = playerTestSim({ seed: 'recover-taken' });
+    s.give('item:fur_coat');
+    s.send({ type: 'equip.move', from: 0 });
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    s.send({ type: 'player.respawn' });
+    s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 2.5 });
+    s.give('item:leather_tunic');
+    s.send({ type: 'equip.move', from: 0 });
+    s.tick(1, { target: { ...FEET, face: 4 }, secondary: true });
+    s.tick(1);
+    expect(keysOf(s.player.equipment)).toEqual([null, null, 'item:leather_tunic', null, null]);
+    expect(totals(s.player.inventory)).toEqual({ 'item:fur_coat': 1 });
+    expect(packAt(s, FEET.x, FEET.y, FEET.z)).toBeUndefined();
+  });
+
+  it('spills a pack filled over, worn items included, and forgets its marker', () => {
+    const s = playerTestSim({ seed: 'pack-filled' });
+    s.give('item:fur_coat');
+    s.send({ type: 'equip.move', from: 0 });
+    s.give('item:dirt', 4);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(s.player.graves).toEqual([FEET]);
+    s.fill(FEET.x, FEET.y, FEET.z, FEET.x, FEET.y, FEET.z, 'block:air');
+    expect(packAt(s, FEET.x, FEET.y, FEET.z)).toBeUndefined();
+    expect(s.player.graves).toEqual([]);
+    const lying = [...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop');
+    expect(lying.map((drop) => drop.item).sort()).toEqual(['item:dirt', 'item:fur_coat']);
+  });
+
+  it('says no pack was left when the player carried nothing', () => {
+    const s = playerTestSim({ seed: 'death-empty' });
+    const events = s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(eventsOf(events, 'died')).toEqual([
+      { type: 'died', playerId: 1, cause: '', ...FEET, pack: false },
+    ]);
+    expect(s.player.graves).toEqual([]);
+    expect(s.block(FEET.x, FEET.y, FEET.z)).toBe('block:air');
+  });
+
   it('stacks a second pack above the first when dying on the same spot', () => {
     const s = playerTestSim({ seed: 'two-deaths' });
     s.give('item:dirt', 5);
@@ -197,7 +264,7 @@ describe('death saves', () => {
       z: -2,
       slots: [{ item: 'item:dirt', count: 3 }, { item: 4 }, null, { item: 'item:gone', count: 1 }],
     };
-    expect(readBlockEntity(saved, registry, 0)).toEqual({
+    const read = {
       kind: 'grave',
       x: 1,
       y: 70,
@@ -208,6 +275,14 @@ describe('death saves', () => {
         null,
         { item: 'item:unknown', count: 1, original: 'item:gone' },
       ],
+      // A pack saved without its worn items apart wears nothing.
+      worn: [null, null, null, null, null],
+    };
+    expect(readBlockEntity(saved, registry, 0)).toEqual(read);
+    const worn = [{ item: 'item:fur_hood', count: 1 }, 'hat', null, null, null, { item: 'x' }];
+    expect(readBlockEntity({ ...saved, worn }, registry, 0)).toEqual({
+      ...read,
+      worn: [{ item: 'item:fur_hood', count: 1 }, null, null, null, null],
     });
     expect(readBlockEntity({ ...saved, y: -1 }, registry, 0)).toBeNull();
   });

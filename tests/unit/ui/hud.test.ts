@@ -14,6 +14,12 @@ import {
 } from '../../../src/ui/hud/compass.ts';
 import { EffectList, HUD_EFFECTS } from '../../../src/ui/hud/effects.ts';
 import { ObjectivesPanel, objectiveProgress } from '../../../src/ui/hud/objectives.ts';
+import {
+  FADE_SECONDS,
+  PICKUP_LINES,
+  PICKUP_SECONDS,
+  PickupFeed,
+} from '../../../src/ui/hud/pickups.ts';
 import { VIGNETTES, type Vignette, vignetteLevels } from '../../../src/ui/hud/vignettes.ts';
 import { BREATH_BUBBLES, Vitals } from '../../../src/ui/hud/vitals.ts';
 import { DeathScreen } from '../../../src/ui/screens/death.ts';
@@ -183,6 +189,22 @@ describe('vitals and vignettes', () => {
     ]);
   });
 
+  it('hides the breath again at full air, also after a last refill too small to redraw', () => {
+    const vitals = new Vitals(b);
+    const breath = fake(vitals.element).querySelector('.breath')!;
+    const s = createSurvival(b);
+    const max = b.breath.seconds;
+    for (const [air, hidden] of [
+      [(max * 2) / 3, false],
+      [max - 0.1, false],
+      [max, true],
+    ] as const) {
+      s.breath = air;
+      vitals.update(s, 0);
+      expect(breath.hidden).toBe(hidden);
+    }
+  });
+
   it('shows the thermometer with its trend and status', () => {
     const vitals = new Vitals(b);
     const thermo = fake(vitals.element).querySelector('.thermo')!;
@@ -243,18 +265,61 @@ describe('effects and the death screen', () => {
     const death = new DeathScreen(() => respawns++);
     const el = fake(death.element);
     expect(death.isOpen()).toBe(false);
-    death.show('cold', true);
+    death.show('cold', true, true);
     expect(death.isOpen()).toBe(true);
     expect(el.id).toBe('screen-death');
     expect(el.querySelector('.death-cause')!.textContent).toBe('Froze to death');
     expect(el.textContent).toContain('bedroll');
-    death.show('', false);
+    const pack = el.querySelector('.death-pack')!;
+    expect(pack.textContent).toContain('Abandoned Pack');
+    expect(pack.hidden).toBe(false);
+    // No pack left (nothing carried, or no room for one): no line about it.
+    death.show('', false, false);
+    expect(pack.hidden).toBe(true);
     expect(el.querySelector('.death-cause')!.textContent).toBe('Your journey ended');
-    for (const cause of DEATH_CAUSES) death.show(cause, false);
+    for (const cause of DEATH_CAUSES) death.show(cause, false, true);
+    expect(pack.hidden).toBe(false);
     el.findAction('respawn')!.dispatch('click');
     expect(respawns).toBe(1);
     death.hide();
     expect(death.isOpen()).toBe(false);
     expect(i18nMissing()).toEqual([]);
+  });
+});
+
+describe('pickup messages', () => {
+  const rows = (feed: PickupFeed) =>
+    fake(feed.element).childNodes.map((row) => (row as FakeElement).textContent);
+
+  it('adds a line per item, merges repeats while it shows, then fades it out', () => {
+    const feed = new PickupFeed();
+    feed.add('item:stick', 'Stick', 2);
+    feed.add('item:flint', 'Flint', 1);
+    feed.frame(1);
+    feed.add('item:stick', 'Stick', 3);
+    expect(rows(feed)).toEqual(['+5 Stick', '+1 Flint']);
+    const flint = fake(feed.element).childNodes[1] as FakeElement;
+    feed.frame(PICKUP_SECONDS - 1 - FADE_SECONDS / 2);
+    expect(flint.classList.contains('fading')).toBe(true);
+    // The stick line was picked up again later: still up, not fading.
+    const stick = fake(feed.element).childNodes[0] as FakeElement;
+    expect(stick.classList.contains('fading')).toBe(false);
+    feed.frame(FADE_SECONDS);
+    expect(rows(feed)).toEqual(['+5 Stick']);
+    feed.frame(PICKUP_SECONDS);
+    expect(rows(feed)).toEqual([]);
+    // Gone: the next pickup starts a new count.
+    feed.add('item:stick', 'Stick', 1);
+    expect(rows(feed)).toEqual(['+1 Stick']);
+    expect(feed.element.getAttribute('aria-label')).toBe('Picked up');
+    expect(i18nMissing()).toEqual([]);
+  });
+
+  it('keeps the newest lines when many items come at once', () => {
+    const feed = new PickupFeed();
+    for (let i = 0; i < PICKUP_LINES + 2; i++) feed.add(`item:i${i}`, `I${i}`, 1);
+    expect(rows(feed)).toHaveLength(PICKUP_LINES);
+    expect(rows(feed)[0]).toBe('+1 I2');
+    expect(rows(feed).at(-1)).toBe(`+1 I${PICKUP_LINES + 1}`);
   });
 });

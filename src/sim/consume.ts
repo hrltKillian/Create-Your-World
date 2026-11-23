@@ -73,6 +73,7 @@ function consume(sim: Simulation, player: PlayerState, def: ItemDef, out: SimEve
   const c = def.consume!;
   const b = registry.pack.balance;
   adjustGauges(player.survival, b, c.hunger ?? 0, c.thirst ?? 0, c.health ?? 0, c.toxicity ?? 0);
+  if ((c.thirst ?? 0) > 0) player.drank = true;
   const inventory = player.inventory;
   const slot = player.input.slot;
   if (def.container) {

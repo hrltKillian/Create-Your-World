@@ -20,8 +20,9 @@ import { addEffect, createSurvival } from './survival.ts';
  * Abandoned Pack where they died, recorded in their `graves` for the compass, and lies still until
  * the Respawn command: back at the bedroll slept on last, else at the spawn, with 60 health, 50
  * hunger and 50 thirst, Weakened for 2 minutes and untargeted for 5 seconds. Secondary on a pack
- * takes back what fits; an emptied pack goes, and its marker with it. Nothing is ever lost: a pack
- * that cannot be left (no free cell above, no grave block in the pack) spills on the ground.
+ * takes back what fits, the worn items back on (the pack keeps them apart); an emptied pack goes,
+ * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell above, no
+ * grave block in the pack) spills on the ground.
  */
 
 /** Tick step 14: handles each new death of a player in a loaded column. */
@@ -37,27 +38,32 @@ export function stepDeaths(sim: Simulation, out: SimEvent[]): void {
 function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   stopMining(player, out);
   if (player.opened) closeBlockEntity(player, out);
+  player.sleeping = null;
   const stacks = carried(sim.registry, player);
+  const worn = player.equipment.slice();
+  player.equipment.fill(null);
+  const any = stacks.length > 0 || worn.some((stack) => stack !== null);
   const b = player.body;
-  const cell = stacks.length > 0 ? leavePack(sim, b.x, b.y, b.z, stacks, out) : null;
+  const cell = any ? leavePack(sim, b.x, b.y, b.z, stacks, worn, out) : null;
   if (cell) player.graves.push(cell);
-  else for (const stack of stacks) spawnDrop(sim, stack, b.x, b.y + 0.5, b.z);
-  if (stacks.length > 0) out.push({ type: 'inventoryChanged', playerId: player.playerId });
+  else
+    for (const stack of [...stacks, ...worn]) if (stack) spawnDrop(sim, stack, b.x, b.y + 0.5, b.z);
+  if (any) out.push({ type: 'inventoryChanged', playerId: player.playerId });
   const { x, y, z } = cell ?? { x: Math.floor(b.x), y: Math.floor(b.y), z: Math.floor(b.z) };
-  out.push({ type: 'died', playerId: player.playerId, cause: player.survival.cause, x, y, z });
+  const cause = player.survival.cause;
+  out.push({ type: 'died', playerId: player.playerId, cause, x, y, z, pack: cell !== null });
 }
 
 /**
- * Takes everything a player carries: the inventory, the worn items, then the craft queue's
+ * Takes everything a player carries but the worn items: the inventory, then the craft queue's
  * reserved ingredients (merged onto the stacks they match). The stacks keep their wear.
  */
 function carried(registry: Registry, player: PlayerState): ItemStack[] {
   const stacks: ItemStack[] = [];
-  for (const slots of [player.inventory, player.equipment]) {
-    for (let i = 0; i < slots.length; i++) {
-      if (slots[i]) stacks.push(slots[i]!);
-      slots[i] = null;
-    }
+  const slots = player.inventory;
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i]) stacks.push(slots[i]!);
+    slots[i] = null;
   }
   for (const entry of player.craft) {
     for (const stack of entry.reserved) {
@@ -71,8 +77,8 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
 }
 
 /**
- * Leaves an Abandoned Pack holding `slots` in the first free cell (air or replaceable, with no
- * block entity) from the feet up; returns its cell, or null without one.
+ * Leaves an Abandoned Pack holding `slots` and the `worn` items in the first free cell (air or
+ * replaceable, with no block entity) from the feet up; returns its cell, or null without one.
  */
 function leavePack(
   sim: Simulation,
@@ -80,6 +86,7 @@ function leavePack(
   y: number,
   z: number,
   slots: Inventory,
+  worn: Inventory,
   out: SimEvent[],
 ): BlockCell | null {
   const { registry, world } = sim;
@@ -91,7 +98,7 @@ function leavePack(
     const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
     if (!free || sim.blockEntities.has(cellKey(cx, cy, cz))) continue;
     editBlock(world, sim.light, cx, cy, cz, registry.grave, out);
-    sim.blockEntities.set(cellKey(cx, cy, cz), { kind: 'grave', x: cx, y: cy, z: cz, slots });
+    sim.blockEntities.set(cellKey(cx, cy, cz), { kind: 'grave', x: cx, y: cy, z: cz, slots, worn });
     return { x: cx, y: cy, z: cz };
   }
   return null;
@@ -125,8 +132,8 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
 }
 
 /**
- * Secondary on an Abandoned Pack: its worn items go back on where those slots are free, the rest
- * into the inventory as far as it fits. Returns the refusal, if any.
+ * Secondary on an Abandoned Pack: the items worn at the death go back on where those slots are
+ * free, everything else into the inventory as far as it fits. Returns the refusal, if any.
  */
 export function recoverPack(
   sim: Simulation,
@@ -139,20 +146,41 @@ export function recoverPack(
   const pack = sim.blockEntities.get(cellKey(x, y, z));
   if (pack?.kind !== 'grave') return 'nothing to open';
   const registry = sim.registry;
-  const slots = pack.slots;
+  const worn = pack.worn;
+  let moved = false;
+  for (let i = 0; i < worn.length; i++) {
+    const stack = worn[i];
+    if (!stack || player.equipment[i] || wearSlotOf(registry, stack.item) !== i) continue;
+    player.equipment[i] = stack;
+    worn[i] = null;
+    moved = true;
+  }
+  const bag = takeInto(registry, player.inventory, worn);
+  const rest = takeInto(registry, player.inventory, pack.slots);
+  if (!moved && !bag.moved && !rest.moved) return 'inventory full';
+  out.push({ type: 'inventoryChanged', playerId: player.playerId });
+  const state = sim.world.getBlock(x, y, z);
+  const sfx = registry.blockSfx(state, 'break');
+  if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+  if (bag.left || rest.left) return null;
+  removeBlockEntity(sim, x, y, z);
+  editBlock(sim.world, sim.light, x, y, z, registry.air, out);
+  forgetGrave(sim, x, y, z);
+  return null;
+}
+
+/** Moves the stacks of `slots` into an inventory as far as they fit (what is left stays). */
+function takeInto(
+  registry: Registry,
+  inventory: Inventory,
+  slots: Inventory,
+): { moved: boolean; left: boolean } {
   let moved = false;
   let left = false;
   for (let i = 0; i < slots.length; i++) {
     const stack = slots[i];
     if (!stack) continue;
-    const wear = wearSlotOf(registry, stack.item);
-    if (wear >= 0 && !player.equipment[wear]) {
-      player.equipment[wear] = stack;
-      slots[i] = null;
-      moved = true;
-      continue;
-    }
-    const rest = addItem(player.inventory, registry, stack);
+    const rest = addItem(inventory, registry, stack);
     moved ||= rest < stack.count;
     if (rest === 0) slots[i] = null;
     else {
@@ -160,12 +188,11 @@ export function recoverPack(
       left = true;
     }
   }
-  if (!moved) return 'inventory full';
-  out.push({ type: 'inventoryChanged', playerId: player.playerId });
-  const sfx = registry.blockSfx(sim.world.getBlock(x, y, z), 'break');
-  if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-  if (left) return null;
-  removeBlockEntity(sim, x, y, z);
-  editBlock(sim.world, sim.light, x, y, z, registry.air, out);
-  return null;
+  return { moved, left };
+}
+
+/** An Abandoned Pack gone (taken back, broken): it no longer marks any player's compass. */
+export function forgetGrave(sim: Simulation, x: number, y: number, z: number): void {
+  for (const player of sim.players.values())
+    player.graves = player.graves.filter((cell) => cell.x !== x || cell.y !== y || cell.z !== z);
 }

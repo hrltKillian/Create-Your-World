@@ -110,12 +110,24 @@ export interface PlayerState {
   graves: BlockCell[];
   /** Keys of the objectives done, in the order they were done. */
   objectives: string[];
+  /** Has drunk at least once: a sip, or a consumable that quenches thirst (objectives). */
+  drank: boolean;
+  /**
+   * The bedroll the player lies on while the others are still awake (sleep.ts; not saved): the
+   * night passes once every living player sleeps.
+   */
+  sleeping: Sleeper | null;
 }
 
 export interface BlockCell {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+}
+
+/** A player lying on the bedroll at a cell, with the health they had at the last check. */
+export interface Sleeper extends BlockCell {
+  health: number;
 }
 
 export function createPlayer(
@@ -153,6 +165,8 @@ export function createPlayer(
     respawn: null,
     graves: [],
     objectives: [],
+    drank: false,
+    sleeping: null,
   };
 }
 

@@ -16,7 +16,7 @@ import type { Simulation } from './Simulation.ts';
  * stations.ts); an Abandoned Pack (`grave`) what a dead player carried (death.ts makes it). They
  * live in `Simulation.blockEntities` by cell key, loaded or not, like item drops. A placed block
  * gets an empty one; a generated chest gets its structure's loot the first time anyone opens or
- * breaks it. Removing the block spills what it holds.
+ * breaks it. This module only stores them and spills what one holds when its block goes.
  */
 
 /** Slots of a container block (a chest). */
@@ -55,13 +55,19 @@ export interface StationEntity {
   tick: number;
 }
 
-/** An Abandoned Pack: every stack a dead player carried, as many slots as stacks. */
+/**
+ * An Abandoned Pack: every stack a dead player carried, the worn items apart (they go back on
+ * where they were worn).
+ */
 export interface GraveEntity {
   readonly kind: 'grave';
   readonly x: number;
   readonly y: number;
   readonly z: number;
+  /** The inventory and the craft queue's reserved ingredients: as many slots as stacks. */
   slots: Inventory;
+  /** What was worn, one slot per `WEAR_SLOTS` entry (head to feet). */
+  worn: Inventory;
 }
 
 export type BlockEntity = ContainerEntity | StationEntity | GraveEntity;
@@ -136,18 +142,20 @@ export function createBlockEntity(
 }
 
 /**
- * Removes the block entity of a cell, if any, spilling its items around the cell's centre; a pack
- * no longer marks a grave on any player's compass.
+ * Removes the block entity of a cell, if any, spilling its items around the cell's centre (what
+ * else a removed block leaves behind is `forgetCell`'s).
  */
 export function removeBlockEntity(sim: Simulation, x: number, y: number, z: number): void {
   const key = cellKey(x, y, z);
   const entity = sim.blockEntities.get(key);
   if (!entity) return;
   sim.blockEntities.delete(key);
-  for (const stack of entity.slots) if (stack) spawnDrop(sim, stack, x + 0.5, y + 0.5, z + 0.5);
-  if (entity.kind !== 'grave') return;
-  for (const player of sim.players.values())
-    player.graves = player.graves.filter((cell) => cell.x !== x || cell.y !== y || cell.z !== z);
+  spill(sim, entity.slots, x, y, z);
+  if (entity.kind === 'grave') spill(sim, entity.worn, x, y, z);
+}
+
+function spill(sim: Simulation, slots: Inventory, x: number, y: number, z: number): void {
+  for (const stack of slots) if (stack) spawnDrop(sim, stack, x + 0.5, y + 0.5, z + 0.5);
 }
 
 function emptySlots(count: number): Inventory {

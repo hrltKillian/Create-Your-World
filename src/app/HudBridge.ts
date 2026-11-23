@@ -12,7 +12,7 @@ import type { HudEffect } from '../ui/hud/effects.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
 import type { GameSession } from './GameSession.ts';
-import { hudEffects, targetText } from './hudModel.ts';
+import { BiomeWatch, biomeIndexAt, hudEffects, targetText } from './hudModel.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import type { PlayGate } from './playGate.ts';
 
@@ -20,11 +20,12 @@ import type { PlayGate } from './playGate.ts';
 const REFRESH_SECONDS = 0.1;
 
 /**
- * Keeps the survival HUD in step with the local player: the compass every frame (it turns with
- * the view), the rest at 10 Hz and at once after the player's objective, death and respawn
- * events. Shows the day's banners, the sleep fade and the objective lines, and runs the death
- * screen: it takes the open screen's place (the mouse stays free) and Respawn, a click, captures
- * the mouse again. The screen follows `survival.dead`, so a world saved dead opens on it.
+ * Keeps the survival HUD in step with the local player: the compass and the pickup lines every
+ * frame, the rest at 10 Hz and at once after the player's objective, death and respawn events.
+ * Shows the day's banners, the biome entered, the sleep fade, the objective lines and the items
+ * picked up, and runs the death screen: it takes the open screen's place (the mouse stays free)
+ * and Respawn, a click, captures the mouse again. The screen follows `survival.dead`, so a world
+ * saved dead opens on it.
  */
 export class HudBridge {
   readonly hud: Hud;
@@ -38,6 +39,12 @@ export class HudBridge {
   private holdsScreen = false;
   /** Respawn was clicked: the screen stays shut while the simulation brings the player back. */
   private waking = false;
+  /**
+   * Whether the last death left an Abandoned Pack (its `died` event); null when none was seen
+   * (a world saved dead: the player's packs tell).
+   */
+  private pack: boolean | null = null;
+  private readonly biomes = new BiomeWatch();
   private readonly effects: HudEffect[] = [];
   private readonly levels: Record<Vignette, number> = {
     health: 0,
@@ -80,10 +87,12 @@ export class HudBridge {
   frame(dt: number): void {
     this.elapsed += dt;
     if (this.elapsed >= REFRESH_SECONDS) {
+      const elapsed = this.elapsed;
       this.elapsed = 0;
-      this.refresh();
+      this.refresh(elapsed);
     }
     this.hud.compass.update(headingOf(this.session.rig.yaw), this.targets);
+    this.hud.pickups.frame(dt);
   }
 
   private onEvent(event: SimEvent): void {
@@ -104,14 +113,24 @@ export class HudBridge {
       case 'slept':
         hud.sleep.show(t('hud.slept'));
         break;
+      case 'itemPickedUp': {
+        const def = this.session.host.view.registry.item(event.item);
+        if (def) hud.pickups.add(event.item, t(def.nameKey), event.count);
+        break;
+      }
       case 'died':
+        this.pack = event.pack;
+        this.elapsed = REFRESH_SECONDS;
+        break;
       case 'respawned':
+        this.pack = null;
         this.elapsed = REFRESH_SECONDS;
         break;
     }
   }
 
-  private refresh(): void {
+  /** `dt`: seconds since the last refresh. */
+  private refresh(dt: number): void {
     const hud = this.hud;
     const view = this.session.host.view;
     const balance = view.registry.pack.balance;
@@ -127,7 +146,20 @@ export class HudBridge {
     this.objective = hud.objectives.update(player.objectives);
     this.updateTarget();
     this.updateTargets(hour);
+    this.updateBiome(dt);
     this.syncDeath();
+  }
+
+  /** Shows the name of a biome the living player has just entered. */
+  private updateBiome(dt: number): void {
+    const player = this.session.player;
+    if (player.survival.dead) return;
+    const view = this.session.host.view;
+    const { x, z } = player.body;
+    const here = biomeIndexAt(view.world, Math.floor(x), Math.floor(z));
+    const entered = this.biomes.update(here, dt);
+    const biome = entered < 0 ? undefined : view.gen.biomes[entered];
+    if (biome) this.hud.biome.show(t(biome.def.nameKey));
   }
 
   /** The aimed block's name and hint (nothing while dead). */
@@ -178,12 +210,17 @@ export class HudBridge {
     }
   }
 
-  /** Shows the death screen in place of the open bag, chest or station (whose gate it keeps). */
+  /**
+   * Shows the death screen in place of the open bag, chest or station, whose gate it keeps; also
+   * when the death already closed a chest or station but left the gate's screen open
+   * (InventoryUi), so Respawn captures the mouse again.
+   */
   private openDeath(): void {
-    this.holdsScreen = this.inventory.screen() !== null;
+    this.holdsScreen = this.inventory.screen() !== null || this.gate.screenIsOpen();
     this.inventory.hideScreen();
     const player = this.session.player;
-    this.hud.death.show(player.survival.cause, player.respawn !== null);
+    const pack = this.pack ?? player.graves.length > 0;
+    this.hud.death.show(player.survival.cause, player.respawn !== null, pack);
   }
 
   /** Respawn (a click: it may capture the mouse again). */

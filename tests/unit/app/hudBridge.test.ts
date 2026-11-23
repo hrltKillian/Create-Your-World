@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GameSession } from '../../../src/app/GameSession.ts';
 import { HudBridge } from '../../../src/app/HudBridge.ts';
-import { hudEffects, targetText } from '../../../src/app/hudModel.ts';
+import {
+  BIOME_SETTLE_SECONDS,
+  BiomeWatch,
+  hudEffects,
+  targetText,
+} from '../../../src/app/hudModel.ts';
 import type { InventoryUi } from '../../../src/app/inventoryUi.ts';
 import type { PlayGate } from '../../../src/app/playGate.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
@@ -11,6 +16,7 @@ import type { Command } from '../../../src/sim/commands.ts';
 import { createPlayer, type PlayerState } from '../../../src/sim/player.ts';
 import { createTime } from '../../../src/sim/time.ts';
 import type { HudEffect } from '../../../src/ui/hud/effects.ts';
+import { Column } from '../../../src/world/Column.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -80,7 +86,13 @@ describe('HUD model', () => {
   });
 });
 
-/** A play session with the local player, a gate and an inventory that record what they do. */
+/** The pack's biomes as the generation lists them (by order). */
+const biomes = [...registry.pack.biomes!].sort((p, q) => p.order - q.order).map((def) => ({ def }));
+
+/**
+ * A play session with the local player, a gate and an inventory that record what they do, over
+ * one loaded column (0, 0) whose west half (x < 16) is biome 0 and east half biome 1.
+ */
 function setup() {
   const player = createPlayer(1, 0, 65, 0, 2, b);
   const sent: Command[] = [];
@@ -91,6 +103,9 @@ function setup() {
     canOpenScreen() {
       return !this.screenOpen && this.playing;
     },
+    screenIsOpen() {
+      return this.screenOpen;
+    },
     openScreen() {
       this.screenOpen = true;
     },
@@ -98,6 +113,11 @@ function setup() {
       this.screenOpen = false;
       if (relock) this.relocks++;
     },
+  };
+  const column = new Column(0, 0);
+  for (let z = 0; z < 32; z++) for (let x = 16; x < 32; x++) column.biomes[x | (z << 5)] = 1;
+  const world = {
+    getColumn: (cx: number, cz: number) => (cx === 0 && cz === 0 ? column : undefined),
   };
   const inventory = {
     open: null as string | null,
@@ -121,7 +141,7 @@ function setup() {
     aim: { hit: { hit: false, state: 0 } },
     listeners,
     host: {
-      view: { registry, time: () => createTime() },
+      view: { registry, time: () => createTime(), world, gen: { biomes } },
       send: (command: Command) => sent.push(command),
     },
   };
@@ -139,7 +159,10 @@ function setup() {
     p.survival.dead = true;
     p.survival.cause = 'fall';
   };
-  return { bridge, player, sent, gate, inventory, listeners, layer, die };
+  const emit = (event: unknown) => {
+    for (const listener of listeners) listener(event);
+  };
+  return { bridge, player, sent, gate, inventory, listeners, layer, die, emit };
 }
 
 describe('HudBridge', () => {
@@ -198,6 +221,83 @@ describe('HudBridge', () => {
     expect(gate.screenOpen).toBe(true);
   });
 
+  it('takes the gate over from a station a death closed, so Respawn captures the mouse', () => {
+    const { bridge, player, gate, inventory, die } = setup();
+    inventory.open = 'station';
+    gate.screenOpen = true;
+    bridge.frame(0.1);
+    // The death closes the station: its view goes, the gate stays open for the death screen.
+    die(player);
+    inventory.open = null;
+    bridge.frame(0.1);
+    expect(bridge.deathOpen()).toBe(true);
+    const screen = bridge.hud.death.element as unknown as FakeElement;
+    screen.findAction('respawn')!.dispatch('click');
+    expect(gate).toMatchObject({ screenOpen: false, relocks: 1 });
+  });
+
+  it('says where the belongings wait only when the death left a pack', () => {
+    const { bridge, player, die, emit } = setup();
+    const screen = bridge.hud.death.element as unknown as FakeElement;
+    const packLine = () => screen.querySelector('.death-pack')!.hidden === false;
+    const died = (pack: boolean) =>
+      emit({ type: 'died', playerId: 1, cause: 'fall', x: 0, y: 65, z: 0, pack });
+    die(player);
+    died(false);
+    bridge.frame(0.1);
+    expect(bridge.deathOpen()).toBe(true);
+    expect(packLine()).toBe(false);
+    screen.findAction('respawn')!.dispatch('click');
+    player.survival.dead = false;
+    emit({ type: 'respawned', playerId: 1, x: 0, y: 65, z: 0 });
+    bridge.frame(0.1);
+    die(player);
+    died(true);
+    bridge.frame(0.1);
+    expect(packLine()).toBe(true);
+  });
+
+  it('opens a world saved dead with the pack line when the player has a pack', () => {
+    for (const graves of [[], [{ x: 3, y: 65, z: 3 }]]) {
+      const { bridge, player, die } = setup();
+      player.graves = graves;
+      die(player);
+      bridge.frame(0.1);
+      const screen = bridge.hud.death.element as unknown as FakeElement;
+      expect(screen.querySelector('.death-pack')!.hidden).toBe(graves.length === 0);
+    }
+  });
+
+  it('lists the items the local player picks up, by name, and lets them fade', () => {
+    const { bridge, emit } = setup();
+    const feed = bridge.hud.pickups.element as unknown as FakeElement;
+    emit({ type: 'itemPickedUp', playerId: 1, entityId: 9, item: 'item:stick', count: 2 });
+    emit({ type: 'itemPickedUp', playerId: 2, entityId: 9, item: 'item:flint', count: 1 });
+    emit({ type: 'itemPickedUp', playerId: 1, entityId: 9, item: 'item:stick', count: 1 });
+    const name = basePack.strings[registry.item('item:stick')!.nameKey];
+    expect(feed.childNodes.map((row) => (row as FakeElement).textContent)).toEqual([`+3 ${name}`]);
+    for (let i = 0; i < 60; i++) bridge.frame(0.1);
+    expect(feed.childNodes).toEqual([]);
+  });
+
+  it('names the biome the player enters once it holds, not the one they start in', () => {
+    const { bridge, player } = setup();
+    const banner = bridge.hud.biome.element as unknown as FakeElement;
+    player.body.x = 4.5;
+    bridge.frame(0.1);
+    expect(banner.classList.contains('play')).toBe(false);
+    // A step across the border and back: no banner.
+    player.body.x = 20.5;
+    bridge.frame(0.1);
+    player.body.x = 4.5;
+    bridge.frame(0.1);
+    expect(banner.classList.contains('play')).toBe(false);
+    player.body.x = 20.5;
+    for (let t = 0; t <= BIOME_SETTLE_SECONDS + 0.05; t += 0.1) bridge.frame(0.1);
+    expect(banner.classList.contains('play')).toBe(true);
+    expect(banner.textContent).toBe(basePack.strings[biomes[1]!.def.nameKey]);
+  });
+
   it('turns objectives, the clock and the night into lines and banners', () => {
     const { bridge, inventory, listeners } = setup();
     const chain = registry.pack.objectives!;
@@ -214,5 +314,21 @@ describe('HudBridge', () => {
     bridge.frame(0.1);
     const clock = bridge.hud.clock as unknown as FakeElement;
     expect(clock.textContent).toBe('07:00 · Day 1');
+  });
+});
+
+describe('BiomeWatch', () => {
+  it('takes the first biome as where the player is, and tells a new one once it held', () => {
+    const watch = new BiomeWatch();
+    expect(watch.update(-1, 0.1)).toBe(-1);
+    expect(watch.update(3, 0.1)).toBe(-1);
+    expect(watch.update(5, BIOME_SETTLE_SECONDS / 2)).toBe(-1);
+    expect(watch.update(3, 0.1)).toBe(-1);
+    expect(watch.update(5, BIOME_SETTLE_SECONDS / 2)).toBe(-1);
+    expect(watch.update(5, BIOME_SETTLE_SECONDS / 2)).toBe(5);
+    expect(watch.update(5, 10)).toBe(-1);
+    // Unloaded ground changes nothing.
+    expect(watch.update(-1, 10)).toBe(-1);
+    expect(watch.update(5, 10)).toBe(-1);
   });
 });

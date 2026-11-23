@@ -26,7 +26,8 @@ export function validateObjectives(pack: ContentPack, refs: ItemRefs, add: AddIs
     const c = objective.condition;
     const items = c.items ?? [];
     const asked = items.length + (c.stations?.length ?? 0) + (c.nights ?? 0);
-    if (asked === 0 && c.enclosed !== true) add(`${path}.condition`, 'asks for nothing');
+    if (asked === 0 && c.enclosed !== true && c.drank !== true)
+      add(`${path}.condition`, 'asks for nothing');
     items.forEach((item, j) => {
       const known = item.startsWith('tag:') ? refs.tags.has(item) : refs.items.has(item);
       if (!known) add(`${path}.condition.items[${j}]`, `no item is or carries "${item}"`);

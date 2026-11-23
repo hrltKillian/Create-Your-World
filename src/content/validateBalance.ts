@@ -45,10 +45,14 @@ export function validateBalance(pack: ContentPack, add: AddIssue): void {
   });
 }
 
+/**
+ * A heat source: whole °C of 1–127 (the thermal model only adds the strongest sources, so a cold
+ * or zero one would do nothing) over a radius the scan reaches.
+ */
 function checkHeat(heat: BlockDef['heat'], path: string, add: AddIssue): void {
   if (!heat) return;
-  if (!Number.isInteger(heat.celsius) || heat.celsius < -128 || heat.celsius > 127)
-    add(`${path}.celsius`, 'must be a whole number of °C within −128…127');
+  if (!Number.isInteger(heat.celsius) || heat.celsius < 1 || heat.celsius > 127)
+    add(`${path}.celsius`, 'must be a whole number of °C within 1…127 (heat sources only)');
   if (!Number.isInteger(heat.radius) || heat.radius < 1 || heat.radius > MAX_HEAT_RADIUS)
     add(`${path}.radius`, `must be a whole number of 1–${MAX_HEAT_RADIUS} blocks`);
 }

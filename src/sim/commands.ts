@@ -1,5 +1,5 @@
 import { INVENTORY_SLOTS } from './inventory.ts';
-import type { DeathCause } from './survival.ts';
+import type { DeathCause, Gauge } from './survival.ts';
 
 /** Commands are the only way to change simulation state (they could travel over a network). */
 export type Command =
@@ -143,15 +143,8 @@ export type DebugCommand =
       readonly state: string;
     };
 
-/** Gauges a debug.setStat may set. */
-export type DebugStat =
-  | 'stamina'
-  | 'health'
-  | 'hunger'
-  | 'thirst'
-  | 'temperature'
-  | 'toxicity'
-  | 'breath';
+/** Gauges a debug.setStat may set: stamina, or one of the survival gauges. */
+export type DebugStat = 'stamina' | Gauge;
 
 export interface StampedCommand {
   readonly playerId: number;

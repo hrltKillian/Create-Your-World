@@ -110,10 +110,12 @@ class BreathRow {
   }
 
   set(breath: number, max: number): void {
+    // Hidden at full air, even when the rounded level did not change on the last refill.
+    const full = breath >= max;
+    if (this.element.hidden !== full) this.element.hidden = full;
     const level = Math.round((breath / max) * BREATH_BUBBLES * 10) / 10;
     if (level === this.shown) return;
     this.shown = level;
-    this.element.hidden = breath >= max;
     for (let i = 0; i < BREATH_BUBBLES; i++)
       this.bubbles[i]!.style.setProperty('--fill', String(clamp01(level - i)));
   }

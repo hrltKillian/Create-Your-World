@@ -1,7 +1,6 @@
 import { FLAG_LIQUID, FLAG_SOLID } from '../../content/registry.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
-import { columnIndex, toColumn, toLocal } from '../../world/coords.ts';
 import { findBiome, type Place, spiral } from '../../world/gen/find.ts';
 import { LatticeCache, pointInfo } from '../../world/gen/sample.ts';
 import type { App } from '../App.ts';
@@ -82,9 +81,8 @@ function openGround(app: App, biome: number, near: Place): Cell | null {
   spiral(GROUND_RINGS, (dx, dz) => {
     const x = near.x + dx;
     const z = near.z + dz;
-    const column = world.getColumn(toColumn(x), toColumn(z));
-    if (!column) return false;
-    const feet = column.heightmap[columnIndex(toLocal(x), toLocal(z))]!;
+    const feet = world.heightAt(x, z);
+    if (feet < 0) return false;
     const top = world.getBlock(x, feet - 1, z);
     if ((flags[top]! & (FLAG_SOLID | FLAG_LIQUID)) !== FLAG_SOLID) return false;
     if (registry.blockDef(top).contact) return false;

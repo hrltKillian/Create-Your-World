@@ -157,9 +157,9 @@ export const strings = {
   'objective.gather.hint': 'Pull tall grass, shake leaves and search the gravel by the water',
   'objective.tools': 'Make a flint hatchet and torches',
   'objective.tools.hint': 'Open the Logbook in your bag: both are made by hand',
-  'objective.flask': 'Drink, then shape a clay flask',
+  'objective.flask': 'Drink, then make a clay flask',
   'objective.flask.hint':
-    'Hold right click on water with an empty hand; clay lies along the shores',
+    'Hold right click on water with an empty hand; shape shore clay and fire it on a campfire',
   'objective.workbench': 'Build a workbench',
   'objective.workbench.hint': 'Split logs into planks by hand, then set the bench down',
   'objective.shelter': 'Before night, a closed shelter with a campfire',

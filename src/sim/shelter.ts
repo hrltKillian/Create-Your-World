@@ -1,8 +1,10 @@
 import { FLAG_SOLID, type RawTables } from '../content/registry.ts';
 import type { ShelterBalance } from '../content/schema.ts';
-import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
+import type { Column } from '../world/Column.ts';
+import { toColumn } from '../world/coords.ts';
 import { MAX_LIGHT, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
+import { type Body, eyeHeight } from './physics.ts';
 
 /** How a player is sheltered (docs « Abri »): the air, sleep and toxicity depend on it. */
 export type Shelter = 'exposed' | 'covered' | 'enclosed';
@@ -27,10 +29,35 @@ const STEP_Z = [0, 0, 0, 0, 1, -1] as const;
 const pack = (dx: number, dy: number, dz: number) =>
   (dx + BIAS) | ((dy + BIAS) << 5) | ((dz + BIAS) << 10);
 
+/*
+ * A one-entry column cache for the flood: its cells lie within 15 blocks of the head, mostly in
+ * one column, so the column is looked up again only when the flood crosses into another one (no
+ * column key per voxel read). Reset by every test, so it never outlives a change of the world.
+ */
+let cachedCx = Number.NaN;
+let cachedCz = Number.NaN;
+let cached: Column | undefined;
+
+function columnAt(world: VoxelWorld, x: number, z: number): Column | undefined {
+  const cx = toColumn(x);
+  const cz = toColumn(z);
+  if (cx !== cachedCx || cz !== cachedCz) {
+    cachedCx = cx;
+    cachedCz = cz;
+    cached = world.getColumn(cx, cz);
+  }
+  return cached;
+}
+
 /** Air a player can pass: no collision (liquids included). Unloaded columns are walls. */
 function open(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number): boolean {
-  const state = world.getBlock(x, y, z);
+  const state = world.blockIn(columnAt(world, x, z), x, y, z);
   return (tables.flags[state]! & FLAG_SOLID) === 0 && state !== world.outside;
+}
+
+/** Whether a cell sees the open sky (sky light 15). */
+function skyAt(world: VoxelWorld, x: number, y: number, z: number): boolean {
+  return skyOf(world.lightIn(columnAt(world, x, z), x, y, z)) === MAX_LIGHT;
 }
 
 /**
@@ -48,7 +75,9 @@ export function enclosedAt(
   z: number,
   rules: ShelterBalance,
 ): boolean {
-  if (skyOf(world.getLight(x, y, z)) === MAX_LIGHT) return false;
+  cachedCx = Number.NaN;
+  cached = undefined;
+  if (skyAt(world, x, y, z)) return false;
   if (queue.length < rules.maxCells) queue = new Int32Array(rules.maxCells);
   run++;
   if (run === 0xffffffff) {
@@ -82,7 +111,7 @@ export function enclosedAt(
       // Walls are marked too, so every cell is read once.
       seen[next] = run;
       if (!open(world, tables, wx, wy, wz)) continue;
-      if (skyOf(world.getLight(wx, wy, wz)) === MAX_LIGHT || tail >= rules.maxCells) return false;
+      if (skyAt(world, wx, wy, wz) || tail >= rules.maxCells) return false;
       queue[tail++] = next;
     }
   }
@@ -91,9 +120,8 @@ export function enclosedAt(
 
 /** Whether a block stands anywhere above the head cell (the column's heightmap). */
 export function coveredAt(world: VoxelWorld, x: number, y: number, z: number): boolean {
-  const column = world.getColumn(toColumn(x), toColumn(z));
-  // The heightmap is the y above the top block.
-  return column !== undefined && column.heightmap[columnIndex(toLocal(x), toLocal(z))]! > y + 1;
+  // The heightmap is the y above the top block (−1 unloaded).
+  return world.heightAt(x, z) > y + 1;
 }
 
 /** The shelter test of docs « Abri » from the head cell: enclosed, else covered, else exposed. */
@@ -107,4 +135,19 @@ export function shelterAt(
 ): Shelter {
   if (enclosedAt(world, tables, x, y, z, rules)) return 'enclosed';
   return coveredAt(world, x, y, z) ? 'covered' : 'exposed';
+}
+
+/** The cell height of a body's head (its eyes): where the shelter is tested from. */
+export function headY(body: Readonly<Body>): number {
+  return Math.floor(body.y + eyeHeight(body));
+}
+
+/** The shelter test of docs « Abri » for a body, from its head cell. */
+export function shelterOfBody(
+  world: VoxelWorld,
+  tables: RawTables,
+  body: Readonly<Body>,
+  rules: ShelterBalance,
+): Shelter {
+  return shelterAt(world, tables, Math.floor(body.x), headY(body), Math.floor(body.z), rules);
 }

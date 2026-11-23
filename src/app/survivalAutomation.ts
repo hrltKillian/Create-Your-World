@@ -1,7 +1,6 @@
 import type { DebugStat } from '../sim/commands.ts';
 import { serializeInventory } from '../sim/inventory.ts';
-import { eyeHeight } from '../sim/physics.ts';
-import { type Shelter, shelterAt } from '../sim/shelter.ts';
+import { type Shelter, shelterOfBody } from '../sim/shelter.ts';
 import type { DeathCause } from '../sim/survival.ts';
 import type { App } from './App.ts';
 import { sendAndStep, sendNow } from './automation.ts';
@@ -41,10 +40,7 @@ export function shelterHere(app: App): Shelter | null {
   const session = app.session;
   if (!session) return null;
   const { world, registry } = session.host.view;
-  const body = session.player.body;
-  const head = Math.floor(body.y + eyeHeight(body));
-  const rules = registry.pack.balance.shelter;
-  return shelterAt(world, registry.tables, Math.floor(body.x), head, Math.floor(body.z), rules);
+  return shelterOfBody(world, registry.tables, session.player.body, registry.pack.balance.shelter);
 }
 
 /**

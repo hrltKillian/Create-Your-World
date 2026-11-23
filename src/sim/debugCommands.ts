@@ -1,5 +1,4 @@
 import {
-  columnIndex,
   columnKey,
   insideBorder,
   localIndex,
@@ -13,6 +12,7 @@ import { surfaceY } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
+import { forgetCell } from './blockRemoval.ts';
 import { finite, reject, validCell } from './commandRules.ts';
 import type { DebugCommand, DebugStat } from './commands.ts';
 import { writeBlock } from './edits.ts';
@@ -22,7 +22,7 @@ import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { DEATH_CAUSES } from './survival.ts';
+import { clampGauge, DEATH_CAUSES, GAUGES } from './survival.ts';
 import { setHour } from './time.ts';
 
 /** Largest box a debug fill may touch. */
@@ -81,36 +81,15 @@ export function applyDebugCommand(
   }
 }
 
-/** Sets a gauge, clamped to its range; false for an unknown gauge. */
+/** Sets a gauge, clamped to its range (survival.ts `clampGauge`); false for an unknown gauge. */
 function setStat(sim: Simulation, player: PlayerState, stat: DebugStat, value: number): boolean {
-  const b = sim.registry.pack.balance;
-  const s = player.survival;
-  const clamp = (max: number, min = 0) => Math.max(min, Math.min(max, value));
-  switch (stat) {
-    case 'stamina':
-      player.stamina = clamp(STAMINA.max);
-      return true;
-    case 'health':
-      s.health = clamp(b.health.max);
-      return true;
-    case 'hunger':
-      s.hunger = clamp(b.hunger.max);
-      return true;
-    case 'thirst':
-      s.thirst = clamp(b.thirst.max);
-      return true;
-    case 'temperature':
-      s.temperature = clamp(b.temperature.limit, -b.temperature.limit);
-      return true;
-    case 'toxicity':
-      s.toxicity = clamp(b.toxicity.max);
-      return true;
-    case 'breath':
-      s.breath = clamp(b.breath.seconds);
-      return true;
-    default:
-      return false;
+  if (stat === 'stamina') {
+    player.stamina = Math.max(0, Math.min(STAMINA.max, value));
+    return true;
   }
+  if (!GAUGES.includes(stat)) return false;
+  player.survival[stat] = clampGauge(stat, value, sim.registry.pack.balance);
+  return true;
 }
 
 /** Largest debug.give at once. */
@@ -136,7 +115,7 @@ function give(
 
 /**
  * Debug fill of a box of loaded blocks (heightmap and light follow, as for gameplay edits); the
- * block entities there spill what they hold.
+ * block entities there spill what they hold, and the cells are forgotten as when broken.
  */
 function fill(
   sim: Simulation,
@@ -168,8 +147,10 @@ function fill(
     for (let z = z0; z <= z1; z++) {
       if (!sim.world.getColumn(toColumn(x), toColumn(z))) continue;
       for (let y = y0; y <= y1; y++) {
+        const before = sim.world.getBlock(x, y, z);
         removeBlockEntity(sim, x, y, z);
         writeBlock(sim.world, sim.light, x, y, z, state);
+        forgetCell(sim, x, y, z, before);
       }
       written++;
     }
@@ -186,8 +167,8 @@ function teleportY(sim: Simulation, x: number, y: number | 'surface', z: number)
   if (y !== 'surface') return Math.max(1, Math.min(WORLD_HEIGHT - PHYSICS.height, y));
   const bx = Math.floor(x);
   const bz = Math.floor(z);
-  const column = sim.world.getColumn(toColumn(bx), toColumn(bz));
-  if (column) return column.heightmap[columnIndex(toLocal(bx), toLocal(bz))]!;
+  const top = sim.world.heightAt(bx, bz);
+  if (top >= 0) return top;
   const ground = surfaceY(sim.ctx, bx, bz);
   const saved = sim.edits.get(columnKey(toColumn(bx), toColumn(bz)));
   return saved ? savedSurface(saved, toLocal(bx), toLocal(bz), ground, sim.world.air) : ground;

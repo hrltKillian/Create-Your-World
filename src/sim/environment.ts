@@ -4,10 +4,10 @@ import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
 import { skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Inventory } from './inventory.ts';
-import { eyeHeight, PHYSICS } from './physics.ts';
+import { PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { type Shelter, shelterAt } from './shelter.ts';
+import { headY, type Shelter, shelterOfBody } from './shelter.ts';
 import { daylightAt, hourOf, NIGHT_DAYLIGHT } from './time.ts';
 
 /*
@@ -131,9 +131,11 @@ export function heatAround(
   const bz = Math.floor(z);
   const r = scanRadius;
   for (let cx = bx - r; cx <= bx + r; cx++) {
-    for (let cy = by - r; cy <= by + r; cy++) {
-      for (let cz = bz - r; cz <= bz + r; cz++) {
-        const state = world.getBlock(cx, cy, cz);
+    for (let cz = bz - r; cz <= bz + r; cz++) {
+      // One column lookup per block column, not per voxel.
+      const column = world.getColumn(toColumn(cx), toColumn(cz));
+      for (let cy = by - r; cy <= by + r; cy++) {
+        const state = world.blockIn(column, cx, cy, cz);
         const radius = tables.heatRadius[state]!;
         if (radius === 0) continue;
         const dx = cx + 0.5 - x;
@@ -164,9 +166,9 @@ export function inCave(
   z: number,
   depth: number,
 ): boolean {
-  const column = world.getColumn(toColumn(x), toColumn(z));
-  if (!column || skyOf(world.getLight(x, head, z)) > 0) return false;
-  return column.heightmap[columnIndex(toLocal(x), toLocal(z))]! - head >= depth;
+  const top = world.heightAt(x, z);
+  if (top < 0 || skyOf(world.getLight(x, head, z)) > 0) return false;
+  return top - head >= depth;
 }
 
 /** The biome of a loaded block column (undefined outside the loaded world). */
@@ -204,8 +206,8 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   const { registry, world } = sim;
   const b = registry.pack.balance;
   const s = player.survival;
-  const head = Math.floor(body.y + eyeHeight(body));
-  s.shelter = shelterAt(world, registry.tables, x, head, z, b.shelter);
+  const head = headY(body);
+  s.shelter = shelterOfBody(world, registry.tables, body, b.shelter);
   wornGear(registry, player.equipment, gear);
   const day = dayFactor(daylightAt(hourOf(sim.time.ticks)));
   thermal.dayC = biome.climate.dayC;
@@ -253,10 +255,13 @@ export function touch(
   const body = player.body;
   const x = Math.floor(body.x);
   const z = Math.floor(body.z);
+  // Both cells lie in one column: looked up once.
+  const column = world.getColumn(toColumn(x), toColumn(z));
   out.toxicity = 0;
   out.damage = 0;
-  addContact(registry, world.getBlock(x, Math.floor(body.y + 0.05), z), out);
-  if (body.onGround) addContact(registry, world.getBlock(x, Math.floor(body.y - 0.05), z), out);
+  addContact(registry, world.blockIn(column, x, Math.floor(body.y + 0.05), z), out);
+  if (body.onGround)
+    addContact(registry, world.blockIn(column, x, Math.floor(body.y - 0.05), z), out);
   if (out.toxicity > 0 && wornGear(registry, player.equipment, gear).waterproof) out.toxicity = 0;
 }
 

@@ -7,10 +7,13 @@ import type { PlayerState } from '../sim/player.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import type { HudEffect } from '../ui/hud/effects.ts';
 import { hintText } from '../ui/hud/hudHint.ts';
+import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
+import type { VoxelWorld } from '../world/VoxelWorld.ts';
 
 /*
  * What the HUD shows that needs the simulation's own rules (pure, so the tests read the same
- * thresholds as the game): the statuses and effects a player has, and the aimed block's line.
+ * thresholds as the game): the statuses and effects a player has, the aimed block's line and the
+ * biome the player enters.
  */
 
 /**
@@ -67,4 +70,43 @@ export function targetText(
       ? t('hud.target.sleep', { key: useKey })
       : null;
   return { name: t(block.nameKey), hint };
+}
+
+/** The biome (index in the generation's `biomes`) of a loaded block column, −1 when unloaded. */
+export function biomeIndexAt(world: VoxelWorld, x: number, z: number): number {
+  const column = world.getColumn(toColumn(x), toColumn(z));
+  return column ? column.biomes[columnIndex(toLocal(x), toLocal(z))]! : -1;
+}
+
+/** Seconds a new biome must stay under the player before its name shows (no flicker on a border). */
+export const BIOME_SETTLE_SECONDS = 1;
+
+/**
+ * Follows the biome under the player and tells when one is entered (docs « Interface »: the
+ * biome's name on entering it). The first biome found is where the player already stands; another
+ * one is entered once it has stayed under the player for BIOME_SETTLE_SECONDS.
+ */
+export class BiomeWatch {
+  private current = -1;
+  private candidate = -1;
+  private held = 0;
+
+  /** The biome under the player now (−1: unknown) after `dt` seconds; the biome entered, or −1. */
+  update(biome: number, dt: number): number {
+    if (biome < 0) return -1;
+    if (this.current < 0 || biome === this.current) {
+      this.current = biome;
+      this.candidate = -1;
+      return -1;
+    }
+    if (biome !== this.candidate) {
+      this.candidate = biome;
+      this.held = 0;
+    }
+    this.held += dt;
+    if (this.held < BIOME_SETTLE_SECONDS) return -1;
+    this.current = biome;
+    this.candidate = -1;
+    return biome;
+  }
 }

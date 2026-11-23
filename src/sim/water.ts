@@ -40,6 +40,7 @@ export function sip(sim: Simulation, player: PlayerState, liquid: number, out: S
   const l = def.liquid;
   if (!l) return;
   adjustGauges(player.survival, sim.registry.pack.balance, 0, l.thirstPerSip, 0, l.toxicityPerSip);
+  if (l.thirstPerSip > 0) player.drank = true;
   out.push({ type: 'consumed', playerId: player.playerId, item: def.key });
 }
 
