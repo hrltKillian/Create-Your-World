@@ -63,6 +63,7 @@ export const basePack: ContentPack = {
     gravel: 'block:gravel',
     tree: { log: 'block:broadleaf_log', leaves: 'block:foliage' },
     oreWall: ['block:stone', 'block:copper_ore', 'block:darkstone', 'block:ochre_sandstone'],
+    workshop: ['block:workbench', 'block:kiln', 'block:campfire', 'block:chest'],
   },
   items,
   tiers,

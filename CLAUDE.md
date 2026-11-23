@@ -165,10 +165,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
   seed, savedAt }`, last played first), `save.inspect(id?)` (records per store, the open world by
   default) and `save.wipeAll()` (deletes every world no tab holds: `{ deleted, kept }`).
 - M8 screens: `ui.screen()` also names `'container'` and `'station'` (opened by secondary on the
-  block); Logbook rows carry `data-recipe`, tabs `data-tab`, its buttons `data-action`
-  (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click cancels); the Container
-  screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31 the inventory, 32+ the
-  open chest or station: inputs, fuel, outputs).
+  block; the Bag with its Logbook stays `'bag'`); Logbook rows carry `data-recipe`, tabs `data-tab`,
+  its buttons `data-action` (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click
+  cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31
+  the inventory, 32+ the open chest or station: inputs, fuel, outputs).
+- M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
+  `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
+  a station adds `station`, `flame`, `progress`, `process`; null until a generated chest is first
+  opened), `ui.click(selector)`, `ui.drag(from, to)` (pointer events like the mouse, on `data-slot`
+  numbers) and `ui.close()`.
+- Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
+  saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
+  row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its
+  cabin door (`ARENA_DOOR`) are in `world/gen/arena.ts`; the cases find their items through the pack
+  (arena log, ore wall, gravel; the start recipe of an axe), never by content key.
 - Save checks (IndexedDB, the default storage): `?worldType=flat&fixedStep=1&selftest=m0,m7`; with
   `&forceNoIdb=1` the banner case runs instead of the IndexedDB ones. m7 drives the menus by clicks
   (`selftest/menuSteps.ts`), deletes the worlds it made and ends on the Worlds screen. The second
@@ -178,12 +188,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
   skipped in flat/arena worlds and with `?freecam`).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
-  `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`
-  and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests; `selftest/support.ts` has
-  the case type, `playerSession`, `needsFlatPlayer`/`needsGeneratedPlayer`, `standAt`, `stateKey`,
-  `PLAY_SCENES`, `SETTLE_MS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per
-  large suite (`selftest/m4.ts`, `m5.ts`, `m6.ts`, `m7.ts`), and every suite ends with
-  `noErrorsCase()`.
+  `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
+  crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
+  `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
+  `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
+  `needsGeneratedPlayer`, `needsIdb`, `standAt`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
+  `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
+  (`selftest/m4.ts` … `m8.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 

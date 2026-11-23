@@ -255,6 +255,7 @@ function validateArena(pack: ContentPack, blockKeys: ReadonlySet<string>, add: A
     ['arena.tree.log', arena.tree.log],
     ['arena.tree.leaves', arena.tree.leaves],
     ...arena.oreWall.map((key, i): [string, string] => [`arena.oreWall[${i}]`, key]),
+    ...arena.workshop.map((key, i): [string, string] => [`arena.workshop[${i}]`, key]),
   ];
   for (const [path, key] of refs) if (!blockKeys.has(key)) add(path, `unknown block "${key}"`);
 }

@@ -66,6 +66,19 @@ describe('arena world', () => {
     expect(column.heightmap[columnIndex(toLocal(9), toLocal(5))]).toBe(G + 7);
   });
 
+  it('lines up the workshop (stations and a chest, facing south) north of the spawn', () => {
+    const { block } = arenaWorld();
+    expect([-3, -2, -1, 0, 1, 2, 3].map((x) => block(x, G + 1, -3))).toEqual([
+      'block:workbench',
+      'block:air',
+      'block:kiln[facing4=s,lit=0]',
+      'block:air',
+      'block:campfire[lit=0]',
+      'block:air',
+      'block:chest[facing4=s]',
+    ]);
+  });
+
   it('spawns in the open and keeps flat ground away from the features', () => {
     const { ctx, block } = arenaWorld();
     expect(findSpawn(ctx)).toEqual({ x: 0.5, y: G + 1, z: 0.5 });

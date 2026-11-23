@@ -26,33 +26,41 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M7 — Saves and menus.** `npm run dev`: the game now opens on the main menu.
+**M8 — Items, Logbook and stations.** `npm run dev`, then open
+`http://localhost:5173/?worldType=arena&skipMenu=1`: the arena's workshop row stands just north of
+the spawn (Workbench, Clay Kiln, Campfire and Chest, left to right).
 
-- Main menu: Play (Continue once a world exists, with its name), Worlds and Settings. New world
-  asks for a name, a seed (left empty: a random one) and whether hostile creatures come (they
-  arrive in M10).
-- Worlds: a card per world (name, seed, last played) with Play, Export (a `.cyw.gz` copy kept
-  outside the browser) and Delete (asked again on the card); Import… reads an export back as a new
-  world. The line below the list tells how much of the browser's storage the saves use.
-- Esc pauses: Resume, Settings, Save & quit to menu. The world saves itself every 30 s, on pause,
-  on quit and as soon as the tab is hidden or closed (IndexedDB, through a worker), and comes back
-  as it was: edits, items on the ground, the player, the bag and the clock. If the last save of
-  Save & quit fails, the world stays open behind the pause menu, which offers Retry and Quit
-  without saving (asked again). A world already open in another tab cannot be opened (a message
-  says so).
-- Settings: render distance, field of view, mouse sensitivity, invert Y and the master, effects,
-  ambience and interface volumes, applied at once and kept in `localStorage` (`cyw.settings.v1`).
-- `?forceNoIdb=1` plays as a browser without IndexedDB: the « Saving unavailable » banner shows
-  and worlds only last until the page closes. `?skipMenu=1` boots straight into a new world,
-  `?world=<id>` into a saved one, `?storage=memory` keeps the saves in the page.
-- From the dev console: `await __game.save.now()`, `await __game.save.reload()` (save & quit, then
-  the same world again), `await __game.save.worlds()`, `await __game.save.inspect()` (records of the
-  open world per store) and `await __game.save.wipeAll()` (deletes every world no tab has open).
-- `?worldType=flat&fixedStep=1&selftest=m0,m7` runs the in-browser M7 checks in IndexedDB (a
-  world created through the menus; 3 edits, a thrown item, the player, the bag and the clock come
-  back after `save.reload()`; an export imported again has the same records; a deleted world
-  leaves no record; settings are stored); add `&forceNoIdb=1` for the banner check. They delete
-  the worlds they made. `npm run e2e` also opens one world in two tabs.
+- E or Tab opens the Bag: the silhouette with its 5 equipment slots (worn items arrive in M9), the
+  6×4 bag and the hotbar, and the Logbook: tabs, craftable recipes first, owned/required pips, the
+  station badge (« Requires: Workbench nearby » when it is not), ×1/×5/Max and a queue of 5 (click
+  an entry to cancel it: its ingredients come back). Recipes show once one of their ingredients has
+  been seen, except the few known from the start (cord, planks, sticks, flint tools, torches…).
+- Right-click a chest (« Take all », « Store all ») or a station: inputs, fuel under its flame,
+  progress, output and the processes it knows. Drag and drop, right-drag for half a stack,
+  Shift+click to send a stack across, 1–8 over a slot to swap it with the hotbar. The kiln and the
+  bloomery burn only while they work, the campfire as long as it has fuel; a full output pauses
+  them; the bloomery burns charcoal only.
+- Every tier up to iron can be made: flint tools by hand, copper ingots in the kiln, bronze (3
+  copper and 1 cassiterite make 3), iron in the bloomery. Camp and cairn chests hold loot (cairns a
+  Prowler Sinew, for bronze tools). Stations keep working out of sight (caught up when you come
+  back, up to a game day); chests and stations are saved with their column.
+- From the dev console: `__game.player.give('item:copper_ore', 4)`,
+  `__game.craft.enqueue('recipe:flint_hatchet')`, `__game.craft.queue()`,
+  `__game.container.contents(-1, 65, -3)` (the arena's kiln), `__game.ui.screen()`,
+  `__game.ui.click(selector)`, `__game.ui.drag(from, to)` (slot numbers as in `data-slot`: 0–31
+  the inventory, 32+ the open chest or station) and `__game.ui.close()`.
+- `?worldType=arena&fixedStep=1&selftest=m0,m8` runs the in-browser M8 checks: the Logbook crafts
+  the Flint Hatchet by clicks, and it breaks a log at least 1.9× faster than the hand; the kiln,
+  fed by drag and drop, smelts copper ore into an ingot; the cabin door opens, lets you in and
+  closes; a chest keeps its contents across `save.reload()` and empties with « Take all » (that
+  case needs IndexedDB, the default storage: it is skipped with `?storage=memory`). `npm run e2e`
+  runs them too.
+- From M7: the main menu (Play or Continue, Worlds with Play/Export/Delete and Import…, New world),
+  Esc to pause (Resume, Settings, Save & quit; if that last save fails, the world stays open with
+  Retry and Quit without saving), saves in IndexedDB every 30 s and on pause, quit or hide;
+  `?skipMenu=1`, `?world=<id>`, `?storage=memory`, `?forceNoIdb=1`; `__game.save.now()`,
+  `save.reload()`, `save.worlds()`, `save.inspect()`, `save.wipeAll()`;
+  `?worldType=flat&fixedStep=1&selftest=m0,m7`.
 - From M6: caves, magma and ores by biome, trees, camps and cairns; `__game.world.findBiome(key)`
   and `findStructure(key)`, then `__game.player.teleport(x, 'surface', z)`; `?view=xray`;
   `?seed=7&selftest=m6`.
@@ -61,8 +69,8 @@ Then open http://localhost:5173 in Google Chrome.
   `__game.world.light(x, y, z)` and `?view=light`.
 - From M4: hold the left button to mine, the right button places the held block (and opens
   gates), 1–8 or the wheel pick a hotbar slot, E or Tab opens the bag, G throws an item;
-  `?worldType=arena` adds a small test area, `?worldType=flat` is the endless field, `?mute=1`
-  silences the synthesized sounds.
+  `?worldType=arena` adds a small test area (a cabin, a pond, a tree, an ore wall, the workshop),
+  `?worldType=flat` is the endless field, `?mute=1` silences the synthesized sounds.
 - From M3: WASD/ZQSD to move, Space jump, Shift sprint, V first/third person, `?seed=42`, `?rd=4`,
   `?freecam=1`, `?kb=azerty`; `npm run headless -- --seed=42 --ticks=3000 --bot=wander` runs the
   simulation in plain Node (`--world=arena` for the arena).

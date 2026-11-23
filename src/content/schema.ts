@@ -246,6 +246,8 @@ export interface ArenaDef {
   readonly tree: { readonly log: BlockKey; readonly leaves: BlockKey };
   /** A wall of 2-block pillars, one per block (ores and stones of every tier). */
   readonly oreWall: readonly BlockKey[];
+  /** Stations and furniture in a row just north of the spawn (the M8 browser checks use them). */
+  readonly workshop: readonly BlockKey[];
 }
 
 export interface PackBindings {

@@ -59,13 +59,28 @@ export function noErrorsCase(name: string): SelftestCase {
 }
 
 /**
- * The player checks (m3, m4) need a player (no free camera), fixed steps (teleport, fill and
- * give then apply at once) and the flat world.
+ * The player checks need a player (no free camera), fixed steps (teleport, fill and give then
+ * apply at once) and a test world: flat (m3, m4, m5, m7) or the arena (m8).
  */
-export function needsFlatPlayer(app: App): string | null {
+function needsTestPlayer(app: App, worldType: 'flat' | 'arena'): string | null {
   if (app.params.freecam) return 'needs a player (no ?freecam)';
   if (!app.params.fixedStep) return 'needs ?fixedStep=1';
-  if (app.params.worldType !== 'flat') return 'needs ?worldType=flat';
+  if (app.params.worldType !== worldType) return `needs ?worldType=${worldType}`;
+  return null;
+}
+
+export function needsFlatPlayer(app: App): string | null {
+  return needsTestPlayer(app, 'flat');
+}
+
+export function needsArenaPlayer(app: App): string | null {
+  return needsTestPlayer(app, 'arena');
+}
+
+/** The cases that save and reload (m7, m8) need their saves in IndexedDB. */
+export function needsIdb(app: App): string | null {
+  if (app.params.storage !== 'idb') return 'needs ?storage=idb';
+  if (app.game?.backend.unavailable) return 'IndexedDB is unavailable (?forceNoIdb=1 or blocked)';
   return null;
 }
 
