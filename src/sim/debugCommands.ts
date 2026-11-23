@@ -5,8 +5,9 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { finite, reject } from './commandRules.ts';
 import type { DebugCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
+import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
-import { STAMINA } from './player.ts';
+import { type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /** Largest box a debug fill may touch. */
@@ -25,7 +26,9 @@ export function applyDebugCommand(
   }
   const player = sim.players.get(playerId);
   if (!player) return;
-  if (command.type === 'debug.teleport') {
+  if (command.type === 'debug.give') {
+    give(sim, player, command, out);
+  } else if (command.type === 'debug.teleport') {
     const y = command.y === 'surface' ? 0 : command.y;
     if (!finite(command.x, y, command.z) || !insideBorder(command.x, command.z)) {
       reject(out, playerId, command.type, 'invalid');
@@ -36,6 +39,35 @@ export function applyDebugCommand(
   } else if (command.stat === 'stamina' && finite(command.value)) {
     player.stamina = Math.max(0, Math.min(STAMINA.max, command.value));
   }
+}
+
+/** Largest debug.give at once. */
+const GIVE_LIMIT = 10_000;
+
+function give(
+  sim: Simulation,
+  player: PlayerState,
+  c: Extract<DebugCommand, { type: 'debug.give' }>,
+  out: SimEvent[],
+): void {
+  const id = sim.registry.itemId(c.item);
+  if (id < 0) {
+    reject(out, player.playerId, c.type, 'unknown item');
+    return;
+  }
+  if (!Number.isInteger(c.count) || c.count < 1 || c.count > GIVE_LIMIT) {
+    reject(out, player.playerId, c.type, 'invalid');
+    return;
+  }
+  const durability = sim.registry.itemTables.durability[id]!;
+  giveItems(
+    sim,
+    player,
+    durability > 0
+      ? { item: c.item, count: c.count, durability }
+      : { item: c.item, count: c.count },
+    out,
+  );
 }
 
 /** Debug fill of a box of loaded blocks (no light update before the light engine lands). */

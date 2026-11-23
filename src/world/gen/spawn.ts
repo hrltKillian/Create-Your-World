@@ -1,10 +1,10 @@
 import { SECTION_SIZE } from '../coords.ts';
 import { FLAT_SURFACE } from './flat.ts';
-import { type GenContext, LatticeCache, pointInfo } from './generateColumn.ts';
+import { type GenContext, isFlatWorld, LatticeCache, pointInfo } from './generateColumn.ts';
 
 /** Provisional spawn (M2–M5): nearest dry column of a spawn biome, spiralling out from the origin. */
 export function findSpawn(ctx: GenContext, maxRadius = 64): { x: number; y: number; z: number } {
-  if (ctx.worldType === 'flat') return { x: 0.5, y: FLAT_SURFACE + 1, z: 0.5 };
+  if (isFlatWorld(ctx.worldType)) return { x: 0.5, y: FLAT_SURFACE + 1, z: 0.5 };
   const cache = new LatticeCache();
   for (let r = 0; r <= maxRadius; r++) {
     for (let dz = -r; dz <= r; dz++) {

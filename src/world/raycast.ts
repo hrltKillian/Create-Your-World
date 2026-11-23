@@ -108,3 +108,16 @@ export function raycast(
   }
   return out;
 }
+
+/** Normal of each face, in the registry's face order (+x, −x, +y, −y, +z, −z), as x, y, z triples. */
+export const FACE_NORMALS: readonly number[] = [
+  1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1,
+];
+
+/** Face index of a hit normal (−1 for the null normal of a ray that starts inside a block). */
+export function faceOfNormal(nx: number, ny: number, nz: number): number {
+  if (nx !== 0) return nx > 0 ? 0 : 1;
+  if (ny !== 0) return ny > 0 ? 2 : 3;
+  if (nz !== 0) return nz > 0 ? 4 : 5;
+  return -1;
+}

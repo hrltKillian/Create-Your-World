@@ -2,6 +2,7 @@ import type { RawTables } from '../content/registry.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
 import type { SimEvent } from './events.ts';
+import { createInventory, type Inventory } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
 
 /** Stamina rules (docs/conception.md « Survie »). */
@@ -9,6 +10,7 @@ export const STAMINA = {
   max: 100,
   sprintPerSecond: 10,
   jump: 5,
+  minePerSecond: 2.5,
   regenPerSecond: 25,
   /** Ticks without spending before stamina regenerates (0.8 s). */
   regenDelayTicks: 24,
@@ -16,7 +18,35 @@ export const STAMINA = {
   recoverAt: 30,
 } as const;
 
-/** A player's entity record, serialisable plain data (creatures and item drops join later). */
+/** What a player does to the world: mining and the held use button (driven by interaction.ts). */
+export interface InteractionState {
+  /** Block being mined, valid while `mineStage` ≥ 0. */
+  mineX: number;
+  mineY: number;
+  mineZ: number;
+  /** 0…1; the block breaks at 1. */
+  mineProgress: number;
+  /** Crack stage last reported (0–7), −1 when not mining. */
+  mineStage: number;
+  /** Ticks before a held secondary button acts again. */
+  useCooldown: number;
+  /** Secondary was down last tick (gates toggle on the press only). */
+  useHeld: boolean;
+}
+
+export function createInteraction(): InteractionState {
+  return {
+    mineX: 0,
+    mineY: 0,
+    mineZ: 0,
+    mineProgress: 0,
+    mineStage: -1,
+    useCooldown: 0,
+    useHeld: false,
+  };
+}
+
+/** A player's entity record, serialisable plain data (creatures join in M10). */
 export interface PlayerState {
   readonly kind: 'player';
   /** Entity id: unique in the world and never reused. */
@@ -37,6 +67,9 @@ export interface PlayerState {
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
+  /** 32 slots: the hotbar (0–7, the selected one is `input.slot`) then the bag. */
+  inventory: Inventory;
+  interaction: InteractionState;
 }
 
 export function createPlayer(
@@ -62,6 +95,8 @@ export function createPlayer(
     restTicks: STAMINA.regenDelayTicks,
     input: NEUTRAL_INPUT,
     viewRadius,
+    inventory: createInventory(),
+    interaction: createInteraction(),
   };
 }
 

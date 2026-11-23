@@ -5,16 +5,19 @@ import { findSpawn } from '../world/gen/spawn.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
+import { TICK_SECONDS } from './clock.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import type { SimEvent } from './events.ts';
+import { stepInteraction } from './interaction.ts';
+import { applyInventoryCommand } from './inventoryCommands.ts';
+import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
 import { SpatialHash } from './spatialHash.ts';
 
-export const TICKS_PER_SECOND = 30;
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
 export const INTEGRATE_PER_TICK = 2;
 export const LOADING_FACTOR = 6;
@@ -30,15 +33,14 @@ export interface SimOptions {
   readonly allowDebug?: boolean;
 }
 
-const DT = 1 / TICKS_PER_SECOND;
-
-/** Every entity record of the world. Creatures and item drops join the union in M4 and M10. */
-export type Entity = PlayerState;
+/** Every entity record of the world (creatures join the union in M10). */
+export type Entity = PlayerState | ItemDropState;
 
 /**
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
- * the state and the tick order, and delegates column streaming, players and debug commands.
+ * the state and the tick order, and delegates column streaming, players, interaction, item drops,
+ * inventory and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -131,7 +133,7 @@ export class Simulation implements ColumnSink {
     return this.columns.backlog();
   }
 
-  /** One fixed tick (1/30 s). */
+  /** One fixed tick (1/30 s), in the order of docs/conception.md « Ordre d'un tick ». */
   step(out: SimEvent[]): void {
     this.tick++;
     this.applyCommands(out);
@@ -139,8 +141,12 @@ export class Simulation implements ColumnSink {
       const body = player.body;
       // Frozen while its column is not ready (no falling into the void).
       const active = this.columnState(blockToColumn(body.x), blockToColumn(body.z)) >= COLUMN_LIT;
-      if (stepPlayer(player, active, this.world, this.registry.tables, DT, out)) this.track(player);
+      if (!stepPlayer(player, active, this.world, this.registry.tables, TICK_SECONDS, out))
+        continue;
+      this.track(player);
+      stepInteraction(this, player, out);
     }
+    stepItemDrops(this, out);
     this.columns.integrate(INTEGRATE_PER_TICK, out);
     this.columns.stream(out);
   }
@@ -206,9 +212,17 @@ export class Simulation implements ColumnSink {
         }
         break;
       }
+      case 'inv.move':
+      case 'inv.quickMove':
+      case 'inv.drop': {
+        const player = this.players.get(playerId);
+        if (player) applyInventoryCommand(this, player, command, out);
+        break;
+      }
       case 'debug.teleport':
       case 'debug.setStat':
       case 'debug.fill':
+      case 'debug.give':
         if (this.allowDebug) applyDebugCommand(this, playerId, command, out);
         else reject(out, playerId, command.type, 'debug disabled');
         break;

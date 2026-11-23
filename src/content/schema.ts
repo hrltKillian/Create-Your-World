@@ -133,7 +133,9 @@ export type TexturePattern =
   | 'torch'
   | 'lattice'
   | 'furnaceFront'
-  | 'checker';
+  | 'checker'
+  /** Pixel art drawn from `mask` (item icons). */
+  | 'icon';
 
 /**
  * How a texture uses its alpha channel. On opaque blocks, only `tintMask` and `tintFull` faces
@@ -148,6 +150,74 @@ export interface TextureDef {
   readonly palette: readonly string[];
   readonly seed: number;
   readonly alpha?: TextureAlpha;
+  /**
+   * `icon` pattern only: rows from the top, one character per pixel: `.` is transparent and a digit
+   * is a palette index. Scaled to the pack's texture size.
+   */
+  readonly mask?: readonly string[];
+}
+
+export interface ToolDef {
+  readonly kind: ToolKind;
+  readonly tier: Tier;
+  /** Mining speed when the block wants this kind of tool (the hand is 1). */
+  readonly speed: number;
+  /** Uses before the tool breaks. */
+  readonly durability: number;
+}
+
+export interface ItemDef {
+  readonly key: ItemKey;
+  readonly nameKey: string;
+  /** Icon texture, or the block whose faces draw it. */
+  readonly icon: TexKey | { readonly block: BlockKey };
+  readonly maxStack: number;
+  readonly tags?: readonly TagKey[];
+  readonly tool?: ToolDef;
+}
+
+/** Display name of a tool tier (hint « Tool too weak: copper pickaxe required »). */
+export interface TierDef {
+  readonly tier: Tier;
+  readonly nameKey: string;
+}
+
+export interface LootEntry {
+  readonly item: ItemKey;
+  /** Inclusive range. */
+  readonly count: readonly [number, number];
+  readonly weight: number;
+}
+
+export interface LootTableDef {
+  readonly key: LootKey;
+  /** Inclusive range of entries drawn. */
+  readonly rolls: readonly [number, number];
+  readonly entries: readonly LootEntry[];
+}
+
+/** Sound effects the engine plays for gameplay actions, keyed by the block's sound material. */
+export interface SoundBindings {
+  readonly blocks: Readonly<
+    Record<SoundMaterial, { readonly break: SfxKey; readonly hit: SfxKey; readonly place: SfxKey }>
+  >;
+  readonly pickup: SfxKey;
+}
+
+/** Layout of the `arena` test world around its spawn, described with the pack's own blocks. */
+export interface ArenaDef {
+  /** Closed 5×4×5 cabin: walls, roof, a door (2 stacked blocks) and a window. */
+  readonly cabin: {
+    readonly wall: BlockKey;
+    readonly roof: BlockKey;
+    readonly door: BlockKey;
+    readonly window: BlockKey;
+  };
+  readonly pond: { readonly liquid: BlockKey; readonly shore: BlockKey };
+  readonly gravel: BlockKey;
+  readonly tree: { readonly log: BlockKey; readonly leaves: BlockKey };
+  /** A wall of 2-block pillars, one per block (ores and stones of every tier). */
+  readonly oreWall: readonly BlockKey[];
 }
 
 export interface PackBindings {
@@ -280,6 +350,12 @@ export interface ContentPack {
   /** Tint colours by tint channel ('grass', 'foliage', 'water'). */
   readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
   readonly devScene?: DevSceneDef;
+  readonly arena?: ArenaDef;
+  /** Items besides the implicit ones (every block that drops itself has an item of the same name). */
+  readonly items?: readonly ItemDef[];
+  readonly tiers?: readonly TierDef[];
+  readonly loot?: readonly LootTableDef[];
+  readonly sounds?: SoundBindings;
   readonly worldgen?: WorldgenDef;
   readonly biomes?: readonly BiomeDef[];
   readonly features?: readonly TreeFeatureDef[];

@@ -8,16 +8,16 @@ import { EntityView } from '../render/EntityView.ts';
 import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
+import { TICK_SECONDS } from '../sim/clock.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
-import { INTEGRATE_PER_TICK, LOADING_FACTOR, TICKS_PER_SECOND } from '../sim/Simulation.ts';
+import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
 import { blockToColumn, SECTION_SIZE, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { FreeCam } from './FreeCam.ts';
 
-const TICK = 1 / TICKS_PER_SECOND;
 const MAX_STEPS = 4;
 /** Closest third-person camera distance (m) at which the avatar is still drawn. */
 const AVATAR_MIN_DISTANCE = 0.6;
@@ -128,9 +128,9 @@ export class GameSession {
     if (!this.paused && !this.fixedStep) {
       this.acc += dt;
       let steps = 0;
-      while (this.acc >= TICK && steps < MAX_STEPS) {
+      while (this.acc >= TICK_SECONDS && steps < MAX_STEPS) {
         this.tick();
-        this.acc -= TICK;
+        this.acc -= TICK_SECONDS;
         steps++;
       }
       if (steps === MAX_STEPS) this.acc = 0;
@@ -210,7 +210,7 @@ export class GameSession {
 
   private render(dt: number): CameraPose {
     if (this.freecam) return this.freecam.pose;
-    const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK);
+    const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK_SECONDS);
     const pose = this.rig.update(
       this.player,
       alpha,

@@ -1,0 +1,209 @@
+import { describe, expect, it } from 'vitest';
+import { clampPitch } from '../../../src/core/angles.ts';
+import type { ClientTarget, InputCommand } from '../../../src/sim/commands.ts';
+import type { SimEvent } from '../../../src/sim/events.ts';
+import { countItem } from '../../../src/sim/inventory.ts';
+import { breakSeconds, canHarvest } from '../../../src/sim/mining.ts';
+import { registry } from '../../helpers/registry.ts';
+import { createTestSim } from '../../helpers/simHarness.ts';
+
+/** A flat world (grass at y 64) with the player standing at (0.5, 65, 0.5), looking north. */
+function setup() {
+  const harness = createTestSim({ seed: 'mine', worldType: 'flat', allowDebug: true });
+  const player = harness.sim.addPlayer(1, 2);
+  harness.step(60);
+  harness.events.length = 0;
+  const { host, sim } = harness;
+  return {
+    ...harness,
+    player,
+    block: (x: number, y: number, z: number) => registry.states[sim.world.getBlock(x, y, z)]!.key,
+    put: (x: number, y: number, z: number, state: string) =>
+      host.send({ type: 'debug.fill', x0: x, y0: y, z0: z, x1: x, y1: y, z1: z, state }),
+    give: (item: string, count = 1) => host.send({ type: 'debug.give', item, count }),
+  };
+}
+
+const of = <T extends SimEvent['type']>(events: SimEvent[], type: T) =>
+  events.filter((e): e is Extract<SimEvent, { type: T }> => e.type === type);
+const reasons = (events: SimEvent[]) => of(events, 'rejected').map((e) => e.reason);
+
+/** Holds primary on a block until it breaks; returns the ticks it took. */
+function ticksToBreak(s: ReturnType<typeof setup>, input: Partial<InputCommand> = {}): number {
+  s.events.length = 0;
+  for (let tick = 1; tick <= 400; tick++) {
+    s.tick(1, { primary: true, ...input });
+    if (of(s.events, 'blockBroken').length > 0) return tick;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+describe('mining', () => {
+  it('breaks dirt in 0.75 s by hand and picks up its item', () => {
+    const s = setup();
+    s.put(0, 66, -1, 'block:dirt');
+    expect(ticksToBreak(s)).toBe(Math.ceil(0.75 * 30));
+    expect(s.block(0, 66, -1)).toBe('block:air');
+    expect(countItem(s.player.inventory, 'item:dirt')).toBe(1);
+    const events = s.events.map((e) => e.type);
+    expect(events).toContain('itemPickedUp');
+    expect(events).toContain('inventoryChanged');
+    expect(of(s.events, 'sound').map((e) => e.sfx)).toContain('sfx:break_soil');
+    expect(of(s.events, 'mineProgress').at(-1)?.stage).toBe(-1);
+  });
+
+  it('breaks a log in 3 s by hand and 1.5 s with the flint hatchet, which wears', () => {
+    const s = setup();
+    s.put(0, 66, -1, 'block:broadleaf_log[axis=y]');
+    expect(ticksToBreak(s)).toBe(3 * 30);
+    // The log went to slot 0: the hatchet goes to slot 1.
+    s.give('item:flint_hatchet');
+    s.put(0, 66, -1, 'block:broadleaf_log[axis=y]');
+    expect(ticksToBreak(s, { slot: 1 })).toBe(1.5 * 30);
+    expect(s.player.inventory[1]).toEqual({ item: 'item:flint_hatchet', count: 1, durability: 59 });
+  });
+
+  it('gives nothing for stone by hand, and stone with a flint pickaxe', () => {
+    const s = setup();
+    const stone = registry.defaultState('block:stone');
+    expect(canHarvest(registry, stone, -1)).toBe(false);
+    expect(breakSeconds(registry, stone, -1, false)).toBeCloseTo(1.5 * 1.5 * 3.3, 9);
+    s.put(0, 66, -1, 'block:stone');
+    expect(ticksToBreak(s)).toBe(Math.ceil(1.5 * 1.5 * 3.3 * 30));
+    s.step(5);
+    expect([...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop')).toHaveLength(0);
+    expect(countItem(s.player.inventory, 'item:stone')).toBe(0);
+    s.give('item:flint_pickaxe');
+    s.put(0, 66, -1, 'block:stone');
+    expect(ticksToBreak(s)).toBe(Math.ceil(((1.5 * 1.5) / 2) * 30));
+    expect(countItem(s.player.inventory, 'item:stone')).toBe(1);
+  });
+
+  it('wears a tool twice as fast on the wrong block and slows down when exhausted', () => {
+    const s = setup();
+    const dirt = registry.defaultState('block:dirt');
+    const pickaxe = registry.itemId('item:flint_pickaxe');
+    expect(breakSeconds(registry, dirt, pickaxe, true)).toBeCloseTo(0.75 / 0.6, 9);
+    s.give('item:flint_pickaxe');
+    s.put(0, 66, -1, 'block:dirt');
+    ticksToBreak(s);
+    expect(s.player.inventory[0]?.durability).toBe(58);
+  });
+
+  it('starts over when the target changes and spends stamina', () => {
+    const s = setup();
+    s.put(0, 66, -1, 'block:dirt');
+    s.put(1, 66, -1, 'block:dirt');
+    s.tick(15, { primary: true });
+    expect(s.player.stamina).toBeLessThan(100);
+    s.events.length = 0;
+    // Aim at the other block (to the north-east): mining restarts there.
+    s.tick(1, { primary: true, yaw: -1 });
+    expect(of(s.events, 'mineProgress').map((e) => [e.x, e.stage])).toEqual([
+      [0, -1],
+      [1, 0],
+    ]);
+    expect(s.player.interaction.mineProgress).toBeCloseTo(1 / 22.5, 9);
+    s.tick(1, { primary: false });
+    expect(of(s.events, 'mineProgress').at(-1)?.stage).toBe(-1);
+  });
+
+  it('digs the grass under the feet in 60 ticks: one dirt, air below (M4 flat-world check)', () => {
+    const s = setup();
+    s.tick(60, { primary: true, pitch: clampPitch(-Math.PI / 2) });
+    expect(s.block(0, 64, 0)).toBe('block:air');
+    expect(s.block(0, 63, 0)).toBe('block:dirt');
+    expect(countItem(s.player.inventory, 'item:dirt')).toBe(1);
+  });
+
+  it('pops the torch standing on a broken block', () => {
+    const s = setup();
+    s.put(0, 66, -1, 'block:dirt');
+    s.put(0, 67, -1, 'block:torch');
+    ticksToBreak(s);
+    expect(s.block(0, 67, -1)).toBe('block:air');
+    expect(countItem(s.player.inventory, 'item:torch')).toBe(1);
+  });
+});
+
+describe('placement', () => {
+  const ground: ClientTarget = { x: 0, y: 64, z: -2, face: 2 };
+
+  it('places the held block on the aimed face, with sound and events', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    s.tick(1, { secondary: true, target: ground });
+    expect(s.block(0, 65, -2)).toBe('block:dirt');
+    expect(of(s.events, 'blockPlaced')).toHaveLength(1);
+    expect(of(s.events, 'sound').map((e) => e.sfx)).toContain('sfx:place_soil');
+    expect(countItem(s.player.inventory, 'item:dirt')).toBe(4);
+    expect(s.sim.world.getColumn(0, -1)!.heightmap[0 | (30 << 5)]).toBe(66);
+  });
+
+  it('refuses occupied cells, out-of-reach targets and unsupported blocks', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    s.give('item:torch');
+    // Looking down in front: the first block goes in, the next would be inside the player.
+    s.tick(7, { secondary: true, pitch: -Math.PI / 3 });
+    expect(of(s.events, 'blockPlaced')).toHaveLength(1);
+    expect(reasons(s.events)).toEqual(['occupied']);
+    s.events.length = 0;
+    s.tick(1, { secondary: false });
+    s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -10, face: 2 } });
+    expect(reasons(s.events)).toEqual(['reach']);
+    s.events.length = 0;
+    s.put(0, 66, -3, 'block:stone');
+    s.tick(1, { secondary: false, slot: 1 });
+    s.tick(1, { secondary: true, slot: 1, target: { x: 0, y: 66, z: -3, face: 4 } });
+    expect(reasons(s.events)).toEqual(['support']);
+    expect(s.block(0, 66, -2)).toBe('block:air');
+  });
+
+  it('repeats every 6 ticks while held', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    s.tick(13, { secondary: true, pitch: -Math.PI / 3 });
+    // Placed at tick 1; tries again at ticks 7 and 13 (the cell is now inside the player).
+    expect(of(s.events, 'blockPlaced')).toHaveLength(1);
+    expect(reasons(s.events)).toEqual(['occupied', 'occupied']);
+  });
+
+  it('orients logs along the face and gates towards the player', () => {
+    const s = setup();
+    s.give('item:broadleaf_log');
+    s.give('item:gate');
+    s.put(0, 66, -3, 'block:stone');
+    s.tick(1, { secondary: true, target: { x: 0, y: 66, z: -3, face: 4 } });
+    expect(s.block(0, 66, -2)).toBe('block:broadleaf_log[axis=z]');
+    s.tick(1, { secondary: false, slot: 1 });
+    s.tick(1, { secondary: true, slot: 1, target: { x: 1, y: 64, z: -2, face: 2 } });
+    expect(s.block(1, 65, -2)).toBe('block:gate[facing4=s,open=0]');
+  });
+
+  it('toggles a gate on the press only, and places against it when crouching', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    s.put(0, 65, -2, 'block:gate[facing4=s,open=0]');
+    const gate: ClientTarget = { x: 0, y: 65, z: -2, face: 4 };
+    s.tick(13, { secondary: true, target: gate });
+    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=1]');
+    s.tick(1, { secondary: false, target: gate });
+    s.tick(1, { secondary: true, target: gate });
+    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=0]');
+    expect(countItem(s.player.inventory, 'item:dirt')).toBe(5);
+    s.tick(1, { secondary: false, target: gate });
+    s.tick(1, { secondary: true, crouch: true, target: gate });
+    expect(s.block(0, 65, -1)).toBe('block:dirt');
+  });
+
+  it('falls back to its own ray when the client target is hidden', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    s.put(0, 66, -1, 'block:stone');
+    // The target behind the stone is not in line of sight: the stone in view is used instead.
+    s.tick(1, { secondary: true, target: { x: 0, y: 66, z: -3, face: 4 } });
+    expect(s.block(0, 66, 0)).toBe('block:air'); // would be inside the player: refused
+    expect(reasons(s.events)).toEqual(['occupied']);
+  });
+});

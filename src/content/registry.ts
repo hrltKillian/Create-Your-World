@@ -1,11 +1,15 @@
 import { combinations, effective, internBoxes, stateKey } from './blockStates.ts';
+import { buildItemTables, type ItemTables, packItems } from './items.ts';
 import type {
   BlockDef,
   BlockKey,
   BlockShape,
   Box16,
   ContentPack,
+  ItemDef,
+  LootTableDef,
   RenderPass,
+  SfxKey,
   StateProp,
   TexKey,
 } from './schema.ts';
@@ -108,8 +112,13 @@ export class Registry {
   readonly textureKeys: readonly TexKey[];
   readonly air: number;
   readonly unknownBlock: number;
+  /** Items by numeric id: the implicit block items, then the pack's items. */
+  readonly items: readonly ItemDef[];
+  readonly itemTables: ItemTables;
   private readonly blockIndex: ReadonlyMap<string, number>;
   private readonly stateIndex: ReadonlyMap<string, number>;
+  private readonly itemIndex: ReadonlyMap<string, number>;
+  private readonly lootIndex: ReadonlyMap<string, LootTableDef>;
   private readonly defaults: Uint16Array;
 
   constructor(
@@ -129,6 +138,10 @@ export class Registry {
     this.defaults = defaults;
     this.air = this.defaultState(pack.manifest.bindings.air);
     this.unknownBlock = this.defaultState(pack.manifest.bindings.unknownBlock);
+    this.items = packItems(pack);
+    this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
+    this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));
+    this.lootIndex = new Map((pack.loot ?? []).map((table) => [table.key, table]));
   }
 
   blockDef(stateId: number): BlockDef {
@@ -158,6 +171,26 @@ export class Registry {
 
   prop(stateId: number, prop: StateProp): string | undefined {
     return this.states[stateId]?.props[prop];
+  }
+
+  /** Numeric id of an item key, −1 if the pack has no such item. */
+  itemId(key: string): number {
+    return this.itemIndex.get(key) ?? -1;
+  }
+
+  /** Largest stack of an item (1 for unknown items). */
+  maxStack(key: string): number {
+    const id = this.itemId(key);
+    return id < 0 ? 1 : this.itemTables.maxStack[id]!;
+  }
+
+  loot(key: string): LootTableDef | undefined {
+    return this.lootIndex.get(key);
+  }
+
+  /** Sound of a gameplay action on a block, from its sound material (none without bindings). */
+  blockSfx(stateId: number, action: 'break' | 'hit' | 'place'): SfxKey | undefined {
+    return this.pack.sounds?.blocks[this.blockDef(stateId).sound][action];
   }
 
   /** Same block with one state property changed. */

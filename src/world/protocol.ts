@@ -1,3 +1,5 @@
+import type { WorldType } from './gen/generateColumn.ts';
+
 /**
  * Messages and job types exchanged between the main thread and world workers. Shared by
  * `platform/WorkerPool` (main thread), `workers/runtime` (worker side) and the pure job handlers.
@@ -15,7 +17,7 @@ export type JobPriority = 'urgent' | 'normal';
 export interface GenJob {
   readonly kind: 'gen';
   readonly seed: string;
-  readonly worldType: 'default' | 'flat';
+  readonly worldType: WorldType;
   readonly cx: number;
   readonly cz: number;
 }

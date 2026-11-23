@@ -57,7 +57,7 @@ function set(index: number, kind = SOLID): Pixel {
 
 type PatternFn = (seed: number, n: number, x: number, y: number, size: number) => Pixel;
 
-const PATTERNS: Readonly<Record<TexturePattern, PatternFn>> = {
+const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon'>, PatternFn>> = {
   speckle: (seed, n, x, y, size) => {
     const v = 0.65 * tileNoise(seed, x, y, size, 4) + 0.35 * hashUnit(seed, x, y);
     return set(pick(v + dither(x, y) * 0.35, 0, n));
@@ -186,15 +186,24 @@ const PATTERNS: Readonly<Record<TexturePattern, PatternFn>> = {
   checker: (_seed, n, x, y) => set(((x >> 2) + (y >> 2)) % 2 === 0 ? 0 : Math.min(1, n - 1)),
 };
 
+/** Pixel of an icon mask (rows from the top, scaled to the texture size). */
+function maskPixel(mask: readonly string[], x: number, y: number, size: number): Pixel {
+  const row = mask[Math.floor(((size - 1 - y) * mask.length) / size)] ?? '';
+  const ch = row[Math.floor((x * row.length) / size)] ?? '.';
+  return ch === '.' ? set(0, HOLE) : set(Number(ch));
+}
+
 /** Generates one pack texture as RGBA bytes, applying the texture's alpha convention. */
 export function generatePackTexture(def: TextureDef, size: number): Uint8Array {
   const colors = def.palette.map(parseHex);
   const out = new Uint8Array(size * size * 4);
-  const fn = PATTERNS[def.pattern];
   const alpha = def.alpha ?? 'opaque';
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const p = fn(def.seed, colors.length, x, y, size);
+      const p =
+        def.pattern === 'icon'
+          ? maskPixel(def.mask ?? [], x, y, size)
+          : PATTERNS[def.pattern](def.seed, colors.length, x, y, size);
       const color = colors[Math.min(colors.length - 1, Math.max(0, p.index))]!;
       const o = (y * size + x) * 4;
       out[o] = color[0];

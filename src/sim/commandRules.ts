@@ -1,7 +1,8 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
 import { insideBorder } from '../world/coords.ts';
-import type { Command, InputCommand } from './commands.ts';
+import type { ClientTarget, Command, InputCommand, InventoryCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
+import { INVENTORY_SLOTS } from './inventory.ts';
 
 /** Rejects non-finite numbers and out-of-range axes or slots (commands may come from a network). */
 export function validInput(c: InputCommand): boolean {
@@ -15,8 +16,42 @@ export function validInput(c: InputCommand): boolean {
     Math.abs(c.pitch) <= Math.PI / 2 &&
     Number.isInteger(c.slot) &&
     c.slot >= 0 &&
-    c.slot < HOTBAR_SLOTS
+    c.slot < HOTBAR_SLOTS &&
+    (c.target === undefined || validTarget(c.target))
   );
+}
+
+/** A client target names a whole block cell inside the world border and a face 0–5. */
+function validTarget(t: ClientTarget | null): boolean {
+  return (
+    typeof t === 'object' &&
+    t !== null &&
+    Number.isInteger(t.x) &&
+    Number.isInteger(t.y) &&
+    Number.isInteger(t.z) &&
+    insideBorder(t.x, t.z) &&
+    Number.isInteger(t.face) &&
+    t.face >= 0 &&
+    t.face <= 5
+  );
+}
+
+const slotOk = (slot: number) => Number.isInteger(slot) && slot >= 0 && slot < INVENTORY_SLOTS;
+
+/** Shape and ranges of an inventory command (slots, counts): commands may come from a network. */
+export function validInventoryCommand(c: InventoryCommand): boolean {
+  switch (c.type) {
+    case 'inv.move':
+      return (
+        slotOk(c.from) &&
+        slotOk(c.to) &&
+        (c.count === undefined || (Number.isInteger(c.count) && c.count >= 1))
+      );
+    case 'inv.quickMove':
+      return slotOk(c.slot);
+    case 'inv.drop':
+      return slotOk(c.slot) && typeof c.all === 'boolean';
+  }
 }
 
 /** A view centre must be finite and inside the world border. */
