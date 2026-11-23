@@ -70,6 +70,7 @@ describe('death', () => {
     expect(totals(pack.slots)['item:fur_coat']).toBeUndefined();
     expect(s.player.graves).toEqual([FEET]);
     expect(s.player.survival.dead).toBe(true);
+    expect(s.player.survival.packLeft).toBe(true);
     expect(eventsOf(events, 'died')).toEqual([
       { type: 'died', playerId: 1, cause: '', ...FEET, pack: true },
     ]);
@@ -216,6 +217,18 @@ describe('death', () => {
     expect(s.block(FEET.x, FEET.y, FEET.z)).toBe('block:air');
   });
 
+  it('remembers that the last death left no pack, though an older one waits', () => {
+    const s = playerTestSim({ seed: 'death-older-pack' });
+    s.give('item:dirt', 5);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(s.player.survival.packLeft).toBe(true);
+    s.send({ type: 'player.respawn' });
+    expect(s.player.survival.packLeft).toBe(false);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(s.player.graves).toEqual([FEET]);
+    expect(s.player.survival.packLeft).toBe(false);
+  });
+
   it('stacks a second pack above the first when dying on the same spot', () => {
     const s = playerTestSim({ seed: 'two-deaths' });
     s.give('item:dirt', 5);
@@ -244,6 +257,7 @@ describe('death saves', () => {
     expect(player.graves).toEqual([FEET]);
     expect(player.respawn).toEqual({ x: 3, y: 65, z: 3 });
     expect(player.survival.dead).toBe(true);
+    expect(player.survival.packLeft).toBe(true);
     const restored = resumed.sim.blockEntities.get(cellKey(FEET.x, FEET.y, FEET.z))!;
     expect(blockEntityRecord(restored)).toEqual(blockEntityRecord(pack));
     expect(persistentHash(resumed.sim)).toBe(persistentHash(s.sim));

@@ -12,7 +12,7 @@ import type { HudEffect } from '../ui/hud/effects.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
 import type { GameSession } from './GameSession.ts';
-import { BiomeWatch, biomeIndexAt, hudEffects, targetText } from './hudModel.ts';
+import { BiomeWatch, hudEffects, targetText } from './hudModel.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import type { PlayGate } from './playGate.ts';
 
@@ -39,11 +39,6 @@ export class HudBridge {
   private holdsScreen = false;
   /** Respawn was clicked: the screen stays shut while the simulation brings the player back. */
   private waking = false;
-  /**
-   * Whether the last death left an Abandoned Pack (its `died` event); null when none was seen
-   * (a world saved dead: the player's packs tell).
-   */
-  private pack: boolean | null = null;
   private readonly biomes = new BiomeWatch();
   private readonly effects: HudEffect[] = [];
   private readonly levels: Record<Vignette, number> = {
@@ -119,11 +114,7 @@ export class HudBridge {
         break;
       }
       case 'died':
-        this.pack = event.pack;
-        this.elapsed = REFRESH_SECONDS;
-        break;
       case 'respawned':
-        this.pack = null;
         this.elapsed = REFRESH_SECONDS;
         break;
     }
@@ -156,7 +147,7 @@ export class HudBridge {
     if (player.survival.dead) return;
     const view = this.session.host.view;
     const { x, z } = player.body;
-    const here = biomeIndexAt(view.world, Math.floor(x), Math.floor(z));
+    const here = view.world.biomeAt(Math.floor(x), Math.floor(z));
     const entered = this.biomes.update(here, dt);
     const biome = entered < 0 ? undefined : view.gen.biomes[entered];
     if (biome) this.hud.biome.show(t(biome.def.nameKey));
@@ -218,9 +209,8 @@ export class HudBridge {
   private openDeath(): void {
     this.holdsScreen = this.inventory.screen() !== null || this.gate.screenIsOpen();
     this.inventory.hideScreen();
-    const player = this.session.player;
-    const pack = this.pack ?? player.graves.length > 0;
-    this.hud.death.show(player.survival.cause, player.respawn !== null, pack);
+    const { survival, respawn } = this.session.player;
+    this.hud.death.show(survival.cause, respawn !== null, survival.packLeft);
   }
 
   /** Respawn (a click: it may capture the mouse again). */

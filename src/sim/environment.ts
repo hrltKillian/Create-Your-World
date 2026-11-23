@@ -1,6 +1,6 @@
 import type { RawTables, Registry } from '../content/registry.ts';
 import type { BalanceDef, BiomeDef, ClimateBalance } from '../content/schema.ts';
-import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
+import { toColumn } from '../world/coords.ts';
 import { skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Inventory } from './inventory.ts';
@@ -173,9 +173,8 @@ export function inCave(
 
 /** The biome of a loaded block column (undefined outside the loaded world). */
 export function biomeAt(sim: Simulation, x: number, z: number): BiomeDef | undefined {
-  const column = sim.world.getColumn(toColumn(x), toColumn(z));
-  if (!column) return undefined;
-  return sim.ctx.biomeDefs[column.biomes[columnIndex(toLocal(x), toLocal(z))]!];
+  const index = sim.world.biomeAt(x, z);
+  return index < 0 ? undefined : sim.ctx.biomeDefs[index];
 }
 
 const thermal: ThermalInput = {

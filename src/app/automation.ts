@@ -257,15 +257,17 @@ export function craftQueue(app: App): QueueView[] | null {
 }
 
 /**
- * What the block entity of a cell holds: a chest's slots, or a station's (inputs, fuel, outputs)
- * with its flame, progress and process. Null when the cell has none (a generated chest gets one
- * when it is first opened).
+ * What the block entity of a cell holds: a chest's slots, an Abandoned Pack's slots and worn items
+ * (`worn`, head to feet), or a station's (inputs, fuel, outputs) with its flame, progress and
+ * process. Null when the cell has none (a generated chest gets one when it is first opened).
  */
 export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const view = app.session?.host.view;
   const entity = view?.blockEntity(Math.floor(x), Math.floor(y), Math.floor(z));
   if (!view || !entity) return null;
   const slots = serializeInventory(entity.slots);
+  if (entity.kind === 'grave')
+    return { kind: entity.kind, slots, worn: serializeInventory(entity.worn) };
   if (entity.kind !== 'station') return { kind: entity.kind, slots };
   return {
     kind: entity.kind,

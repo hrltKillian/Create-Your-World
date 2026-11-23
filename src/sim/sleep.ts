@@ -47,10 +47,10 @@ export function sleepOn(
     return;
   }
   player.sleeping = { x, y, z, health: player.survival.health };
-  // The shelter is sampled again this tick, before the sleepers are checked (stepSleep).
+  // The shelter is sampled again this tick, before the sleepers are checked: stepSleep alone ends
+  // the night, once the other sleepers' commands of this tick have been applied too.
   player.survival.sampleTicks = 1;
-  if (allPlayersSleeping(sim)) wake(sim, out);
-  else hint(SLEEP_WAIT_HINT);
+  if (!allPlayersSleeping(sim)) hint(SLEEP_WAIT_HINT);
 }
 
 /** Whether a player takes part in the sleep rule: alive and in a lit column. */

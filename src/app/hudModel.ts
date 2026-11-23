@@ -7,8 +7,6 @@ import type { PlayerState } from '../sim/player.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import type { HudEffect } from '../ui/hud/effects.ts';
 import { hintText } from '../ui/hud/hudHint.ts';
-import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
-import type { VoxelWorld } from '../world/VoxelWorld.ts';
 
 /*
  * What the HUD shows that needs the simulation's own rules (pure, so the tests read the same
@@ -70,12 +68,6 @@ export function targetText(
       ? t('hud.target.sleep', { key: useKey })
       : null;
   return { name: t(block.nameKey), hint };
-}
-
-/** The biome (index in the generation's `biomes`) of a loaded block column, −1 when unloaded. */
-export function biomeIndexAt(world: VoxelWorld, x: number, z: number): number {
-  const column = world.getColumn(toColumn(x), toColumn(z));
-  return column ? column.biomes[columnIndex(toLocal(x), toLocal(z))]! : -1;
 }
 
 /** Seconds a new biome must stay under the player before its name shows (no flicker on a border). */

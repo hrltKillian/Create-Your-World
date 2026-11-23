@@ -33,8 +33,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     player: (record) => ({ ...record, equipment: [], respawn: null, graves: [], objectives: [] }),
     column: (record) => record,
   },
-  // 3 → 4 (M9 review): players remember having drunk (objectives); an Abandoned Pack keeps the
-  // worn items apart, so an older one's are all among its slots and none is worn.
+  // 3 → 4 (M9 review): players remember having drunk (objectives) and whether their last death
+  // left a pack (`survival.packLeft`, read as false when absent); an Abandoned Pack keeps the worn
+  // items apart, so an older one's are all among its slots and none is worn.
   {
     world: (record) => record,
     player: (record) => ({ ...record, drank: false }),

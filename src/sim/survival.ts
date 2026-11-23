@@ -62,6 +62,8 @@ export interface SurvivalState {
   cause: DeathCause | '';
   /** The death was handled (sim/death.ts): the pack is left, the player waits to respawn. */
   dead: boolean;
+  /** The last death left an Abandoned Pack (the death screen says so; false after a respawn). */
+  packLeft: boolean;
   /** Takes no damage (`debug.god`); the gauges still move. */
   god: boolean;
   effects: TimedEffect[];
@@ -88,6 +90,7 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     staminaSpent: 0,
     cause: '',
     dead: false,
+    packLeft: false,
     god: false,
     effects: [],
     shelter: 'exposed',

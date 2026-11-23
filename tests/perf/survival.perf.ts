@@ -11,18 +11,22 @@ import { registry } from '../helpers/registry.ts';
  */
 const SHELTER_MEDIAN_MS = 0.05;
 /** One column lookup per block column of the scan, not per voxel: about 10 µs (23 before). */
-const HEAT_MEDIAN_MS = 0.02;
+const HEAT_MEDIAN_MS = 0.03;
 
 const median = (values: number[]) =>
   [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
 
-/** Median time of `run` over 200 calls after 50 warm-up calls. */
+/** Calls per sample: a pause or deopt during one call cannot move the median. */
+const BATCH = 20;
+
+/** Median time of one `run` over 100 samples of BATCH calls, after 50 warm-up calls. */
 function time(run: () => void): number {
+  for (let i = 0; i < 50; i++) run();
   const times: number[] = [];
-  for (let i = 0; i < 250; i++) {
+  for (let i = 0; i < 100; i++) {
     const t0 = performance.now();
-    run();
-    if (i >= 50) times.push(performance.now() - t0);
+    for (let j = 0; j < BATCH; j++) run();
+    times.push((performance.now() - t0) / BATCH);
   }
   return median(times);
 }

@@ -45,6 +45,7 @@ function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const any = stacks.length > 0 || worn.some((stack) => stack !== null);
   const b = player.body;
   const cell = any ? leavePack(sim, b.x, b.y, b.z, stacks, worn, out) : null;
+  player.survival.packLeft = cell !== null;
   if (cell) player.graves.push(cell);
   else
     for (const stack of [...stacks, ...worn]) if (stack) spawnDrop(sim, stack, b.x, b.y + 0.5, b.z);

@@ -2,7 +2,6 @@ import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
 import { t } from '../i18n/i18n.ts';
 import { daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
 import type { DebugLine } from '../ui/debug/DebugOverlay.ts';
-import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
 import type { App } from './App.ts';
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
@@ -43,10 +42,7 @@ function worldLines(app: App, x: number, z: number): DebugLine[] {
   if (!session || !world) return [];
   const bx = Math.floor(x);
   const bz = Math.floor(z);
-  const column = world.getColumn(toColumn(bx), toColumn(bz));
-  const biome = column
-    ? session.host.view.gen.biomes[column.biomes[columnIndex(toLocal(bx), toLocal(bz))]!]
-    : undefined;
+  const biome = session.host.view.gen.biomes[world.biomeAt(bx, bz)];
   const mesh = session.scheduler.stats();
   const pool = app.workers?.stats();
   const time = session.host.view.time();

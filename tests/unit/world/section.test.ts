@@ -64,6 +64,15 @@ describe('section storage', () => {
     // An unloaded column has no height.
     expect(world.heightAt(400, 0)).toBe(-1);
   });
+
+  it('reads the biome of a loaded block column, −1 when unloaded', () => {
+    const world = new VoxelWorld(0, 99);
+    world.setBlock(-1, 70, -33, 7);
+    world.getColumn(-1, -2)!.biomes[31 | (31 << 5)] = 4;
+    expect(world.biomeAt(-1, -33)).toBe(4);
+    expect(world.biomeAt(-2, -33)).toBe(0);
+    expect(world.biomeAt(400, 0)).toBe(-1);
+  });
 });
 
 describe('column slots', () => {

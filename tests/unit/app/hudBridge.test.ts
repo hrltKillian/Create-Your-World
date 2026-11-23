@@ -16,7 +16,7 @@ import type { Command } from '../../../src/sim/commands.ts';
 import { createPlayer, type PlayerState } from '../../../src/sim/player.ts';
 import { createTime } from '../../../src/sim/time.ts';
 import type { HudEffect } from '../../../src/ui/hud/effects.ts';
-import { Column } from '../../../src/world/Column.ts';
+import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -114,11 +114,11 @@ function setup() {
       if (relock) this.relocks++;
     },
   };
-  const column = new Column(0, 0);
+  // Column (0, 0) only: biome 0 west of x 16, biome 1 east of it.
+  const world = new VoxelWorld(0, 0);
+  world.setBlock(0, 0, 0, 0);
+  const column = world.getColumn(0, 0)!;
   for (let z = 0; z < 32; z++) for (let x = 16; x < 32; x++) column.biomes[x | (z << 5)] = 1;
-  const world = {
-    getColumn: (cx: number, cz: number) => (cx === 0 && cz === 0 ? column : undefined),
-  };
   const inventory = {
     open: null as string | null,
     hint: {
@@ -240,10 +240,7 @@ describe('HudBridge', () => {
     const { bridge, player, die, emit } = setup();
     const screen = bridge.hud.death.element as unknown as FakeElement;
     const packLine = () => screen.querySelector('.death-pack')!.hidden === false;
-    const died = (pack: boolean) =>
-      emit({ type: 'died', playerId: 1, cause: 'fall', x: 0, y: 65, z: 0, pack });
     die(player);
-    died(false);
     bridge.frame(0.1);
     expect(bridge.deathOpen()).toBe(true);
     expect(packLine()).toBe(false);
@@ -251,20 +248,22 @@ describe('HudBridge', () => {
     player.survival.dead = false;
     emit({ type: 'respawned', playerId: 1, x: 0, y: 65, z: 0 });
     bridge.frame(0.1);
+    player.survival.packLeft = true;
     die(player);
-    died(true);
     bridge.frame(0.1);
     expect(packLine()).toBe(true);
   });
 
-  it('opens a world saved dead with the pack line when the player has a pack', () => {
-    for (const graves of [[], [{ x: 3, y: 65, z: 3 }]]) {
+  it('opens a world saved dead with the pack line only when that death left a pack', () => {
+    // An older pack does not count: the last death left none.
+    for (const packLeft of [false, true]) {
       const { bridge, player, die } = setup();
-      player.graves = graves;
+      player.graves = [{ x: 3, y: 65, z: 3 }];
+      player.survival.packLeft = packLeft;
       die(player);
       bridge.frame(0.1);
       const screen = bridge.hud.death.element as unknown as FakeElement;
-      expect(screen.querySelector('.death-pack')!.hidden).toBe(graves.length === 0);
+      expect(screen.querySelector('.death-pack')!.hidden).toBe(!packLeft);
     }
   });
 

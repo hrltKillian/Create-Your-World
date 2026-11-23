@@ -50,12 +50,7 @@ export class VoxelWorld {
   }
 
   getBlock(x: number, y: number, z: number): number {
-    if (y < 0) return this.outside;
-    if (y >= WORLD_HEIGHT) return this.air;
-    const column = this.getColumn(toColumn(x), toColumn(z));
-    if (!column) return this.outside;
-    const section = column.sections[y >> SECTION_BITS]!;
-    return section.getBlock(localIndex(x & SECTION_MASK, y & SECTION_MASK, z & SECTION_MASK));
+    return this.blockIn(this.getColumn(toColumn(x), toColumn(z)), x, y, z);
   }
 
   /**
@@ -88,6 +83,12 @@ export class VoxelWorld {
     return column ? column.heightmap[columnIndex(toLocal(x), toLocal(z))]! : -1;
   }
 
+  /** The biome (index in the generation's biomes) at a block column, −1 when not loaded. */
+  biomeAt(x: number, z: number): number {
+    const column = this.getColumn(toColumn(x), toColumn(z));
+    return column ? column.biomes[columnIndex(toLocal(x), toLocal(z))]! : -1;
+  }
+
   /** Sets a block in a loaded (or newly created) column. Returns false outside the height range. */
   setBlock(x: number, y: number, z: number, state: number): boolean {
     if (y < 0 || y >= WORLD_HEIGHT) return false;
@@ -99,13 +100,7 @@ export class VoxelWorld {
 
   /** Packed light (see light.ts). Above the world: full sky; unloaded: dark. */
   getLight(x: number, y: number, z: number): number {
-    if (y >= WORLD_HEIGHT) return FULL_SKY;
-    if (y < 0) return 0;
-    const column = this.getColumn(toColumn(x), toColumn(z));
-    if (!column) return 0;
-    return column.sections[y >> SECTION_BITS]!.getLight(
-      localIndex(x & SECTION_MASK, y & SECTION_MASK, z & SECTION_MASK),
-    );
+    return this.lightIn(this.getColumn(toColumn(x), toColumn(z)), x, y, z);
   }
 
   setLight(x: number, y: number, z: number, value: number): void {

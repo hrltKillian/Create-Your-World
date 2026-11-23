@@ -166,6 +166,18 @@ describe('sleeping with two players (allPlayersSleeping)', () => {
     expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);
   });
 
+  it('does not pass the night when one sleeper gets up in the tick the other lies down', () => {
+    const s = twoSleepers('sleep-same-tick');
+    s.both({ ...ON_BED, secondary: true }, {});
+    expect(s.player.sleeping).not.toBeNull();
+    const night = s.sim.time.ticks;
+    const events = s.both({ forward: 1 }, { ...s.onBed2, secondary: true });
+    expect(eventsOf(events, 'slept')).toEqual([]);
+    expect(s.sim.time.ticks).toBe(night + 1);
+    expect(s.player.sleeping).toBeNull();
+    expect(s.second.sleeping).not.toBeNull();
+  });
+
   it('lets the night pass once the one awake player dies', () => {
     const s = twoSleepers('sleep-death');
     s.both({}, { ...s.onBed2, secondary: true });

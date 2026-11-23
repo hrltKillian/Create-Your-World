@@ -211,7 +211,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
   `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
   a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;
-  null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
+  an Abandoned Pack adds `worn`, head to feet; null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
   cell: its chest or station through `debug.open`, like secondary on it within 5 blocks but without
   aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
   `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
