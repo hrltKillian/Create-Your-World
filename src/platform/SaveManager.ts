@@ -1,8 +1,8 @@
 import { createLogger } from '../core/log.ts';
 import type { SimEvent } from '../sim/events.ts';
 import {
+  columnDigest,
   compressBatch,
-  dropDigest,
   type StoredColumns,
   snapshotSim,
   type WorldInfo,
@@ -52,10 +52,10 @@ export interface PageTargets {
  * column unloaded), and right away, raw, when the page hides or goes away.
  *
  * Edited columns carry versioned dirty flags, set from the simulation's events; a save snapshots
- * the dirty columns (plus those whose item drops differ from their stored record's), encodes
- * everything, then writes one transaction, and clears only the flags whose version did not change
- * meanwhile. A full disk keeps the flags (the world stays in memory) until the next autosave;
- * another error retries after a doubling delay. Saves run one at a time.
+ * the dirty columns (plus those whose item drops or block entities differ from their stored
+ * record's), encodes everything, then writes one transaction, and clears only the flags whose
+ * version did not change meanwhile. A full disk keeps the flags (the world stays in memory) until
+ * the next autosave; another error retries after a doubling delay. Saves run one at a time.
  */
 export class SaveManager {
   status: SaveStatus = 'idle';
@@ -66,9 +66,9 @@ export class SaveManager {
   private readonly now: () => number;
   private readonly onStatus: (status: SaveStatus) => void;
   /**
-   * The column records in storage, with the digest of their drops, as of the writes sent. A write
-   * that fails marks its columns dirty and keeps the ones it was to remove (an extra key only costs
-   * a useless delete).
+   * The column records in storage, with the digest of their drops and block entities, as of the
+   * writes sent. A write that fails marks its columns dirty and keeps the ones it was to remove (an
+   * extra key only costs a useless delete).
    */
   private readonly stored: Map<number, string>;
   /** Column key → version of its last change. */
@@ -235,10 +235,16 @@ export class SaveManager {
     }
   }
 
-  /** A write is sent: its columns are (about to be) stored with their drops, the removed gone. */
+  /**
+   * A write is sent: its columns are (about to be) stored with their drops and block entities, the
+   * removed gone.
+   */
   private sending(batch: SaveBatch): void {
     for (const column of batch.columns)
-      this.stored.set(columnKey(column.cx, column.cz), dropDigest(column.entities));
+      this.stored.set(
+        columnKey(column.cx, column.cz),
+        columnDigest(column.entities, column.blockEntities),
+      );
     for (const { cx, cz } of batch.removed) this.stored.delete(columnKey(cx, cz));
   }
 

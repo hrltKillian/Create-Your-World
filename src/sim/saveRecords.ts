@@ -1,21 +1,29 @@
+import { stationSlotCount } from '../content/crafting.ts';
 import type { Registry } from '../content/registry.ts';
 import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { SAVE_VERSION } from '../world/codec/migrations.ts';
+import { WORLD_HEIGHT } from '../world/coords.ts';
+import { type BlockEntity, CONTAINER_SLOTS, type StationEntity } from './blockEntities.ts';
 import { NEUTRAL_INPUT } from './commands.ts';
+import { CRAFT_QUEUE, type CraftEntry, MAX_CRAFT_COUNT } from './craftQueue.ts';
 import {
   deserializeInventory,
+  deserializeSlots,
+  type Inventory,
   loadItemKey,
+  readStack,
   savedItemKey,
+  savedStack,
   serializeInventory,
 } from './inventory.ts';
 import type { DropBody, ItemDropState } from './itemDrops.ts';
 import { createPlayer, type PlayerState } from './player.ts';
-import type { DropRecord, PlayerRecord } from './storage.ts';
+import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
 
 /**
- * Save records of entities (docs « Sauvegarde »): players and item drops, with text item keys.
- * Readers never trust a record: a malformed field keeps its default (a new player at the spawn),
- * a malformed drop is dropped.
+ * Save records of entities (docs « Sauvegarde »): players, item drops and block entities, with text
+ * item keys. Readers never trust a record: a malformed field keeps its default (a new player at
+ * the spawn), a malformed drop or block entity is dropped.
  */
 
 /** Copies the fields of `saved` that have the type of `target`'s (finite numbers, booleans). */
@@ -46,7 +54,47 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     viewRadius: player.viewRadius,
     inventory: serializeInventory(player.inventory),
     interaction: { ...player.interaction },
+    craft: player.craft.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) })),
+    seen: Object.keys(player.seen).sort(),
   };
+}
+
+/** The stacks of a slot array as saved, empty slots left out. */
+function savedStacks(slots: Inventory): Inventory {
+  const out: Inventory = [];
+  for (const stack of slots) if (stack) out.push(savedStack(stack));
+  return out;
+}
+
+/**
+ * A saved craft queue: malformed entries are left out (their ingredients with them); an entry
+ * whose recipe the pack lacks is kept, to be refunded once the player is in the world.
+ */
+function readCraft(data: unknown, registry: Registry): CraftEntry[] {
+  if (!Array.isArray(data)) return [];
+  const queue: CraftEntry[] = [];
+  for (const saved of data.slice(0, CRAFT_QUEUE) as Partial<CraftEntry>[]) {
+    if (!saved || typeof saved.recipe !== 'string' || !isWhole(saved.count, 1)) continue;
+    const reserved: Inventory = [];
+    for (const stack of Array.isArray(saved.reserved) ? saved.reserved : []) {
+      const read = readStack(stack, registry);
+      if (read) reserved.push(read);
+    }
+    queue.push({
+      recipe: saved.recipe,
+      count: Math.min(saved.count, MAX_CRAFT_COUNT),
+      progressTicks: isWhole(saved.progressTicks, 0) ? saved.progressTicks : 0,
+      reserved,
+    });
+  }
+  return queue;
+}
+
+/** A saved seen set (keys of other packs are kept: they cost nothing). */
+function readSeen(data: unknown): Record<string, true> {
+  const seen: Record<string, true> = {};
+  if (Array.isArray(data)) for (const key of data) if (typeof key === 'string') seen[key] = true;
+  return seen;
 }
 
 /**
@@ -70,6 +118,8 @@ export function readPlayer(
   player.input = { ...NEUTRAL_INPUT, yaw: player.yaw, pitch: player.pitch };
   player.inventory = deserializeInventory(saved.inventory, registry);
   assignFields(player.interaction, saved.interaction);
+  player.craft = readCraft(saved.craft, registry);
+  player.seen = readSeen(saved.seen);
   return player;
 }
 
@@ -112,4 +162,54 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
   if (isWhole(saved.durability, 0)) drop.durability = saved.durability;
   loadItemKey(drop, registry);
   return drop;
+}
+
+export function blockEntityRecord(entity: Readonly<BlockEntity>): BlockEntityRecord {
+  return { ...entity, slots: entity.slots.map((stack) => (stack ? savedStack(stack) : null)) };
+}
+
+/** Most slots a saved block entity may have. */
+const MAX_SLOTS = 64;
+
+/**
+ * The block entity of a (migrated) record, or null if it is malformed. Unknown items keep their
+ * key; a station of a station the pack lacks keeps its slots (it no longer runs, but spills them
+ * when broken). `lastTick` is the column record's, for stations saved without their own tick.
+ */
+export function readBlockEntity(
+  data: unknown,
+  registry: Registry,
+  lastTick: number,
+): BlockEntity | null {
+  const saved = (data ?? {}) as Partial<Record<keyof StationEntity, unknown>>;
+  const { x, y, z } = saved;
+  if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
+    return null;
+  const slots = Array.isArray(saved.slots) ? saved.slots : [];
+  if (saved.kind === 'container')
+    return {
+      kind: 'container',
+      x,
+      y,
+      z,
+      slots: deserializeSlots(slots, CONTAINER_SLOTS, registry),
+    };
+  if (saved.kind !== 'station' || typeof saved.station !== 'string') return null;
+  const def = registry.crafting.station(saved.station);
+  const size = def ? stationSlotCount(def) : Math.min(slots.length, MAX_SLOTS);
+  const whole = (v: unknown) => (isWhole(v, 0) ? v : 0);
+  return {
+    kind: 'station',
+    x,
+    y,
+    z,
+    station: saved.station,
+    slots: deserializeSlots(slots, size, registry),
+    burnTicksLeft: whole(saved.burnTicksLeft),
+    burnTicks: whole(saved.burnTicks),
+    progressTicks: whole(saved.progressTicks),
+    process: typeof saved.process === 'string' ? saved.process : '',
+    lit: saved.lit === true,
+    tick: isWhole(saved.tick, 0) ? saved.tick : lastTick,
+  };
 }

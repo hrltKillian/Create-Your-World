@@ -20,6 +20,7 @@ export class Crafting {
   private readonly processIndex: ReadonlyMap<string, ProcessDef>;
   private readonly stationIndex: ReadonlyMap<string, StationDef>;
   private readonly itemIndex: ReadonlyMap<string, ItemDef>;
+  private readonly processesByStation = new Map<string, ProcessDef[]>();
 
   constructor(pack: ContentPack, items: readonly ItemDef[]) {
     this.recipes = pack.recipes ?? [];
@@ -29,6 +30,11 @@ export class Crafting {
     this.processIndex = new Map(this.processes.map((p) => [p.key, p]));
     this.stationIndex = new Map(this.stations.map((s) => [s.key, s]));
     this.itemIndex = new Map(items.map((item) => [item.key, item]));
+    for (const station of this.stations)
+      this.processesByStation.set(
+        station.key,
+        this.processes.filter((p) => p.station === station.key),
+      );
   }
 
   recipe(key: string): RecipeDef | undefined {
@@ -43,9 +49,19 @@ export class Crafting {
     return this.stationIndex.get(key);
   }
 
-  /** The processes a station runs, in pack order. */
-  processesOf(station: string): ProcessDef[] {
-    return this.processes.filter((p) => p.station === station);
+  /** The processes a station runs, in pack order (the same array every call). */
+  processesOf(station: string): readonly ProcessDef[] {
+    return this.processesByStation.get(station) ?? [];
+  }
+
+  /**
+   * Whether a player knows a recipe (docs « Craft : le Logbook »): known from the start, or one of
+   * its ingredients has been seen. `seen` holds the item keys a player has had and their tags.
+   */
+  revealed(recipe: RecipeDef, seen: Readonly<Record<string, boolean>>): boolean {
+    if (recipe.known === 'start') return true;
+    for (const input of recipe.inputs) if (seen[input.item] === true) return true;
+    return false;
   }
 
   /** Whether an item fills an ingredient: the ingredient's item, or an item carrying its tag. */
@@ -61,4 +77,20 @@ export class Crafting {
     if (def === undefined || fuel === 'none' || (fuel === 'charcoal' && !def.charcoal)) return 0;
     return def.seconds;
   }
+}
+
+/**
+ * Slot layout of a station block entity: its inputs (from 0), then its fuel slot if it has one,
+ * then its outputs (the Station screen and the simulation share it).
+ */
+export function fuelSlotOf(station: StationDef): number {
+  return station.fuelSlot ? station.inputSlots : -1;
+}
+
+export function outputSlotOf(station: StationDef): number {
+  return station.inputSlots + (station.fuelSlot ? 1 : 0);
+}
+
+export function stationSlotCount(station: StationDef): number {
+  return outputSlotOf(station) + station.outputSlots;
 }

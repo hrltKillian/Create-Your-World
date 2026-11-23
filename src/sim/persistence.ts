@@ -13,18 +13,30 @@ import {
 import { migrate, type PlainRecord, SAVE_VERSION } from '../world/codec/migrations.ts';
 import {
   blockToColumn,
+  cellKey,
   columnKey,
   columnKeyX,
   columnKeyZ,
   insideBorder,
   SECTION_SIZE,
+  toColumn,
 } from '../world/coords.ts';
 import { GEN_VERSION, WORLD_TYPES, type WorldType } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
+import { refundUnknownCrafts } from './craftQueue.ts';
+import type { SimEvent } from './events.ts';
 import { type Entity, type SimOptions, Simulation } from './Simulation.ts';
-import { dropRecord, playerRecord, readDrop, readPlayer } from './saveRecords.ts';
+import {
+  blockEntityRecord,
+  dropRecord,
+  playerRecord,
+  readBlockEntity,
+  readDrop,
+  readPlayer,
+} from './saveRecords.ts';
 import { canonicalJson } from './stateHash.ts';
 import type {
+  BlockEntityRecord,
   ColumnRecord,
   DropRecord,
   PlayerRecord,
@@ -38,9 +50,10 @@ import { deserializeTime, serializeTime } from './time.ts';
 /**
  * Persistence of a simulation (docs « Sauvegarde »): snapshots of its persistent state as store
  * records, and a simulation rebuilt from them. Persistent = world meta (seed, clock, entity ids,
- * spawn), players, and for each column its persisted sections and item drops. Light, meshes,
- * untouched terrain and the streaming state are rebuilt: saved sections go back to the edit store,
- * and generation lays them over the terrain (the « Colonne déjà modifiée » path).
+ * spawn), players, and for each column its persisted sections, item drops and block entities
+ * (chests, stations). Light, meshes, untouched terrain and the streaming state are rebuilt: saved
+ * sections go back to the edit store, and generation lays them over the terrain (the « Colonne déjà
+ * modifiée » path).
  */
 
 const log = createLogger('persistence');
@@ -81,14 +94,23 @@ function worldRecord(sim: Simulation, info: WorldInfo): WorldRecord {
 }
 
 /**
- * The column records in storage: column key → digest of the item drops each one holds
- * (`dropDigest`). Kept by whoever writes the records, for snapshotSim.
+ * The column records in storage: column key → digest of the item drops and block entities each one
+ * holds (`columnDigest`). Kept by whoever writes the records, for snapshotSim.
  */
 export type StoredColumns = ReadonlyMap<number, string>;
 
-/** Digest of a column record's item drops: equal digests, equal drops; '' for none. */
-export function dropDigest(drops: readonly DropRecord[] | undefined): string {
-  return drops && drops.length > 0 ? canonicalJson(drops) : '';
+/**
+ * Digest of what a column record holds besides its sections, its item drops and block entities:
+ * equal digests, equal contents; '' for none.
+ */
+export function columnDigest(
+  drops: readonly DropRecord[] | undefined,
+  blockEntities: readonly BlockEntityRecord[] | undefined,
+): string {
+  const noDrops = drops === undefined || drops.length === 0;
+  const noBlockEntities = blockEntities === undefined || blockEntities.length === 0;
+  if (noDrops && noBlockEntities) return '';
+  return canonicalJson({ drops: drops ?? [], blockEntities: blockEntities ?? [] });
 }
 
 /** Saved item drops by column key, in entity (id) order; dormant drops included. */
@@ -104,6 +126,20 @@ function dropsByColumn(sim: Simulation): Map<number, DropRecord[]> {
   return out;
 }
 
+/** Saved block entities by column key, each list in cell-key order. */
+function blockEntitiesByColumn(sim: Simulation): Map<number, BlockEntityRecord[]> {
+  const out = new Map<number, BlockEntityRecord[]>();
+  const keys = [...sim.blockEntities.keys()].sort((a, b) => a - b);
+  for (const key of keys) {
+    const entity = sim.blockEntities.get(key)!;
+    const column = columnKey(toColumn(entity.x), toColumn(entity.z));
+    const list = out.get(column);
+    if (list) list.push(blockEntityRecord(entity));
+    else out.set(column, [blockEntityRecord(entity)]);
+  }
+  return out;
+}
+
 /** Persisted sections of a column: its own while loaded, else those kept in the edit store. */
 function savedSections(sim: Simulation, key: number): readonly SavedSection[] {
   const column = sim.world.columns.get(key);
@@ -112,10 +148,12 @@ function savedSections(sim: Simulation, key: number): readonly SavedSection[] {
 
 /**
  * Every record of a world, payloads raw (synchronous: usable when the tab hides). Each column with
- * persisted sections or item drops gets a record rebuilt from all of them; the columns of `stored`
- * left with nothing are removed. With `only` (the columns edited since the last save), the other
- * columns are left out unless their drops differ from their record's: drops move, age, go and
- * come while their column is loaded, and stay as they are, frozen, while it is not.
+ * persisted sections, item drops or block entities gets a record rebuilt from all of them; the
+ * columns of `stored` left with nothing are removed. With `only` (the columns edited since the last
+ * save), the other columns are left out unless their drops or block entities differ from their
+ * record's (`columnDigest`): drops move, age, go and come, and chests and stations change contents
+ * and tick, without edits, while their column is loaded; they stay as they are, frozen, while it is
+ * not.
  */
 export function snapshotSim(
   sim: Simulation,
@@ -124,11 +162,14 @@ export function snapshotSim(
   only?: ReadonlySet<number>,
 ): SaveBatch {
   const drops = dropsByColumn(sim);
-  const keys = new Set(drops.keys());
+  const blockEntities = blockEntitiesByColumn(sim);
+  const keys = new Set([...drops.keys(), ...blockEntities.keys()]);
   for (const [key, column] of sim.world.columns) if (column.persisted !== 0) keys.add(key);
   for (const key of sim.edits.keys()) keys.add(key);
   const changed = (key: number) =>
-    only === undefined || only.has(key) || dropDigest(drops.get(key)) !== (stored.get(key) ?? '');
+    only === undefined ||
+    only.has(key) ||
+    columnDigest(drops.get(key), blockEntities.get(key)) !== (stored.get(key) ?? '');
   const columns = [...keys]
     .filter(changed)
     .sort((a, b) => a - b)
@@ -141,6 +182,7 @@ export function snapshotSim(
         codec: 'raw',
         payload: packSections(savedSections(sim, key)),
         entities: drops.get(key) ?? [],
+        blockEntities: blockEntities.get(key) ?? [],
         lastTick: sim.tick,
       }),
     );
@@ -180,7 +222,10 @@ export type RestoreOptions = Omit<SimOptions, 'seed' | 'worldType' | 'spawn'>;
 export interface RestoredWorld {
   readonly sim: Simulation;
   readonly info: WorldInfo;
-  /** The column records in storage, with the digest of their drops (for snapshotSim). */
+  /**
+   * The column records in storage, with the digest of their drops and block entities (for
+   * snapshotSim).
+   */
   readonly stored: Map<number, string>;
   /** Saved with another pack: every column record must be written again with this pack's ids. */
   readonly contentChanged: boolean;
@@ -241,8 +286,9 @@ function restorePlayer(sim: Simulation, record: PlayerRecord, entities: Entity[]
 
 /**
  * Puts a column record back: its sections into the edit store (they reach generation with the
- * column's next request), its drops into `entities`. Returns the column key; undefined when the
- * record is unusable (logged and skipped, but left in storage: the rest of the world still loads).
+ * column's next request), its drops into `entities`, its block entities into the simulation (those
+ * lying outside the column are dropped). Returns the column key; undefined when the record is
+ * unusable (logged and skipped, but left in storage: the rest of the world still loads).
  */
 async function restoreColumn(
   sim: Simulation,
@@ -270,6 +316,12 @@ async function restoreColumn(
     for (const data of Array.isArray(column.entities) ? column.entities : []) {
       const drop = readDrop(data, sim.registry);
       if (drop) entities.push(drop);
+    }
+    const lastTick = isWhole(column.lastTick, 0) ? column.lastTick : sim.tick;
+    for (const data of Array.isArray(column.blockEntities) ? column.blockEntities : []) {
+      const entity = readBlockEntity(data, sim.registry, lastTick);
+      if (entity && toColumn(entity.x) === cx && toColumn(entity.z) === cz)
+        sim.blockEntities.set(cellKey(entity.x, entity.y, entity.z), entity);
     }
     return key;
   } catch (error) {
@@ -329,7 +381,16 @@ export async function restoreSim(
     if (key !== undefined) keys.push(key);
   }
   addEntities(sim, entities, world.nextEntityId);
+  // Digests of the records as stored, before the refunds below may drop items at a player's feet.
   const drops = dropsByColumn(sim);
+  const blockEntities = blockEntitiesByColumn(sim);
+  const digests = keys.map((key): [number, string] => [
+    key,
+    columnDigest(drops.get(key), blockEntities.get(key)),
+  ]);
+  // Queued recipes the pack no longer has give their ingredients back (« Clés inconnues »).
+  const events: SimEvent[] = [];
+  for (const player of sim.players.values()) refundUnknownCrafts(sim, player, events);
   return {
     sim,
     info: {
@@ -339,7 +400,7 @@ export async function restoreSim(
       savedAt: world.savedAt,
       rules: world.rules,
     },
-    stored: new Map(keys.map((key) => [key, dropDigest(drops.get(key))])),
+    stored: new Map(digests),
     contentChanged: world.contentHash !== contentHash(sim.registry),
   };
 }

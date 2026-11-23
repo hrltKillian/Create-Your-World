@@ -54,6 +54,24 @@ export type SimEvent =
       readonly count: number;
     }
   | { readonly type: 'inventoryChanged'; readonly playerId: number }
+  /** A player opened a chest or a station (its screen shows), or it closed (moved away, broken). */
+  | {
+      readonly type: 'blockEntityOpened';
+      readonly playerId: number;
+      readonly kind: 'container' | 'station';
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
+  | { readonly type: 'blockEntityClosed'; readonly playerId: number }
+  /** One craft of a player's queue is done (its output went to the bag or the ground). */
+  | {
+      readonly type: 'crafted';
+      readonly playerId: number;
+      readonly recipe: string;
+      readonly item: string;
+      readonly count: number;
+    }
   /**
    * A HUD hint for one player, e.g. « Tool too weak: copper pickaxe required », sent once when the
    * player starts mining a block (a new target, or again after releasing) that the held tool

@@ -1,6 +1,7 @@
 import type { RawTables } from '../content/registry.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
+import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
@@ -70,6 +71,21 @@ export interface PlayerState {
   /** 32 slots: the hotbar (0–7, the selected one is `input.slot`) then the bag. */
   inventory: Inventory;
   interaction: InteractionState;
+  /** The Logbook's queue (at most 5 entries, the first one in progress). */
+  craft: CraftEntry[];
+  /**
+   * Item keys the player has had in the inventory, and their tags (recipe reveal:
+   * `Crafting.revealed`). Plain data for hashes and saves.
+   */
+  seen: Record<string, true>;
+  /** Cell of the block entity whose screen the player has open (not saved). */
+  opened: BlockCell | null;
+}
+
+export interface BlockCell {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
 }
 
 export function createPlayer(
@@ -97,6 +113,9 @@ export function createPlayer(
     viewRadius,
     inventory: createInventory(),
     interaction: createInteraction(),
+    craft: [],
+    seen: {},
+    opened: null,
   };
 }
 

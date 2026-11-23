@@ -1,3 +1,5 @@
+import { INVENTORY_SLOTS } from './inventory.ts';
+
 /** Commands are the only way to change simulation state (they could travel over a network). */
 export type Command =
   | {
@@ -12,6 +14,8 @@ export type Command =
     }
   | InputCommand
   | InventoryCommand
+  | BlockEntityCommand
+  | CraftCommand
   | DebugCommand;
 
 /**
@@ -57,6 +61,36 @@ export type InventoryCommand =
   | { readonly type: 'inv.quickMove'; readonly slot: number }
   /** Throws one item of a slot (or the whole stack) in front of the player. */
   | { readonly type: 'inv.drop'; readonly slot: number; readonly all: boolean };
+
+/**
+ * The Container and Station screens (docs « Écrans »). A player has at most one block entity open
+ * (a chest or a station, within 5 blocks, one player at a time). Moves number the slots like
+ * inventory commands (0–31), then the open block entity's slots from 32 (a station: its inputs,
+ * its fuel slot, its outputs: content/crafting.ts `fuelSlotOf`, `outputSlotOf`). Without `to`, the
+ * whole stack goes to the other side (Shift+click; « Take all » and « Store all » send one per slot).
+ */
+export type BlockEntityCommand =
+  | { readonly type: 'container.open'; readonly x: number; readonly y: number; readonly z: number }
+  | { readonly type: 'container.close' }
+  | BlockEntityMove<'container.move'>
+  | BlockEntityMove<'station.move'>;
+
+export interface BlockEntityMove<T extends 'container.move' | 'station.move'> {
+  readonly type: T;
+  readonly from: number;
+  readonly to?: number;
+  readonly count?: number;
+}
+
+/** First slot number of the open block entity in container.move and station.move (32). */
+export const OPEN_SLOTS_BASE = INVENTORY_SLOTS;
+
+/** The Logbook (docs « Craft : le Logbook »): a queue of 5 entries per player. */
+export type CraftCommand =
+  /** Queues `count` crafts of a recipe as one entry, reserving all their ingredients at once. */
+  | { readonly type: 'craft.enqueue'; readonly recipe: string; readonly count: number }
+  /** Cancels a queue entry; its ingredients come back (at the player's feet if the bag is full). */
+  | { readonly type: 'craft.cancel'; readonly index: number };
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =

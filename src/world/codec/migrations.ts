@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -18,8 +18,15 @@ export type PlainRecord = Readonly<Record<string, unknown>>;
 /** Upgrades each kind of record from one version to the next. */
 export type MigrationStep = Readonly<Record<RecordKind, (record: PlainRecord) => PlainRecord>>;
 
-/** `MIGRATIONS[i]` upgrades a version i + 1 record to version i + 2 (none yet: 1 is the first). */
-export const MIGRATIONS: readonly MigrationStep[] = [];
+/** `MIGRATIONS[i]` upgrades a version i + 1 record to version i + 2. */
+export const MIGRATIONS: readonly MigrationStep[] = [
+  // 1 → 2 (M8): players keep a craft queue and the items they have seen, columns block entities.
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, craft: [], seen: [] }),
+    column: (record) => ({ ...record, blockEntities: [] }),
+  },
+];
 
 /** A save made by a newer version of the game, which this one cannot read. */
 export class SaveVersionError extends Error {

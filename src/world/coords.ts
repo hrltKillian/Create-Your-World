@@ -50,6 +50,14 @@ export function columnKeyZ(key: number): number {
   return (key % KEY_SPAN) - KEY_OFFSET;
 }
 
+/**
+ * Safe-integer key of a block cell (block entities): the column key of (x, z) as if they were
+ * column coordinates (|x|, |z| < 2^20), × WORLD_HEIGHT + y.
+ */
+export function cellKey(x: number, y: number, z: number): number {
+  return columnKey(x, z) * WORLD_HEIGHT + y;
+}
+
 /** Safe-integer key of a section: column key × 8 + sy. */
 export function sectionKey(cx: number, sy: number, cz: number): number {
   return columnKey(cx, cz) * SECTIONS_PER_COLUMN + sy;

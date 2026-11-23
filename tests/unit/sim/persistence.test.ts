@@ -13,7 +13,11 @@ import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
 import { unpackSections } from '../../../src/world/codec/columnRecord.ts';
-import { CorruptRecordError, SaveVersionError } from '../../../src/world/codec/migrations.ts';
+import {
+  CorruptRecordError,
+  SAVE_VERSION,
+  SaveVersionError,
+} from '../../../src/world/codec/migrations.ts';
 import { columnKey, localIndex } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
@@ -58,6 +62,7 @@ describe('memory storage', () => {
       codec: 'raw',
       payload: new Uint8Array([0]),
       entities: [],
+      blockEntities: [],
       lastTick: 0,
     });
     const storage = new MemoryStorage();
@@ -91,7 +96,7 @@ describe('save records', () => {
     const stored = (await storage.loadWorld(TEST_WORLD.id))!;
     expect(stored.world).toMatchObject({
       ...TEST_WORLD,
-      saveVersion: 1,
+      saveVersion: SAVE_VERSION,
       seed: 'records',
       worldType: 'flat',
       tick: s.sim.tick,
@@ -314,7 +319,7 @@ describe('restoring a world', () => {
     fill(s, 40, 70, 1, 'block:stone');
     const batch = snapshotSim(s.sim, TEST_WORLD, new Map());
     const newer = new MemoryStorage();
-    await newer.write({ ...batch, world: { ...batch.world, saveVersion: 2 } });
+    await newer.write({ ...batch, world: { ...batch.world, saveVersion: SAVE_VERSION + 1 } });
     await expect(restoreFrom(newer)).rejects.toThrow(SaveVersionError);
     const damaged = new MemoryStorage();
     const [good, bad] = batch.columns;

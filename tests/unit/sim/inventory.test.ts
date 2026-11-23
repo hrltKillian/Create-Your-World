@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../../src/core/rng.ts';
 import {
   addItem,
+  addToRange,
   countItem,
   createInventory,
   deserializeInventory,
   INVENTORY_SLOTS,
   type Inventory,
+  moveInto,
   moveItems,
+  moveStack,
   quickMove,
   sameStack,
   serializeInventory,
@@ -101,6 +104,37 @@ describe('inventory', () => {
       }
     }
     for (const key of keys) expect(countItem(inventory, key), key).toBe(expected.get(key));
+  });
+
+  it('keeps item totals through 1000 random moves between the inventory and a chest', () => {
+    const rng = Rng.fromSeed('inventory', 'chest');
+    const keys = ['item:dirt', 'item:torch', 'item:flint_hatchet', 'item:plant_fiber'];
+    const inventory = createInventory();
+    const chest: Inventory = new Array(18).fill(null);
+    for (const key of keys)
+      addItem(inventory, registry, { item: key, count: key === 'item:torch' ? 60 : 7 });
+    addToRange(chest, registry, 0, 18, { item: 'item:dirt', count: 90 });
+    const total = (key: string) => countItem(inventory, key) + countItem(chest, key);
+    const before = keys.map(total);
+    const pick = (): [Inventory, number] =>
+      rng.chance(0.5) ? [inventory, rng.int(INVENTORY_SLOTS)] : [chest, rng.int(18)];
+    for (let i = 0; i < 1000; i++) {
+      const [source, from] = pick();
+      if (rng.chance(0.3)) {
+        const target = source === chest ? inventory : chest;
+        moveInto(registry, source, from, target, 0, target.length);
+      } else {
+        const [target, to] = pick();
+        const count = rng.chance(0.5) ? rng.intRange(1, 40) : undefined;
+        moveStack(registry, source, from, target, to, count);
+      }
+      for (const stack of [...inventory, ...chest]) {
+        if (!stack) continue;
+        expect(stack.count).toBeGreaterThan(0);
+        expect(stack.count).toBeLessThanOrEqual(registry.maxStack(stack.item));
+      }
+    }
+    expect(keys.map(total)).toEqual(before);
   });
 
   it('round-trips through JSON and repairs malformed saves', () => {

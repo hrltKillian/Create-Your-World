@@ -3,6 +3,8 @@ import { FLAG_SOLID, type Registry } from '../content/registry.ts';
 import { hash32 } from '../core/hash.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
 import { createRayHit } from '../world/raycast.ts';
+import { blockEntityAt, createBlockEntity, removeBlockEntity } from './blockEntities.ts';
+import { openBlockEntity } from './blockEntityCommands.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { editBlock } from './edits.ts';
@@ -39,8 +41,9 @@ const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 /**
  * One tick of a player's interaction with the world (docs/conception.md « Priorité des actions »).
  * Primary mines the aimed block while held (creatures come first from M10). Secondary toggles an
- * interactive block (gates) on the press, else places the held block, again every 6 ticks while
- * held; crouching forces the placement. Consuming, drinking and filling arrive in M9.
+ * interactive block (gates) or opens a chest or station on the press, else places the held block,
+ * again every 6 ticks while held; crouching forces the placement. Consuming, drinking and filling
+ * arrive in M9.
  */
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const status = aim(sim.world, sim.registry.tables, player, hit);
@@ -151,7 +154,10 @@ function breakWhole(
   return Math.max(y, other);
 }
 
-/** Removes a block, with its sound, event and (when harvested) its drops. */
+/**
+ * Removes a block, with its sound, event and (when harvested) its drops; what its block entity
+ * held spills, harvested or not (a generated chest gets its loot first).
+ */
 function breakBlock(
   sim: Simulation,
   player: PlayerState,
@@ -163,7 +169,9 @@ function breakBlock(
 ): void {
   const registry = sim.registry;
   const state = sim.world.getBlock(x, y, z);
+  const kept = blockEntityAt(sim, x, y, z) !== undefined;
   if (!editBlock(sim.world, sim.light, x, y, z, registry.air, out)) return;
+  if (kept) removeBlockEntity(sim, x, y, z);
   out.push({ type: 'blockBroken', playerId: player.playerId, x, y, z, state });
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
@@ -196,15 +204,31 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
   }
   if (status !== AIM_HIT) return;
   if (usesAimedBlock(sim.registry, hit.state, input.crouch)) {
-    if (pressed) toggleOpen(sim, player, out);
+    if (pressed) useAimed(sim, player, out);
     return;
   }
   place(sim, player, out);
 }
 
-/** Whether secondary acts on the aimed block (opens a gate) instead of placing: crouch forces. */
+/**
+ * Whether secondary acts on the aimed block (opens a gate, a chest or a station) instead of
+ * placing: crouching forces the placement.
+ */
 export function usesAimedBlock(registry: Registry, state: number, crouch: boolean): boolean {
-  return !crouch && registry.prop(state, 'open') !== undefined;
+  if (crouch) return false;
+  const kind = registry.blockDef(state).blockEntity;
+  return registry.prop(state, 'open') !== undefined || kind === 'container' || kind === 'station';
+}
+
+/** Opens the screen of an aimed chest or station, or toggles an aimed gate. */
+function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
+  const kind = sim.registry.blockDef(hit.state).blockEntity;
+  if (kind !== 'container' && kind !== 'station') {
+    toggleOpen(sim, player, out);
+    return;
+  }
+  const refusal = openBlockEntity(sim, player, hit.x, hit.y, hit.z, out);
+  if (refusal) reject(out, player.playerId, 'input', refusal);
 }
 
 /**
@@ -256,6 +280,8 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   editBlock(sim.world, sim.light, x, y, z, placement.state, out);
   // A tall block (door): its upper half goes in the cell above, checked free by planPlacement.
   if (placement.upper >= 0) editBlock(sim.world, sim.light, x, y + 1, z, placement.upper, out);
+  // A placed chest or station starts empty (only generated chests hold loot).
+  createBlockEntity(sim, x, y, z, false);
   takeFromSlot(player.inventory, player.input.slot, 1);
   out.push({ type: 'blockPlaced', playerId: player.playerId, x, y, z, state: placement.state });
   const sfx = sim.registry.blockSfx(placement.state, 'place');

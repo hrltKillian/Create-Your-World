@@ -11,10 +11,12 @@ import {
 } from '../world/coords.ts';
 import { surfaceY } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
+import { removeBlockEntity } from './blockEntities.ts';
 import { finite, reject } from './commandRules.ts';
 import type { DebugCommand } from './commands.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
+import { freshStack } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
@@ -79,18 +81,13 @@ function give(
     reject(out, player.playerId, c.type, 'invalid');
     return;
   }
-  const durability = sim.registry.itemTables.durability[id]!;
-  giveItems(
-    sim,
-    player,
-    durability > 0
-      ? { item: c.item, count: c.count, durability }
-      : { item: c.item, count: c.count },
-    out,
-  );
+  giveItems(sim, player, freshStack(sim.registry, c.item, c.count), out);
 }
 
-/** Debug fill of a box of loaded blocks (heightmap and light follow, as for gameplay edits). */
+/**
+ * Debug fill of a box of loaded blocks (heightmap and light follow, as for gameplay edits); the
+ * block entities there spill what they hold.
+ */
 function fill(
   sim: Simulation,
   playerId: number,
@@ -120,7 +117,10 @@ function fill(
   for (let x = x0; x <= x1; x++) {
     for (let z = z0; z <= z1; z++) {
       if (!sim.world.getColumn(toColumn(x), toColumn(z))) continue;
-      for (let y = y0; y <= y1; y++) writeBlock(sim.world, sim.light, x, y, z, state);
+      for (let y = y0; y <= y1; y++) {
+        removeBlockEntity(sim, x, y, z);
+        writeBlock(sim.world, sim.light, x, y, z, state);
+      }
       written++;
     }
   }

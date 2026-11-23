@@ -49,7 +49,7 @@ function hashSection(h: number, section: Section): number {
 
 /**
  * FNV-1a over a canonical serialization of the simulation state: tick, clock, entity counter, every
- * entity record (canonical JSON, by id), every loaded column (by key) with its pipeline state,
+ * entity record (canonical JSON, by id), every block entity (by cell key), every loaded column (by key) with its pipeline state,
  * persisted sections, voxels, light, heightmap and biomes, and the saved sections of the unloaded
  * ones (edit store, by key). Storage details (uniform or expanded sections) do not change it.
  * Two runs with the same commands must give the same hash.
@@ -62,6 +62,9 @@ export function stateHash(sim: Simulation): number {
   h = hashNumber(h, sim.nextEntityId);
   for (const id of [...sim.entities.keys()].sort((a, b) => a - b)) {
     h = fnv1aString(canonicalJson(sim.entities.get(id)), h);
+  }
+  for (const key of [...sim.blockEntities.keys()].sort((a, b) => a - b)) {
+    h = fnv1aString(canonicalJson(sim.blockEntities.get(key)), h);
   }
   for (const key of [...sim.world.columns.keys()].sort((a, b) => a - b)) {
     const column = sim.world.columns.get(key)!;

@@ -95,8 +95,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - items and crafting data: `content/items.ts` (`packItems`, `blockItemKey`, `harvests`: the
     harvest rule), `registry.item(key)`, `registry.crafting` (`content/crafting.ts`: recipes,
     processes and stations by key, `matches` for item-or-tag ingredients, `burnSeconds` for the
-    fuel rules); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty` share); the progression
-    proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
+    fuel rules, `revealed` for the Logbook reveal; station slot layout `fuelSlotOf`,
+    `outputSlotOf`, `stationSlotCount`); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty`
+    share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
+  - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
+    `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
+    `freshStack`, `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
+    (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
+    `structureLootAt` loot, `removeBlockEntity` spills, `withinReach`); their screens
+    `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
+    `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
+    (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),

@@ -1,7 +1,10 @@
 import type { Registry } from '../content/registry.ts';
+import { cellKey } from '../world/coords.ts';
 import type { GenContext } from '../world/gen/generateColumn.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
+import type { BlockEntity } from './blockEntities.ts';
 import type { Command } from './commands.ts';
+import { stationNear } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
 import type { Entity, Simulation } from './Simulation.ts';
@@ -26,6 +29,13 @@ export interface SimView {
   hash(): number;
   columnState(cx: number, cz: number): number;
   player(id?: number): Readonly<PlayerState> | undefined;
+  /**
+   * The chest or station at a block cell (live, read only): the one a player has open (`opened`)
+   * always exists; a generated chest nobody opened has none yet.
+   */
+  blockEntity(x: number, y: number, z: number): Readonly<BlockEntity> | undefined;
+  /** Whether a block of a station stands within reach of a player (Logbook « Requires: … »). */
+  stationNear(station: string, id?: number): boolean;
 }
 
 /** Client ⇄ simulation contract. A future RemoteSimHost implements it over the network. */
@@ -52,6 +62,11 @@ function makeView(sim: Simulation, playerId: number): SimView {
     hash: () => stateHash(sim),
     columnState: (cx, cz) => sim.columnState(cx, cz),
     player: (id = playerId) => sim.players.get(id),
+    blockEntity: (x, y, z) => sim.blockEntities.get(cellKey(x, y, z)),
+    stationNear: (station, id = playerId) => {
+      const player = sim.players.get(id);
+      return player !== undefined && stationNear(sim, player, station);
+    },
   };
 }
 
