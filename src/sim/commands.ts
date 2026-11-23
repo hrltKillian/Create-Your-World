@@ -1,4 +1,5 @@
 import { INVENTORY_SLOTS } from './inventory.ts';
+import type { DeathCause } from './survival.ts';
 
 /** Commands are the only way to change simulation state (they could travel over a network). */
 export type Command =
@@ -115,6 +116,10 @@ export type DebugCommand =
     }
   /** Sets a gauge, clamped to its range (stamina, or one of the survival gauges). */
   | { readonly type: 'debug.setStat'; readonly stat: DebugStat; readonly value: number }
+  /** Takes all the player's health for a cause; the death follows at tick step 14. */
+  | { readonly type: 'debug.kill'; readonly cause: DeathCause }
+  /** Makes the player immune to damage, or mortal again (the gauges still move). */
+  | { readonly type: 'debug.god'; readonly on: boolean }
   /** Adds items to the player's inventory (what does not fit drops at the player's feet). */
   | { readonly type: 'debug.give'; readonly item: string; readonly count: number }
   /** Moves the clock to an hour (0 ≤ hours < 24) of the current day. */

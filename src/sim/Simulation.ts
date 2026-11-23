@@ -299,6 +299,8 @@ export class Simulation implements ColumnSink {
       }
       case 'debug.teleport':
       case 'debug.setStat':
+      case 'debug.kill':
+      case 'debug.god':
       case 'debug.fill':
       case 'debug.give':
       case 'debug.setTime':

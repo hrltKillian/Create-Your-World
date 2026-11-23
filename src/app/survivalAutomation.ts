@@ -1,0 +1,82 @@
+import type { DebugStat } from '../sim/commands.ts';
+import { serializeInventory } from '../sim/inventory.ts';
+import { eyeHeight } from '../sim/physics.ts';
+import { type Shelter, shelterAt } from '../sim/shelter.ts';
+import type { DeathCause } from '../sim/survival.ts';
+import type { App } from './App.ts';
+import { sendAndStep, sendNow } from './automation.ts';
+import { hudEffects } from './hudModel.ts';
+
+/**
+ * Survival automation (M9) shared by the debug hook and the selftests: the gauges, death and
+ * immunity by debug command, worn items, the shelter test at the player and what the player's
+ * survival state reads.
+ */
+
+/** Sets a gauge (stamina or a survival gauge), clamped to its range, now, without a tick. */
+export function setStat(app: App, stat: DebugStat, value: number): void {
+  sendNow(app, { type: 'debug.setStat', stat, value });
+}
+
+/** Takes all the player's health for a cause; fixed-step sessions apply it now, death included. */
+export function kill(app: App, cause: DeathCause): void {
+  sendAndStep(app, { type: 'debug.kill', cause });
+}
+
+/** Makes the player immune to damage (the gauges still move), or mortal again, now. */
+export function god(app: App, on: boolean): void {
+  sendNow(app, { type: 'debug.god', on });
+}
+
+/**
+ * Shift+click of a slot in the Bag (`equip.move` without a target): puts a wearable on (swapping
+ * what was worn), takes a worn item (slots 32–36) off; fixed-step sessions apply it now.
+ */
+export function equip(app: App, slot: number): void {
+  sendAndStep(app, { type: 'equip.move', from: slot });
+}
+
+/** The shelter test of docs « Abri » at the player's head, now (null without a player). */
+export function shelterHere(app: App): Shelter | null {
+  const session = app.session;
+  if (!session) return null;
+  const { world, registry } = session.host.view;
+  const body = session.player.body;
+  const head = Math.floor(body.y + eyeHeight(body));
+  const rules = registry.pack.balance.shelter;
+  return shelterAt(world, registry.tables, Math.floor(body.x), head, Math.floor(body.z), rules);
+}
+
+/**
+ * The player's survival as automation reads it (null without a player): the gauges, the statuses
+ * and timed effects as the HUD lists them, the last environment sample (shelter, felt °C, the
+ * temperature's target, the air's toxicity per minute), death, immunity, the bedroll, the
+ * Abandoned Packs, the objectives done and the worn items (head to feet).
+ */
+export function playerStats(app: App) {
+  const session = app.session;
+  if (!session) return null;
+  const player = session.player;
+  const s = player.survival;
+  return {
+    health: s.health,
+    hunger: s.hunger,
+    thirst: s.thirst,
+    stamina: player.stamina,
+    temperature: s.temperature,
+    toxicity: s.toxicity,
+    breath: s.breath,
+    effects: hudEffects(player, session.host.view.registry.pack.balance, []),
+    shelter: s.shelter,
+    ambient: s.ambient,
+    target: s.target,
+    airToxicity: s.airToxicity,
+    dead: s.dead,
+    cause: s.cause,
+    god: s.god,
+    respawn: player.respawn && { ...player.respawn },
+    graves: player.graves.map((cell) => ({ ...cell })),
+    objectives: [...player.objectives],
+    equipment: serializeInventory(player.equipment),
+  };
+}

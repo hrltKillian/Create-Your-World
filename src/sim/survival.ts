@@ -62,6 +62,8 @@ export interface SurvivalState {
   cause: DeathCause | '';
   /** The death was handled (sim/death.ts): the pack is left, the player waits to respawn. */
   dead: boolean;
+  /** Takes no damage (`debug.god`); the gauges still move. */
+  god: boolean;
   effects: TimedEffect[];
   /** The last environment sample (environment.ts): shelter, felt °C and the gauge's target. */
   shelter: Shelter;
@@ -86,6 +88,7 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     staminaSpent: 0,
     cause: '',
     dead: false,
+    god: false,
     effects: [],
     shelter: 'exposed',
     ambient: b.climate.comfortMinC,
@@ -115,9 +118,9 @@ export function adjustGauges(
   s.toxicity = clamp(s.toxicity + toxicity, b.toxicity.max);
 }
 
-/** Takes health for a cause (nothing once dead). */
+/** Takes health for a cause (nothing once dead, nor while immune: `debug.god`). */
 export function hurt(s: SurvivalState, amount: number, cause: DeathCause): void {
-  if (amount <= 0 || s.health <= 0) return;
+  if (amount <= 0 || s.health <= 0 || s.god) return;
   s.health = Math.max(0, s.health - amount);
   s.cause = cause;
   s.calmTicks = 0;

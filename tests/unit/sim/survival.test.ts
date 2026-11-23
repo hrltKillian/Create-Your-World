@@ -15,6 +15,7 @@ import type { Shelter } from '../../../src/sim/shelter.ts';
 import {
   addEffect,
   createSurvival,
+  type DeathCause,
   type Exposure,
   fallDamage,
   type SurvivalState,
@@ -358,6 +359,37 @@ describe('stamina and the gauges', () => {
     expect(player.survival.health).toBeCloseTo(12, 1);
     const rejected = s.events.filter((e) => e.type === 'rejected');
     expect(rejected).toMatchObject([{ command: 'debug.setStat', reason: 'invalid' }]);
+  });
+
+  it('kills for a cause and makes a player immune to damage by debug command', () => {
+    const s = createTestSim({ seed: 'kill-god', worldType: 'flat', allowDebug: true });
+    const player = s.sim.addPlayer(1, 2);
+    s.step(20);
+    s.host.send({ type: 'debug.god', on: true });
+    s.host.send({ type: 'debug.setStat', stat: 'temperature', value: -b.temperature.limit });
+    s.step(10 * TICKS_PER_SECOND);
+    // Freezing bites no one immune.
+    expect(player.survival.health).toBe(b.health.max);
+    s.events.length = 0;
+    s.host.send({ type: 'debug.kill', cause: 'drowning' });
+    s.host.send({ type: 'debug.kill', cause: 'boredom' as DeathCause });
+    s.host.send({ type: 'debug.god', on: 'yes' as unknown as boolean });
+    s.step(1);
+    expect(player.survival).toMatchObject({ health: 0, cause: 'drowning', dead: true, god: true });
+    expect(s.events.filter((e) => e.type === 'died')).toMatchObject([{ cause: 'drowning' }]);
+    const rejected = s.events.filter((e) => e.type === 'rejected');
+    expect(rejected).toMatchObject([
+      { command: 'debug.kill', reason: 'invalid' },
+      { command: 'debug.god', reason: 'invalid' },
+    ]);
+    // A respawn keeps the immunity; mortal again, the cold bites.
+    s.host.send({ type: 'player.respawn' });
+    s.host.send({ type: 'debug.setStat', stat: 'temperature', value: -b.temperature.limit });
+    s.step(TICKS_PER_SECOND);
+    expect(player.survival).toMatchObject({ health: b.respawn.health, god: true });
+    s.host.send({ type: 'debug.god', on: false });
+    s.step(TICKS_PER_SECOND);
+    expect(player.survival.health).toBeLessThan(b.respawn.health);
   });
 
   it('caps stamina at 50 while starving and halves its regeneration while parched', () => {

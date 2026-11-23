@@ -9,7 +9,10 @@ import { createTestSim } from '../../helpers/simHarness.ts';
 
 const b = registry.pack.balance;
 
-/** A flat world whose player is mid-game: hurt, chilled, poisoned, weakened, in fur, with a grave. */
+/**
+ * A flat world whose player is mid-game: hurt, chilled, poisoned, weakened, in fur, with a grave,
+ * immune to damage (debug).
+ */
 function midGame() {
   const s = createTestSim({ seed: 'survival-saves', worldType: 'flat', allowDebug: true });
   const player = s.sim.addPlayer(1, 2);
@@ -19,6 +22,7 @@ function midGame() {
   survival.temperature = -52;
   survival.toxicity = 41;
   survival.cause = 'cold';
+  survival.god = true;
   survival.effects.push({ key: 'weakened', ticks: 900 }, { key: 'untargeted', ticks: 40 });
   player.equipment[2] = { item: 'item:fur_coat', count: 1, durability: 120 };
   player.respawn = { x: 4, y: 65, z: -3 };

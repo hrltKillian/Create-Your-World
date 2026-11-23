@@ -112,7 +112,8 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   // Far away, the player waits frozen (and the client shows its loading screen) until the
   // columns there are lit.
   sim.teleport(player, x, y, z);
-  Object.assign(s, createSurvival(sim.registry.pack.balance));
+  // Fresh gauges; a debug immunity stays.
+  Object.assign(s, createSurvival(sim.registry.pack.balance), { god: s.god });
   s.health = r.health;
   s.hunger = r.hunger;
   s.thirst = r.thirst;

@@ -22,6 +22,7 @@ import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { DEATH_CAUSES } from './survival.ts';
 import { setHour } from './time.ts';
 
 /** Largest box a debug fill may touch. */
@@ -66,6 +67,15 @@ export function applyDebugCommand(
     }
     const ty = teleportY(sim, command.x, command.y, command.z);
     sim.teleport(player, command.x, ty, command.z);
+  } else if (command.type === 'debug.kill') {
+    if (!DEATH_CAUSES.includes(command.cause)) reject(out, playerId, command.type, 'invalid');
+    else if (player.survival.health > 0) {
+      player.survival.health = 0;
+      player.survival.cause = command.cause;
+    }
+  } else if (command.type === 'debug.god') {
+    if (typeof command.on === 'boolean') player.survival.god = command.on;
+    else reject(out, playerId, command.type, 'invalid');
   } else if (!finite(command.value) || !setStat(sim, player, command.stat, command.value)) {
     reject(out, playerId, command.type, 'invalid');
   }

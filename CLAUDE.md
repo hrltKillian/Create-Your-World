@@ -116,8 +116,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
     `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
-    any gauge; balance tests compute their expectations from the balance (`tests/unit/sim/
-    survival.test.ts`); gauge changes of food, drinks and sleep `adjustGauges` (survival.ts);
+    any gauge, `debug.kill` takes all health for a cause, `debug.god` stops damage (`survival.god`,
+    kept across a respawn); balance tests compute their expectations from the balance
+    (`tests/unit/sim/survival.test.ts`); gauge changes of food, drinks and sleep `adjustGauges`
+    (survival.ts);
   - secondary held (docs « Priorité des actions »): interactive blocks in `sim/interaction.ts`
     (`usesAimedBlock`, `useAimed`), then `holdUse` in `sim/consume.ts` (eat or drink the held item,
     `interaction.useItem`/`useTicks`: the action the press started), sips and fills in
@@ -160,7 +162,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `ui/logbook.ts` (`logbookRows`, `batchCount`); item and tag names and icons `ui/itemSlot.ts`
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
-  - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
+  - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
+    `kill`, `god`, `equip`, `shelterHere`, `playerStats`): `app/survivalAutomation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
     with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
@@ -217,6 +220,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
   follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
   `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-effects`
   (rows carry `data-effect`), `#hud-banner`, `#hud-sleep`.
+- M9 hook entries (version 9): `player.setStat(stat, value)` (any gauge, now; `setStamina` is gone),
+  `player.stats()` (gauges, the effects as the HUD lists them, shelter, felt °C and target, death and
+  cause, `god`, bedroll, packs, objectives, worn items), `player.kill(cause = 'fall')` (the death
+  at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
+  wearable on, a worn item 32–36 off), `world.shelter()` (the test at the player's head, now);
+  `ui.text(selector)` reads the HUD (`#hud-clock`, `#hud-effects`…).
+- Survival checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` (`selftest/m9.ts`, its scenes in
+  `selftest/survivalScenes.ts`; `e2e/survival.spec.ts`): the generated world with fixed steps; the
+  tundra and the marsh are the coldest biome by night and the most toxic one by day, the cabin, pads
+  and pool are debug fills of the arena cabin's wall and pond water; its reload case needs IndexedDB
+  (skipped with `?storage=memory`).
 - Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
   saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
   row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its
@@ -235,9 +249,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
   `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
-  `needsGeneratedPlayer`, `needsIdb`, `standAt`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
-  `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
-  (`selftest/m4.ts` … `m8.ts`), and every suite ends with `noErrorsCase()`.
+  `needsGeneratedPlayer`, `needsIdb`, `standAt` (flat surface by default), `aimAt` (a block's side,
+  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
+  `SEARCH_RADIUS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large
+  suite (`selftest/m4.ts` … `m9.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
