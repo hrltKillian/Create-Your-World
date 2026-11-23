@@ -345,8 +345,11 @@ export function installDebugHook(app: App): void {
        */
       open: (x?: number, y?: number, z?: number) => {
         const inventory = app.inventory;
-        if (x !== undefined && y !== undefined && z !== undefined) openBlock(app, x, y, z);
-        else if (inventory && inventory.screen() !== 'bag') {
+        if (x !== undefined && y !== undefined && z !== undefined) {
+          // Like the bag's key: an open chest or station screen closes first (no pause flicker).
+          if (inventory?.screen() && inventory.screen() !== 'bag') inventory.closeScreen(true);
+          openBlock(app, x, y, z);
+        } else if (inventory && inventory.screen() !== 'bag') {
           // The bag's key closes a chest or station screen first.
           if (inventory.screen()) inventory.closeScreen(true);
           inventory.toggleBag();

@@ -291,6 +291,28 @@ describe('stations in the world', () => {
     expect(bloomery.slots[outputSlotOf(def)]).toEqual({ item: 'item:iron_ingot', count: 1 });
   });
 
+  it('sends logs on to the kiln inputs once its fuel slot holds another fuel', () => {
+    const s = kiln(0, 5);
+    s.give('item:charcoal', 3);
+    const charcoal = s.player.inventory.findIndex((stack) => stack?.item === 'item:charcoal');
+    const logs = s.player.inventory.findIndex((stack) => stack?.item === 'item:broadleaf_log');
+    s.send({ type: 'station.move', from: charcoal });
+    expect(s.kiln.slots[fuelSlotOf(s.def)]?.item).toBe('item:charcoal');
+    s.send({ type: 'station.move', from: logs });
+    // Logs both burn and feed (charcoal): with the fuel slot taken they go to an input.
+    const inputs = s.kiln.slots.slice(0, s.def.inputSlots);
+    const inStation = inputs.reduce(
+      (n, stack) => n + (stack?.item === 'item:broadleaf_log' ? stack.count : 0),
+      0,
+    );
+    const inBag = s.player.inventory.reduce(
+      (n, stack) => n + (stack?.item === 'item:broadleaf_log' ? stack.count : 0),
+      0,
+    );
+    expect(inStation).toBe(5);
+    expect(inBag).toBe(0);
+  });
+
   it('sends fuel and ingredients across: a log to the kiln fuel, then to its inputs', () => {
     const s = kiln(1, 3);
     // Copper ore is no fuel: it goes to an input; the logs fill the fuel slot first.
