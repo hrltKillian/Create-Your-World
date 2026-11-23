@@ -264,6 +264,93 @@ export const textures = [
     palette: ['#4a3020', '#5c3c28', '#6e4930', '#7d5438'],
     seed: 91,
   },
+  // M6: underground and decoration.
+  {
+    key: 'tex:berry_bush',
+    pattern: 'leaves',
+    palette: ['#2f4a2a', '#3d5e36', '#4e7343', '#b23a48'],
+    seed: 73,
+    alpha: 'coverage',
+  },
+  {
+    key: 'tex:thornbush',
+    pattern: 'cross',
+    palette: ['#4a3b2e', '#6b5a45', '#8c7a5e'],
+    seed: 75,
+    alpha: 'coverage',
+  },
+  {
+    key: 'tex:glowbloom',
+    pattern: 'cross',
+    palette: ['#3f6b62', '#6fb5a4', '#c8f2e4'],
+    seed: 77,
+    alpha: 'coverage',
+  },
+  {
+    key: 'tex:palmthorn',
+    pattern: 'bark',
+    palette: ['#3d5a32', '#4c6c3d', '#5d7f49', '#d9cf9a'],
+    seed: 79,
+  },
+  {
+    key: 'tex:palmthorn_top',
+    pattern: 'rings',
+    palette: ['#3d5a32', '#6f8f55', '#7f9f63', '#90af70'],
+    seed: 93,
+  },
+  {
+    key: 'tex:mushroom_stem',
+    pattern: 'bark',
+    palette: ['#b8ae9c', '#c7bea9', '#d5ccb7', '#e2dac6'],
+    seed: 95,
+  },
+  {
+    key: 'tex:mushroom_stem_top',
+    pattern: 'rings',
+    palette: ['#a89e8b', '#d5ccb7', '#ddd5c1', '#e6dfcc'],
+    seed: 97,
+  },
+  {
+    key: 'tex:glowcap',
+    pattern: 'ore',
+    palette: ['#3b2b4d', '#4a3860', '#5a4673', '#7fe0c8', '#d4fff2'],
+    seed: 99,
+    alpha: 'emissiveMask',
+  },
+  {
+    key: 'tex:magma',
+    pattern: 'sludge',
+    palette: ['#24110d', '#3a1c14', '#b8400f', '#ee7424', '#ffc073'],
+    seed: 113,
+    alpha: 'emissiveMask',
+  },
+  {
+    key: 'tex:cassiterite',
+    pattern: 'ore',
+    palette: ['#5a5f63', '#6c7275', '#7f8587', '#3a3330', '#b9b2a8'],
+    seed: 115,
+    alpha: 'emissiveMask',
+  },
+  {
+    key: 'tex:bog_iron',
+    pattern: 'ore',
+    palette: ['#4f5544', '#5b614e', '#686f59', '#8a4b26', '#c27a3e'],
+    seed: 117,
+    alpha: 'emissiveMask',
+  },
+  {
+    key: 'tex:fireclay',
+    pattern: 'strata',
+    palette: ['#b9a28c', '#c6b09a', '#d3bfaa', '#e0cdb9'],
+    seed: 119,
+  },
+  {
+    key: 'tex:dawn_crystal',
+    pattern: 'crystal',
+    palette: ['#2e3036', '#383b42', '#43464e', '#e8a0b4', '#ffe3c2'],
+    seed: 121,
+    alpha: 'emissiveMask',
+  },
 ] as const satisfies readonly TextureDef[];
 
 /**

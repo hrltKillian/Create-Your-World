@@ -134,6 +134,10 @@ export type TexturePattern =
   | 'torch'
   | 'lattice'
   | 'furnaceFront'
+  /** Molten blobs (SPECIAL, last colours) under a dark crust (magma). */
+  | 'sludge'
+  /** Glowing shards (SPECIAL, last two colours) in a rock (dawn crystal). */
+  | 'crystal'
   | 'checker'
   /** Pixel art drawn from `mask` (item icons). */
   | 'icon'
@@ -319,6 +323,69 @@ export interface WorldgenDef {
   readonly bedrock: BlockKey;
   readonly stone: BlockKey;
   readonly deepStone: BlockKey;
+  /** Cave cells below this y fill with `magma` instead of air. */
+  readonly magmaBelowY: number;
+  readonly magma: BlockKey;
+  readonly caves: CaveDef;
+  readonly banks: BankDef;
+}
+
+/**
+ * Caves (docs « Génération » step 5): 3D noise sampled on a 4×4×4 lattice, trilinear in between.
+ * Wavelengths are in blocks (horizontal, vertical).
+ */
+export interface CaveDef {
+  /** Noodle tunnels where n1² + n2² < tunnelThreshold. */
+  readonly tunnelScale: readonly [number, number];
+  readonly tunnelThreshold: number;
+  /** Caverns where n3 > cavernThreshold, for y in cavernY (inclusive). */
+  readonly cavernScale: readonly [number, number];
+  readonly cavernThreshold: number;
+  readonly cavernY: readonly [number, number];
+  /** Nothing is carved within this many blocks of the surface… */
+  readonly surfaceMargin: number;
+  /** …except at entrances, where a 2D noise of this wavelength exceeds entranceThreshold. */
+  readonly entranceScale: number;
+  readonly entranceThreshold: number;
+}
+
+/**
+ * Gravel and clay banks along the shores: where the surface lies within [seaLevel − below,
+ * seaLevel + above], a 2D noise of wavelength `scale` picks the first patch whose range holds it.
+ * A bank replaces the top `depth` blocks.
+ */
+export interface BankDef {
+  readonly below: number;
+  readonly above: number;
+  readonly scale: number;
+  readonly depth: number;
+  /** The noise range of each patch: min ≤ n < max (an absent bound is open). */
+  readonly patches: readonly {
+    readonly block: BlockKey;
+    readonly min?: number;
+    readonly max?: number;
+  }[];
+}
+
+export type OreKey = `ore:${string}`;
+
+/**
+ * Ore veins (docs « Génération » step 6), drawn from a per-section random stream: each vein is a
+ * small walk around a centre at least 2 blocks inside the section, and only replaces `replaces`.
+ */
+export interface OreDef {
+  readonly key: OreKey;
+  readonly block: BlockKey;
+  /** Biomes of the vein centre's column. */
+  readonly biomes: readonly BiomeKey[] | '*';
+  /** Inclusive range of the vein centre's y. */
+  readonly yRange: readonly [number, number];
+  readonly veinsPerSection: number;
+  /** Inclusive range of blocks per vein. */
+  readonly veinSize: readonly [number, number];
+  readonly replaces: readonly BlockKey[];
+  /** Only blocks touching a cave (an air face neighbour) turn to ore. */
+  readonly caveWall?: boolean;
 }
 
 export interface BiomeDef {
@@ -340,18 +407,31 @@ export interface BiomeDef {
   readonly liquidCap?: BlockKey;
   readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
   readonly fog: string;
-  /** Trees and plants: feature, and chance per 8×8 cell (trees) or per surface block (plants). */
-  readonly trees?: readonly { readonly feature: FeatureKey; readonly chance: number }[];
+  /**
+   * Decoration: features with their chance per 8×8 cell (one candidate per cell, the chances add
+   * up), and plants with their chance per surface block.
+   */
+  readonly features?: readonly { readonly feature: FeatureKey; readonly chance: number }[];
   readonly plants?: readonly { readonly block: BlockKey; readonly chance: number }[];
 }
 
-export interface TreeFeatureDef {
+/**
+ * Decoration shapes: trees (trunk + canopy), giant mushrooms (stem + cap), boulders (a mound of
+ * `block`), columns (a stack of `block`) and patches (`block` on the surface around the centre).
+ */
+export type FeatureKind = 'broadleaf' | 'conifer' | 'mushroom' | 'boulder' | 'column' | 'patch';
+
+/** A decoration feature. Every shape stays within 7 blocks of its centre horizontally. */
+export interface FeatureDef {
   readonly key: FeatureKey;
-  readonly kind: 'broadleaf' | 'conifer';
-  readonly log: BlockKey;
-  readonly leaves: BlockKey;
-  readonly height: readonly [number, number];
-  /** The tree only grows on these blocks. */
+  readonly kind: FeatureKind;
+  /** Trunk, stem, column, boulder or patch block. */
+  readonly block: BlockKey;
+  /** Canopy or cap (trees and mushrooms). */
+  readonly crown?: BlockKey;
+  /** Inclusive range: trunk, stem or column height; boulder or patch radius. */
+  readonly size: readonly [number, number];
+  /** The feature only grows on these surface blocks. */
   readonly soil: readonly BlockKey[];
 }
 
@@ -406,6 +486,7 @@ export interface ContentPack {
   readonly sfx?: readonly SfxDef[];
   readonly worldgen?: WorldgenDef;
   readonly biomes?: readonly BiomeDef[];
-  readonly features?: readonly TreeFeatureDef[];
+  readonly features?: readonly FeatureDef[];
+  readonly ores?: readonly OreDef[];
   readonly models?: readonly ModelDef[];
 }

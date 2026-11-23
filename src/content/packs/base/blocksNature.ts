@@ -24,7 +24,32 @@ const cube = (
   ...extra,
 });
 
-/** Terrain and vegetation blocks of the surface biomes (M2). */
+/** A cross-shaped plant that needs a block below and that anything placed replaces. */
+const plant = (
+  key: `block:${string}`,
+  nameKey: PackI18nKey,
+  texture: `tex:${string}`,
+  extra: Partial<PackBlock> = {},
+): PackBlock => ({
+  key,
+  nameKey,
+  shape: 'cross',
+  pass: 'cutout',
+  textures: { all: texture },
+  collision: 'none',
+  opaque: false,
+  replaceable: true,
+  hardness: 0,
+  drops: 'none',
+  placement: { support: 'below' },
+  sound: 'leaves',
+  ...extra,
+});
+
+/** Palmthorn trunk: a spiny 12/16 column. */
+const PALMTHORN = [[2, 0, 2, 14, 16, 14]] as const;
+
+/** Terrain and vegetation blocks of the surface biomes (M2, decoration M6). */
 export const natureBlocks = [
   cube('block:snow', 'block.snow', 'tex:snow', 0.3, 'soil'),
   cube('block:permafrost', 'block.permafrost', 'tex:permafrost', 0.9, 'gravel'),
@@ -96,32 +121,41 @@ export const natureBlocks = [
     drops: 'none',
     sound: 'leaves',
   },
+  plant('block:frost_lichen', 'block.frost_lichen', 'tex:frost_lichen'),
+  plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub'),
+  plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush'),
+  plant('block:thornbush', 'block.thornbush', 'tex:thornbush', { contact: { damagePerSec: 1 } }),
+  plant('block:glowbloom', 'block.glowbloom', 'tex:glowbloom', { light: { emit: 5 } }),
   {
-    key: 'block:frost_lichen',
-    nameKey: 'block.frost_lichen',
-    shape: 'cross',
-    pass: 'cutout',
-    textures: { all: 'tex:frost_lichen' },
-    collision: 'none',
+    key: 'block:palmthorn',
+    nameKey: 'block.palmthorn',
+    shape: { boxes: PALMTHORN },
+    pass: 'opaque',
+    textures: { side: 'tex:palmthorn', top: 'tex:palmthorn_top' },
+    collision: { boxes: PALMTHORN },
     opaque: false,
-    replaceable: true,
-    hardness: 0,
-    drops: 'none',
+    light: { filter: 1 },
+    contact: { damagePerSec: 1 },
+    hardness: 0.4,
+    drops: 'self',
     placement: { support: 'below' },
-    sound: 'leaves',
+    sound: 'wood',
   },
   {
-    key: 'block:dry_shrub',
-    nameKey: 'block.dry_shrub',
-    shape: 'cross',
-    pass: 'cutout',
-    textures: { all: 'tex:dry_shrub' },
-    collision: 'none',
-    opaque: false,
-    replaceable: true,
-    hardness: 0,
-    drops: 'none',
-    placement: { support: 'below' },
-    sound: 'leaves',
+    key: 'block:mushroom_stem',
+    nameKey: 'block.mushroom_stem',
+    shape: 'cube',
+    pass: 'opaque',
+    textures: { side: 'tex:mushroom_stem', top: 'tex:mushroom_stem_top' },
+    collision: 'full',
+    opaque: true,
+    hardness: 1,
+    tool: 'axe',
+    drops: 'self',
+    sound: 'wood',
   },
+  cube('block:glowcap', 'block.glowcap', 'tex:glowcap', 0.4, 'leaves', {
+    light: { emit: 6 },
+    tool: 'axe',
+  }),
 ] as const satisfies readonly PackBlock[];

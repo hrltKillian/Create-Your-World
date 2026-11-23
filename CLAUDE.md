@@ -79,6 +79,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
   - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
     sun and moon: `render/Sky.ts`;
+  - world generation queries without generating (always the same arithmetic as the bulk pass):
+    `world/gen/sample.ts` (`LatticeCache`, `heightAt`, `biomeOf`, `pointInfo`), `caveAt`
+    (`world/gen/caves.ts`), `bankAt` (`world/gen/banks.ts`); a generation step reads the padded
+    `heights` (`PADDED` rows) and writes only its own column (decoration: `world/gen/decor.ts`);
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
@@ -86,7 +90,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
-    `litWorld`/`edit` for light);
+    `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
+    `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
 
 ## Automation

@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Column } from '../../../src/world/Column.ts';
 import { localIndex } from '../../../src/world/coords.ts';
+import { bankAt } from '../../../src/world/gen/banks.ts';
+import { caveAt } from '../../../src/world/gen/caves.ts';
 import {
   columnHash,
   createGenContext,
   GEN_VERSION,
   generateColumn,
-  LatticeCache,
-  pointInfo,
 } from '../../../src/world/gen/generateColumn.ts';
+import { LatticeCache, pointInfo } from '../../../src/world/gen/sample.ts';
 import { findSpawn } from '../../../src/world/gen/spawn.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -67,9 +68,20 @@ describe('world generation', () => {
         const info = pointInfo(ctx, cx * 32 + lx, cz * 32 + lz, cache);
         expect(column.biomes[lx | (lz << 5)]).toBe(info.biome);
         const biome = ctx.biomes[info.biome]!;
-        const expected = info.height < ctx.def.seaLevel ? biome.seabed : biome.surface;
+        const x = cx * 32 + lx;
+        const z = cz * 32 + lz;
+        const bank = bankAt(ctx, x, z, info.height);
+        const expected = caveAt(ctx, cache, x, info.height, z)
+          ? registry.air
+          : bank >= 0
+            ? bank
+            : info.height < ctx.def.seaLevel
+              ? biome.seabed
+              : biome.surface;
         const section = column.sections[info.height >> 5]!;
-        expect(section.getBlock(localIndex(lx, info.height & 31, lz))).toBe(expected);
+        const actual = section.getBlock(localIndex(lx, info.height & 31, lz));
+        // Pond beds may hold an ore vein (bog iron in the marsh silt).
+        if (!ctx.ores.some((ore) => ore.block === actual)) expect(actual).toBe(expected);
       }
     }
   });

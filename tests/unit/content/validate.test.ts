@@ -110,3 +110,29 @@ describe('content validation of shapes and state overrides', () => {
     expect(validatePack(pack).map((i) => i.path)).toEqual([at(1), at(first), at(first + 1)]);
   });
 });
+
+describe('content validation of world generation', () => {
+  it('checks features, ores and the decoration chances of biomes', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    pack.features[0].crown = undefined;
+    pack.features[3].size = [1, 5];
+    pack.ores[0].block = 'block:nope';
+    pack.ores[1].biomes = ['biome:nope'];
+    pack.ores[2].veinSize = [6, 3];
+    pack.biomes[0].features = [
+      { feature: 'feature:boulder', chance: 0.7 },
+      { feature: 'feature:boulder', chance: 0.6 },
+    ];
+    const paths = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'features[0].crown',
+        'features[3].size',
+        'ores[0].block',
+        'ores[1].biomes[0]',
+        'ores[2].veinSize',
+        'biomes[0].features',
+      ]),
+    );
+  });
+});

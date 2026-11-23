@@ -5,7 +5,8 @@ import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { serializeInventory } from '../sim/inventory.ts';
 import { Column } from '../world/Column.ts';
-import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
+import { columnHash, generateColumn } from '../world/gen/generateColumn.ts';
+import { pointInfo } from '../world/gen/sample.ts';
 import type { App } from './App.ts';
 import {
   blockKey,
