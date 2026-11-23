@@ -17,8 +17,11 @@ const dir: Vec3 = { x: 0, y: 0, z: 0 };
  */
 export class ClientAim {
   readonly hit = createRayHit();
-  /** The planned placement; `state` −1 when secondary would place nothing. */
-  readonly ghost: Placement = { x: 0, y: 0, z: 0, state: -1 };
+  /**
+   * The planned placement; `state` −1 when secondary would place nothing, `upper` −1 unless it is
+   * a tall block (door) whose upper half goes in the cell above.
+   */
+  readonly ghost: Placement = { x: 0, y: 0, z: 0, state: -1, upper: -1 };
   private readonly world: VoxelWorld;
   private readonly registry: Registry;
   /** The local player alone: the only body a local placement can be blocked by in v1. */
@@ -38,6 +41,7 @@ export class ClientAim {
     lookVector(yaw, pitch, dir);
     raycast(this.world, tables, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, REACH, this.hit);
     this.ghost.state = -1;
+    this.ghost.upper = -1;
     const hit = this.hit;
     if (!hit.hit || usesAimedBlock(this.registry, hit.state, crouch)) return;
     const stack = this.player.inventory[slot];
@@ -45,8 +49,8 @@ export class ClientAim {
     const state = item < 0 ? -1 : this.registry.itemTables.places[item]!;
     if (state < 0) return;
     const player = this.players[0]!;
-    if (planPlacement(this.world, this.registry, this.players, player, hit, state, this.ghost))
-      this.ghost.state = -1;
+    // A refusal leaves the ghost as reset above.
+    planPlacement(this.world, this.registry, this.players, player, hit, state, this.ghost);
   }
 
   /** The target for the next input command (none when the ray hits nothing or starts inside). */

@@ -50,6 +50,17 @@ export const TINT_GRASS = 1;
 export const TINT_FOLIAGE = 2;
 export const TINT_WATER = 3;
 
+/** Colour of TINT_NONE (slot 0 of the voxel shader's tint table): untinted. sRGB hex. */
+export const NO_TINT = '#ffffff';
+
+/**
+ * The pack's own colour of each tint channel, indexed by TINT_* (sRGB hex): the tint table of
+ * worlds without biomes, item icons and item models.
+ */
+export function packTints(pack: ContentPack): string[] {
+  return [NO_TINT, pack.tints.grass, pack.tints.foliage, pack.tints.water];
+}
+
 /**
  * Lookup tables indexed by the raw 16-bit voxel value (a flattened block-state id).
  * Sent once to the workers; every hot loop reads these instead of block definitions.

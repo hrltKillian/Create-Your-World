@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  Color,
   DynamicDrawUsage,
   InstancedBufferAttribute,
   InstancedMesh,
@@ -12,14 +13,24 @@ import { boxFragment, boxVertex } from './shaders/box.glsl.ts';
 import type { VoxelUniforms } from './voxelMaterial.ts';
 
 /**
- * How a box is textured: texture-array layers of its sides, top and bottom, and where the unit box
- * sits in texture space (origin and size, in blocks: 0…1 is one texture). `sprite` boxes are cut
- * from an icon and sample its plane on every face.
+ * How a box is textured: texture-array layers of its sides, top and bottom with their tints, and
+ * where the unit box sits in texture space (origin and size, in blocks: 0…1 is one texture).
+ * `sprite` boxes are cut from an icon and sample its plane on every face.
  */
 export interface BoxSkin {
   readonly side: number;
   readonly top: number;
   readonly bottom: number;
+  /** Tints of the sides, top and bottom (`boxTint`; BOX_NO_TINT for none). */
+  readonly sideTint: number;
+  readonly topTint: number;
+  readonly bottomTint: number;
+  /**
+   * The layers' alpha is coverage (cutout and translucent blocks, icons): texels under the cutout
+   * threshold are holes and the tint covers the whole texel. Else alpha masks the tint, as in the
+   * chunks' opaque pass.
+   */
+  readonly cutout: boolean;
   readonly ox: number;
   readonly oy: number;
   readonly oz: number;
@@ -29,12 +40,28 @@ export interface BoxSkin {
   readonly sprite: boolean;
 }
 
+/** `boxTint` of white: no tint. */
+export const BOX_NO_TINT = 0xffffff;
+
+/**
+ * A tint colour (sRGB hex) as the box shader reads it: linear RGB like the chunks' tint uniforms,
+ * 8 bits a channel packed as 0xRRGGBB, which a float attribute holds exactly.
+ */
+export function boxTint(hex: string): number {
+  const c = new Color(hex);
+  return (Math.round(c.r * 255) << 16) | (Math.round(c.g * 255) << 8) | Math.round(c.b * 255);
+}
+
 /** One layer on every face, the whole texture on each (avatar parts). */
 export function fullSkin(layer: number): BoxSkin {
   return {
     side: layer,
     top: layer,
     bottom: layer,
+    sideTint: BOX_NO_TINT,
+    topTint: BOX_NO_TINT,
+    bottomTint: BOX_NO_TINT,
+    cutout: false,
     ox: 0,
     oy: 0,
     oz: 0,
@@ -61,6 +88,7 @@ export class BoxBatch {
   private readonly lights: InstancedBufferAttribute;
   private readonly texOrigins: InstancedBufferAttribute;
   private readonly texSizes: InstancedBufferAttribute;
+  private readonly tints: InstancedBufferAttribute;
   private readonly capacity: number;
   private count = 0;
   private originX = 0;
@@ -76,6 +104,7 @@ export class BoxBatch {
     this.lights = this.attribute(geometry, 'aLight', 2);
     this.texOrigins = this.attribute(geometry, 'aTexOrigin', 4);
     this.texSizes = this.attribute(geometry, 'aTexSize', 3);
+    this.tints = this.attribute(geometry, 'aTints', 4);
     const material = new ShaderMaterial({
       vertexShader: boxVertex,
       fragmentShader: boxFragment,
@@ -130,6 +159,7 @@ export class BoxBatch {
     this.lights.setXY(i, sky, block);
     this.texOrigins.setXYZW(i, skin.ox, skin.oy, skin.oz, skin.sprite ? 1 : 0);
     this.texSizes.setXYZ(i, skin.sx, skin.sy, skin.sz);
+    this.tints.setXYZW(i, skin.sideTint, skin.topTint, skin.bottomTint, skin.cutout ? 1 : 0);
   }
 
   /** Uploads only the instances written this frame. */
@@ -141,6 +171,7 @@ export class BoxBatch {
     BoxBatch.upload(this.lights, this.count);
     BoxBatch.upload(this.texOrigins, this.count);
     BoxBatch.upload(this.texSizes, this.count);
+    BoxBatch.upload(this.tints, this.count);
   }
 
   dispose(): void {

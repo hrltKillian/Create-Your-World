@@ -3,11 +3,13 @@ import {
   FACE_DOWN,
   FACE_SOUTH,
   FACE_UP,
+  PASS_OPAQUE,
+  packTints,
   type Registry,
   SHAPE_BOXES,
   SHAPE_CROSS,
 } from '../content/registry.ts';
-import type { BoxBatch, BoxSkin } from './BoxBatch.ts';
+import { BOX_NO_TINT, type BoxBatch, type BoxSkin, boxTint } from './BoxBatch.ts';
 
 /** Boxes an item extruded from its icon may use (docs/conception.md « BoxBatch »). */
 export const MAX_ITEM_BOXES = 32;
@@ -68,8 +70,34 @@ export function maskRects(
   return rects;
 }
 
+/** The texturing part of a skin: layers, tints and alpha mode, shared by an item's boxes. */
+type SkinFaces = Pick<
+  BoxSkin,
+  'side' | 'top' | 'bottom' | 'sideTint' | 'topTint' | 'bottomTint' | 'cutout'
+>;
+
 function part(x: number, y: number, z: number, w: number, h: number, d: number, skin: BoxSkin) {
   return { box: new Matrix4().makeScale(w, h, d).setPosition(x, y, z), skin };
+}
+
+/**
+ * The faces of a block state as an item draws them, like the chunks: the layers of its south side,
+ * top and bottom, each face's tint in the pack's own colours (`tints`: `boxTint` by TINT_*
+ * channel), and alpha as coverage unless the block is opaque.
+ */
+function blockFaces(registry: Registry, state: number, tints: readonly number[]): SkinFaces {
+  const tables = registry.tables;
+  const layer = (face: number) => tables.faceLayer[state * 6 + face]!;
+  const tint = (face: number) => tints[tables.faceTint[state * 6 + face]!]!;
+  return {
+    side: layer(FACE_SOUTH),
+    top: layer(FACE_UP),
+    bottom: layer(FACE_DOWN),
+    sideTint: tint(FACE_SOUTH),
+    topTint: tint(FACE_UP),
+    bottomTint: tint(FACE_DOWN),
+    cutout: tables.pass[state] !== PASS_OPAQUE,
+  };
 }
 
 /** A block box in 1/16 (block space 0…16) as an item part centred on the block. */
@@ -80,13 +108,10 @@ function blockPart(
   x1: number,
   y1: number,
   z1: number,
-  layers: readonly [number, number, number],
+  faces: SkinFaces,
 ): ItemPart {
-  const [side, top, bottom] = layers;
   const skin: BoxSkin = {
-    side,
-    top,
-    bottom,
+    ...faces,
     ox: x0 / 16,
     oy: y0 / 16,
     oz: z0 / 16,
@@ -106,8 +131,11 @@ function blockPart(
   );
 }
 
-/** An icon layer extruded into boxes (one per pixel rectangle), one pixel thick. */
-function spriteModel(layer: number, pixels: Uint8Array, size: number): ItemModel {
+/**
+ * An icon layer extruded into boxes (one per pixel rectangle), one pixel thick, with one tint on
+ * every face. Icon alpha is coverage: the single far box shows the holes inside its bounds.
+ */
+function spriteModel(layer: number, tint: number, pixels: Uint8Array, size: number): ItemModel {
   const base = layer * size * size * 4;
   const opaque = (x: number, y: number) => pixels[base + (y * size + x) * 4 + 3]! > 127;
   const spritePart = (r: PixelRect): ItemPart => {
@@ -115,6 +143,10 @@ function spriteModel(layer: number, pixels: Uint8Array, size: number): ItemModel
       side: layer,
       top: layer,
       bottom: layer,
+      sideTint: tint,
+      topTint: tint,
+      bottomTint: tint,
+      cutout: true,
       ox: r.x / size,
       oy: r.y / size,
       oz: 0,
@@ -154,21 +186,21 @@ function spriteModel(layer: number, pixels: Uint8Array, size: number): ItemModel
 function blockModel(
   registry: Registry,
   state: number,
+  tints: readonly number[],
   pixels: Uint8Array,
   size: number,
 ): ItemModel {
   const tables = registry.tables;
-  const layer = (face: number) => tables.faceLayer[state * 6 + face]!;
-  const layers = [layer(FACE_SOUTH), layer(FACE_UP), layer(FACE_DOWN)] as const;
+  const faces = blockFaces(registry, state, tints);
   const shape = tables.shape[state];
-  if (shape === SHAPE_CROSS) return spriteModel(layers[0], pixels, size);
+  if (shape === SHAPE_CROSS) return spriteModel(faces.side, faces.sideTint, pixels, size);
   const boxes =
     shape === SHAPE_BOXES
       ? tables.boxShapes[tables.boxShape[state]!]!
       : [[0, 0, 0, 16, 16, 16] as const];
   const parts = boxes
     .slice(0, MAX_ITEM_BOXES)
-    .map(([x0, y0, z0, x1, y1, z1]) => blockPart(x0, y0, z0, x1, y1, z1, layers));
+    .map(([x0, y0, z0, x1, y1, z1]) => blockPart(x0, y0, z0, x1, y1, z1, faces));
   return { sprite: false, parts, far: parts[0]! };
 }
 
@@ -177,10 +209,12 @@ function blockModel(
  * the pack, in layer order (`size` × `size` each): icons are extruded from their alpha.
  */
 export function buildItemModels(registry: Registry, pixels: Uint8Array, size: number): ItemModel[] {
+  const tints = packTints(registry.pack).map(boxTint);
   return registry.items.map((item) => {
     if (typeof item.icon !== 'string')
-      return blockModel(registry, registry.defaultState(item.icon.block), pixels, size);
-    return spriteModel(Math.max(0, registry.textureKeys.indexOf(item.icon)), pixels, size);
+      return blockModel(registry, registry.defaultState(item.icon.block), tints, pixels, size);
+    const layer = Math.max(0, registry.textureKeys.indexOf(item.icon));
+    return spriteModel(layer, BOX_NO_TINT, pixels, size);
   });
 }
 

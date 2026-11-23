@@ -20,6 +20,8 @@ export interface Placement {
   y: number;
   z: number;
   state: number;
+  /** State of the upper half of a tall block (door), in the cell above; −1 for one-cell blocks. */
+  upper: number;
 }
 
 /** Reasons a placement is refused (sent back in `rejected`). */
@@ -29,11 +31,11 @@ const EPSILON = 1e-4;
 
 /**
  * Plans the placement of a block (`state`, its default state) against the aimed face: into the
- * aimed cell when it is replaceable (tall grass, water), else into the cell in front of the face.
- * The cell must be replaceable, inside the world and free of players; the block's support rule
- * must hold; its orientation follows the face (axis) or faces the player (facing). A tall block
- * (door) also needs the cell above, for its upper half; `out` holds its lower half. Writes `out`
- * and returns null, or returns the refusal.
+ * aimed cell when it is replaceable (tall grass, water) and not already that block, else into the
+ * cell in front of the face. The cell must be replaceable, inside the world and free of players;
+ * the block's support rule must hold; its orientation follows the face (axis) or faces the player
+ * (facing). A tall block (door) also needs the cell above, for its upper half (`out.upper`).
+ * Writes `out` and returns null, or returns the refusal.
  */
 export function planPlacement(
   world: VoxelWorld,
@@ -47,7 +49,10 @@ export function planPlacement(
   const tables = registry.tables;
   // A ray that starts inside a block has no face to place against.
   if (hit.nx === 0 && hit.ny === 0 && hit.nz === 0) return 'occupied';
-  const intoHit = (tables.flags[hit.state]! & FLAG_REPLACEABLE) !== 0;
+  // Placing a block into the same block would use an item and change nothing.
+  const intoHit =
+    (tables.flags[hit.state]! & FLAG_REPLACEABLE) !== 0 &&
+    tables.blockOf[hit.state] !== tables.blockOf[state];
   const x = intoHit ? hit.x : hit.x + hit.nx;
   const y = intoHit ? hit.y : hit.y + hit.ny;
   const z = intoHit ? hit.z : hit.z + hit.nz;
@@ -70,6 +75,7 @@ export function planPlacement(
   out.y = y;
   out.z = z;
   out.state = placed;
+  out.upper = cells === 2 ? registry.withState(placed, 'half', 'upper') : -1;
   return null;
 }
 

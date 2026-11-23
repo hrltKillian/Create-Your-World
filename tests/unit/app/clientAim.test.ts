@@ -40,4 +40,19 @@ describe('client aim', () => {
     aim.update({ x: 0.5, y: 65.62, z: 0.5 }, 0, -0.6, 1, false);
     expect(aim.ghost.state).toBe(-1);
   });
+
+  it('describes both halves of a door ghost', () => {
+    const { aim, player } = aimer();
+    player.inventory[0] = { item: 'item:dirt', count: 3 };
+    aim.update({ x: 0.5, y: 65.62, z: 0.5 }, 0, -0.6, 0, false);
+    expect(aim.ghost.upper).toBe(-1);
+    player.inventory[0] = { item: 'item:gate', count: 1 };
+    aim.update({ x: 0.5, y: 65.62, z: 0.5 }, 0, -0.6, 0, false);
+    const { state, upper } = aim.ghost;
+    expect(registry.states[state]!.props.half).toBe('lower');
+    expect(upper).toBe(registry.withState(state, 'half', 'upper'));
+    // Refused (straight down, inside the player): no ghost and no upper half.
+    aim.update({ x: 0.5, y: 65.62, z: 0.5 }, 0, DOWN, 0, false);
+    expect([aim.ghost.state, aim.ghost.upper]).toEqual([-1, -1]);
+  });
 });

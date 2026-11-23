@@ -3,11 +3,10 @@ import {
   FACE_UP,
   FACE_WEST,
   PASS_OPAQUE,
+  packTints,
   type Registry,
   SHAPE_CUBE,
   SHAPE_LIQUID,
-  TINT_FOLIAGE,
-  TINT_GRASS,
   TINT_NONE,
 } from '../../content/registry.ts';
 import { parseHex } from './textureGen.ts';
@@ -75,15 +74,7 @@ function faceArt(
 ): FaceArt {
   const tables = registry.tables;
   const channel = tables.faceTint[state * 6 + face]!;
-  const tints = registry.pack.tints;
-  const hex =
-    channel === TINT_NONE
-      ? null
-      : channel === TINT_GRASS
-        ? tints.grass
-        : channel === TINT_FOLIAGE
-          ? tints.foliage
-          : tints.water;
+  const hex = channel === TINT_NONE ? null : packTints(registry.pack)[channel]!;
   return {
     layer: layers[tables.faceLayer[state * 6 + face]!]!,
     tint: hex ? parseHex(hex) : null,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { CRACK_STAGES } from '../../../src/content/schema.ts';
 import { BlockOverlay, crackLayers, shapeBounds } from '../../../src/render/BlockOverlay.ts';
-import { BoxBatch } from '../../../src/render/BoxBatch.ts';
+import { BOX_NO_TINT, BoxBatch, boxTint } from '../../../src/render/BoxBatch.ts';
 import { DropView } from '../../../src/render/DropView.ts';
 import { HandView } from '../../../src/render/HandView.ts';
 import { buildItemModels } from '../../../src/render/itemModels.ts';
@@ -71,6 +71,25 @@ describe('item drops', () => {
     // Above the ground it lies on.
     expect(first[13]).toBeGreaterThan(64);
   });
+
+  it('writes the tints and the alpha mode of each box', () => {
+    const batch = new BoxBatch(shared, 64, true);
+    const view = new DropView(batch, flatWorld(), registry, items);
+    const tints = () => {
+      const a = batch.mesh.geometry.getAttribute('aTints');
+      return [a.getX(0), a.getY(0), a.getZ(0), a.getW(0)];
+    };
+    const draw = (item: string) => {
+      batch.begin(0, 0, 0);
+      view.drawAll(new Map([[1, drop(1, item, 0.5, 0.5)]]), 0, 65, 0, 1, 0.2);
+      batch.end();
+    };
+    draw('item:foliage');
+    const foliage = boxTint(basePack.tints.foliage);
+    expect(tints()).toEqual([foliage, foliage, foliage, 1]);
+    draw('item:stone');
+    expect(tints()).toEqual([BOX_NO_TINT, BOX_NO_TINT, BOX_NO_TINT, 0]);
+  });
 });
 
 describe('break particles', () => {
@@ -111,7 +130,7 @@ describe('block overlays', () => {
     const overlay = new BlockOverlay(shared, flatWorld(), registry.tables, basePack);
     const [outline, crack, ghost] = overlay.group.children;
     const hit = createRayHit();
-    const targets = { hit, ghost: { x: 0, y: 64, z: 0, state: -1 } };
+    const targets = { hit, ghost: { x: 0, y: 64, z: 0, state: -1, upper: -1 } };
     overlay.update(targets);
     expect([outline!.visible, crack!.visible, ghost!.visible]).toEqual([false, false, false]);
     Object.assign(hit, {
@@ -131,6 +150,28 @@ describe('block overlays', () => {
     overlay.setCrack(2, 63, 3, -1);
     overlay.update(targets);
     expect(crack!.visible).toBe(false);
+  });
+
+  it('covers both cells of a door with its ghost', () => {
+    const overlay = new BlockOverlay(shared, flatWorld(), registry.tables, basePack);
+    const [, , ghost, upperGhost] = overlay.group.children;
+    const lower = registry.defaultState('block:gate');
+    const upper = registry.withState(lower, 'half', 'upper');
+    const targets = { hit: createRayHit(), ghost: { x: 4, y: 65, z: -2, state: lower, upper } };
+    overlay.update(targets);
+    expect([ghost!.visible, upperGhost!.visible]).toEqual([true, true]);
+    const span = (o: typeof ghost) => [
+      o!.position.y - o!.scale.y / 2,
+      o!.position.y + o!.scale.y / 2,
+    ];
+    expect([...span(ghost), ...span(upperGhost)]).toEqual([65, 66, 66, 67]);
+    expect(upperGhost!.position.x).toBe(ghost!.position.x);
+    expect(upperGhost!.position.z).toBe(ghost!.position.z);
+    // A one-cell block, or no ghost at all, hides the upper box.
+    overlay.update({ ...targets, ghost: { ...targets.ghost, upper: -1 } });
+    expect([ghost!.visible, upperGhost!.visible]).toEqual([true, false]);
+    overlay.update({ ...targets, ghost: { ...targets.ghost, state: -1 } });
+    expect([ghost!.visible, upperGhost!.visible]).toEqual([false, false]);
   });
 });
 

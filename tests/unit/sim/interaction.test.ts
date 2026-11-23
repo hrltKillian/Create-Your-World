@@ -236,6 +236,26 @@ describe('placement', () => {
     expect(s.block(0, 65, -1)).toBe('block:dirt');
   });
 
+  it('never places a plant into the same plant: held 30 ticks, it uses nothing', () => {
+    const s = setup();
+    s.give('item:tall_grass', 5);
+    s.put(0, 65, -2, 'block:tall_grass');
+    // The top of the plant: the cell above has no solid support, so nothing can go anywhere.
+    s.tick(30, { secondary: true, target: { x: 0, y: 65, z: -2, face: 2 } });
+    expect(of(s.events, 'blockPlaced')).toHaveLength(0);
+    expect(reasons(s.events)).toEqual(Array(5).fill('support'));
+    expect(countItem(s.player.inventory, 'item:tall_grass')).toBe(5);
+    // Its side: a new plant in front of it, once; the plant itself is never replaced.
+    s.events.length = 0;
+    s.tick(1, { secondary: false });
+    s.tick(30, { secondary: true, target: { x: 0, y: 65, z: -2, face: 4 } });
+    const placed = of(s.events, 'blockPlaced');
+    expect(placed.map((e) => [e.x, e.y, e.z])).not.toContainEqual([0, 65, -2]);
+    expect(new Set(placed.map((e) => `${e.x},${e.y},${e.z}`)).size).toBe(placed.length);
+    expect(placed.length).toBeGreaterThan(0);
+    expect(countItem(s.player.inventory, 'item:tall_grass')).toBe(5 - placed.length);
+  });
+
   it('falls back to its own ray when the client target is hidden', () => {
     const s = setup();
     s.give('item:dirt', 5);
@@ -289,12 +309,13 @@ describe('doors (two-block gates)', () => {
     s.step(1);
     const hit = { ...createRayHit(), hit: true, x: 0, y: top, z: -2, ny: 1 };
     hit.state = s.sim.world.getBlock(0, top, -2);
-    const out: Placement = { x: 0, y: 0, z: 0, state: 0 };
+    const out: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
     const gate = registry.defaultState('block:gate');
     const plan = (state: number) =>
       planPlacement(s.sim.world, registry, [], s.player, hit, state, out);
     expect(plan(gate)).toBe('occupied');
     expect(plan(registry.defaultState('block:planks'))).toBeNull(); // a one-cell block fits
+    expect(out.upper).toBe(-1);
   });
 
   it('pops whole, for one item, when the block under it breaks', () => {

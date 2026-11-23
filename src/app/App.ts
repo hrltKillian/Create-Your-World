@@ -2,7 +2,7 @@ import { generatePackTexture } from '../assets/procedural/patterns.ts';
 import { AudioEngine } from '../audio/AudioEngine.ts';
 import { AudioCues } from '../audio/cues.ts';
 import { basePack } from '../content/packs/base/index.ts';
-import { buildRegistry, type Registry } from '../content/registry.ts';
+import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/registry.ts';
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { addStrings } from '../i18n/i18n.ts';
@@ -49,8 +49,6 @@ const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
 /** Seconds between two refreshes of the debug overlay. */
 const OVERLAY_REFRESH = 0.25;
 const RENDER_DISTANCE = 6;
-/** Tint slot 0 of the voxel shader: untinted. */
-const NO_TINT = '#ffffff';
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
 const BENCH_BUFFER = [2160, 1350] as const;
 
@@ -388,11 +386,6 @@ export function biomeTints(pack: ContentPack): string[] {
 /** RGBA bytes of every pack texture, in layer order (the texture array and the item icons). */
 function packLayers(pack: ContentPack): Uint8Array[] {
   return pack.textures.map((def) => generatePackTexture(def, pack.manifest.textureSize));
-}
-
-/** Tint table without biomes: no tint, then the pack's own grass/foliage/water tints. */
-function packTints(pack: ContentPack): string[] {
-  return [NO_TINT, pack.tints.grass, pack.tints.foliage, pack.tints.water];
 }
 
 interface KeyboardLayoutSource {

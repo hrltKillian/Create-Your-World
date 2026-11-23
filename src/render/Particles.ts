@@ -3,7 +3,7 @@ import { FACE_SOUTH, FLAG_SOLID, type RawTables } from '../content/registry.ts';
 import { hashUnit } from '../core/hash.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
-import type { BoxBatch } from './BoxBatch.ts';
+import { BOX_NO_TINT, type BoxBatch } from './BoxBatch.ts';
 
 /** Particles alive at once (a pool: the oldest is reused when it is full). */
 const POOL = 96;
@@ -19,6 +19,10 @@ const skin = {
   side: 0,
   top: 0,
   bottom: 0,
+  sideTint: BOX_NO_TINT,
+  topTint: BOX_NO_TINT,
+  bottomTint: BOX_NO_TINT,
+  cutout: false,
   ox: 0,
   oy: 0,
   oz: 0,

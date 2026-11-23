@@ -34,7 +34,7 @@ const BROKEN = 1 - 1e-9;
 
 /** Scratch aim and placement (no allocation per tick). */
 const hit = createRayHit();
-const placement: Placement = { x: 0, y: 0, z: 0, state: 0 };
+const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 
 /**
  * One tick of a player's interaction with the world (docs/conception.md « Priorité des actions »).
@@ -255,10 +255,8 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const { x, y, z } = placement;
   editBlock(sim.world, sim.registry.tables, x, y, z, placement.state, out);
   // A tall block (door): its upper half goes in the cell above, checked free by planPlacement.
-  if (sim.registry.blockDef(state).placement?.tall === 2) {
-    const upper = sim.registry.withState(placement.state, 'half', 'upper');
-    editBlock(sim.world, sim.registry.tables, x, y + 1, z, upper, out);
-  }
+  if (placement.upper >= 0)
+    editBlock(sim.world, sim.registry.tables, x, y + 1, z, placement.upper, out);
   takeFromSlot(player.inventory, player.input.slot, 1);
   out.push({ type: 'blockPlaced', playerId: player.playerId, x, y, z, state: placement.state });
   const sfx = sim.registry.blockSfx(placement.state, 'place');

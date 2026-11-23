@@ -31,12 +31,16 @@ const OVERLAY_ORDER = 3;
 export interface OverlayTargets {
   /** The block under the crosshair (`hit` false: none). */
   readonly hit: Readonly<RayHit>;
-  /** Where secondary would place a block, in which state (−1: nowhere). */
+  /**
+   * Where secondary would place a block, in which state (−1: nowhere), and the state of the upper
+   * half a tall block (door) puts in the cell above (−1: none).
+   */
   readonly ghost: {
     readonly x: number;
     readonly y: number;
     readonly z: number;
     readonly state: number;
+    readonly upper: number;
   };
 }
 
@@ -85,8 +89,8 @@ function overlayMaterial(shared: VoxelUniforms, multiply: boolean): ShaderMateri
 
 /**
  * The target outline (the block's shape bounds × 1.004), the crack decal of the block being mined
- * (8 stages, polygon offset) and the translucent placement ghost. Three objects in the world scene,
- * hidden when unused.
+ * (8 stages, polygon offset) and the translucent placement ghost, with a second box for the upper
+ * half of a tall block. Four objects in the world scene, hidden when unused.
  */
 export class BlockOverlay {
   readonly group = new Group();
@@ -96,6 +100,7 @@ export class BlockOverlay {
   private readonly outline: LineSegments;
   private readonly crack: Mesh;
   private readonly ghost: Mesh;
+  private readonly ghostUpper: Mesh;
   private readonly bounds = new Float64Array(6);
   /** Crack stage shown (−1: none) and its cell, for tests and the debug hook. */
   crackStage = -1;
@@ -118,7 +123,8 @@ export class BlockOverlay {
     );
     this.crack = new Mesh(faceBox(), overlayMaterial(shared, true));
     this.ghost = new Mesh(faceBox(), overlayMaterial(shared, false));
-    for (const object of [this.outline, this.crack, this.ghost]) {
+    this.ghostUpper = new Mesh(faceBox(), overlayMaterial(shared, false));
+    for (const object of this.objects()) {
       object.visible = false;
       object.renderOrder = OVERLAY_ORDER;
       object.frustumCulled = false;
@@ -134,7 +140,7 @@ export class BlockOverlay {
     this.crackZ = z;
   }
 
-  /** Places the three overlays for this frame. */
+  /** Places the overlays for this frame. */
   update(targets: OverlayTargets): void {
     const hit = targets.hit;
     this.outline.visible = hit.hit;
@@ -147,20 +153,31 @@ export class BlockOverlay {
       setFaceLayers(this.crack, layer, layer, layer, layer, layer, layer);
     }
     const ghost = targets.ghost;
-    this.ghost.visible = ghost.state >= 0;
-    if (ghost.state >= 0) {
-      this.fit(this.ghost, ghost.x, ghost.y, ghost.z, ghost.state, 1);
-      const l = this.tables.faceLayer;
-      const s = ghost.state * 6;
-      setFaceLayers(this.ghost, l[s]!, l[s + 1]!, l[s + 2]!, l[s + 3]!, l[s + 4]!, l[s + 5]!);
-    }
+    this.showGhost(this.ghost, ghost.x, ghost.y, ghost.z, ghost.state);
+    const upper = ghost.state >= 0 ? ghost.upper : -1;
+    this.showGhost(this.ghostUpper, ghost.x, ghost.y + 1, ghost.z, upper);
   }
 
   dispose(): void {
-    for (const object of [this.outline, this.crack, this.ghost]) {
+    for (const object of this.objects()) {
       object.geometry.dispose();
       (object.material as ShaderMaterial).dispose();
     }
+  }
+
+  /** Outline, crack, ghost and upper ghost: the order of `group.children`. */
+  private objects(): (LineSegments | Mesh)[] {
+    return [this.outline, this.crack, this.ghost, this.ghostUpper];
+  }
+
+  /** Shows a ghost box as a block state at (x, y, z), textured like it (`state` −1 hides it). */
+  private showGhost(mesh: Mesh, x: number, y: number, z: number, state: number): void {
+    mesh.visible = state >= 0;
+    if (state < 0) return;
+    this.fit(mesh, x, y, z, state, 1);
+    const l = this.tables.faceLayer;
+    const s = state * 6;
+    setFaceLayers(mesh, l[s]!, l[s + 1]!, l[s + 2]!, l[s + 3]!, l[s + 4]!, l[s + 5]!);
   }
 
   /** Scales and moves a unit box object onto the shape bounds of a block state. */

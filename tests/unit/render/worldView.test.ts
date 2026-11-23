@@ -17,10 +17,10 @@ describe('WorldView', () => {
     const [world, hand] = compiled.map((c) => c.materials);
     // No chunk is meshed yet: probes stand in for the three chunk materials.
     for (const material of chunkMaterials) expect(world!.has(material)).toBe(true);
-    // The world box batch and the hidden overlays (outline, crack, ghost).
+    // The world box batch and the hidden overlays (outline, crack, ghost and its upper half).
     for (const material of sceneMaterials(play.batch.mesh)) expect(world!.has(material)).toBe(true);
     const overlays = sceneMaterials(play.overlay.group);
-    expect(overlays.size).toBe(3);
+    expect(overlays.size).toBe(4);
     for (const material of overlays) expect(world!.has(material)).toBe(true);
     expect(hand).toEqual(sceneMaterials(play.hand.scene));
     expect(hand!.size).toBe(1);
