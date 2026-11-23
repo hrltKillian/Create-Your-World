@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import { blockToColumn } from '../world/coords.ts';
 import { createGenContext, type GenContext, type WorldType } from '../world/gen/generateColumn.ts';
 import { findSpawn } from '../world/gen/spawn.ts';
+import { LightEngine } from '../world/light/LightEngine.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
@@ -9,6 +10,7 @@ import { TICK_SECONDS } from './clock.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyDebugCommand } from './debugCommands.ts';
+import { stepLight } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
@@ -21,6 +23,8 @@ import { SpatialHash } from './spatialHash.ts';
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
 export const INTEGRATE_PER_TICK = 2;
 export const LOADING_FACTOR = 6;
+/** Light seam nodes processed per tick (×LOADING_FACTOR while loading); edits always complete. */
+export const SEAM_NODES_PER_TICK = 8192;
 
 export interface SimOptions {
   readonly seed: string;
@@ -47,6 +51,7 @@ export class Simulation implements ColumnSink {
   readonly worldType: WorldType;
   readonly registry: Registry;
   readonly world: VoxelWorld;
+  readonly light: LightEngine;
   readonly ctx: GenContext;
   readonly spawn: { readonly x: number; readonly y: number; readonly z: number };
   readonly allowDebug: boolean;
@@ -68,11 +73,13 @@ export class Simulation implements ColumnSink {
     this.registry = options.registry;
     this.allowDebug = options.allowDebug ?? false;
     this.world = new VoxelWorld(options.registry.air, options.registry.unknownBlock);
+    this.light = new LightEngine(options.registry.tables);
     this.ctx = createGenContext(this.seed, this.registry, this.worldType);
     this.spawn = findSpawn(this.ctx);
     this.columns = new ColumnPipeline(
       this.world,
       options.registry.air,
+      this.light,
       options.source,
       { seed: this.seed, worldType: this.worldType },
       options.maxInFlight,
@@ -147,7 +154,9 @@ export class Simulation implements ColumnSink {
       stepInteraction(this, player, out);
     }
     stepItemDrops(this, out);
-    this.columns.integrate(INTEGRATE_PER_TICK, out);
+    this.columns.integrate(INTEGRATE_PER_TICK);
+    stepLight(this.light, SEAM_NODES_PER_TICK, out);
+    this.columns.promote(out);
     this.columns.stream(out);
   }
 
@@ -155,7 +164,9 @@ export class Simulation implements ColumnSink {
   pump(columns: number, out: SimEvent[]): void {
     // Commands sent while no tick runs (paused, loading) still take effect.
     this.applyCommands(out);
-    this.columns.integrate(columns, out);
+    this.columns.integrate(columns);
+    stepLight(this.light, SEAM_NODES_PER_TICK * LOADING_FACTOR, out);
+    this.columns.promote(out);
     this.columns.stream(out);
   }
 

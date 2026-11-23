@@ -1,5 +1,7 @@
 import type { Registry } from '../../content/registry.ts';
 import { sectionKey } from '../coords.ts';
+import { columnLight } from '../light/columnLight.ts';
+import { LightEngine } from '../light/LightEngine.ts';
 import { FULL_SKY } from '../light.ts';
 import { meshSection, type SectionMesh } from '../mesh/greedyMesher.ts';
 import { createPadded, fillPadded } from '../mesh/padded.ts';
@@ -12,7 +14,8 @@ export const TEST_SCENE_RADIUS = 1;
 
 /**
  * Builds the developer test scene from the pack's `devScene` description: layered ground, a pond,
- * a tree, scattered plants and a showcase of every block state on a platform.
+ * a tree, scattered plants and a showcase of every block state on a platform, lit as the game
+ * lights its columns.
  */
 export function buildTestScene(world: VoxelWorld, registry: Registry): void {
   const scene = registry.pack.devScene;
@@ -106,6 +109,17 @@ export function buildTestScene(world: VoxelWorld, registry: Registry): void {
     const z = z0 + Math.floor(i / perRow) * 3;
     world.setBlock(x, TEST_SCENE_SURFACE + 1, z, state.id);
   });
+  lightTestScene(world, registry);
+}
+
+/** Each column's own light, then the seams between them. */
+function lightTestScene(world: VoxelWorld, registry: Registry): void {
+  const light = new LightEngine(registry.tables);
+  for (const column of world.columns.values()) {
+    columnLight(column, registry.tables);
+    light.addColumn(column);
+  }
+  light.stitch(Number.POSITIVE_INFINITY);
 }
 
 /** Receives the test scene's section meshes (the renderer's chunk meshes). */

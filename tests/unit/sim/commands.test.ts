@@ -86,7 +86,18 @@ describe('command validation', () => {
     step();
     expect(registry.states[sim.world.getBlock(2, 70, 2)]!.key).toBe('block:stone');
     expect(registry.states[sim.world.getBlock(3, 70, 3)]!.key).toBe('block:air');
-    expect(events.filter((e) => e.type === 'blocksChanged')).toHaveLength(1);
+    // The fill's box (floored corners), then the light it changed around it.
+    const changed = events.filter((e) => e.type === 'blocksChanged');
+    expect(changed).toHaveLength(2);
+    expect(changed[0]).toEqual({
+      type: 'blocksChanged',
+      x0: 2,
+      y0: 70,
+      z0: 2,
+      x1: 2,
+      y1: 70,
+      z1: 2,
+    });
   });
 
   it('teleports to the flat surface, not the default terrain height', () => {

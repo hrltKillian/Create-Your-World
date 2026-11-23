@@ -163,7 +163,7 @@ function breakBlock(
 ): void {
   const registry = sim.registry;
   const state = sim.world.getBlock(x, y, z);
-  if (!editBlock(sim.world, registry.tables, x, y, z, registry.air, out)) return;
+  if (!editBlock(sim.world, sim.light, x, y, z, registry.air, out)) return;
   out.push({ type: 'blockBroken', playerId: player.playerId, x, y, z, state });
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
@@ -225,10 +225,10 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
     reject(out, player.playerId, 'input', 'occupied');
     return;
   }
-  editBlock(sim.world, registry.tables, x, y, z, next, out);
+  editBlock(sim.world, sim.light, x, y, z, next, out);
   if (other !== y) {
     const partner = registry.withState(sim.world.getBlock(x, other, z), 'open', value);
-    editBlock(sim.world, registry.tables, x, other, z, partner, out);
+    editBlock(sim.world, sim.light, x, other, z, partner, out);
   }
   const sfx = registry.blockSfx(next, 'place');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
@@ -253,10 +253,9 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
     return;
   }
   const { x, y, z } = placement;
-  editBlock(sim.world, sim.registry.tables, x, y, z, placement.state, out);
+  editBlock(sim.world, sim.light, x, y, z, placement.state, out);
   // A tall block (door): its upper half goes in the cell above, checked free by planPlacement.
-  if (placement.upper >= 0)
-    editBlock(sim.world, sim.registry.tables, x, y + 1, z, placement.upper, out);
+  if (placement.upper >= 0) editBlock(sim.world, sim.light, x, y + 1, z, placement.upper, out);
   takeFromSlot(player.inventory, player.input.slot, 1);
   out.push({ type: 'blockPlaced', playerId: player.playerId, x, y, z, state: placement.state });
   const sfx = sim.registry.blockSfx(placement.state, 'place');

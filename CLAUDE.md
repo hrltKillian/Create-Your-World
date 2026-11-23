@@ -74,14 +74,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - Shared helpers, to import rather than copy:
   - game numbers: `PHYSICS` (`sim/physics.ts`), `STAMINA` (`sim/player.ts`);
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
-    `insideBorder`); packed light: `world/light.ts` (`skyOf`, `blockOf`, `FULL_SKY`);
+    `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
+    `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
+  - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
-  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`);
+  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
+    `litWorld`/`edit` for light);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
 
 ## Automation

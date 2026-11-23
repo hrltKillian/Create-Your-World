@@ -1,9 +1,9 @@
-import type { Registry } from '../content/registry.ts';
 import { columnIndex, insideBorder, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
 import { type GenContext, surfaceY } from '../world/gen/generateColumn.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { finite, reject } from './commandRules.ts';
 import type { DebugCommand } from './commands.ts';
+import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
@@ -21,7 +21,7 @@ export function applyDebugCommand(
   out: SimEvent[],
 ): void {
   if (command.type === 'debug.fill') {
-    fill(sim.world, sim.registry, playerId, command, out);
+    fill(sim, playerId, command, out);
     return;
   }
   const player = sim.players.get(playerId);
@@ -70,10 +70,9 @@ function give(
   );
 }
 
-/** Debug fill of a box of loaded blocks (no light update before the light engine lands). */
+/** Debug fill of a box of loaded blocks (heightmap and light follow, as for gameplay edits). */
 function fill(
-  world: VoxelWorld,
-  registry: Registry,
+  sim: Simulation,
   playerId: number,
   c: Extract<DebugCommand, { type: 'debug.fill' }>,
   out: SimEvent[],
@@ -96,12 +95,12 @@ function fill(
     reject(out, playerId, c.type, 'too large');
     return;
   }
-  const state = registry.stateIdOrUnknown(c.state);
+  const state = sim.registry.stateIdOrUnknown(c.state);
   let written = 0;
   for (let x = x0; x <= x1; x++) {
     for (let z = z0; z <= z1; z++) {
-      if (!world.getColumn(toColumn(x), toColumn(z))) continue;
-      for (let y = y0; y <= y1; y++) world.setBlock(x, y, z, state);
+      if (!sim.world.getColumn(toColumn(x), toColumn(z))) continue;
+      for (let y = y0; y <= y1; y++) writeBlock(sim.world, sim.light, x, y, z, state);
       written++;
     }
   }
