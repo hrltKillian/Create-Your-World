@@ -3,7 +3,9 @@ import { expect, type Page, test } from '@playwright/test';
 async function selftest(page: Page, query: string): Promise<string> {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`/?storage=memory&noLock=1&${query}`);
+  // Wall-clock thresholds are checked locally; CI runners render in software (SwiftShader).
+  const timing = process.env.CI ? '&timing=0' : '';
+  await page.goto(`/?storage=memory&noLock=1&${query}${timing}`);
   const banner = page.locator('#selftest-result');
   await expect(banner).toBeVisible({ timeout: 100_000 });
   const text = (await banner.textContent()) ?? '';

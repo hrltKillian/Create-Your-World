@@ -23,6 +23,14 @@ export function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+/**
+ * A wall-clock threshold. Timing is measured locally (CLAUDE.md: perf only on a real GPU); slow CI
+ * runners with software rendering pass ?timing=0, which keeps the functional checks only.
+ */
+export function assertTiming(app: App, condition: boolean, message: string): void {
+  if (app.params.timing) assert(condition, message);
+}
+
 /** The closing case of every suite: no captured error and no missing UI string. */
 export function noErrorsCase(name: string): SelftestCase {
   return {

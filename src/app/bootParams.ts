@@ -14,6 +14,8 @@ export interface BootParams {
   readonly fixedStep: boolean;
   readonly selftest: string | null;
   readonly mute: boolean;
+  /** Selftests enforce wall-clock thresholds (`?timing=0` turns them off on slow CI machines). */
+  readonly timing: boolean;
   /** Debug render view: quads, ao or light. */
   readonly view: string | null;
   /** Render distance in columns. */
@@ -44,6 +46,7 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   fixedStep: false,
   selftest: null,
   mute: false,
+  timing: true,
   view: null,
   rd: null,
   bench: null,
@@ -84,6 +87,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     fixedStep: flag(params, 'fixedStep'),
     selftest: params.get('selftest'),
     mute: flag(params, 'mute'),
+    timing: params.get('timing') !== '0',
     view: params.get('view'),
     rd: params.has('rd') ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6)) : null,
     bench: params.get('bench'),

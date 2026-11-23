@@ -17,6 +17,7 @@ import {
 } from '../automation.ts';
 import {
   assert,
+  assertTiming,
   needsFlatPlayer,
   noErrorsCase,
   PLAY_SCENES,
@@ -202,7 +203,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
           `sectionVersionLag() is ${lag()} after ${EDIT_FRAMES} frames (${JSON.stringify(scheduler.stats())})`,
         );
         const ms = scheduler.editToMeshMs;
-        assert(ms <= limit, `editToMeshMs ${ms.toFixed(1)} > ${limit.toFixed(1)}`);
+        assertTiming(app, ms <= limit, `editToMeshMs ${ms.toFixed(1)} > ${limit.toFixed(1)}`);
       } finally {
         setBlock(app, x, y, z, air);
       }

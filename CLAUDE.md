@@ -94,7 +94,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - `window.__game` exists only when `__DEBUG_HOOK__` is true (dev, bench, tests) and is loaded by a
   dynamic import: it must never appear in `dist/**/*.js` of a production build.
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
-  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute` (sounds are
+  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `timing=0` (selftests skip wall-clock thresholds; set by e2e on CI), `mute` (sounds are
   still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`,
   `time` (hour 0–24 of the world clock), `freezeTime` — more arrive with later milestones.
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4,m5`; `__game.input.press(action, ticks)`

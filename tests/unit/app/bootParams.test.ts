@@ -31,4 +31,10 @@ describe('boot params', () => {
   it('ignores every parameter in production', () => {
     expect(parseBootParams('?seed=42&forceNoWebGL=1', false)).toEqual(DEFAULT_BOOT_PARAMS);
   });
+
+  it('keeps selftest timing thresholds unless ?timing=0', () => {
+    expect(parseBootParams('?seed=1', true).timing).toBe(true);
+    expect(parseBootParams('?timing=0', true).timing).toBe(false);
+    expect(parseBootParams('?timing=0', false).timing).toBe(true);
+  });
 });

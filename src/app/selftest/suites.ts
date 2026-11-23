@@ -4,6 +4,7 @@ import { M4_SUITE } from './m4.ts';
 import { M5_SUITE } from './m5.ts';
 import {
   assert,
+  assertTiming,
   chunksMeshed,
   needsFlatPlayer,
   noErrorsCase,
@@ -318,7 +319,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         await chunksMeshed(app, 3, 10_000);
         const ms = performance.now() - t0;
         assert(session.playerColumnLit(), 'player column not lit');
-        assert(ms < 3000, `radius 3 meshed after ${ms.toFixed(0)} ms`);
+        assertTiming(app, ms < 3000, `radius 3 meshed after ${ms.toFixed(0)} ms`);
         teleport(app, 0.5, 65, 0.5);
         await chunksMeshed(app, 3, 20_000);
       },
