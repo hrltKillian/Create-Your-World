@@ -16,6 +16,15 @@ const ALL_SEAMS = 15;
 /** Cells of the top layer (y 255) have the open sky above the world (cell index >> 10). */
 const TOP_Y = WORLD_HEIGHT - 1;
 
+/**
+ * Whether a cell's level in a channel (packed `level`) may have come from its neighbour's (packed
+ * `from`): it is lit, and exactly what that neighbour passes through the cell's filter.
+ */
+function cameFrom(from: number, level: number, filter: number, shift: number): boolean {
+  const lit = (level >> shift) & 15;
+  return lit > 0 && passLight((from >> shift) & 15, filter, false) === lit;
+}
+
 /** Box of changed cells in world block coordinates (empty while x1 < x0). */
 export interface LightBox {
   x0: number;
@@ -32,7 +41,8 @@ export interface LightBox {
  * stay valid while the player moves.
  *
  * - Seams: when a column arrives, each border with a loaded face neighbour is compared and the
- *   cells that can light the other side feed the seam queues, drained under a node budget.
+ *   cells that can light the other side feed the seam queues, drained under a node budget. When it
+ *   goes, the neighbours' border light that may have come from it is taken out as for an edit.
  * - Edits: `edited` takes the cell's light out; `flush` runs the removal pass (FIFO), then the
  *   re-add pass, to completion. Emitters, sky edges and the top layer (under the full sky above
  *   the world) get their light back in the re-add pass.
@@ -40,7 +50,8 @@ export interface LightBox {
  * Every pass only raises a cell to what a neighbour justifies (or clears what may have come from
  * a removed cell), so the result is the unique fixed point whatever the order or the slicing.
  * The flood is the core of a hot loop: it walks a column by index arithmetic (cell ± 1, ± 32,
- * ± 1024) and resolves a neighbour column only when it crosses a border.
+ * ± 1024) and resolves a neighbour column only when it crosses a border. The passes share their
+ * queues and pass state, so the file stays whole past 400 lines.
  */
 export class LightEngine {
   private readonly filter: Uint8Array;
@@ -99,14 +110,20 @@ export class LightEngine {
     }
   }
 
-  /** Forgets a column; its neighbours' seams with it are no longer analysed. */
+  /**
+   * Forgets a column; its neighbours' seams with it are no longer analysed, and the light that may
+   * have come through it into them is taken out (resolved by the next `flush`), so it cannot come
+   * back through the seams when the column returns.
+   */
   removeColumn(cx: number, cz: number): void {
-    if (this.slots.get(cx, cz) === null) return;
+    const gone = this.slots.get(cx, cz);
+    if (gone === null) return;
     for (let d = 0; d < 4; d++) {
       const next = this.slots.get(cx + SEAM_DX[d]!, cz + SEAM_DZ[d]!);
       if (next === null) continue;
       const nextSlot = slotOf(next.cx, next.cz);
       this.seams[nextSlot] = this.seams[nextSlot]! & ~(1 << (d ^ 1));
+      this.forgetSeam(gone, next, d);
     }
     this.slots.remove(cx, cz);
     this.seams[slotOf(cx, cz)] = 0;
@@ -203,6 +220,51 @@ export class LightEngine {
           const cellB = (sy << 15) | ib;
           this.comparePair(sa, ia, la, slotA, cellA, sb, ib, lb, slotB, cellB, SKY_SHIFT);
           this.comparePair(sa, ia, la, slotA, cellA, sb, ib, lb, slotB, cellB, BLOCK_SHIFT);
+        }
+      }
+    }
+  }
+
+  /**
+   * Takes out the light that `a` (about to go) may have given the border of `b`, its neighbour in
+   * direction `d`: a channel exactly one step (1 + filter) below `a`'s side. As in `edited`, the
+   * cell is cleared and queued for removal with its old level, and queued for the re-add pass,
+   * which gives it its own light back (an emitter, a top cell). The next `flush` resolves it.
+   */
+  private forgetSeam(a: Column, b: Column, d: number): void {
+    const slotB = slotOf(b.cx, b.cz);
+    const sideA = SEAM_SIDE[d]!;
+    const sideB = SEAM_SIDE[d ^ 1]!;
+    const step = SEAM_STEP[d]!;
+    for (let sy = 0; sy < a.sections.length; sy++) {
+      const sa = a.sections[sy]!;
+      const sb = b.sections[sy]!;
+      // A uniformly dark side gives or holds nothing; uniformly equal sides gave each other nothing.
+      if (sa.light === null && sa.uniformLight === 0) continue;
+      if (sb.light === null && sb.uniformLight === 0) continue;
+      if (sa.light === null && sb.light === null && sa.uniformLight === sb.uniformLight) continue;
+      for (let ly = 0; ly < SECTION_SIZE; ly++) {
+        for (let k = 0; k < SECTION_SIZE; k++) {
+          const along = (ly << 10) + k * step;
+          const ia = along + sideA;
+          const ib = along + sideB;
+          const la = sa.getLight(ia);
+          const lb = sb.getLight(ib);
+          if (la === lb) continue;
+          const filter = this.filter[sb.getBlock(ib)]!;
+          const entry = entryOf(slotB, (sy << 15) | ib);
+          let kept = lb;
+          if (cameFrom(la, lb, filter, SKY_SHIFT)) {
+            kept &= ~(15 << SKY_SHIFT);
+            this.removeSky.push((skyOf(lb) << LEVEL_SHIFT) | entry);
+            this.addSky.push(entry);
+          }
+          if (cameFrom(la, lb, filter, BLOCK_SHIFT)) {
+            kept &= ~(15 << BLOCK_SHIFT);
+            this.removeBlock.push((blockOf(lb) << LEVEL_SHIFT) | entry);
+            this.addBlock.push(entry);
+          }
+          if (kept !== lb) sb.setLight(ib, kept);
         }
       }
     }

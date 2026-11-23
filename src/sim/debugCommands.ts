@@ -1,6 +1,16 @@
-import { columnIndex, insideBorder, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
-import { type GenContext, surfaceY } from '../world/gen/generateColumn.ts';
-import type { VoxelWorld } from '../world/VoxelWorld.ts';
+import {
+  columnIndex,
+  columnKey,
+  insideBorder,
+  localIndex,
+  SECTION_SIZE,
+  SECTIONS_PER_COLUMN,
+  toColumn,
+  toLocal,
+  WORLD_HEIGHT,
+} from '../world/coords.ts';
+import { surfaceY } from '../world/gen/generateColumn.ts';
+import type { SavedSection } from '../world/protocol.ts';
 import { finite, reject } from './commandRules.ts';
 import type { DebugCommand } from './commands.ts';
 import { writeBlock } from './edits.ts';
@@ -44,7 +54,7 @@ export function applyDebugCommand(
       reject(out, playerId, command.type, 'invalid');
       return;
     }
-    const ty = teleportY(sim.world, sim.ctx, command.x, command.y, command.z);
+    const ty = teleportY(sim, command.x, command.y, command.z);
     sim.teleport(player, command.x, ty, command.z);
   } else if (command.stat === 'stamina' && finite(command.value)) {
     player.stamina = Math.max(0, Math.min(STAMINA.max, command.value));
@@ -117,17 +127,45 @@ function fill(
   if (written > 0) out.push({ type: 'blocksChanged', x0, y0, z0, x1, y1, z1 });
 }
 
-/** Feet height of a teleport: 'surface' is the top of the ground (loaded heightmap or analytic height). */
-function teleportY(
-  world: VoxelWorld,
-  ctx: GenContext,
-  x: number,
-  y: number | 'surface',
-  z: number,
-): number {
+/**
+ * Feet height of a teleport: 'surface' is the top of the ground, resolved at once: the heightmap
+ * of a loaded column, else the analytic height (generated decorations aside), under the saved
+ * sections of an edited column, so the player never lands inside what was built there.
+ */
+function teleportY(sim: Simulation, x: number, y: number | 'surface', z: number): number {
   if (y !== 'surface') return Math.max(1, Math.min(WORLD_HEIGHT - PHYSICS.height, y));
   const bx = Math.floor(x);
   const bz = Math.floor(z);
-  const column = world.getColumn(toColumn(bx), toColumn(bz));
-  return column ? column.heightmap[columnIndex(toLocal(bx), toLocal(bz))]! : surfaceY(ctx, bx, bz);
+  const column = sim.world.getColumn(toColumn(bx), toColumn(bz));
+  if (column) return column.heightmap[columnIndex(toLocal(bx), toLocal(bz))]!;
+  const ground = surfaceY(sim.ctx, bx, bz);
+  const saved = sim.edits.get(columnKey(toColumn(bx), toColumn(bz)));
+  return saved ? savedSurface(saved, toLocal(bx), toLocal(bz), ground, sim.world.air) : ground;
+}
+
+/**
+ * Top of an unloaded column with saved sections (the highest non-air block + 1, as a heightmap):
+ * a saved section gives its blocks, any other one is the generated ground below `ground`.
+ */
+function savedSurface(
+  saved: readonly SavedSection[],
+  lx: number,
+  lz: number,
+  ground: number,
+  air: number,
+): number {
+  for (let sy = SECTIONS_PER_COLUMN - 1; sy >= 0; sy--) {
+    const section = saved.find((s) => s.sy === sy);
+    for (let ly = SECTION_SIZE - 1; ly >= 0; ly--) {
+      const y = sy * SECTION_SIZE + ly;
+      if (section === undefined) {
+        if (y < ground) return y + 1;
+        continue;
+      }
+      const state =
+        section.blocks === null ? section.uniformBlock : section.blocks[localIndex(lx, ly, lz)]!;
+      if (state !== air) return y + 1;
+    }
+  }
+  return 0;
 }

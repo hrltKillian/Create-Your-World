@@ -60,6 +60,7 @@ export type InventoryCommand =
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =
+  /** Moves the player, at rest; `'surface'` lands on the top of the ground (edits included). */
   | {
       readonly type: 'debug.teleport';
       readonly x: number;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WorldJobs } from '../../../src/workers/worldJobs.ts';
-import { WORLD_HEIGHT } from '../../../src/world/coords.ts';
+import { columnKey, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { createGenContext, generateColumn } from '../../../src/world/gen/generateColumn.ts';
 import { LightEngine } from '../../../src/world/light/LightEngine.ts';
 import { FULL_SKY } from '../../../src/world/light.ts';
@@ -115,6 +115,44 @@ describe('light rules', () => {
     expect(lightErrors(world, 0, 0)).toEqual([]);
     platform(AIR);
     for (let y = top; y >= 128; y--) expect(sky(world, 32, y, 32)).toBe(15);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+  });
+
+  it('gives a top cell the sky above the world back when its cap is opened (sealed shaft)', () => {
+    const top = WORLD_HEIGHT - 1;
+    // Solid stone with an open top layer, a 3×3 stone cap at y 255 and a sealed shaft under it.
+    const { world, light } = litWorld(1, (w) => {
+      stoneBelow(w, 8);
+      box(w, -32, top, -32, 63, top, 63, AIR);
+      box(w, 39, top, 39, 41, top, 41, STONE);
+      box(w, 40, 200, 40, 40, top - 1, 40, AIR);
+    });
+    expect(sky(world, 40, top - 1, 40)).toBe(0);
+    // No neighbour of the opened cell is lit: only the sky above the world can light it.
+    edit(world, light, 40, top, 40, AIR);
+    expect(sky(world, 40, top, 40)).toBe(15);
+    for (let y = top - 1; y >= 200; y--) expect(sky(world, 40, y, 40)).toBe(15);
+    expect(sky(world, 40, 199, 40)).toBe(0);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+  });
+
+  it('lights a top glass cell from the sky above again when its only lit neighbour closes', () => {
+    const top = WORLD_HEIGHT - 1;
+    // Glass at y 255 in a stone ring open on +x only, over a sealed air pocket.
+    const { world, light } = litWorld(1, (w) => {
+      stoneBelow(w, 8);
+      box(w, -32, top, -32, 63, top, 63, AIR);
+      box(w, 39, top, 39, 41, top, 41, STONE);
+      w.setBlock(40, top, 40, GLASS);
+      w.setBlock(41, top, 40, AIR);
+      w.setBlock(40, top - 1, 40, AIR);
+    });
+    expect(sky(world, 40, top, 40)).toBe(13);
+    expect(sky(world, 40, top - 1, 40)).toBe(12);
+    // The removal clears the glass (13 < 15), which then gets its own 13 back from the sky above.
+    edit(world, light, 41, top, 40, STONE);
+    expect(sky(world, 40, top, 40)).toBe(13);
+    expect(sky(world, 40, top - 1, 40)).toBe(12);
     expect(lightErrors(world, 0, 0)).toEqual([]);
   });
 
@@ -240,6 +278,41 @@ describe('seams', () => {
     }
     expect(slices).toBeGreaterThan(10);
     expect(mismatches(sliced, referenceLight(whole, 0, 0))).toEqual([]);
+  });
+
+  it('takes out the light that came through a column when it goes, and stitches it back the same', () => {
+    const world = terrain2x2();
+    const light = new LightEngine(registry.tables);
+    for (const column of world.columns.values()) addLit(light, column);
+    light.stitch(Number.POSITIVE_INFINITY);
+    const full = referenceLight(world, 0, 0);
+    const gone = world.getColumn(0, 0)!;
+    world.columns.delete(columnKey(0, 0));
+    light.removeColumn(0, 0);
+    light.flush();
+    // The others are lit as if the unloaded column were rock, so nothing stale floods back.
+    expect(mismatches(world, referenceLight(world, 0, 0))).toEqual([]);
+    world.columns.set(columnKey(0, 0), gone);
+    addLit(light, gone);
+    light.stitch(Number.POSITIVE_INFINITY);
+    expect(mismatches(world, full)).toEqual([]);
+  });
+
+  it('keeps a neighbour top glass lit from the sky above when a column goes', () => {
+    const top = WORLD_HEIGHT - 1;
+    // A lone glass cell in the stone top layer of column 1, next to the open top of column 0: it
+    // gets 13 from either, and only the sky above the world can light it once column 0 goes.
+    const { world, light } = litWorld(1, (w) => {
+      stoneBelow(w, 8);
+      box(w, -32, top, -32, 31, top, 63, AIR);
+      w.setBlock(32, top, 16, GLASS);
+    });
+    expect(sky(world, 32, top, 16)).toBe(13);
+    world.columns.delete(columnKey(0, 0));
+    light.removeColumn(0, 0);
+    light.flush();
+    expect(sky(world, 32, top, 16)).toBe(13);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
   });
 });
 

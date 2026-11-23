@@ -112,8 +112,8 @@ describe('edits survive unloading', () => {
       },
     });
     /** Moves the player (and its view: radius 2, unloaded beyond 5.5 columns) for 100 ticks. */
-    const goTo = (cx: number) => {
-      s.host.send({ type: 'debug.teleport', x: at(cx), y: 'surface', z: at(0) });
+    const goTo = (cx: number, cz = 0) => {
+      s.host.send({ type: 'debug.teleport', x: at(cx), y: 'surface', z: at(cz) });
       s.step(100);
     };
     return { ...s, fill, goTo };
@@ -124,11 +124,12 @@ describe('edits survive unloading', () => {
     const world = s.sim.world;
     s.fill(31, 65, 16, 31, 65, 16).with('block:torch');
     expect(block(world, 32, 65, 16)).toBe(13);
-    // Column 0 unloads, column 1 stays with the torch light it got from column 0.
+    // Column 0 unloads, and column 1 loses the torch light it got from column 0.
     s.goTo(6);
     expect(world.getColumn(0, 0)).toBeUndefined();
     expect(s.sim.edits.get(columnKey(0, 0))).toHaveLength(1);
-    expect(block(world, 32, 65, 16)).toBe(13);
+    expect(block(world, 32, 65, 16)).toBe(0);
+    expect(block(world, 40, 65, 16)).toBe(0);
     s.goTo(0);
     expect(s.sim.columnState(0, 0)).toBeGreaterThanOrEqual(COLUMN_LIT);
     expect(world.getColumn(0, 0)!.persisted).toBe(1 << 2);
@@ -146,10 +147,11 @@ describe('edits survive unloading', () => {
     s.fill(20, 50, 16, 40, 51, 16).with('block:air');
     expect(sky(world, 40, 50, 16)).toBe(15);
     expect(sky(world, 31, 50, 16)).toBe(6);
-    // Column 1 unloads, column 0 stays with the sky light of the tunnel.
+    // Column 1 unloads, and column 0 loses the sky light that came down its shaft.
     s.goTo(-5);
     expect(world.getColumn(1, 0)).toBeUndefined();
-    expect(sky(world, 31, 50, 16)).toBe(6);
+    expect(sky(world, 31, 50, 16)).toBe(0);
+    expect(sky(world, 20, 51, 16)).toBe(0);
     s.goTo(0);
     expect(s.sim.columnState(1, 0)).toBeGreaterThanOrEqual(COLUMN_LIT);
     expect(world.getBlock(40, 60, 16)).toBe(AIR);
@@ -158,6 +160,55 @@ describe('edits survive unloading', () => {
     expect(sky(world, 40, 50, 16)).toBe(15);
     expect(sky(world, 31, 50, 16)).toBe(6);
     expect(lightErrors(world, 0, -16)).toEqual([]);
+  });
+
+  it('takes out the light that came through an unloading column: no phantom when it returns', () => {
+    const s = flatSim('phantom');
+    const world = s.sim.world;
+    // Column (1, 1) is stone above the grass: column (0, 1) gets the torch light only through (0, 0).
+    s.fill(32, 65, 32, 63, 80, 63).with('block:stone');
+    s.fill(32, 65, 31, 32, 65, 31).with('block:torch');
+    expect(block(world, 31, 65, 32)).toBe(12);
+    // Column (0, 0) unloads; columns (1, 0), (0, 1) and (1, 1) stay.
+    s.goTo(4, 4);
+    expect(world.getColumn(0, 0)).toBeUndefined();
+    expect(world.getColumn(0, 1)).toBeDefined();
+    expect(block(world, 31, 65, 32)).toBe(0);
+    expect(block(world, 32, 65, 30)).toBe(13); // the torch's own column keeps its light
+    s.fill(32, 65, 31, 32, 65, 31).with('block:air');
+    s.goTo(0, 0);
+    expect(s.sim.columnState(0, 0)).toBeGreaterThanOrEqual(COLUMN_LIT);
+    for (let x = 0; x < 64; x++)
+      for (let z = 0; z < 64; z++) expect(block(world, x, 65, z), `${x},65,${z}`).toBe(0);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+  });
+
+  it('teleports onto the saved blocks of an unloaded column, not into them', () => {
+    const s = flatSim('edit-surface');
+    const player = s.sim.players.get(1)!;
+    s.fill(16, 65, 16, 16, 70, 16).with('block:stone'); // a pillar up to y 70
+    s.fill(18, 64, 16, 18, 64, 16).with('block:air'); // the grass dug out
+    s.fill(20, 40, 16, 20, 64, 16).with('block:air'); // a pit down to y 40, over two sections
+    s.goTo(6);
+    /** Feet height of a 'surface' teleport while column 0 is unloaded (the player waits frozen). */
+    const surfaceAt = (x: number) => {
+      s.host.send({ type: 'debug.teleport', x: x + 0.5, y: 'surface', z: 16.5 });
+      s.step();
+      expect(s.sim.world.getColumn(0, 0)).toBeUndefined();
+      const y = player.body.y;
+      s.host.send({ type: 'debug.teleport', x: at(6), y: 'surface', z: at(0) });
+      s.step();
+      return y;
+    };
+    expect(surfaceAt(16)).toBe(71);
+    expect(surfaceAt(18)).toBe(64);
+    expect(surfaceAt(20)).toBe(40);
+    expect(surfaceAt(24)).toBe(65);
+    // Once the column is back, the player stands on the pillar.
+    s.host.send({ type: 'debug.teleport', x: 16.5, y: 'surface', z: 16.5 });
+    s.step(100);
+    expect(s.sim.columnState(0, 0)).toBeGreaterThanOrEqual(COLUMN_LIT);
+    expect(player.body.y).toBeCloseTo(71, 3);
   });
 
   it('hashes the saved sections of the unloaded columns', () => {
