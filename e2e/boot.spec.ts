@@ -7,7 +7,7 @@ async function selftest(page: Page, query: string): Promise<string> {
   const timing = process.env.CI ? '&timing=0' : '';
   await page.goto(`/?storage=memory&noLock=1&${query}${timing}`);
   const banner = page.locator('#selftest-result');
-  await expect(banner).toBeVisible({ timeout: 100_000 });
+  await expect(banner).toBeVisible({ timeout: process.env.CI ? 380_000 : 100_000 });
   const text = (await banner.textContent()) ?? '';
   expect(errors, 'uncaught page errors').toEqual([]);
   return text;

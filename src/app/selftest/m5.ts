@@ -24,6 +24,7 @@ import {
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
+  slowFactor,
   standAt,
   stateKey,
 } from './support.ts';
@@ -262,7 +263,7 @@ export const M5_SUITE: readonly SelftestCase[] = [
       const rd = session.renderDistance;
       // Frames stream in fixed-step mode too; pumping without a tick only loads faster.
       await waitUntil(() => session.chunksReady(rd), {
-        timeoutMs: 50_000,
+        timeoutMs: 50_000 * slowFactor(app),
         label: `render distance ${rd} not meshed`,
         pump: () => session.pumpOnce(false),
         pollMs: 50,

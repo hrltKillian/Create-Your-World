@@ -27,6 +27,11 @@ export function assert(condition: unknown, message: string): asserts condition {
  * A wall-clock threshold. Timing is measured locally (CLAUDE.md: perf only on a real GPU); slow CI
  * runners with software rendering pass ?timing=0, which keeps the functional checks only.
  */
+/** Waits and timeouts stretch on slow CI renderers (?timing=0). */
+export function slowFactor(app: App): number {
+  return app.params.timing ? 1 : 4;
+}
+
 export function assertTiming(app: App, condition: boolean, message: string): void {
   if (app.params.timing) assert(condition, message);
 }

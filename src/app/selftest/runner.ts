@@ -1,6 +1,6 @@
 import type { App } from '../App.ts';
 import { SUITES } from './suites.ts';
-import type { SelftestCase } from './support.ts';
+import { type SelftestCase, slowFactor } from './support.ts';
 
 export interface SelftestResult {
   readonly name: string;
@@ -48,7 +48,7 @@ async function runCase(app: App, name: string, test: SelftestCase): Promise<Self
   }
   const skip = test.skip?.(app);
   if (skip) return { name, ok: true, skipped: true, detail: skip };
-  const limit = test.timeoutMs ?? CASE_TIMEOUT_MS;
+  const limit = (test.timeoutMs ?? CASE_TIMEOUT_MS) * slowFactor(app);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`timeout after ${limit} ms`)), limit);

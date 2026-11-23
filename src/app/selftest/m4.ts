@@ -23,6 +23,7 @@ import {
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
+  slowFactor,
   standAt,
   stateKey,
 } from './support.ts';
@@ -183,7 +184,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
       await standAt(app, BUILD);
       // Time the edit alone: the world around finishes streaming and meshing first.
       await waitUntil(() => scheduler.idle(), {
-        timeoutMs: 30_000,
+        timeoutMs: 30_000 * slowFactor(app),
         label: 'meshing still busy',
         pollMs: 50,
       });
@@ -224,7 +225,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
         return state;
       };
       // One tick per rendered frame for a wall-clock time: the pose eases per frame.
-      const play = (ms: number) => framesFor(ms, () => session.step(1));
+      const play = (ms: number) => framesFor(ms, () => session.step(1), 10);
       try {
         app.input!.force('primary', HOLD_TICKS);
         await play(400);

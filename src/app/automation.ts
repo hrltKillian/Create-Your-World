@@ -106,9 +106,10 @@ export async function waitForChunks(app: App, radius: number, timeoutMs: number)
 }
 
 /** Renders frames for `ms` of wall time, calling `eachFrame` before each one; fails if frames stop. */
-export async function framesFor(ms: number, eachFrame?: () => void): Promise<void> {
+export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 0): Promise<void> {
   const t0 = performance.now();
-  while (performance.now() - t0 < ms) {
+  // At least `minFrames` frames too: on a slow renderer a few frames may span the whole time.
+  for (let frames = 0; performance.now() - t0 < ms || frames < minFrames; frames++) {
     eachFrame?.();
     await frameOrFail();
   }
