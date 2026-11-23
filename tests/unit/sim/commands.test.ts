@@ -1,35 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
 import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
-import { LocalSimHost } from '../../../src/sim/host.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import type { ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
-import { Simulation } from '../../../src/sim/Simulation.ts';
+import type { ColumnSink, ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
-
-const registry = buildRegistry(basePack);
+import { registry } from '../../helpers/registry.ts';
+import { createTestSim } from '../../helpers/simHarness.ts';
 
 function setup(worldType: 'default' | 'flat' = 'flat') {
-  const source = new InlineColumnSource(registry);
-  const sim = new Simulation({
-    seed: 'cmd',
-    worldType,
-    registry,
-    source,
-    maxInFlight: 8,
-    allowDebug: true,
-  });
-  source.connect((r) => sim.deliver(r));
-  const player = sim.addPlayer(1, 2);
-  const host = new LocalSimHost(sim, 1);
-  const events: SimEvent[] = [];
-  const step = (n = 1) => {
-    for (let i = 0; i < n; i++) host.advance(1, events);
-  };
-  step(60);
-  return { sim, host, player, events, step };
+  const harness = createTestSim({ seed: 'cmd', worldType, allowDebug: true });
+  const player = harness.sim.addPlayer(1, 2);
+  harness.step(60);
+  return { ...harness, player };
 }
 
 const rejected = (events: SimEvent[]) =>
@@ -233,6 +215,9 @@ describe('state hash', () => {
     class ReversedSource implements ColumnSource {
       readonly inner = new InlineColumnSource(registry);
       private pending: [WorldSpec, number, number][] = [];
+      connect(sink: ColumnSink): void {
+        this.inner.connect(sink);
+      }
       request(world: WorldSpec, cx: number, cz: number): void {
         this.pending.push([world, cx, cz]);
       }
@@ -243,16 +228,12 @@ describe('state hash', () => {
       }
     }
     const run = (reversed: boolean) => {
-      const inline = new InlineColumnSource(registry);
       const late = new ReversedSource();
-      const source = reversed ? late : inline;
-      const sim = new Simulation({ seed: 'order', registry, source, maxInFlight: 8 });
-      (reversed ? late.inner : inline).connect((r) => sim.deliver(r));
-      const host = new LocalSimHost(sim, 1);
+      const source = reversed ? late : new InlineColumnSource(registry);
+      const { sim, host, step } = createTestSim({ seed: 'order', source });
       host.send({ type: 'client.view', x: 40, z: -70, radius: 2, detached: true });
-      const events: SimEvent[] = [];
       for (let i = 0; i < 200; i++) {
-        host.advance(1, events);
+        step();
         late.flush();
       }
       return sim;

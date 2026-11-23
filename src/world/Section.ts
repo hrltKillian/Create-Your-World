@@ -1,9 +1,10 @@
 import { SECTION_VOLUME } from './coords.ts';
+import { FULL_SKY } from './light.ts';
 
 /**
  * 32³ voxels. Blocks and light are stored lazily and independently: a uniform section keeps a
  * single value instead of an array, and promotes to an array on the first differing write.
- * Light packs sky light in the high nibble and block light in the low nibble.
+ * Light is packed as in light.ts (sky light high nibble, block light low nibble).
  */
 export class Section {
   blocks: Uint16Array | null = null;
@@ -13,7 +14,7 @@ export class Section {
   /** Bumped on every change; meshes and saves compare versions. */
   version = 0;
 
-  constructor(uniformBlock = 0, uniformLight = 0xf0) {
+  constructor(uniformBlock = 0, uniformLight = FULL_SKY) {
     this.uniformBlock = uniformBlock;
     this.uniformLight = uniformLight;
   }

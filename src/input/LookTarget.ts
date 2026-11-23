@@ -1,4 +1,7 @@
-/** Whatever owns the view angles (the camera rig). Input adds mouse movement to it every frame. */
+/**
+ * Whatever owns the view angles (the camera rig or the free camera). Input adds mouse movement to
+ * it every frame.
+ */
 export interface LookTarget {
   yaw: number;
   pitch: number;

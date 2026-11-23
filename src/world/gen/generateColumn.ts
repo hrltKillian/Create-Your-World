@@ -2,7 +2,14 @@ import { FLAG_REPLACEABLE, type Registry } from '../../content/registry.ts';
 import type { BiomeDef, WorldgenDef } from '../../content/schema.ts';
 import { fnv1aString, fnv1aU32, hash32, hashUnit } from '../../core/hash.ts';
 import type { Column } from '../Column.ts';
-import { localIndex, SECTION_BITS, SECTION_MASK, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
+import {
+  columnIndex,
+  localIndex,
+  SECTION_BITS,
+  SECTION_MASK,
+  SECTION_SIZE,
+  WORLD_HEIGHT,
+} from '../coords.ts';
 import { pickBiome } from './biomes.ts';
 import { Climate, type ClimateSample, emptySample, interpolateSample } from './climate.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
@@ -217,7 +224,7 @@ export function generateColumn(ctx: GenContext, column: Column): void {
       const h = surfaceHeight(tmp, ctx.def);
       const biomeIndex = pickBiome(defs, tmp, h, jitterAt(ctx, x, z));
       const biome = ctx.biomes[biomeIndex]!;
-      const cell = lx | (lz << 5);
+      const cell = columnIndex(lx, lz);
       heights[cell] = h;
       column.biomes[cell] = biomeIndex;
       const fillerDepth = 3 + (hash32(ctx.seedHash, x, z, 3) & 1);
@@ -375,27 +382,4 @@ export function columnHash(ctx: GenContext, column: Column): number {
       h = fnv1aU32(h, ctx.stateHash[section.getBlock(i)]!);
   }
   return h;
-}
-
-/** Provisional spawn (M2–M5): nearest dry column of a spawn biome, spiralling out from the origin. */
-export function findSpawn(ctx: GenContext, maxRadius = 64): { x: number; y: number; z: number } {
-  if (ctx.worldType === 'flat') return { x: 0.5, y: FLAT_SURFACE + 1, z: 0.5 };
-  const cache = new LatticeCache();
-  for (let r = 0; r <= maxRadius; r++) {
-    for (let dz = -r; dz <= r; dz++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-        const x = dx * SECTION_SIZE + 16;
-        const z = dz * SECTION_SIZE + 16;
-        const info = pointInfo(ctx, x, z, cache);
-        if (
-          info.height >= ctx.def.seaLevel + 1 &&
-          (ctx.spawnBiomes.size === 0 || ctx.spawnBiomes.has(info.biome))
-        ) {
-          return { x: x + 0.5, y: info.height + 1, z: z + 0.5 };
-        }
-      }
-    }
-  }
-  return { x: 0.5, y: ctx.def.seaLevel + 2, z: 0.5 };
 }

@@ -7,7 +7,7 @@ export class Column {
   readonly cx: number;
   readonly cz: number;
   readonly sections: Section[];
-  /** Highest non-air block + 1, per (x, z): index x | z << 5. */
+  /** Highest non-air block + 1, per (x, z): index `columnIndex(x, z)`. */
   readonly heightmap = new Int16Array(1024);
   /** Biome id per (x, z). */
   readonly biomes = new Uint8Array(1024);

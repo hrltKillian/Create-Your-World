@@ -1,5 +1,6 @@
 import type { RawTables } from '../content/registry.ts';
 import { clampPitch } from '../core/angles.ts';
+import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
 import type { LookTarget } from '../input/LookTarget.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
@@ -15,8 +16,6 @@ const THIRD_HEIGHT = 0.5;
 const WALL_MARGIN = 0.3;
 /** Side offset of the four extra probe rays around the main one. */
 const PROBE_SPREAD = 0.15;
-const CROUCH_EYE = 1.27;
-const STAND_EYE = 1.62;
 const hit = createRayHit();
 
 /**
@@ -30,7 +29,7 @@ export class CameraRig implements LookTarget {
   /** Current third-person distance (smoothed), for tests. */
   distance = 0;
   readonly pose: CameraPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
-  private eye = STAND_EYE;
+  private eye = EYE_HEIGHT;
 
   addLook(dYaw: number, dPitch: number): void {
     this.yaw += dYaw;
@@ -53,7 +52,7 @@ export class CameraRig implements LookTarget {
     const x = player.prevX + (b.x - player.prevX) * alpha;
     const y = player.prevY + (b.y - player.prevY) * alpha;
     const z = player.prevZ + (b.z - player.prevZ) * alpha;
-    const targetEye = b.crouching ? CROUCH_EYE : STAND_EYE;
+    const targetEye = b.crouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
     this.eye += (targetEye - this.eye) * Math.min(1, dt * 14);
     const eyeY = y + this.eye;
     this.pose.yaw = this.yaw;

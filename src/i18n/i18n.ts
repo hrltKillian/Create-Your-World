@@ -7,19 +7,16 @@ export type I18nParams = Readonly<Record<string, string | number>>;
 
 const active: Record<string, string> = { ...en };
 const missing = new Set<string>();
-let locale = 'en';
+/** Only English ships for now; number formatting follows this locale. */
+const LOCALE = 'en';
 
 /** Adds or overrides strings (used by content packs and future translations). */
 export function addStrings(strings: Readonly<Record<string, string>>): void {
   Object.assign(active, strings);
 }
 
-export function setLocale(next: string): void {
-  locale = next;
-}
-
 export function currentLocale(): string {
-  return locale;
+  return LOCALE;
 }
 
 /** Translates a key, replacing `{name}` placeholders. Unknown keys are recorded and returned as-is. */
@@ -39,8 +36,4 @@ export function t(key: I18nKey | (string & {}), params?: I18nParams): string {
 /** Keys that were requested but have no string, for the debug hook and tests. */
 export function i18nMissing(): string[] {
   return [...missing].sort();
-}
-
-export function hasString(key: string): boolean {
-  return active[key] !== undefined;
 }

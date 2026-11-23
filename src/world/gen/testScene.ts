@@ -1,4 +1,8 @@
 import type { Registry } from '../../content/registry.ts';
+import { sectionKey } from '../coords.ts';
+import { FULL_SKY } from '../light.ts';
+import { meshSection, type SectionMesh } from '../mesh/greedyMesher.ts';
+import { createPadded, fillPadded } from '../mesh/padded.ts';
 import type { VoxelWorld } from '../VoxelWorld.ts';
 
 /** Surface height of the developer test scene. */
@@ -102,4 +106,38 @@ export function buildTestScene(world: VoxelWorld, registry: Registry): void {
     const z = z0 + Math.floor(i / perRow) * 3;
     world.setBlock(x, TEST_SCENE_SURFACE + 1, z, state.id);
   });
+}
+
+/** Receives the test scene's section meshes (the renderer's chunk meshes). */
+export interface SectionMeshSink {
+  update(key: number, originX: number, originY: number, originZ: number, mesh: SectionMesh): void;
+  remove(key: number): void;
+}
+
+/** Meshes every non-empty section of the test scene on the main thread (built once, no workers). */
+export function meshTestScene(world: VoxelWorld, registry: Registry, sink: SectionMeshSink): void {
+  const padded = createPadded();
+  const fill = {
+    belowBlock: registry.unknownBlock,
+    missingBlock: registry.air,
+    missingLight: FULL_SKY,
+    air: registry.air,
+  };
+  for (const column of world.columns.values()) {
+    column.sections.forEach((section, sy) => {
+      const key = sectionKey(column.cx, sy, column.cz);
+      if (section.isEmpty(registry.air)) {
+        sink.remove(key);
+        return;
+      }
+      fillPadded(world, column.cx, sy, column.cz, fill, padded);
+      sink.update(
+        key,
+        column.cx * 32,
+        sy * 32,
+        column.cz * 32,
+        meshSection(padded, registry.tables),
+      );
+    });
+  }
 }

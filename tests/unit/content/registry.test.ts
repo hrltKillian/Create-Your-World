@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { rotateBoxY } from '../../../src/content/blockStates.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import {
   buildRegistry,
@@ -10,10 +11,9 @@ import {
   FACEFLAG_UV_ROTATE,
   FLAG_OPAQUE,
   FLAG_SOLID,
-  rotateBoxY,
 } from '../../../src/content/registry.ts';
+import { registry } from '../../helpers/registry.ts';
 
-const registry = buildRegistry(basePack);
 const t = registry.tables;
 const layer = (key: string) => registry.textureKeys.indexOf(key as `tex:${string}`);
 

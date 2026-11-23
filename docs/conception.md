@@ -43,6 +43,9 @@ Aucun nom, créature, objet, texture, son ni écran n'en est repris.
 | 9   | Jeu **en anglais d'abord**, via des clés i18n : les traductions (le français en premier) viendront si le jeu plaît                                                             |
 | 10  | Mêmes **touches physiques** sur tous les claviers : ZQSD sur AZERTY = WASD sur QWERTY                                                                                          |
 | 11  | Dépôt `hrltKillian/Create-Your-World` : une PR par jalon, que je crée puis merge moi-même après CI verte et revue                                                              |
+| 12  | **KISS, DRY et SRP** appliqués dans tout le projet (code, tests, outillage), pour la maintenabilité et la structure (voir « Principes de code »)                               |
+| 13  | **Exécution autonome** (22/11/2026) : je déroule M4 → M11 sans te solliciter, puis j'améliore ce qui existe tant que tu ne m'interromps pas (voir « Exécution autonome »)      |
+| 14  | **Priorité : un jeu qui fonctionne sans bug ni erreur**. Le style passe après ; tes avis sur le style sont facultatifs et ne bloquent jamais un jalon                          |
 
 **Contraintes de forme.**
 
@@ -50,6 +53,26 @@ Aucun nom, créature, objet, texture, son ni écran n'en est repris.
 - Interface en HTML/CSS par-dessus le canvas WebGL.
 - Logique pure, déterministe et testable sous Node.
 - Messages de commit, titres et descriptions de PR, et README en anglais. Nos échanges et `docs/conception.md` restent en français.
+
+**Principes de code (décision 12).** Ils s'appliquent à chaque ligne écrite, dans tout le projet, et sont vérifiés par une lentille dédiée de la revue adversariale de chaque jalon.
+
+- **KISS** (garder simple) :
+  - la solution la plus simple qui remplit le cahier des charges et ses tests ;
+  - pas d'abstraction, d'option ni de paramètre « pour plus tard » ;
+  - des fonctions courtes au flux linéaire ; une boucle chaude reste lisible, sans astuce non commentée ;
+  - pas de nouvelle dépendance quand quelques lignes suffisent.
+- **DRY** (une seule source de vérité) :
+  - chaque règle, constante ou calcul n'existe qu'à un endroit : constantes de jeu dans `balance.ts`, `PHYSICS` ou `STAMINA`, coordonnées dans `world/coords.ts`, angles dans `core/angles.ts` ;
+  - toute logique dupliquée deux fois est extraite à la troisième occurrence au plus tard, et dès la deuxième si elle porte une règle de jeu ;
+  - helpers de test partagés dans `tests/helpers/` (monde plat, simulation avec `InlineColumnSource` et hôte) ;
+  - helpers d'automatisation partagés entre `debugHook.ts` et les autotests (attente des chunks, téléportation, attente en temps réel).
+- **SRP** (une responsabilité par module) :
+  - un module ou une classe = une raison de changer ;
+  - `Simulation` orchestre le tick et délègue à des systèmes dédiés : streaming des colonnes, commandes, joueurs, et plus tard interaction, inventaire, survie, IA ;
+  - `App` compose et `GameSession` boucle ; l'UI, les entrées et le Pointer Lock ont leurs propres modules ;
+  - un fichier qui dépasse environ 400 lignes ou mélange plusieurs raisons de changer est découpé, sauf le cœur d'une boucle chaude dont le découpage coûterait en performance (raison notée en commentaire).
+- Ces principes ne priment jamais sur les règles dures du projet : déterminisme, zéro allocation dans les boucles chaudes, couches de `checker.ts`, i18n.
+- Ils sont recopiés dans `CLAUDE.md` pour que tout agent les applique.
 
 Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et idb.
 
@@ -65,6 +88,7 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
   - **M1** Cœur voxel : registre de contenu, sections, maillage glouton avec occlusion ambiante, chunk de test.
   - **M2** Terrain et streaming : 7 biomes de surface, eau, arbres, chargement par workers, ciel, brouillard, mesures de perf.
   - **M3** Simulation, joueur et caméras : boucle 30 Hz, physique, touches physiques (ZQSD/WASD), Pointer Lock, 1re et 3e personne, avatar animé.
+  - **M3.5** Passe KISS/DRY/SRP sur M0 à M3 (découpage de `Simulation`, helpers partagés), sans changer le comportement.
   - **M4** Minage et construction : casser et poser, outils de silex, objets au sol, barre rapide, premiers sons.
   - **M5** Lumière et temps : soleil, torches, cycle jour/nuit.
   - **M6** Sous-sol et décor : grottes, magma, minerais, campements, point d'apparition.
@@ -73,6 +97,7 @@ Projet vierge : rien à réutiliser. On s'appuie sur three.js, simplex-noise et 
   - **M9** Survie et dangers : faim, soif, endurance, température, toxicité, abri, sommeil, mort.
   - **M10** Créatures et combat : 5 créatures, IA, apparitions nocturnes, combat.
   - **M11** Finition et performance : audio complet, réglages, prise en main, optimisation, tests e2e.
+  - **Ensuite** : boucle d'amélioration autonome (bugs, robustesse, KISS/DRY/SRP, perf, tests), une PR par chantier.
 - **Vérification** :
   - `npm run verify` (types, lint, tests, build), en local et dans la CI GitHub Actions ;
   - contrôles dans le navigateur intégré (Chromium) via `window.__game` (hook réservé au dev) et les autotests `?selftest=mN` ;
@@ -351,10 +376,10 @@ export interface SimHost {
   send(cmd: Command): void; // queued; host stamps playerId + seq
   advance(ticks: number, out: SimEvent[]): void; // appends into a caller-owned array (no per-tick allocation)
   pumpWorld(budget: WorldPumpBudget): void; // ingest + light outside play (loading screen, tests)
-  readonly canPause: boolean;
 }
 ```
 
+- **`createLocalServer()`** construit la `Simulation`, le joueur et l'hôte ; le client ne garde que le `SimHost` et lit tout via `host.view`.
 - **`LocalSimHost`** (v1) : `view` expose les objets vivants typés `DeepReadonly`, sans copie.
 - **`SerializingSimHost`** (`?host=serialize` et tests) : chaque commande et chaque événement passe par JSON, ce qui prouve que le protocole tient sur le réseau.
 - **`RemoteSimHost`** (après la v1) : même interface, avec une réplique du monde et une prédiction locale via la fonction pure `stepBody()`.
@@ -1455,7 +1480,10 @@ export interface CreatureDef {
 7. Dès M4 : `__game.ui.i18nMissing()` vide.
 8. Section « Try this milestone » du README mise à jour.
 9. Checklist d'originalité relue en M1, M3, M4, M8 et M10.
-10. Revue adversariale du jalon, puis corrections et nouvelle vérification.
+10. Revue adversariale du jalon, puis corrections et nouvelle vérification :
+    - lentilles : exactitude, conformité à la spec, performance et outillage, et **KISS/DRY/SRP** ;
+    - une **deuxième passe** sur le commit de corrections : régressions, et corrections réellement complètes ;
+    - chaque correction confirmée vient avec un test qui échoue sans elle.
 11. Push et PR ; CI verte ; squash-merge ; compte rendu en français.
 
 `B` désigne `http://localhost:5173/?seed=42&storage=memory&noLock=1&debug=1`.
@@ -1552,6 +1580,45 @@ export interface CreatureDef {
     - capture en 3e personne ;
     - téléport à 4 000 blocs : colonne LIT et rayon 3 maillé en moins de 3 s ;
   - checklist d'originalité (avatar), et une capture pour ton avis.
+
+### M3.5 — Passe KISS/DRY/SRP (branche `claude/m3.5-structure`)
+
+But : appliquer la décision 12 au code de M0–M3 **sans changer le comportement** avant que M4 ne s'appuie dessus. Les cibles viennent d'un audit en lecture seule du code, classées par valeur.
+
+- **SRP de la simulation** : `src/sim/Simulation.ts` (525 lignes) est découpé.
+  - `sim/ColumnPipeline.ts` reçoit les vues, arrivées, états GENERATED/LIT/MESHABLE, show/hide, stream et unload, avec un seul `anyViewWithin()` à la place des trois boucles quasi identiques.
+  - `sim/commandRules.ts` reçoit la validation des commandes et un `reject(out, playerId, type, reason)` qui remplace les 7 littéraux.
+  - `sim/debugCommands.ts` reçoit fill, teleport et setStat.
+  - `stepPlayer` passe dans `player.ts` ; un `resetBody()` sert à `createBody` et à la téléportation.
+  - `Simulation` ne garde que l'ordre du tick et l'état.
+- **Ports et hôtes** :
+  - `connect(sink)` entre dans le port `ColumnSource` et est appelé par le constructeur de `Simulation` (plus de câblage manuel dans `GameSession`, `runBot` et les tests) ;
+  - `generateResult()` dans `world/` est partagé par `InlineColumnSource` et `workers/worldJobs.ts` ;
+  - `SerializingSimHost` reçoit un helper `relay()` ; `canPause`, jamais lu, est retiré ;
+  - `createLocalServer()` construit `Simulation` + joueur + hôte autour d'une source de colonnes injectée (la couche `sim` ne peut pas importer `platform`, où vit `WorkerColumnSource`). Le client ne lit plus que `host.view` (avec `spawn`), jamais `sim` directement (préparation coop).
+- **App** :
+  - un seul `app/automation.ts` (`nextFrame`, `yieldTask`, `waitUntil(cond, {timeout, label})`, `waitForChunks`, `teleport`, `fill`) partagé par `debugHook.ts` et les autotests ;
+  - une fabrique `noErrorsCase()` remplace les 4 cas copiés ;
+  - dans `GameSession`, un `afterTicks(budgets)` privé remplace la fin dupliquée de `frame`, `step` et `pumpOnce` ;
+  - dans `App`, `mountDebug()` et `runSceneLoop()` sont communs aux scènes, le câblage pause/Pointer Lock va dans `app/playGate.ts`, et les lignes de l'overlay dans `app/debugLines.ts`.
+- **Helpers du monde** :
+  - `coords.ts` gagne `blockToColumn`, `columnIndex` et `sectionKeyParts` (8 copies de `toColumn(Math.floor())`, 5 encodages de `x | z << 5`) ;
+  - `world/light.ts` contient `skyOf`, `blockOf` et `FULL_SKY` ;
+  - un `faceW1()` dans le mailleur ; `internBoxes()` et `textureSets()` dans le registre ;
+  - le validateur est découpé par section ;
+  - les constantes copiées (hauteurs d'œil, emplacements de barre, `QUAD_WORDS`) sont importées de leur seule source.
+- **FreeCam** piloté par les actions d'`InputManager` (fin des écouteurs dupliqués).
+- **Fonctions longues** (KISS) : `stepBody` découpé en phases (accroupi, horizontal, saut/gravité, Y, X/Z) et `meshCubes` en `buildSliceMask` + `mergeSlice`. Ce sont des fonctions statiques sur les tampons de module existants : toujours zéro allocation, sans perte de perf.
+- **Tests** : `tests/helpers/` contient `registry`, `flatWorld` et `simHarness` ; `runBot` utilise le même harnais.
+- **Code mort retiré** : `noise3`, `withinRadius` et le champ `light` de `streamRadii`, `SEA_LEVEL`, `PASS_COUNT`, `setLocale`/`hasString`. `ColumnSlots` reste pour M5.
+- **CLAUDE.md** reçoit les principes KISS/DRY/SRP et les nouveaux emplacements des helpers.
+- **`docs/conception.md`** est remplacé par cette version du plan (décisions 12 à 14, M3.5, exécution autonome).
+- **Fait quand** :
+  - `verify`, perf, slow et e2e verts, et les autotests m0–m3 verts ;
+  - **même hash** pour `npm run headless -- --seed=42 --ticks=3000 --bot=wander` avant et après, et goldens de génération inchangés (`GEN_VERSION` reste 1) ;
+  - bench `fly` p95 pas plus de 10 % au-dessus de la mesure avant refactor ;
+  - aucun fichier de `src` au-delà d'environ 400 lignes, sauf justification en commentaire ;
+  - la lentille KISS/DRY/SRP de la revue ne confirme plus de remarque de valeur élevée.
 
 ### M4 — Minage et construction
 
@@ -1842,7 +1909,10 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 
 1. **Implémentation** sur la branche du jalon. Les modules indépendants peuvent être confiés à des sous-agents en parallèle, par exemple en M8 les données de contenu, les systèmes de sim et les écrans. Les sous-agents travaillent dans des worktrees isolés s'ils écrivent en même temps.
 2. **Vérification** : protocole commun, autotests, contrôles dans le navigateur intégré, captures, perf.
-3. **Revue adversariale** : un workflow de relecture sur le diff du jalon (exactitude, performance, règles d'architecture, originalité). Seules les remarques confirmées sont corrigées, puis je revérifie.
+3. **Revue adversariale** : un workflow de relecture sur le diff du jalon, en deux passes.
+   - Lentilles : exactitude, performance, règles d'architecture, originalité, KISS/DRY/SRP.
+   - Seules les remarques confirmées par un sceptique sont corrigées.
+   - Une seconde passe vérifie ensuite les corrections.
 4. **Livraison** :
    - push et PR en anglais ;
    - suivi de la CI ;
@@ -1851,9 +1921,38 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 
 **Ce que je te demanderai**
 
-- Ton avis sur le style : textures en M1, avatar en M3, créatures en M10.
-- Une partie test de 10 min, entre M9 et M11.
-- Ton accord avant tout gros téléchargement hors `npm install`.
+- Rien pendant l'exécution autonome (décision 13). Les captures de style (créatures en M10) sont jointes à la PR, sans attendre ton avis.
+- Une partie test de 10 min, quand tu le voudras (facultative).
+- Ton accord avant tout gros téléchargement hors `npm install`. En autonomie, je n'en fais aucun : je contourne ou je reporte et je le note.
+
+## Exécution autonome (décision 13)
+
+**Déroulé.**
+
+1. **M3.5 — Passe KISS/DRY/SRP** sur le code de M0 à M3 (voir « M3.5 » dans « Jalons »).
+2. **M4 à M11**, dans l'ordre, chacun avec le protocole commun complet et sa PR.
+3. **Boucle d'amélioration** sans fin tant que tu ne m'interromps pas. Chaque itération :
+   - choisit le chantier le plus utile, dans cet ordre de priorité :
+     1. bugs et erreurs (jeu réel, bots, autotests, revue de tout le code) ;
+     2. robustesse et cas limites ;
+     3. dette KISS/DRY/SRP ;
+     4. performance (seuils de « Vérification ») ;
+     5. couverture de tests ;
+     6. finition de gameplay dans le périmètre v1 ;
+   - est livrée comme une PR `claude/improve-<sujet>` avec le même protocole qu'un jalon (vérification, revue adversariale en deux passes, CI verte, squash-merge).
+
+**Règles d'autonomie.**
+
+- Aucune question, ni via AskUserQuestion ni via les boutons de fin de tour.
+- Quand un choix n'est pas tranché par ce plan, je prends l'option la plus simple qui respecte la spec (KISS). Je note la décision et sa raison dans la description de la PR et, si elle change la spec, dans `docs/conception.md`.
+- Je ne m'arrête jamais sur une CI rouge, une revue négative ou un test qui échoue : je corrige, je revérifie et je repousse. Auto-fix reste activé sur chaque PR.
+- Si un élément du plan s'avère irréalisable tel quel (API indisponible, seuil de perf intenable), je livre la meilleure version qui marche. J'écris l'écart dans la PR et dans le compte rendu.
+- Garde-fous inchangés :
+  - jamais de force-push sur `main` ;
+  - aucun téléchargement hors des paquets npm de la stack ;
+  - aucune action hors du dépôt et de ce dossier ;
+  - aucun secret commité.
+- Chaque jalon et chaque amélioration se termine par un court compte rendu en français, que tu liras au réveil.
 
 **Téléchargements** :
 

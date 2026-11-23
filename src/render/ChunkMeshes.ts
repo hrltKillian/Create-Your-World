@@ -9,6 +9,7 @@ import {
   Vector3,
 } from 'three';
 import type { SectionMesh } from '../world/mesh/greedyMesher.ts';
+import { QUAD_WORDS } from '../world/mesh/vertexFormat.ts';
 import type { VoxelMaterials } from './voxelMaterial.ts';
 
 /**
@@ -16,7 +17,6 @@ import type { VoxelMaterials } from './voxelMaterial.ts';
  * A pass with more quads (multi-box shapes) is split into several meshes.
  */
 export const MAX_QUADS = 196_608;
-const QUAD_WORDS = 8;
 const RENDER_ORDER = [0, 1, 10] as const;
 const SECTION_CENTER = new Vector3(16, 16, 16);
 const SECTION_RADIUS = Math.sqrt(3) * 16;

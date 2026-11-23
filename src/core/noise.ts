@@ -1,4 +1,4 @@
-import { createNoise2D, createNoise3D } from 'simplex-noise';
+import { createNoise2D } from 'simplex-noise';
 import { rngFor } from './rng.ts';
 
 /**
@@ -8,14 +8,9 @@ import { rngFor } from './rng.ts';
  */
 
 export type Noise2 = (x: number, y: number) => number;
-export type Noise3 = (x: number, y: number, z: number) => number;
 
 export function noise2(seed: string, salt: string): Noise2 {
   return createNoise2D(rngFor(seed, salt));
-}
-
-export function noise3(seed: string, salt: string): Noise3 {
-  return createNoise3D(rngFor(seed, salt));
 }
 
 /** Fractal sum of `octaves` layers (lacunarity 2, gain 0.5), normalised to about [−1, 1]. */

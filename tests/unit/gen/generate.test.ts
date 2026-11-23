@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
 import { Column } from '../../../src/world/Column.ts';
 import { localIndex } from '../../../src/world/coords.ts';
 import {
   columnHash,
   createGenContext,
-  findSpawn,
   GEN_VERSION,
   generateColumn,
   LatticeCache,
   pointInfo,
 } from '../../../src/world/gen/generateColumn.ts';
-
-const registry = buildRegistry(basePack);
+import { findSpawn } from '../../../src/world/gen/spawn.ts';
+import { registry } from '../../helpers/registry.ts';
 
 function generate(
   seed: string,

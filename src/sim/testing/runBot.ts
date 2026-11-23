@@ -1,11 +1,8 @@
 import type { Registry } from '../../content/registry.ts';
 import type { WorldType } from '../../world/gen/generateColumn.ts';
-import type { SimEvent } from '../events.ts';
-import { LocalSimHost, SerializingSimHost } from '../host.ts';
-import { InlineColumnSource } from '../InlineColumnSource.ts';
-import { Simulation } from '../Simulation.ts';
 import { stateHash } from '../stateHash.ts';
 import { type BotKind, createBot } from './bots.ts';
+import { createInlineSim } from './inlineSim.ts';
 
 export interface BotRunOptions {
   readonly registry: Registry;
@@ -33,19 +30,14 @@ export interface BotRunResult {
 
 /** Runs a bot-driven simulation synchronously (Node tests, headless runner). */
 export function runBot(options: BotRunOptions): BotRunResult {
-  const source = new InlineColumnSource(options.registry);
-  const sim = new Simulation({
-    seed: options.seed,
-    worldType: options.worldType ?? 'default',
+  const { sim, host, events } = createInlineSim({
     registry: options.registry,
-    source,
-    maxInFlight: 8,
+    seed: options.seed,
+    worldType: options.worldType,
+    serialize: options.serialize,
   });
-  source.connect((result) => sim.deliver(result));
   const player = sim.addPlayer(1, options.viewRadius ?? 2);
-  const host = options.serialize ? new SerializingSimHost(sim, 1) : new LocalSimHost(sim, 1);
   const bot = createBot(options.bot, options.seed);
-  const events: SimEvent[] = [];
   const every = options.everyTicks ?? 0;
   for (let i = 0; i < options.ticks; i++) {
     host.send(bot.next(player, sim.tick));

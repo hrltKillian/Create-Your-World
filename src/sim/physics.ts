@@ -1,19 +1,15 @@
-import {
-  COLLISION_BOXES,
-  COLLISION_FULL,
-  COLLISION_LIQUID,
-  FLAG_SOLID,
-  type RawTables,
-} from '../content/registry.ts';
+import type { RawTables } from '../content/registry.ts';
+import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
+import { aabb, isLiquid, moveAxis, overlapsSolid, solidCell, supported } from './collision.ts';
 
 /** Player movement constants (docs/conception.md « Joueur »). */
 export const PHYSICS = {
   width: 0.6,
   height: 1.8,
   crouchHeight: 1.5,
-  eye: 1.62,
-  crouchEye: 1.27,
+  eye: EYE_HEIGHT,
+  crouchEye: CROUCH_EYE_HEIGHT,
   walk: 4.3,
   sprint: 6.4,
   crouch: 1.6,
@@ -30,7 +26,6 @@ export const PHYSICS = {
   swimUp: 3.2,
   /** Height the feet clear above a bank's top when climbing out of water. */
   bankClearance: 0.1,
-  epsilon: 1e-4,
 } as const;
 
 export interface Body {
@@ -83,10 +78,10 @@ export interface StepResult {
 }
 
 export function createBody(x: number, y: number, z: number): Body {
-  return {
-    x,
-    y,
-    z,
+  const body: Body = {
+    x: 0,
+    y: 0,
+    z: 0,
     vx: 0,
     vy: 0,
     vz: 0,
@@ -100,8 +95,23 @@ export function createBody(x: number, y: number, z: number): Body {
     airTicks: 0,
     jumpTicks: 99,
     jumpHeldLast: false,
-    fallStartY: y,
+    fallStartY: 0,
   };
+  resetBody(body, x, y, z);
+  return body;
+}
+
+/** Puts a body at rest at a position (spawn, teleport): airborne, the fall measured from there. */
+export function resetBody(body: Body, x: number, y: number, z: number): void {
+  body.x = x;
+  body.y = y;
+  body.z = z;
+  body.vx = 0;
+  body.vy = 0;
+  body.vz = 0;
+  body.onGround = false;
+  body.airTicks = 0;
+  body.fallStartY = y;
 }
 
 export function bodyHeight(body: Body): number {
@@ -112,50 +122,9 @@ export function eyeHeight(body: Body): number {
   return body.crouching ? PHYSICS.crouchEye : PHYSICS.eye;
 }
 
-/** Collision boxes of the block at a cell, in world units, written into `out` (returns the count). */
-function cellBoxes(
-  world: VoxelWorld,
-  tables: RawTables,
-  x: number,
-  y: number,
-  z: number,
-  out: Float64Array,
-): number {
-  const state = world.getBlock(x, y, z);
-  const c = tables.collision[state]!;
-  if (c === COLLISION_FULL || state === world.outside) {
-    out[0] = x;
-    out[1] = y;
-    out[2] = z;
-    out[3] = x + 1;
-    out[4] = y + 1;
-    out[5] = z + 1;
-    return 1;
-  }
-  if (c < COLLISION_BOXES) return 0;
-  const boxes = tables.collisionBoxes[c - COLLISION_BOXES]!;
-  let n = 0;
-  for (const b of boxes) {
-    out[n * 6] = x + b[0] / 16;
-    out[n * 6 + 1] = y + b[1] / 16;
-    out[n * 6 + 2] = z + b[2] / 16;
-    out[n * 6 + 3] = x + b[3] / 16;
-    out[n * 6 + 4] = y + b[4] / 16;
-    out[n * 6 + 5] = z + b[5] / 16;
-    n++;
-    if (n * 6 >= out.length) break;
-  }
-  return n;
-}
-
-const boxes = new Float64Array(6 * 8);
-const aabb = new Float64Array(6);
-const lo = new Float64Array(3);
-const hi = new Float64Array(3);
-const sweepMin = new Float64Array(3);
-const sweepMax = new Float64Array(3);
 const HORIZONTAL_AXES = [0, 2] as const;
 
+/** Puts the collision box around a body of the given height. */
 function setAabb(body: Body, height: number): void {
   const half = PHYSICS.width / 2;
   aabb[0] = body.x - half;
@@ -164,94 +133,6 @@ function setAabb(body: Body, height: number): void {
   aabb[3] = body.x + half;
   aabb[4] = body.y + height;
   aabb[5] = body.z + half;
-}
-
-/**
- * Moves the AABB along one axis by `delta`, stopping at the first collision. Sweeps every cell the
- * move covers, so nothing is tunnelled through. Returns the distance actually moved.
- */
-function moveAxis(world: VoxelWorld, tables: RawTables, axis: number, delta: number): number {
-  if (delta === 0) return 0;
-  const eps = PHYSICS.epsilon;
-  for (let a = 0; a < 3; a++) {
-    lo[a] = aabb[a]!;
-    hi[a] = aabb[a + 3]!;
-    sweepMin[a] = lo[a]!;
-    sweepMax[a] = hi[a]!;
-  }
-  // Cells covered by the swept box.
-  if (delta > 0) sweepMax[axis] = hi[axis]! + delta;
-  else sweepMin[axis] = lo[axis]! + delta;
-  const min = sweepMin;
-  const max = sweepMax;
-  let allowed = delta;
-  const x0 = Math.floor(min[0]! + eps);
-  const x1 = Math.floor(max[0]! - eps);
-  const y0 = Math.floor(min[1]! + eps);
-  const y1 = Math.floor(max[1]! - eps);
-  const z0 = Math.floor(min[2]! + eps);
-  const z1 = Math.floor(max[2]! - eps);
-  for (let x = x0; x <= x1; x++) {
-    for (let y = y0; y <= y1; y++) {
-      for (let z = z0; z <= z1; z++) {
-        const n = cellBoxes(world, tables, x, y, z, boxes);
-        for (let b = 0; b < n; b++) {
-          const o = b * 6;
-          // Overlap on the two other axes?
-          let overlaps = true;
-          for (let a = 0; a < 3; a++) {
-            if (a === axis) continue;
-            if (!(boxes[o + a]! < hi[a]! - eps && boxes[o + 3 + a]! > lo[a]! + eps)) {
-              overlaps = false;
-              break;
-            }
-          }
-          if (!overlaps) continue;
-          if (delta > 0) {
-            const gap = boxes[o + axis]! - hi[axis]!;
-            if (gap >= -eps && gap < allowed) allowed = Math.max(0, gap - eps);
-          } else {
-            const gap = boxes[o + 3 + axis]! - lo[axis]!;
-            if (gap <= eps && gap > allowed) allowed = Math.min(0, gap + eps);
-          }
-        }
-      }
-    }
-  }
-  aabb[axis] = lo[axis]! + allowed;
-  aabb[axis + 3] = hi[axis]! + allowed;
-  return allowed;
-}
-
-/** Whether a box at the current AABB position overlaps any solid. */
-function overlapsSolid(world: VoxelWorld, tables: RawTables): boolean {
-  const eps = PHYSICS.epsilon;
-  for (let x = Math.floor(aabb[0]! + eps); x <= Math.floor(aabb[3]! - eps); x++) {
-    for (let y = Math.floor(aabb[1]! + eps); y <= Math.floor(aabb[4]! - eps); y++) {
-      for (let z = Math.floor(aabb[2]! + eps); z <= Math.floor(aabb[5]! - eps); z++) {
-        const n = cellBoxes(world, tables, x, y, z, boxes);
-        for (let b = 0; b < n; b++) {
-          const o = b * 6;
-          if (
-            boxes[o]! < aabb[3]! - eps &&
-            boxes[o + 3]! > aabb[0]! + eps &&
-            boxes[o + 1]! < aabb[4]! - eps &&
-            boxes[o + 4]! > aabb[1]! + eps &&
-            boxes[o + 2]! < aabb[5]! - eps &&
-            boxes[o + 5]! > aabb[2]! + eps
-          ) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
-function solidCell(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number): boolean {
-  const state = world.getBlock(x, y, z);
-  return (tables.flags[state]! & FLAG_SOLID) !== 0 || state === world.outside;
 }
 
 /**
@@ -278,25 +159,6 @@ function waterExitSpeed(body: Body, world: VoxelWorld, tables: RawTables): numbe
   return rise > 0 ? Math.sqrt(2 * PHYSICS.gravity * rise) : 0;
 }
 
-function isLiquid(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number): boolean {
-  return (
-    tables.collision[world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))] ===
-    COLLISION_LIQUID
-  );
-}
-
-/** Whether something solid lies under the footprint of the AABB (crouch edge guard). */
-function supported(world: VoxelWorld, tables: RawTables): boolean {
-  const saved1 = aabb[1]!;
-  const saved4 = aabb[4]!;
-  aabb[1] = saved1 - 0.05;
-  aabb[4] = saved1;
-  const result = overlapsSolid(world, tables);
-  aabb[1] = saved1;
-  aabb[4] = saved4;
-  return result;
-}
-
 /**
  * One physics tick for a player-sized body: acceleration towards the input velocity, exact
  * constant-gravity integration (y += v·dt − ½·g·dt²), then collisions resolved Y, X, Z.
@@ -311,7 +173,26 @@ export function stepBody(
 ): StepResult {
   out.landedFrom = 0;
   out.jumped = false;
-  // Standing up needs head room.
+  updateCrouch(body, input, world, tables);
+  const height = bodyHeight(body);
+  body.inWater = isLiquid(world, tables, body.x, body.y + 0.4, body.z);
+  body.feetInWater = body.inWater || isLiquid(world, tables, body.x, body.y + 0.05, body.z);
+  body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
+  const sprinting = input.sprint && !body.crouching && !body.inWater && input.forward > 0;
+  out.sprinting = sprinting;
+  accelerate(body, input, world, tables, sprinting, dt);
+  const dy = jumpAndGravity(body, input, world, tables, dt, out);
+  setAabb(body, height);
+  moveY(body, world, tables, dy, out);
+  moveXZ(body, world, tables, dt);
+  body.x = (aabb[0]! + aabb[3]!) / 2;
+  body.y = aabb[1]!;
+  body.z = (aabb[2]! + aabb[5]!) / 2;
+  return out;
+}
+
+/** Crouch phase: follows the input (never in water), but standing up needs head room. */
+function updateCrouch(body: Body, input: MoveInput, world: VoxelWorld, tables: RawTables): void {
   const wantCrouch = input.crouch && !body.inWater;
   if (body.crouching && !wantCrouch) {
     setAabb(body, PHYSICS.height);
@@ -319,14 +200,17 @@ export function stepBody(
   } else {
     body.crouching = wantCrouch;
   }
-  const height = bodyHeight(body);
-  body.inWater = isLiquid(world, tables, body.x, body.y + 0.4, body.z);
-  body.feetInWater = body.inWater || isLiquid(world, tables, body.x, body.y + 0.05, body.z);
-  body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
-  const sprinting = input.sprint && !body.crouching && !body.inWater && input.forward > 0;
-  out.sprinting = sprinting;
+}
 
-  // Horizontal: accelerate towards the wanted velocity.
+/** Horizontal phase: accelerates the velocity towards the wanted one (ground friction applies). */
+function accelerate(
+  body: Body,
+  input: MoveInput,
+  world: VoxelWorld,
+  tables: RawTables,
+  sprinting: boolean,
+  dt: number,
+): void {
   const speed = body.inWater
     ? PHYSICS.swim
     : body.crouching
@@ -365,15 +249,26 @@ export function stepBody(
     body.vx += (dvx / dv) * maxDv;
     body.vz += (dvz / dv) * maxDv;
   }
+}
 
-  // Jump: buffered presses and coyote time.
+/**
+ * Jump and gravity phase: buffered presses and coyote time, swimming and climbing out of water.
+ * Updates the vertical speed and returns the vertical move of this tick.
+ */
+function jumpAndGravity(
+  body: Body,
+  input: MoveInput,
+  world: VoxelWorld,
+  tables: RawTables,
+  dt: number,
+  out: StepResult,
+): number {
   if (input.jump && !body.jumpHeldLast) body.jumpTicks = 0;
   else body.jumpTicks++;
   body.jumpHeldLast = input.jump;
   // Swimming at the surface into a climbable bank with jump held lifts the feet onto it.
   const exit =
     input.jump && body.feetInWater && !body.headInWater ? waterExitSpeed(body, world, tables) : 0;
-  let dy: number;
   if (body.inWater) {
     if (
       input.jumpAllowed &&
@@ -393,24 +288,32 @@ export function stepBody(
     }
     // Water slows swimming speeds only: a jump or a climb out keeps full gravity.
     const g = body.vy > PHYSICS.swimUp ? PHYSICS.gravity : PHYSICS.gravity * 0.25;
-    dy = body.vy * dt - 0.5 * g * dt * dt;
+    const dy = body.vy * dt - 0.5 * g * dt * dt;
     body.vy = Math.max(-PHYSICS.swim * 1.5, body.vy - g * dt);
-  } else {
-    if (exit > 0) body.vy = Math.max(body.vy, exit);
-    const canJump = input.jumpAllowed && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
-    if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
-      body.vy = PHYSICS.jump;
-      body.jumpTicks = 99;
-      body.airTicks = PHYSICS.coyoteTicks + 1;
-      body.onGround = false;
-      out.jumped = true;
-    }
-    dy = body.vy * dt - 0.5 * PHYSICS.gravity * dt * dt;
-    body.vy = Math.max(-PHYSICS.terminal, body.vy - PHYSICS.gravity * dt);
+    return dy;
   }
+  if (exit > 0) body.vy = Math.max(body.vy, exit);
+  const canJump = input.jumpAllowed && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
+  if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
+    body.vy = PHYSICS.jump;
+    body.jumpTicks = 99;
+    body.airTicks = PHYSICS.coyoteTicks + 1;
+    body.onGround = false;
+    out.jumped = true;
+  }
+  const dy = body.vy * dt - 0.5 * PHYSICS.gravity * dt * dt;
+  body.vy = Math.max(-PHYSICS.terminal, body.vy - PHYSICS.gravity * dt);
+  return dy;
+}
 
-  setAabb(body, height);
-  // Y first: landing and ceilings.
+/** Y phase (on the AABB): landing and ceilings, ground contact and the height a fall started from. */
+function moveY(
+  body: Body,
+  world: VoxelWorld,
+  tables: RawTables,
+  dy: number,
+  out: StepResult,
+): void {
   const movedY = moveAxis(world, tables, 1, dy);
   const wasOnGround = body.onGround;
   if (movedY !== dy) {
@@ -428,8 +331,10 @@ export function stepBody(
     if (body.inWater) body.fallStartY = aabb[1]!;
     else body.fallStartY = Math.max(body.fallStartY, aabb[1]!);
   }
+}
 
-  // X then Z; crouching on the ground never walks off an edge.
+/** X/Z phase (on the AABB): X then Z; crouching on the ground never walks off an edge. */
+function moveXZ(body: Body, world: VoxelWorld, tables: RawTables, dt: number): void {
   body.wallX = 0;
   body.wallZ = 0;
   for (const axis of HORIZONTAL_AXES) {
@@ -455,9 +360,4 @@ export function stepBody(
       }
     }
   }
-
-  body.x = (aabb[0]! + aabb[3]!) / 2;
-  body.y = aabb[1]!;
-  body.z = (aabb[2]! + aabb[5]!) / 2;
-  return out;
 }

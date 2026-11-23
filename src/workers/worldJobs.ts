@@ -1,12 +1,7 @@
 import { basePack } from '../content/packs/base/index.ts';
 import { buildRegistry, type Registry } from '../content/registry.ts';
-import { Column, sectionPayloads } from '../world/Column.ts';
-import {
-  createGenContext,
-  type GenContext,
-  generateColumn,
-  type WorldType,
-} from '../world/gen/generateColumn.ts';
+import { createGenContext, type GenContext, type WorldType } from '../world/gen/generateColumn.ts';
+import { generateResult } from '../world/gen/generateResult.ts';
 import { meshSection } from '../world/mesh/greedyMesher.ts';
 import type { GenJob, GenResult, Job, JobResult, MeshJob, MeshResult } from '../world/protocol.ts';
 
@@ -42,19 +37,13 @@ export class WorldJobs {
 
   gen(job: GenJob): GenResult {
     const start = this.now();
-    const column = new Column(job.cx, job.cz, this.registry.air);
-    generateColumn(this.context(job.seed, job.worldType), column);
-    const sections = sectionPayloads(column);
-    return {
-      kind: 'gen',
-      seed: job.seed,
-      cx: job.cx,
-      cz: job.cz,
-      sections,
-      heightmap: column.heightmap,
-      biomes: column.biomes,
-      ms: this.now() - start,
-    };
+    const result = generateResult(
+      this.context(job.seed, job.worldType),
+      this.registry.air,
+      job.cx,
+      job.cz,
+    );
+    return { ...result, ms: this.now() - start };
   }
 
   mesh(job: MeshJob): MeshResult {

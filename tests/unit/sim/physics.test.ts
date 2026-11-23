@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../../src/content/registry.ts';
 import {
   createBody,
   type MoveInput,
@@ -14,20 +12,14 @@ import {
   RAY_TARGET_LIQUIDS,
   raycast,
 } from '../../../src/world/raycast.ts';
-import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import type { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import { emptyWorld, flatWorld } from '../../helpers/flatWorld.ts';
+import { registry } from '../../helpers/registry.ts';
 
-const registry = buildRegistry(basePack);
 const STONE = registry.defaultState('block:stone');
 const WATER = registry.defaultState('block:fresh_water');
 const GATE = registry.defaultState('block:gate');
 const DT = 1 / 30;
-
-function flat(): VoxelWorld {
-  const world = new VoxelWorld(registry.air, registry.unknownBlock);
-  for (let cx = -2; cx <= 2; cx++) for (let cz = -2; cz <= 2; cz++) world.ensureColumn(cx, cz);
-  for (let x = -40; x < 40; x++) for (let z = -40; z < 40; z++) world.setBlock(x, 63, z, STONE);
-  return world;
-}
 
 const idle: MoveInput = {
   forward: 0,
@@ -48,13 +40,13 @@ function settle(world: VoxelWorld, x: number, y: number, z: number) {
 
 describe('player physics', () => {
   it('lands exactly on the ground', () => {
-    const body = settle(flat(), 0.5, 70, 0.5);
+    const body = settle(flatWorld(), 0.5, 70, 0.5);
     expect(body.y).toBeCloseTo(64, 3);
     expect(body.onGround).toBe(true);
   });
 
   it('jumps to an apex of 1.26 reached at tick 9', () => {
-    const world = flat();
+    const world = flatWorld();
     const body = settle(world, 0.5, 64, 0.5);
     const heights: number[] = [];
     stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
@@ -69,7 +61,7 @@ describe('player physics', () => {
   });
 
   it('walks about 8.6 m in 2 s and sprints faster', () => {
-    const world = flat();
+    const world = flatWorld();
     const walker = settle(world, 0.5, 64, 0.5);
     for (let i = 0; i < 60; i++)
       stepBody(walker, { ...idle, forward: 1 }, world, registry.tables, DT, out);
@@ -82,7 +74,7 @@ describe('player physics', () => {
   });
 
   it('stops at walls and ceilings without tunnelling', () => {
-    const world = flat();
+    const world = flatWorld();
     for (let y = 64; y < 68; y++) for (let x = -3; x <= 3; x++) world.setBlock(x, y, -3, STONE);
     const body = settle(world, 0.5, 64, 0.5);
     for (let i = 0; i < 90; i++)
@@ -97,8 +89,7 @@ describe('player physics', () => {
   });
 
   it('does not walk off an edge while crouching', () => {
-    const world = new VoxelWorld(registry.air, registry.unknownBlock);
-    for (let cx = -1; cx <= 1; cx++) for (let cz = -1; cz <= 1; cz++) world.ensureColumn(cx, cz);
+    const world = emptyWorld(1);
     for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) world.setBlock(x, 63, z, STONE);
     const body = settle(world, 1.5, 64, 1.5);
     for (let i = 0; i < 60; i++)
@@ -108,8 +99,7 @@ describe('player physics', () => {
   });
 
   it('keeps jumping for a few ticks after leaving an edge (coyote time)', () => {
-    const world = new VoxelWorld(registry.air, registry.unknownBlock);
-    for (let cx = -1; cx <= 1; cx++) for (let cz = -1; cz <= 1; cz++) world.ensureColumn(cx, cz);
+    const world = emptyWorld(1);
     for (let x = -5; x < 5; x++) for (let z = 0; z < 3; z++) world.setBlock(x, 63, z, STONE);
     const body = settle(world, 0.5, 64, 0.5);
     let left = -1;
@@ -122,7 +112,7 @@ describe('player physics', () => {
   });
 
   it('swims: slower, lighter gravity, rises while jump is held', () => {
-    const world = flat();
+    const world = flatWorld();
     for (let x = -5; x < 5; x++)
       for (let z = -5; z < 5; z++) for (let y = 64; y < 70; y++) world.setBlock(x, y, z, WATER);
     const body = createBody(0.5, 66, 0.5);
@@ -137,7 +127,7 @@ describe('player physics', () => {
   /** Water `depth` deep over the stone floor (top at 64 + depth), a bank to the north rising
    * `above` blocks over the water surface; the swimmer starts in the water facing the bank. */
   function swimToBank(depth: number, above: number) {
-    const world = flat();
+    const world = flatWorld();
     const surface = 64 + depth;
     for (let x = -5; x < 5; x++) {
       for (let z = -2; z < 10; z++)
@@ -179,7 +169,7 @@ describe('player physics', () => {
   ])(
     'climbs out from rest against the bank (%i deep, bank +%i) on the first try',
     (depth, above) => {
-      const world = flat();
+      const world = flatWorld();
       const surface = 64 + depth;
       for (let x = -5; x < 5; x++) {
         for (let z = -2; z < 10; z++)
@@ -208,7 +198,7 @@ describe('player physics', () => {
   );
 
   it('swims along a tall cliff without leaping out of the water', () => {
-    const world = flat();
+    const world = flatWorld();
     for (let x = -5; x < 10; x++)
       for (let z = -38; z < 38; z++) for (let y = 64; y < 67; y++) world.setBlock(x, y, z, WATER);
     for (let x = -8; x < -5; x++)
@@ -233,7 +223,7 @@ describe('player physics', () => {
 
   it('jumps normally when standing in shallow water, tapped or held', () => {
     for (const held of [1, 3, 30]) {
-      const world = flat();
+      const world = flatWorld();
       for (let x = -5; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
       const body = settle(world, 0.5, 64, 0.5);
       expect(body.inWater && body.onGround).toBe(true);
@@ -247,7 +237,7 @@ describe('player physics', () => {
   });
 
   it('does not jump without stamina, on land or in shallow water, but still swims up', () => {
-    const world = flat();
+    const world = flatWorld();
     for (let x = 0; x < 5; x++) for (let z = -5; z < 5; z++) world.setBlock(x, 64, z, WATER);
     // On land: no lift at all. In water the swimmer still bobs up (about 0.84), below a jump (1.26).
     for (const [x, limit] of [
@@ -267,7 +257,7 @@ describe('player physics', () => {
   });
 
   it('collides with box shapes (closed gate) but not open ones', () => {
-    const world = flat();
+    const world = flatWorld();
     world.setBlock(0, 64, -2, GATE);
     const body = settle(world, 0.5, 64, 0.5);
     for (let i = 0; i < 60; i++)
@@ -283,7 +273,7 @@ describe('player physics', () => {
 
 describe('raycast', () => {
   it('solid mode passes through plants and water and stops at collision blocks', () => {
-    const world = flat();
+    const world = flatWorld();
     world.setBlock(0, 64, -1, registry.defaultState('block:tall_grass'));
     world.setBlock(0, 64, -2, WATER);
     world.setBlock(0, 64, -3, GATE);
@@ -321,7 +311,7 @@ describe('raycast', () => {
   });
 
   it('hits the first targetable block with the entry face normal', () => {
-    const world = flat();
+    const world = flatWorld();
     world.setBlock(0, 65, -4, STONE);
     const hit = raycast(world, registry.tables, 0.5, 65.5, 0.5, 0, 0, -1, 10, createRayHit());
     expect(hit.hit).toBe(true);
@@ -331,7 +321,7 @@ describe('raycast', () => {
   });
 
   it('looks down onto the floor and misses beyond the reach', () => {
-    const world = flat();
+    const world = flatWorld();
     const down = raycast(world, registry.tables, 0.5, 65.5, 0.5, 0, -1, 0, 4.5, createRayHit());
     expect([down.y, down.ny]).toEqual([63, 1]);
     const far = raycast(world, registry.tables, 0.5, 70.5, 0.5, 0, 1, 0, 4.5, createRayHit());
@@ -339,7 +329,7 @@ describe('raycast', () => {
   });
 
   it('ignores liquids unless asked and reports a zero normal from inside a block', () => {
-    const world = flat();
+    const world = flatWorld();
     world.setBlock(0, 64, -2, WATER);
     const dry = raycast(world, registry.tables, 0.5, 64.5, 0.5, 0, 0, -1, 4, createRayHit());
     expect(dry.hit).toBe(false);

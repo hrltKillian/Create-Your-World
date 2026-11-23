@@ -14,24 +14,19 @@ export const SPIRAL: readonly (readonly [number, number])[] = (() => {
 })();
 
 /**
- * Radii derived from the render distance RD (in columns). The margins are 1.5 and 2.5 rather than
- * 1 and 2 because the circles are Euclidean: a meshable column on the rim of the RD circle has
- * diagonal neighbours up to √2 further out, and those need their own face neighbours.
+ * Radii derived from the render distance RD (in columns): meshed within RD, generated within
+ * RD + 2.5, unloaded beyond RD + 3.5. The generation margin is 2.5 rather than 2 because the
+ * circles are Euclidean: a meshable column on the rim of the RD circle needs its diagonal
+ * neighbours lit, up to √2 further out (within RD + 1.5), and those need their own face neighbours.
  */
 export function streamRadii(renderDistance: number): {
   mesh: number;
-  light: number;
   generate: number;
   unload: number;
 } {
   return {
     mesh: renderDistance,
-    light: renderDistance + 1.5,
     generate: renderDistance + 2.5,
     unload: renderDistance + 3.5,
   };
-}
-
-export function withinRadius(dx: number, dz: number, radius: number): boolean {
-  return dx * dx + dz * dz <= radius * radius;
 }

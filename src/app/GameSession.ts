@@ -5,20 +5,15 @@ import type { WorkerPool } from '../platform/WorkerPool.ts';
 import { BoxBatch } from '../render/BoxBatch.ts';
 import { CameraRig } from '../render/CameraRig.ts';
 import { EntityView } from '../render/EntityView.ts';
-import { MeshScheduler } from '../render/MeshScheduler.ts';
+import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
+import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import type { SimEvent } from '../sim/events.ts';
-import { LocalSimHost, SerializingSimHost, type SimHost } from '../sim/host.ts';
+import type { SimHost } from '../sim/host.ts';
+import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
-import {
-  COLUMN_LIT,
-  COLUMN_MESHABLE,
-  INTEGRATE_PER_TICK,
-  LOADING_FACTOR,
-  Simulation,
-  TICKS_PER_SECOND,
-} from '../sim/Simulation.ts';
-import { SECTIONS_PER_COLUMN, sectionKey, toColumn } from '../world/coords.ts';
+import { INTEGRATE_PER_TICK, LOADING_FACTOR, TICKS_PER_SECOND } from '../sim/Simulation.ts';
+import { blockToColumn, SECTION_SIZE, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { FreeCam } from './FreeCam.ts';
 
@@ -47,12 +42,12 @@ export interface SessionOptions {
 export class GameSession {
   readonly seed: string;
   readonly host: SimHost;
-  readonly sim: Simulation;
   readonly scheduler: MeshScheduler;
   readonly rig = new CameraRig();
   readonly entities: EntityView;
   readonly batch: BoxBatch;
-  readonly player: PlayerState;
+  /** The local player's live (read-only) state, from the host's view. */
+  readonly player: Readonly<PlayerState>;
   renderDistance: number;
   loading = true;
   /** performance.now() when the session was created (loading-time measurements). */
@@ -64,6 +59,10 @@ export class GameSession {
   private readonly registry: Registry;
   private readonly events: SimEvent[] = [];
   private acc = 0;
+  /** Column and radius of the last view sent to the host. */
+  private sentCx = Number.NaN;
+  private sentCz = Number.NaN;
+  private sentRadius = Number.NaN;
   /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
   paused = false;
 
@@ -81,20 +80,18 @@ export class GameSession {
     this.freecam = options.freecam;
     this.fixedStep = options.fixedStep;
     this.renderDistance = options.renderDistance;
-    const source = new WorkerColumnSource(pool);
-    this.sim = new Simulation({
+    this.host = createLocalServer({
       seed: options.seed,
       worldType: options.worldType,
       registry,
-      source,
+      source: new WorkerColumnSource(pool),
       maxInFlight: pool.size * 2,
       allowDebug: options.allowDebug,
+      playerId: PLAYER_ID,
+      viewRadius: options.renderDistance,
+      serialize: options.serialize,
     });
-    source.connect(this.sim);
-    this.player = this.sim.addPlayer(PLAYER_ID, options.renderDistance);
-    this.host = options.serialize
-      ? new SerializingSimHost(this.sim, PLAYER_ID)
-      : new LocalSimHost(this.sim, PLAYER_ID);
+    this.player = this.host.view.player()!;
     this.scheduler = new MeshScheduler(this.host.view, pool, view.chunks, {
       belowBlock: registry.unknownBlock,
       missingBlock: registry.unknownBlock,
@@ -103,19 +100,15 @@ export class GameSession {
     });
     this.batch = new BoxBatch(view.materials.uniforms.uTextures.value, view.materials.uniforms);
     view.scene.add(this.batch.mesh);
-    this.entities = new EntityView(this.batch, this.sim.world, registry);
-    const spawn = this.sim.spawn;
+    this.entities = new EntityView(this.batch, this.host.view.world, registry);
+    const spawn = this.host.view.spawn;
     if (this.freecam)
       this.freecam.set({ x: spawn.x, y: spawn.y + 18, z: spawn.z, yaw: 0, pitch: -0.35 });
     this.sendView();
   }
 
-  get ctx() {
-    return this.sim.ctx;
-  }
-
-  get spawn(): { x: number; y: number; z: number } {
-    return this.sim.spawn;
+  get spawn(): { readonly x: number; readonly y: number; readonly z: number } {
+    return this.host.view.spawn;
   }
 
   /** The point the world streams and meshes around (player feet or free camera). */
@@ -146,35 +139,31 @@ export class GameSession {
     if (!this.loading && !this.freecam && !this.playerColumnLit()) this.loading = true;
     if (this.loading)
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
-    // Fixed-step sessions only tick on request; keep the world streaming meanwhile.
-    else if (this.fixedStep || this.paused)
+    // Fixed-step and paused sessions do not tick here; keep the world streaming meanwhile.
+    else if (this.fixedStep || this.paused) {
+      this.sendViewIfMoved();
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, this.loading ? LOADING_BUDGETS : PLAY_BUDGETS);
-    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
+    }
+    this.afterTicks(this.loading ? LOADING_BUDGETS : PLAY_BUDGETS, true);
     return this.render(dt);
   }
 
-  /** Advances `n` ticks right now (fixed-step automation). */
+  /** Advances `n` ticks right now (fixed-step automation). The loading flag is left to frames. */
   step(n: number): void {
     for (let i = 0; i < n; i++) this.tick();
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, LOADING_BUDGETS);
+    this.afterTicks(LOADING_BUDGETS, false);
   }
 
   /**
-   * Steps the world without rendering (hidden pane, automation). Fixed-step sessions only stream:
-   * their ticks are advanced explicitly, so the tick count stays deterministic.
+   * Streams and meshes without rendering (automation while frames stall). With `tick` (pass it
+   * only for a hidden page, where frames no longer tick) it also advances one tick; fixed-step and
+   * paused sessions never tick here, so their tick count stays deterministic.
    */
-  pumpOnce(): void {
-    if (!this.fixedStep && !this.paused) this.tick();
+  pumpOnce(tick: boolean): void {
+    if (tick && !this.fixedStep && !this.paused) this.tick();
+    else this.sendViewIfMoved();
     this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
-    this.flushEvents();
-    const focus = this.focus();
-    this.scheduler.update(focus.x, focus.y, focus.z, LOADING_BUDGETS);
-    if (this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
+    this.afterTicks(LOADING_BUDGETS, true);
   }
 
   /** Radius that ends the loading screen: 3 columns, or less at a smaller render distance. */
@@ -191,18 +180,19 @@ export class GameSession {
   /** The player's column is lit, so the player is simulated (not frozen). */
   playerColumnLit(): boolean {
     const b = this.player.body;
-    return this.sim.columnState(toColumn(Math.floor(b.x)), toColumn(Math.floor(b.z))) >= COLUMN_LIT;
+    const state = this.host.view.columnState(blockToColumn(b.x), blockToColumn(b.z));
+    return state >= COLUMN_LIT;
   }
 
   /** Every column within `radius` of the focus is meshable and its sections are uploaded. */
   chunksReady(radius: number): boolean {
     const focus = this.focus();
-    const ccx = toColumn(Math.floor(focus.x));
-    const ccz = toColumn(Math.floor(focus.z));
+    const ccx = blockToColumn(focus.x);
+    const ccz = blockToColumn(focus.z);
     for (let dz = -radius; dz <= radius; dz++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (dx * dx + dz * dz > radius * radius) continue;
-        if (this.sim.columnState(ccx + dx, ccz + dz) !== COLUMN_MESHABLE) return false;
+        if (this.host.view.columnState(ccx + dx, ccz + dz) !== COLUMN_MESHABLE) return false;
         for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) {
           if (this.scheduler.busy(sectionKey(ccx + dx, sy, ccz + dz))) return false;
         }
@@ -221,11 +211,17 @@ export class GameSession {
   private render(dt: number): CameraPose {
     if (this.freecam) return this.freecam.pose;
     const alpha = this.fixedStep ? 1 : Math.min(1, this.acc / TICK);
-    const pose = this.rig.update(this.player, alpha, this.sim.world, this.registry.tables, dt);
+    const pose = this.rig.update(
+      this.player,
+      alpha,
+      this.host.view.world,
+      this.registry.tables,
+      dt,
+    );
     this.batch.begin(
-      Math.floor(pose.x / 32) * 32,
-      Math.floor(pose.y / 32) * 32,
-      Math.floor(pose.z / 32) * 32,
+      blockToColumn(pose.x) * SECTION_SIZE,
+      blockToColumn(pose.y) * SECTION_SIZE,
+      blockToColumn(pose.z) * SECTION_SIZE,
     );
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
     const visible = this.rig.mode === 'third' && this.rig.distance >= AVATAR_MIN_DISTANCE;
@@ -234,8 +230,20 @@ export class GameSession {
     return pose;
   }
 
+  /** Sends the view only when the focus changed column or the radius changed (no queue growth). */
+  private sendViewIfMoved(): void {
+    const focus = this.focus();
+    const cx = blockToColumn(focus.x);
+    const cz = blockToColumn(focus.z);
+    if (cx !== this.sentCx || cz !== this.sentCz || this.renderDistance !== this.sentRadius)
+      this.sendView();
+  }
+
   private sendView(): void {
     const focus = this.focus();
+    this.sentCx = blockToColumn(focus.x);
+    this.sentCz = blockToColumn(focus.z);
+    this.sentRadius = this.renderDistance;
     this.host.send({
       type: 'client.view',
       x: focus.x,
@@ -245,19 +253,26 @@ export class GameSession {
     });
   }
 
-  private flushEvents(): void {
+  /**
+   * Common tail of `frame`, `step` and `pumpOnce`: hands the tick events to the mesh scheduler,
+   * meshes around the focus and, when `endLoading`, drops the loading flag once the area is ready.
+   */
+  private afterTicks(budgets: MeshBudgets, endLoading: boolean): void {
     for (const event of this.events) this.scheduler.onEvent(event);
     this.events.length = 0;
+    const focus = this.focus();
+    this.scheduler.update(focus.x, focus.y, focus.z, budgets);
+    if (endLoading && this.loading && this.chunksReady(this.loadingRadius())) this.loading = false;
   }
 }
 
-const PLAY_BUDGETS = {
+const PLAY_BUDGETS: MeshBudgets = {
   maxInFlight: 8,
   dispatchPerFrame: 4,
   uploadsPerFrame: 8,
   uploadBytesPerFrame: 1 << 20,
 };
-const LOADING_BUDGETS = {
+const LOADING_BUDGETS: MeshBudgets = {
   maxInFlight: 16,
   dispatchPerFrame: 16,
   uploadsPerFrame: 48,

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { basePack } from '../../src/content/packs/base/index.ts';
-import { buildRegistry } from '../../src/content/registry.ts';
 import { Column } from '../../src/world/Column.ts';
 import { createGenContext, generateColumn } from '../../src/world/gen/generateColumn.ts';
 import { meshSection } from '../../src/world/mesh/greedyMesher.ts';
 import { createPadded, fillPadded } from '../../src/world/mesh/padded.ts';
 import { VoxelWorld } from '../../src/world/VoxelWorld.ts';
+import { registry } from '../helpers/registry.ts';
 
 /**
  * Node thresholds measured on the development machine (Apple M4), set to about 0.6× the M1 target
@@ -14,7 +13,6 @@ import { VoxelWorld } from '../../src/world/VoxelWorld.ts';
 const GEN_MEDIAN_MS = 10;
 const MESH_MEDIAN_MS = 3;
 
-const registry = buildRegistry(basePack);
 const median = (values: number[]) =>
   [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
 
