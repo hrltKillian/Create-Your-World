@@ -265,7 +265,7 @@ export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const entity = view?.blockEntity(Math.floor(x), Math.floor(y), Math.floor(z));
   if (!view || !entity) return null;
   const slots = serializeInventory(entity.slots);
-  if (entity.kind === 'container') return { kind: entity.kind, slots };
+  if (entity.kind !== 'station') return { kind: entity.kind, slots };
   return {
     kind: entity.kind,
     station: entity.station,
@@ -293,7 +293,8 @@ function middleOf(element: Element): { clientX: number; clientY: number } {
  * Drags the stack of one slot onto another on the open slot screen (Bag, Container, Station) as
  * the mouse does: pointer down on the source, moved and released over the target, which the
  * screen finds under the pointer. Slots are numbered as in `[data-slot]` (0–31 the inventory, 32+
- * the open chest or station). Returns false (the drag cancelled) when a slot is missing or covered.
+ * the open chest or station, or the Bag's worn items). Returns false (the drag cancelled) when a
+ * slot is missing or covered.
  */
 export function dragSlot(from: number, to: number): boolean {
   const screen = document.querySelector<HTMLElement>('.screen-slots:not([hidden])');

@@ -52,6 +52,7 @@ export const strings = {
   'block.bloomery': 'Bloomery',
   'block.chest': 'Chest',
   'block.bedroll': 'Bedroll',
+  'block.abandoned_pack': 'Abandoned Pack',
   'item.stick': 'Stick',
   'item.plant_fiber': 'Plant Fiber',
   'item.cord': 'Cord',

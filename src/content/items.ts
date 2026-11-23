@@ -70,7 +70,10 @@ export interface ItemTables {
   readonly maxStack: Uint16Array;
   /** Mining speed of a matching tool (1 for items that are not tools). */
   readonly toolSpeed: Float64Array;
-  /** Uses of a fresh tool; 0 for items that do not wear. */
+  /**
+   * Uses of a fresh stack: a tool's, a wearable's wear, a filled container's charges; 0 for items
+   * that do not wear.
+   */
   readonly durability: Uint16Array;
   /** Block state the item places, −1 if it places nothing. */
   readonly places: Int32Array;
@@ -93,9 +96,15 @@ export function buildItemTables(
   items.forEach((item, i) => {
     tables.maxStack[i] = item.maxStack;
     tables.toolSpeed[i] = item.tool?.speed ?? 1;
-    tables.durability[i] = item.tool?.durability ?? 0;
+    tables.durability[i] = item.tool?.durability ?? item.wear?.durability ?? charges(item);
     const block = placed.get(item.key);
     if (block !== undefined) tables.places[i] = blockState(block);
   });
   return tables;
+}
+
+/** Drinks a full container holds (0 for an empty one, or an item that is no container). */
+function charges(item: ItemDef): number {
+  const container = item.container;
+  return container && container.contents !== 'empty' ? container.charges : 0;
 }

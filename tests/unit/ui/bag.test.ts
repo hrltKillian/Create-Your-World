@@ -68,10 +68,25 @@ describe('BagScreen', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
     expect(slotNumbers(bag.element).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: INVENTORY_SLOTS }, (_, i) => i),
+      Array.from({ length: INVENTORY_SLOTS + WEAR_SLOTS.length }, (_, i) => i),
     );
     expect(byAttr(bag.element, 'data-wear').map((e) => e.getAttribute('data-wear'))).toEqual(
       WEAR_SLOTS,
+    );
+    // Each box of the silhouette is the slot of its worn item, from 32 on.
+    const boxes = byAttr(bag.element, 'data-wear').map((box) => slotNumbers(box as never));
+    expect(boxes).toEqual(WEAR_SLOTS.map((_, i) => [INVENTORY_SLOTS + i]));
+  });
+
+  it('shows what the worn items protect from', () => {
+    const { screen } = deps();
+    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const slots: Inventory = new Array(INVENTORY_SLOTS + WEAR_SLOTS.length).fill(null);
+    slots[9] = { item: 'item:fur_hood', count: 1 };
+    const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
+    bag.update(slots, { source: logbookSource({}), queue: [] }, gear);
+    expect(fake(bag.element).querySelector('.wear-stats')?.textContent).toBe(
+      'Armor 3 · Warmth +16 °C · Cooling −0 °C',
     );
   });
 });

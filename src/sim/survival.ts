@@ -1,6 +1,7 @@
 import type { BalanceDef } from '../content/schema.ts';
-import { TICK_SECONDS, ticksOf } from './clock.ts';
+import { TICK_SECONDS, TICKS_PER_SECOND, ticksOf } from './clock.ts';
 import { type Contact, sampleEnvironment, touch } from './environment.ts';
+import { wearFilters } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import type { Simulation } from './Simulation.ts';
 import type { Shelter } from './shelter.ts';
@@ -59,6 +60,8 @@ export interface SurvivalState {
   staminaSpent: number;
   /** What hurt last: the cause of death once health is 0 ('' before any damage). */
   cause: DeathCause | '';
+  /** The death was handled (sim/death.ts): the pack is left, the player waits to respawn. */
+  dead: boolean;
   effects: TimedEffect[];
   /** The last environment sample (environment.ts): shelter, felt °C and the gauge's target. */
   shelter: Shelter;
@@ -82,6 +85,7 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     calmTicks: ticksOf(b.health.regenDelaySec),
     staminaSpent: 0,
     cause: '',
+    dead: false,
     effects: [],
     shelter: 'exposed',
     ambient: b.climate.comfortMinC,
@@ -89,6 +93,26 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     airToxicity: 0,
     sampleTicks: 1,
   };
+}
+
+const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
+
+/**
+ * Adds to the gauges (negative amounts take away), each kept within its range: what food, drinks,
+ * sips and a night's sleep do.
+ */
+export function adjustGauges(
+  s: SurvivalState,
+  b: BalanceDef,
+  hunger: number,
+  thirst: number,
+  health: number,
+  toxicity: number,
+): void {
+  s.hunger = clamp(s.hunger + hunger, b.hunger.max);
+  s.thirst = clamp(s.thirst + thirst, b.thirst.max);
+  s.health = clamp(s.health + health, b.health.max);
+  s.toxicity = clamp(s.toxicity + toxicity, b.toxicity.max);
 }
 
 /** Takes health for a cause (nothing once dead). */
@@ -151,8 +175,6 @@ function drift(value: number, target: number, b: BalanceDef, minutes: number): n
   const next = up ? Math.min(target, value + step) : Math.max(target, value - step);
   return back && (up ? next > 0 : next < 0) ? 0 : next;
 }
-
-const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
 
 /** One tick of the gauges, their damage, regeneration and timed effects. */
 export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
@@ -247,9 +269,10 @@ const exposure: Exposure = { sprinting: false, underwater: false, toxicity: 0, d
 /**
  * Tick step 11 « Survie et environnement » for every living player in a loaded column. The
  * environment is sampled every `shelter.checkSec`, and again the tick after a block changed
- * nearby (this tick's `blocksChanged` events, from `first`), once its light is resolved.
+ * nearby (this tick's `blocksChanged` events, from `first`), once its light is resolved. A worn
+ * filter wears every second it filters a toxic air.
  */
-export function stepSurvival(sim: Simulation, out: readonly SimEvent[], first: number): void {
+export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): void {
   const b = sim.registry.pack.balance;
   for (const player of sim.players.values()) {
     const s = player.survival;
@@ -265,5 +288,6 @@ export function stepSurvival(sim: Simulation, out: readonly SimEvent[], first: n
     exposure.sprinting = player.sprinting;
     exposure.underwater = body.headInWater;
     stepGauges(s, b, exposure);
+    if (sim.tick % TICKS_PER_SECOND === 0) wearFilters(sim.registry, player, out);
   }
 }

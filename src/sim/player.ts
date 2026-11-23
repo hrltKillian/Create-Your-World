@@ -42,7 +42,14 @@ export interface InteractionState {
   useCooldown: number;
   /** Secondary was down last tick (gates toggle on the press only). */
   useHeld: boolean;
+  /** The action the held secondary started (consume.ts): NO_USE, −1 a sip, else the item id. */
+  useItem: number;
+  /** Ticks it has been held for (an item eaten or drunk, a sip). */
+  useTicks: number;
 }
+
+/** `InteractionState.useItem` when secondary holds no action. */
+export const NO_USE = -2;
 
 export function createInteraction(): InteractionState {
   return {
@@ -53,6 +60,8 @@ export function createInteraction(): InteractionState {
     mineStage: -1,
     useCooldown: 0,
     useHeld: false,
+    useItem: NO_USE,
+    useTicks: 0,
   };
 }
 
@@ -182,7 +191,8 @@ const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false 
 /**
  * One tick of player control. The previous position (render interpolation) and the view angles
  * always update; physics and stamina only run when `active` (its column is LIT: a frozen player
- * cannot fall into the void). A landing takes its fall damage. Returns whether the body was stepped.
+ * cannot fall into the void) and alive. A landing takes its fall damage. Returns whether the body
+ * was stepped.
  */
 export function stepPlayer(
   player: PlayerState,
@@ -200,7 +210,8 @@ export function stepPlayer(
   player.yaw = input.yaw;
   player.pitch = input.pitch;
   player.sprinting = false;
-  if (!active) return false;
+  // A dead player lies still until the respawn (death.ts).
+  if (!active || player.survival.health <= 0) return false;
   const balance = registry.pack.balance;
   const canSprint = !player.exhausted && player.stamina > 0;
   move.forward = input.forward;

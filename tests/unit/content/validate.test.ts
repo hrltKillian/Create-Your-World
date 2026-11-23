@@ -45,6 +45,17 @@ describe('content validation', () => {
     expect(issues.some((i) => i.message.includes('emissive but the block is tinted'))).toBe(true);
   });
 
+  it('keeps one grave block (the one a death leaves), which the registry finds', () => {
+    const registry = buildRegistry(basePack);
+    expect(registry.blockDef(registry.grave).blockEntity).toBe('grave');
+    const pack = broken((p) => {
+      p.blocks.find((b) => b.key === 'block:bedroll')!.blockEntity = 'grave';
+    });
+    expect(validatePack(pack)).toEqual([
+      { path: 'blocks', message: 'at most one block may be a grave (the one a death leaves)' },
+    ]);
+  });
+
   it('refuses to build a registry from an invalid pack', () => {
     const pack = broken((p) => {
       p.blocks[5]!.states = ['wobble'];

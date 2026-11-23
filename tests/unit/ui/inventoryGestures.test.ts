@@ -12,7 +12,7 @@ import {
   splitCount,
 } from '../../../src/ui/inventoryGestures.ts';
 
-const BAG: SlotContext = { base: INVENTORY_SLOTS, move: null };
+const BAG: SlotContext = { base: INVENTORY_SLOTS, move: 'equip.move' };
 const CHEST: SlotContext = { base: OPEN_SLOTS_BASE, move: 'container.move' };
 const STATION: SlotContext = { base: OPEN_SLOTS_BASE, move: 'station.move' };
 const CHEST_SLOTS = 18;
@@ -106,16 +106,16 @@ describe('inventory gestures', () => {
     expect(dropCommand(CHEST, inv, 2, c + 1, 8)).toEqual(chestMove(2, c + 1));
     expect(dropCommand(CHEST, inv, c + 4, 9, 3)).toEqual({ ...chestMove(c + 4, 9), count: 3 });
     expect(dropCommand(STATION, inv, 2, c, 8)).toEqual({ type: 'station.move', from: 2, to: c });
-    // Inside the inventory it stays an inventory move; the bag alone has no block entity.
+    // Inside the inventory it stays an inventory move; in the Bag the worn items are past it.
     expect(dropCommand(CHEST, inv, 2, 9, 8)).toEqual({ type: 'inv.move', from: 2, to: 9 });
-    expect(moveCommand(BAG, 2, c, 1)).toBeNull();
+    expect(moveCommand(BAG, 2, c, 1)).toEqual({ type: 'equip.move', from: 2, to: c, count: 1 });
     // A number key over a chest slot swaps it with the hotbar.
     expect(hotkeyCommand(CHEST, inv, c + 4, 0)).toEqual(chestMove(c + 4, 0));
     expect(hotkeyCommand(CHEST, inv, c + 5, 2)).toEqual(chestMove(2, c + 5));
   });
 
-  it('sends a stack across on Shift+click: hotbar ⇄ bag alone, else to the other side', () => {
-    expect(quickMoveCommand(BAG, 4)).toEqual({ type: 'inv.quickMove', slot: 4 });
+  it('sends a stack across on Shift+click: put on or off in the Bag, else to the other side', () => {
+    expect(quickMoveCommand(BAG, 4)).toEqual({ type: 'equip.move', from: 4 });
     expect(quickMoveCommand(CHEST, 4)).toEqual({ type: 'container.move', from: 4 });
     expect(quickMoveCommand(STATION, OPEN_SLOTS_BASE)).toEqual({
       type: 'station.move',

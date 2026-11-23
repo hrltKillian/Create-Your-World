@@ -7,10 +7,14 @@ import { HOTBAR_SLOTS } from '../core/player.ts';
 export const BAG_SLOTS = 24;
 export const INVENTORY_SLOTS = HOTBAR_SLOTS + BAG_SLOTS;
 
-/** A stack of one item (text key, as saves store it). Tools carry their remaining uses. */
+/** A stack of one item (text key, as saves store it). */
 export interface ItemStack {
   item: string;
   count: number;
+  /**
+   * Uses left (`itemTables.durability`): a tool's, a wearable's wear, a filled container's
+   * charges. Absent: as fresh.
+   */
   durability?: number;
   /** Saved key of an item the pack no longer has (`item` is then the pack's unknown item). */
   original?: string;
@@ -36,7 +40,7 @@ export function sameStack(a: Readonly<ItemStack>, b: Readonly<ItemStack>): boole
   );
 }
 
-/** A new stack of an item; a tool comes with all its uses (crafted, given). */
+/** A new stack of an item; a tool, a wearable or a filled container comes with all its uses. */
 export function freshStack(registry: Registry, item: string, count: number): ItemStack {
   const id = registry.itemId(item);
   const durability = id < 0 ? 0 : registry.itemTables.durability[id]!;
@@ -100,6 +104,21 @@ export function roomFor(
     else if (sameStack(target, stack)) room += Math.max(0, max - target.count);
   }
   return room >= stack.count;
+}
+
+/**
+ * Spends uses of the stack of a slot (a tool's, worn gear's, a container's charges: its
+ * `durability`, full when absent); a stack with none left is gone. Returns whether it went.
+ */
+export function spendUses(registry: Registry, slots: Inventory, slot: number, uses: number) {
+  const stack = slots[slot];
+  if (!stack) return false;
+  const id = registry.itemId(stack.item);
+  stack.durability =
+    (stack.durability ?? (id < 0 ? 0 : registry.itemTables.durability[id]!)) - uses;
+  if (stack.durability > 0) return false;
+  slots[slot] = null;
+  return true;
 }
 
 /** Removes up to `count` items from a slot; returns what was removed (null if the slot is empty). */

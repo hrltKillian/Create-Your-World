@@ -8,7 +8,7 @@ import {
   withinReach,
 } from './blockEntities.ts';
 import { reject, validBlockEntityCommand } from './commandRules.ts';
-import { type BlockEntityCommand, type BlockEntityMove, OPEN_SLOTS_BASE } from './commands.ts';
+import { type BlockEntityCommand, OPEN_SLOTS_BASE, type SlotMove } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import { INVENTORY_SLOTS, type Inventory, moveInto, moveStack, sameStack } from './inventory.ts';
 import type { PlayerState } from './player.ts';
@@ -71,7 +71,8 @@ export function openBlockEntity(
   if (!withinReach(player, x, y, z, OPEN_REACH)) return 'reach';
   if (!aimed && !cellInSight(sim.world, sim.registry.tables, player, x, y, z)) return 'sight';
   const entity = blockEntityAt(sim, x, y, z);
-  if (!entity) return 'nothing to open';
+  // An Abandoned Pack has no screen: secondary takes it back (death.ts).
+  if (!entity || entity.kind === 'grave') return 'nothing to open';
   for (const other of sim.players.values()) {
     const cell = other.opened;
     if (other !== player && cell && cell.x === x && cell.y === y && cell.z === z) return 'in use';
@@ -119,7 +120,7 @@ function side(player: PlayerState, entity: BlockEntity, slot: number): [Inventor
 function moveWithOpened(
   sim: Simulation,
   player: PlayerState,
-  command: BlockEntityMove<'container.move' | 'station.move'>,
+  command: SlotMove<'container.move' | 'station.move'>,
 ): string | null {
   const entity = openedEntity(sim, player);
   const kind = command.type === 'container.move' ? 'container' : 'station';
@@ -159,7 +160,7 @@ function quickMoveOpened(
   let moved: boolean;
   if (source === entity.slots)
     moved = moveInto(registry, source, index, player.inventory, 0, INVENTORY_SLOTS);
-  else if (entity.kind === 'container')
+  else if (entity.kind !== 'station')
     moved = moveInto(registry, source, index, entity.slots, 0, entity.slots.length);
   else return intoStation(sim, entity, source, index);
   return moved ? null : 'nothing to move';

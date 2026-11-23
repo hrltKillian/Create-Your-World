@@ -1,3 +1,5 @@
+import type { SimEvent } from './events.ts';
+
 /**
  * Time of day (docs/conception.md « Jour/nuit »): one day is 36 000 ticks (20 min), one game hour
  * 1 500 ticks (50 s), and a world starts at 07:00 of its first day. Pure numbers only: the
@@ -73,6 +75,35 @@ export function daylightAt(hour: number): number {
     case 'dawn':
       return NIGHT_DAYLIGHT + span * ramp(hour, DAWN_START, DAY_START);
   }
+}
+
+/** Whether an hour lies in [from, to), a range that may run past midnight (19:30–05:00). */
+export function withinHours(hour: number, from: number, to: number): boolean {
+  return from <= to ? hour >= from && hour < to : hour >= from || hour < to;
+}
+
+/** The first tick after `ticks` at `hour` (0 ≤ hour < 24): later that day, else the next one. */
+export function nextHour(ticks: number, hour: number): number {
+  const at = (dayOf(ticks) - 1) * DAY_TICKS + Math.round(hour * HOUR_TICKS);
+  return at > ticks ? at : at + DAY_TICKS;
+}
+
+/** The day of the last time the clock passed `hour` going from `prev` to `now`, 0 if it did not. */
+export function passedHour(prev: number, now: number, hour: number): number {
+  const offset = Math.round(hour * HOUR_TICKS);
+  const day = Math.floor((now - offset) / DAY_TICKS);
+  return day > Math.floor((prev - offset) / DAY_TICKS) ? day + 1 : 0;
+}
+
+/**
+ * The clock's messages (docs « Jour/nuit ») for the time from `prev` to `now`: the sun sets at
+ * 18:30, a night is survived at 06:00 (from the second day on).
+ */
+export function clockEvents(prev: number, now: number, out: SimEvent[]): void {
+  const dusk = passedHour(prev, now, DUSK_START);
+  if (dusk > 0) out.push({ type: 'sunset', day: dusk });
+  const morning = passedHour(prev, now, DAY_START);
+  if (morning > 1) out.push({ type: 'nightSurvived', night: morning - 1 });
 }
 
 /**

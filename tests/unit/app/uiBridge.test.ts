@@ -5,8 +5,9 @@ import { addStrings } from '../../../src/i18n/i18n.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { BlockEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
+import type { Gear } from '../../../src/sim/environment.ts';
 import type { SimView } from '../../../src/sim/host.ts';
-import { createInventory, type Inventory } from '../../../src/sim/inventory.ts';
+import { createInventory, INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
@@ -48,13 +49,14 @@ function setup(entity?: BlockEntity) {
       this.elapsed += dt;
     },
   };
-  const bag = screen<[Inventory, LogbookState]>();
+  const bag = screen<[Inventory, LogbookState, Gear]>();
   const container = screen<[Inventory]>();
   const station = screen<[Inventory, StationStatus]>();
   const input = { slot: 0 };
   const player = {
     playerId: 1,
     inventory: createInventory(),
+    equipment: [null, null, null, null, null] as Inventory,
     seen: {},
     craft: [],
     opened: entity ? { x: entity.x, y: entity.y, z: entity.z } : null,
@@ -122,9 +124,14 @@ describe('UiBridge', () => {
     expect(bag.updates).toHaveLength(0);
     bag.open = true;
     player.inventory[3] = { item: 'item:broadleaf_log', count: 4 };
+    player.equipment[2] = { item: 'item:fur_coat', count: 1 };
     bridge.frame(FRAME);
     expect(bag.updates).toHaveLength(1);
-    const logbook = bag.updates[0]![1];
+    // The inventory, then the worn items (slots 32–36) and what they protect from.
+    const [slots, logbook, gear] = bag.updates[0]!;
+    expect(slots).toHaveLength(INVENTORY_SLOTS + 5);
+    expect(slots[INVENTORY_SLOTS + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
+    expect(gear).toMatchObject({ armor: 2, warmth: 10, cooling: 0 });
     // The simulation's own count: a tag ingredient counts every item carrying it.
     expect(logbook.source.owned('tag:log')).toBe(4);
     expect(logbook.source.stationNear('station:workbench')).toBe(true);

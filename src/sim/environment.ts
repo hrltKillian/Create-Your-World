@@ -69,6 +69,8 @@ export function targetTemperature(felt: number, b: BalanceDef): number {
 
 /** Totals of the worn items (`WearDef`). */
 export interface Gear {
+  /** Armour value (combat, M10; the Bag shows it). */
+  armor: number;
   warmth: number;
   cooling: number;
   /** Factor on the toxicity of the air (1 without a filter). */
@@ -79,6 +81,7 @@ export interface Gear {
 
 /** Adds up the effects of the worn items into `out`. */
 export function wornGear(registry: Registry, equipment: Inventory, out: Gear): Gear {
+  out.armor = 0;
   out.warmth = 0;
   out.cooling = 0;
   out.airFilter = 1;
@@ -87,6 +90,7 @@ export function wornGear(registry: Registry, equipment: Inventory, out: Gear): G
     const stack = equipment[i];
     const wear = stack ? registry.item(stack.item)?.wear : undefined;
     if (!wear) continue;
+    out.armor += wear.armor ?? 0;
     out.warmth += wear.warmth ?? 0;
     out.cooling += wear.cooling ?? 0;
     out.airFilter *= wear.airFilter ?? 1;
@@ -184,7 +188,7 @@ const thermal: ThermalInput = {
   warmth: 0,
   cooling: 0,
 };
-const gear: Gear = { warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
 
 /**
  * Samples a player's surroundings into its survival state: the shelter, the felt temperature and

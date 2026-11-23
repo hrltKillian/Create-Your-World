@@ -218,13 +218,14 @@ export function blockEntityRecord(entity: Readonly<BlockEntity>): BlockEntityRec
   return { ...entity, slots: entity.slots.map((stack) => (stack ? savedStack(stack) : null)) };
 }
 
-/** Most slots a saved block entity may have. */
-const MAX_SLOTS = 64;
+/** Most slots a saved block entity may have (a pack holds as many as a dead player's stacks). */
+const MAX_SLOTS = 256;
 
 /**
  * The block entity of a (migrated) record, or null if it is malformed. Unknown items keep their
- * key; a station of a station the pack lacks keeps its slots (it no longer runs, but spills them
- * when broken). `lastTick` is the column record's, for stations saved without their own tick.
+ * key; a station of a station the pack lacks, and a pack, keep their slots (the former no longer
+ * runs, but spills them when broken). `lastTick` is the column record's, for stations saved
+ * without their own tick.
  */
 export function readBlockEntity(
   data: unknown,
@@ -244,6 +245,10 @@ export function readBlockEntity(
       z,
       slots: deserializeSlots(slots, CONTAINER_SLOTS, registry),
     };
+  if (saved.kind === 'grave') {
+    const size = Math.min(slots.length, MAX_SLOTS);
+    return { kind: 'grave', x, y, z, slots: deserializeSlots(slots, size, registry) };
+  }
   if (saved.kind !== 'station' || typeof saved.station !== 'string') return null;
   const def = registry.crafting.station(saved.station);
   const size = def ? stationSlotCount(def) : Math.min(slots.length, MAX_SLOTS);

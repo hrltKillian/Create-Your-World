@@ -41,8 +41,8 @@ export type TestSim = ReturnType<typeof withTicks>;
 
 /**
  * Command helpers for player 1 of a test simulation: `send` clears `events`, sends its commands
- * and applies them in one tick, returning that tick's events; `give`, `put` (one block) and
- * `block` (the state key of a cell) go through it.
+ * and applies them in one tick, returning that tick's events; `give`, `put` (one block), `fill`
+ * (a box) and `block` (the state key of a cell) go through it.
  */
 export function withPlayer<S extends TestSim>(harness: S) {
   const { sim, host, events } = harness;
@@ -61,6 +61,9 @@ export function withPlayer<S extends TestSim>(harness: S) {
     give: (item: string, count = 1) => send({ type: 'debug.give', item, count }),
     put: (x: number, y: number, z: number, state: string) =>
       send({ type: 'debug.fill', x0: x, y0: y, z0: z, x1: x, y1: y, z1: z, state }),
+    /** Fills a box of cells with a block state. */
+    fill: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, state: string) =>
+      send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state }),
     block: (x: number, y: number, z: number) =>
       sim.registry.states[sim.world.getBlock(x, y, z)]!.key,
   };

@@ -132,6 +132,8 @@ function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue)
     }
   });
   if (stateTotal > MAX_STATES) add('blocks', `${stateTotal} block states exceed ${MAX_STATES}`);
+  if (pack.blocks.filter((block) => block.blockEntity === 'grave').length > 1)
+    add('blocks', 'at most one block may be a grave (the one a death leaves)');
   return blockKeys;
 }
 

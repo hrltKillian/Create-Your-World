@@ -100,9 +100,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
-    `freshStack`, `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
+    `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
+    filled container's charges), `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
     (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
-    `structureLootAt` loot, `removeBlockEntity` spills, `withinReach`); their screens
+    `structureLootAt` loot, `removeBlockEntity` spills (and drops a pack's grave markers),
+    `withinReach`; kinds container, station, grave; a bedroll is `blockEntity: 'bed'` with no
+    record); their screens
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
     `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
     (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
@@ -114,7 +117,16 @@ They never override the rules above (determinism, zero allocations in hot loops,
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
     `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
     any gauge; balance tests compute their expectations from the balance (`tests/unit/sim/
-    survival.test.ts`);
+    survival.test.ts`); gauge changes of food, drinks and sleep `adjustGauges` (survival.ts);
+  - secondary held (docs « Priorité des actions »): interactive blocks in `sim/interaction.ts`
+    (`usesAimedBlock`, `useAimed`), then `holdUse` in `sim/consume.ts` (eat or drink the held item,
+    `interaction.useItem`/`useTicks`: the action the press started), sips and fills in
+    `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
+    (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`equip.move`: slots
+    32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
+    Abandoned Pack (`registry.grave`), `player.respawn` and `recoverPack` in `sim/death.ts` (tick
+    step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
+    `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour` in `sim/time.ts`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
@@ -138,7 +150,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
-    with player 1's `send`/`give`/`put`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
+    with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
     `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
@@ -178,7 +190,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   block; the Bag with its Logbook stays `'bag'`); Logbook rows carry `data-recipe`, tabs `data-tab`,
   its buttons `data-action` (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click
   cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31
-  the inventory, 32+ the open chest or station: inputs, fuel, outputs).
+  the inventory, 32+ the open chest or station: inputs, fuel, outputs; in the Bag 32–36 the worn
+  items, head to feet, moved with `equip.move`).
 - M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
   `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
   a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;

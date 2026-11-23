@@ -10,12 +10,13 @@ import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /**
- * Block entities (docs « Inventaire », « Stations de transformation »): the state a block keeps
- * besides its voxel, plain JSON saved with its column. A chest holds 18 slots; a station (campfire,
- * kiln, bloomery) its inputs, fuel and outputs with its fire and progress (stepped by stations.ts).
- * They live in `Simulation.blockEntities` by cell key, loaded or not, like item drops. A placed
- * block gets an empty one; a generated chest gets its structure's loot the first time anyone opens
- * or breaks it. Breaking the block spills what it holds.
+ * Block entities (docs « Inventaire », « Stations de transformation », « Mort »): the state a block
+ * keeps besides its voxel, plain JSON saved with its column. A chest holds 18 slots; a station
+ * (campfire, kiln, bloomery) its inputs, fuel and outputs with its fire and progress (stepped by
+ * stations.ts); an Abandoned Pack (`grave`) what a dead player carried (death.ts makes it). They
+ * live in `Simulation.blockEntities` by cell key, loaded or not, like item drops. A placed block
+ * gets an empty one; a generated chest gets its structure's loot the first time anyone opens or
+ * breaks it. Removing the block spills what it holds.
  */
 
 /** Slots of a container block (a chest). */
@@ -54,7 +55,16 @@ export interface StationEntity {
   tick: number;
 }
 
-export type BlockEntity = ContainerEntity | StationEntity;
+/** An Abandoned Pack: every stack a dead player carried, as many slots as stacks. */
+export interface GraveEntity {
+  readonly kind: 'grave';
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  slots: Inventory;
+}
+
+export type BlockEntity = ContainerEntity | StationEntity | GraveEntity;
 
 /**
  * Whether a block cell lies within `reach` blocks of a player: from the middle of the body to the
@@ -125,13 +135,19 @@ export function createBlockEntity(
   return entity;
 }
 
-/** Removes the block entity of a cell, if any, spilling its items around the cell's centre. */
+/**
+ * Removes the block entity of a cell, if any, spilling its items around the cell's centre; a pack
+ * no longer marks a grave on any player's compass.
+ */
 export function removeBlockEntity(sim: Simulation, x: number, y: number, z: number): void {
   const key = cellKey(x, y, z);
   const entity = sim.blockEntities.get(key);
   if (!entity) return;
   sim.blockEntities.delete(key);
   for (const stack of entity.slots) if (stack) spawnDrop(sim, stack, x + 0.5, y + 0.5, z + 0.5);
+  if (entity.kind !== 'grave') return;
+  for (const player of sim.players.values())
+    player.graves = player.graves.filter((cell) => cell.x !== x || cell.y !== y || cell.z !== z);
 }
 
 function emptySlots(count: number): Inventory {

@@ -48,7 +48,7 @@ export type WearSlot = 'head' | 'face' | 'body' | 'legs' | 'feet';
 /** Equipment slots, from the head down (the Bag's silhouette). */
 export const WEAR_SLOTS: readonly WearSlot[] = ['head', 'face', 'body', 'legs', 'feet'];
 
-/** An item worn in an equipment slot (its effects arrive with M9). */
+/** An item worn in an equipment slot (sim/equipment.ts, the thermal model, the air's toxicity). */
 export interface WearDef {
   readonly slot: WearSlot;
   readonly armor?: number;
@@ -60,11 +60,11 @@ export interface WearDef {
   readonly airFilter?: number;
   /** Cancels foul water at the feet. */
   readonly waterproof?: boolean;
-  /** Hits absorbed, or seconds of use for an `airFilter` piece. */
+  /** Hits absorbed, or seconds of use for an `airFilter` piece (its stack's `durability`). */
   readonly durability: number;
 }
 
-/** Eating or drinking an item (M9). */
+/** Eating or drinking an item: secondary held `seconds` (sim/consume.ts). */
 export interface ConsumeDef {
   /** Hold time. */
   readonly seconds: number;
@@ -78,7 +78,10 @@ export interface ConsumeDef {
 
 export type ContainerContents = 'empty' | 'raw' | 'boiled' | 'foul';
 
-/** A water container (flask, waterskin): each charge is one drink (M9). */
+/**
+ * A water container (flask, waterskin): each charge is one drink. A filled container's stack keeps
+ * the charges left as its `durability` (uses left, like a tool's), full when absent.
+ */
 export interface LiquidContainerDef {
   readonly charges: number;
   readonly contents: ContainerContents;

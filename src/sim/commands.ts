@@ -15,7 +15,10 @@ export type Command =
   | InputCommand
   | InventoryCommand
   | BlockEntityCommand
+  | EquipCommand
   | CraftCommand
+  /** Comes back after a death (the death screen's Respawn button); refused while alive. */
+  | { readonly type: 'player.respawn' }
   | DebugCommand;
 
 /**
@@ -72,17 +75,26 @@ export type InventoryCommand =
 export type BlockEntityCommand =
   | { readonly type: 'container.open'; readonly x: number; readonly y: number; readonly z: number }
   | { readonly type: 'container.close' }
-  | BlockEntityMove<'container.move'>
-  | BlockEntityMove<'station.move'>;
+  | SlotMove<'container.move'>
+  | SlotMove<'station.move'>;
 
-export interface BlockEntityMove<T extends 'container.move' | 'station.move'> {
+/** A move between the inventory (slots 0–31) and other slots numbered from `OPEN_SLOTS_BASE`. */
+export interface SlotMove<T extends 'container.move' | 'station.move' | 'equip.move'> {
   readonly type: T;
   readonly from: number;
   readonly to?: number;
   readonly count?: number;
 }
 
-/** First slot number of the open block entity in container.move and station.move (32). */
+/**
+ * The Bag's equipment boxes (sim/equipment.ts): the worn items are slots 32–36, in `WEAR_SLOTS`
+ * order. An item only goes into the box of its `wear.slot`. Without `to` (Shift+click) a wearable
+ * is put on (swapping what was worn), a worn item taken off, anything else moved between the
+ * hotbar and the bag.
+ */
+export type EquipCommand = SlotMove<'equip.move'>;
+
+/** First slot number of the open block entity, or of the worn items, in moves (32). */
 export const OPEN_SLOTS_BASE = INVENTORY_SLOTS;
 
 /** The Logbook (docs « Craft : le Logbook »): a queue of 5 entries per player. */

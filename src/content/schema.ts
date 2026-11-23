@@ -123,7 +123,11 @@ export interface BlockDef {
   readonly states?: readonly StateProp[];
   readonly whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>;
   readonly heat?: { readonly celsius: number; readonly radius: number };
-  /** Per-block state the simulation keeps (chest contents, a kiln's slots and fire…). */
+  /**
+   * What secondary does on the block, with the state the simulation keeps for it: a chest's
+   * contents, a station's slots and fire, an Abandoned Pack's items (`grave`, left by a death:
+   * sim/death.ts), or nothing for a bedroll (`bed`: sleeping, sim/sleep.ts).
+   */
   readonly blockEntity?: 'container' | 'station' | 'grave' | 'bed';
   /** The station this block is: recipes and processes of that station need it nearby. */
   readonly station?: StationKey;

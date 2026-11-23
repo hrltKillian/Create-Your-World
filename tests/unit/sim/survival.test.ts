@@ -38,7 +38,8 @@ const climate = (key: string) => registry.pack.biomes!.find((biome) => biome.key
 /** Worn items by key (any slot order: gear adds up). */
 function gearOf(...items: string[]): Gear {
   const equipment: (ItemStack | null)[] = items.map((item) => ({ item, count: 1 }));
-  return wornGear(registry, equipment, { warmth: 0, cooling: 0, airFilter: 1, waterproof: false });
+  const empty = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+  return wornGear(registry, equipment, empty);
 }
 
 /** The thermal model's input for a biome in the open, by day (1) or night (0), with gear. */
