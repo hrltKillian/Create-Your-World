@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCK_STACK, TOOL_NONE, toolCode } from '../../../src/content/items.ts';
+import { BLOCK_STACK, fitsTool, harvests } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
-import type { ContentPack } from '../../../src/content/schema.ts';
+import type { BlockKey, ContentPack } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -33,7 +33,7 @@ describe('items', () => {
       expect(registry.items[item]!.nameKey).toBe(block.nameKey);
       expect(items.maxStack[item]).toBe(BLOCK_STACK);
       expect(items.places[item]).toBe(registry.defaultState(block.key));
-      expect(items.toolKind[item]).toBe(TOOL_NONE);
+      expect(registry.items[item]!.tool).toBeUndefined();
     }
     // Glass drops nothing and grass drops dirt (loot), yet both can be placed from their item.
     expect(items.places[id('item:glass')]).toBe(registry.defaultState('block:glass'));
@@ -50,10 +50,9 @@ describe('items', () => {
   it('defines the flint tools, which place nothing and never stack', () => {
     const hatchet = id('item:flint_hatchet');
     const pickaxe = id('item:flint_pickaxe');
-    expect(items.toolKind[hatchet]).toBe(toolCode('axe'));
-    expect(items.toolKind[pickaxe]).toBe(toolCode('pick'));
+    expect(registry.items[hatchet]!.tool).toMatchObject({ kind: 'axe', tier: 1 });
+    expect(registry.items[pickaxe]!.tool).toMatchObject({ kind: 'pick', tier: 1 });
     for (const tool of [hatchet, pickaxe]) {
-      expect(items.toolTier[tool]).toBe(1);
       expect(items.toolSpeed[tool]).toBe(2);
       expect(items.durability[tool]).toBe(60);
     }
@@ -62,6 +61,27 @@ describe('items', () => {
       expect(items.places[id(key)], key).toBe(-1);
     }
     expect(registry.maxStack('item:nope')).toBe(1);
+  });
+
+  it('fits a tool to the blocks of its kind only, which it harvests up to its tier', () => {
+    const block = (key: BlockKey) => registry.blockDef(registry.defaultState(key));
+    const hatchet = registry.items[id('item:flint_hatchet')]!.tool;
+    const pickaxe = registry.items[id('item:flint_pickaxe')]!.tool;
+    const log = block('block:broadleaf_log');
+    const stone = block('block:stone');
+    const dirt = block('block:dirt');
+    expect([hatchet, pickaxe, undefined].map((tool) => fitsTool(log, tool))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    // Dirt wants no tool: nothing fits it, and the hand harvests it.
+    expect([fitsTool(dirt, hatchet), harvests(dirt, undefined)]).toEqual([false, true]);
+    expect([undefined, hatchet, pickaxe].map((tool) => harvests(stone, tool))).toEqual([
+      false,
+      false,
+      true,
+    ]);
   });
 
   it('names every tier and binds a sound to every material', () => {

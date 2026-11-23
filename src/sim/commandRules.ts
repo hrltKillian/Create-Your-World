@@ -1,6 +1,12 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
-import { insideBorder } from '../world/coords.ts';
-import type { ClientTarget, Command, InputCommand, InventoryCommand } from './commands.ts';
+import { insideBorder, WORLD_HEIGHT } from '../world/coords.ts';
+import type {
+  BlockEntityCommand,
+  ClientTarget,
+  Command,
+  InputCommand,
+  InventoryCommand,
+} from './commands.ts';
 import type { SimEvent } from './events.ts';
 import { INVENTORY_SLOTS } from './inventory.ts';
 
@@ -52,6 +58,43 @@ export function validInventoryCommand(c: InventoryCommand): boolean {
     case 'inv.drop':
       return slotOk(c.slot) && typeof c.all === 'boolean';
   }
+}
+
+/** An integer within [min, max]. */
+export const whole = (v: unknown, min: number, max: number): boolean =>
+  Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
+
+/** Largest slot number a move may name (inventory and block entity slots). */
+const MAX_SLOT = 255;
+
+/**
+ * Shape and ranges of a block entity command: a cell inside the world, slot numbers that may name
+ * the open block entity's slots (checked against it when applied), counts of at least 1.
+ */
+export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
+  switch (c.type) {
+    case 'container.open':
+      return validCell(c);
+    case 'container.close':
+      return true;
+    case 'container.move':
+    case 'station.move':
+      return (
+        whole(c.from, 0, MAX_SLOT) &&
+        (c.to === undefined || whole(c.to, 0, MAX_SLOT)) &&
+        (c.count === undefined || whole(c.count, 1, Infinity))
+      );
+  }
+}
+
+/** A whole block cell inside the world (container.open, debug.open). */
+export function validCell(c: { readonly x: number; readonly y: number; readonly z: number }) {
+  return (
+    whole(c.x, -Infinity, Infinity) &&
+    whole(c.y, 0, WORLD_HEIGHT - 1) &&
+    whole(c.z, -Infinity, Infinity) &&
+    insideBorder(c.x, c.z)
+  );
 }
 
 /** A view centre must be finite and inside the world border. */

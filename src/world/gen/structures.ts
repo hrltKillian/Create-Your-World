@@ -1,12 +1,12 @@
 import { FLAG_SOLID, type Registry } from '../../content/registry.ts';
-import type { BiomeDef, StructureDef, StructureKey } from '../../content/schema.ts';
+import type { BiomeDef, LootKey, StructureDef, StructureKey } from '../../content/schema.ts';
 import { hash32, hashUnit } from '../../core/hash.ts';
 import type { Column } from '../Column.ts';
 import { columnIndex, localIndex, SECTION_BITS, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
 import { caveAt, heightIndex } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
-import { biomeOf, heightAt, type LatticeCache } from './sample.ts';
+import { biomeOf, heightAt, LatticeCache } from './sample.ts';
 
 /*
  * Structures (docs « Génération » step 8): each 128×128 region has one candidate point, a pure
@@ -48,6 +48,8 @@ export interface ResolvedStructure {
   readonly depth: number;
   /** State of each template cell (index x + z·width + layer·width·depth), GROUND for `.`. */
   readonly cells: Int32Array;
+  /** Loot table of the container cells (by cell index), from the structure's `lootTables`. */
+  readonly loot: ReadonlyMap<number, LootKey>;
 }
 
 /** A structure placed in a region: the north-west corner of its footprint and its ground y. */
@@ -67,12 +69,16 @@ export function resolveStructure(
   const depth = def.layers[0]!.length;
   const width = def.layers[0]![0]!.length;
   const cells = new Int32Array(width * height * depth);
+  const loot = new Map<number, LootKey>();
+  const tables: Readonly<Record<string, LootKey>> = def.lootTables ?? {};
   def.layers.forEach((rows, layer) => {
     rows.forEach((row, z) => {
       for (let x = 0; x < width; x++) {
         const char = row[x]!;
-        cells[x + z * width + layer * width * depth] =
-          char === '.' ? GROUND : registry.stateId(def.legend[char]!);
+        const cell = x + z * width + layer * width * depth;
+        cells[cell] = char === '.' ? GROUND : registry.stateId(def.legend[char]!);
+        const table = tables[char];
+        if (table !== undefined) loot.set(cell, table);
       }
     });
   });
@@ -83,6 +89,7 @@ export function resolveStructure(
     height,
     depth,
     cells,
+    loot,
   };
 }
 
@@ -138,6 +145,29 @@ export function siteIn(
   // An entrance may have carved the ground away.
   if (caveAt(ctx, cache, x, y, z)) return null;
   return { structure, x0, z0, y };
+}
+
+/**
+ * Loot table of the structure container generated at a block, if any (analytic: whether the
+ * block is still there is the caller's business).
+ */
+export function structureLootAt(
+  ctx: GenContext,
+  x: number,
+  y: number,
+  z: number,
+): LootKey | undefined {
+  // Flat worlds have no structures.
+  if (ctx.worldType !== 'default') return undefined;
+  const site = siteIn(ctx, new LatticeCache(), regionOf(x), regionOf(z));
+  if (!site) return undefined;
+  const s = site.structure;
+  const layer = y - site.y;
+  const dx = x - site.x0;
+  const dz = z - site.z0;
+  if (layer < 0 || layer >= s.height || dx < 0 || dx >= s.width || dz < 0 || dz >= s.depth)
+    return undefined;
+  return s.loot.get(dx + dz * s.width + layer * s.width * s.depth);
 }
 
 /** Whether (x, z) lies within `margin` blocks of the site's footprint (a square margin). */

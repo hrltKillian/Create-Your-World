@@ -12,6 +12,16 @@ export const tiers = [
   { tier: 4, nameKey: 'tier.iron' },
 ] as const satisfies readonly PackTier[];
 
+/** Tier, mining speed (the hand is 1) and durability of the tools of each material. */
+export const TOOL_TIERS = {
+  flint: { tier: 1, speed: 2, durability: 60 },
+  copper: { tier: 2, speed: 3.5, durability: 160 },
+  bronze: { tier: 3, speed: 5, durability: 320 },
+  iron: { tier: 4, speed: 7, durability: 640 },
+} as const;
+
+export type ToolMaterial = keyof typeof TOOL_TIERS;
+
 /** Tool kind names, after the tier name in the "tool too weak" hint (« copper pickaxe »). */
 export const toolNames = {
   pick: 'tool.pick',

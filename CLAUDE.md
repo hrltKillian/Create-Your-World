@@ -92,6 +92,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
+  - items and crafting data: `content/items.ts` (`packItems`, `blockItemKey`, `harvests`: the
+    harvest rule), `registry.item(key)`, `registry.crafting` (`content/crafting.ts`: recipes,
+    processes and stations by key, `matches` for item-or-tag ingredients, `burnSeconds` for the
+    fuel rules, `revealed` for the Logbook reveal; station slot layout `fuelSlotOf`,
+    `outputSlotOf`, `stationSlotCount`); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty`
+    share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
+  - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
+    `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
+    `freshStack`, `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
+    (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
+    `structureLootAt` loot, `removeBlockEntity` spills, `withinReach`); their screens
+    `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
+    `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
+    (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
@@ -104,9 +118,18 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `app/OpenWorld.ts`; the menu layer: `app/Menus.ts`, its screens in `ui/screens/` with
     `menuButton`/`menuPanel`/`slider` in `ui/screens/menuParts.ts`; player settings
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
+  - slot screens (Bag with the Logbook, Container, Station): `app/inventoryUi.ts` opens and closes
+    them (the bag on its key, chests and stations on `blockEntityOpened`/`blockEntityClosed`),
+    `app/UiBridge.ts` refreshes them (`queueView`, `stationStatus`); `ui/slotBoard.ts`
+    (`SlotBoard`: drag and drop, hover caption, hotkeys; `ScreenDeps`), the gesture commands
+    `ui/inventoryGestures.ts` (`SlotContext`: block entity slots from 32), the pure Logbook
+    `ui/logbook.ts` (`logbookRows`, `batchCount`); item and tag names and icons `ui/itemSlot.ts`
+    (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
+    DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
-  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
+  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
+    with player 1's `send`/`give`/`put`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
     `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
@@ -142,6 +165,24 @@ They never override the rules above (determinism, zero allocations in hot loops,
   world opened again; resolves once its loading radius is meshed), `save.worlds()` (`{ id, name,
   seed, savedAt }`, last played first), `save.inspect(id?)` (records per store, the open world by
   default) and `save.wipeAll()` (deletes every world no tab holds: `{ deleted, kept }`).
+- M8 screens: `ui.screen()` also names `'container'` and `'station'` (opened by secondary on the
+  block; the Bag with its Logbook stays `'bag'`); Logbook rows carry `data-recipe`, tabs `data-tab`,
+  its buttons `data-action` (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click
+  cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31
+  the inventory, 32+ the open chest or station: inputs, fuel, outputs).
+- M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
+  `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
+  a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;
+  null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
+  cell: its chest or station through `debug.open`, like secondary on it within 5 blocks but without
+  aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
+  `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
+  `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
+- Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
+  saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
+  row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its
+  cabin door (`ARENA_DOOR`) are in `world/gen/arena.ts`; the cases find their items through the pack
+  (arena log, ore wall, gravel; the start recipe of an axe), never by content key.
 - Save checks (IndexedDB, the default storage): `?worldType=flat&fixedStep=1&selftest=m0,m7`; with
   `&forceNoIdb=1` the banner case runs instead of the IndexedDB ones. m7 drives the menus by clicks
   (`selftest/menuSteps.ts`), deletes the worlds it made and ends on the Worlds screen. The second
@@ -151,12 +192,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
   skipped in flat/arena worlds and with `?freecam`).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
-  `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`
-  and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests; `selftest/support.ts` has
-  the case type, `playerSession`, `needsFlatPlayer`/`needsGeneratedPlayer`, `standAt`, `stateKey`,
-  `PLAY_SCENES`, `SETTLE_MS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per
-  large suite (`selftest/m4.ts`, `m5.ts`, `m6.ts`, `m7.ts`), and every suite ends with
-  `noErrorsCase()`.
+  `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
+  crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
+  `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
+  `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
+  `needsGeneratedPlayer`, `needsIdb`, `standAt`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
+  `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
+  (`selftest/m4.ts` … `m8.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 

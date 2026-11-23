@@ -11,8 +11,13 @@ import { columnHash, generateColumn } from '../world/gen/generateColumn.ts';
 import { pointInfo } from '../world/gen/sample.ts';
 import type { App } from './App.ts';
 import {
+  blockEntityContents,
   blockKey,
+  click,
   clock,
+  craft,
+  craftQueue,
+  dragSlot,
   fill,
   freezeTime,
   give,
@@ -20,6 +25,7 @@ import {
   lightAt,
   look,
   nextFrame,
+  openBlock,
   press,
   reloadWorld,
   saveNow,
@@ -48,7 +54,7 @@ export function installDebugHook(app: App): void {
     return storage;
   };
   const api = {
-    version: 7,
+    version: 8,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -162,6 +168,16 @@ export function installDebugHook(app: App): void {
       },
       /** Adds items by key (e.g. a flint tool); what does not fit drops at the player's feet. */
       give: (item: string, count = 1) => give(app, item, count),
+    },
+    craft: {
+      /** Queues `count` crafts of a recipe (its key) like the Logbook's buttons; checked by the sim. */
+      enqueue: (recipe: string, count = 1) => craft(app, recipe, count),
+      /** The craft queue: { recipe, count, progress 0–1 } per entry, the craft under way first. */
+      queue: () => craftQueue(app),
+    },
+    container: {
+      /** A cell's chest or station: { kind, slots } (a station adds station, flame, progress, process). */
+      contents: (x: number, y: number, z: number) => blockEntityContents(app, x, y, z),
     },
     world: {
       /** Text key of the block state at a position (or null outside the loaded world). */
@@ -323,10 +339,37 @@ export function installDebugHook(app: App): void {
         return inventory.bag.isOpen();
       },
       /**
-       * The open screen: 'bag', a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null
-       * while playing.
+       * Opens a screen; returns `screen()` after. No cell: the bag, like its key. A cell: its chest
+       * or station, like secondary on it (`debug.open`: within 5 blocks, no aim needed; applied at
+       * once in fixed steps, else on the next tick).
        */
-      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : (app.game?.menus.screen() ?? null)),
+      open: (x?: number, y?: number, z?: number) => {
+        const inventory = app.inventory;
+        if (x !== undefined && y !== undefined && z !== undefined) {
+          // Like the bag's key: an open chest or station screen closes first (no pause flicker).
+          if (inventory?.screen() && inventory.screen() !== 'bag') inventory.closeScreen(true);
+          openBlock(app, x, y, z);
+        } else if (inventory && inventory.screen() !== 'bag') {
+          // The bag's key closes a chest or station screen first.
+          if (inventory.screen()) inventory.closeScreen(true);
+          inventory.toggleBag();
+        }
+        return inventory?.screen() ?? null;
+      },
+      /** Closes the open bag, chest or station screen like its key does; returns what is open after. */
+      close: () => {
+        app.inventory?.closeScreen(true);
+        return app.inventory?.screen() ?? null;
+      },
+      /**
+       * The open screen: 'bag' (with the Logbook), 'container' or 'station' over the world, a menu
+       * ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
+       */
+      screen: () => app.inventory?.screen() ?? app.game?.menus.screen() ?? null,
+      /** Clicks the first element a selector matches (false: none, or a disabled button). */
+      click,
+      /** Drags a stack between two `[data-slot]` numbers of the open screen, like the mouse. */
+      drag: (from: number, to: number) => dragSlot(from, to),
       /** What the hotbar shows: the selected slot and each slot's count text. */
       hotbar: () => hotbarView(app),
     },

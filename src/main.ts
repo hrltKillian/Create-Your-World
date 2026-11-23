@@ -1,5 +1,7 @@
 import './ui/styles/main.css';
 import './ui/styles/inventory.css';
+import './ui/styles/logbook.css';
+import './ui/styles/stations.css';
 import './ui/styles/menus.css';
 import { App } from './app/App.ts';
 

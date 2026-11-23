@@ -1,14 +1,18 @@
 import { clampPitch } from '../core/angles.ts';
 import type { Action } from '../input/bindings.ts';
 import type { Command } from '../sim/commands.ts';
+import { serializeInventory } from '../sim/inventory.ts';
 import { type DayPhase, daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
+import type { QueueView } from '../ui/screens/logbook.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { App } from './App.ts';
+import { queueView, stationStatus } from './UiBridge.ts';
 
 /**
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
- * keys and light, the world clock, what the hotbar shows, and saving or reloading the open world.
+ * keys and light, the world clock, what the hotbar shows, crafting, block entities (opening one
+ * without aiming), clicks and drags on the screens, and saving or reloading the open world.
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -66,11 +70,18 @@ export interface WaitOptions {
 const STALL_MS = 50;
 
 /** Polls `done` until it holds; throws once `timeoutMs` has passed. */
+/** Multiplies every waitUntil timeout (the selftest runner stretches waits on slow CI renderers). */
+let waitScale = 1;
+
+export function scaleWaits(factor: number): void {
+  waitScale = factor;
+}
+
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
+  const limit = options.timeoutMs * waitScale;
   while (!done()) {
-    if (performance.now() - t0 > options.timeoutMs)
-      throw new Error(`${options.label} after ${options.timeoutMs} ms`);
+    if (performance.now() - t0 > limit) throw new Error(`${options.label} after ${limit} ms`);
     // Timers are throttled in hidden pages: only sleep while visible.
     if (options.pollMs && !document.hidden)
       await new Promise((resolve) => setTimeout(resolve, options.pollMs));
@@ -115,12 +126,17 @@ export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 
   }
 }
 
-/** Teleports the player (`'surface'` lands on the ground); fixed-step sessions apply it now. */
-export function teleport(app: App, x: number, y: number | 'surface', z: number): void {
+/** Sends a command; fixed-step sessions apply it now (one tick). */
+function sendAndStep(app: App, command: Command): void {
   const session = app.session;
   if (!session) return;
-  session.host.send({ type: 'debug.teleport', x, y, z });
+  session.host.send(command);
   if (app.params.fixedStep) session.step(1);
+}
+
+/** Teleports the player (`'surface'` lands on the ground); fixed-step sessions apply it now. */
+export function teleport(app: App, x: number, y: number | 'surface', z: number): void {
+  sendAndStep(app, { type: 'debug.teleport', x, y, z });
 }
 
 /** Fills a box (inclusive corners) with a block state key; fixed-step sessions apply it now. */
@@ -134,10 +150,7 @@ export function fill(
   z1: number,
   state: string,
 ): void {
-  const session = app.session;
-  if (!session) return;
-  session.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
-  if (app.params.fixedStep) session.step(1);
+  sendAndStep(app, { type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
 }
 
 /** Sends a command and applies it now, without a tick (the clock commands). */
@@ -218,10 +231,89 @@ export function press(app: App, action: Action, ticks: number): void {
 
 /** Gives the player items (what does not fit drops at their feet); fixed-step sessions apply it now. */
 export function give(app: App, item: string, count: number): void {
+  sendAndStep(app, { type: 'debug.give', item, count });
+}
+
+/**
+ * Opens the chest or station of a cell as secondary on it does, without aiming (`debug.open`:
+ * within 5 blocks, refused unless the world allows debugging); fixed-step sessions apply it now
+ * and its screen shows at once.
+ */
+export function openBlock(app: App, x: number, y: number, z: number): void {
+  sendAndStep(app, { type: 'debug.open', x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
+}
+
+/** Queues `count` crafts of a recipe, as the Logbook's buttons do; fixed-step sessions apply it now. */
+export function craft(app: App, recipe: string, count: number): void {
+  sendAndStep(app, { type: 'craft.enqueue', recipe, count });
+}
+
+/** The player's craft queue as the Logbook shows it, the craft under way first (null: no player). */
+export function craftQueue(app: App): QueueView[] | null {
   const session = app.session;
-  if (!session) return;
-  session.host.send({ type: 'debug.give', item, count });
-  if (app.params.fixedStep) session.step(1);
+  if (!session) return null;
+  return session.player.craft.map((entry) => queueView(session.host.view.registry, entry));
+}
+
+/**
+ * What the block entity of a cell holds: a chest's slots, or a station's (inputs, fuel, outputs)
+ * with its flame, progress and process. Null when the cell has none (a generated chest gets one
+ * when it is first opened).
+ */
+export function blockEntityContents(app: App, x: number, y: number, z: number) {
+  const view = app.session?.host.view;
+  const entity = view?.blockEntity(Math.floor(x), Math.floor(y), Math.floor(z));
+  if (!view || !entity) return null;
+  const slots = serializeInventory(entity.slots);
+  if (entity.kind === 'container') return { kind: entity.kind, slots };
+  return {
+    kind: entity.kind,
+    station: entity.station,
+    slots,
+    ...stationStatus(view.registry, entity),
+  };
+}
+
+/** Clicks the first element a selector matches; returns false when none does or it is disabled. */
+export function click(selector: string): boolean {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element || (element instanceof HTMLButtonElement && element.disabled)) return false;
+  element.click();
+  return true;
+}
+
+/** The middle of an element in the viewport (scrolled into view first). */
+function middleOf(element: Element): { clientX: number; clientY: number } {
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const box = element.getBoundingClientRect();
+  return { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+}
+
+/**
+ * Drags the stack of one slot onto another on the open slot screen (Bag, Container, Station) as
+ * the mouse does: pointer down on the source, moved and released over the target, which the
+ * screen finds under the pointer. Slots are numbered as in `[data-slot]` (0–31 the inventory, 32+
+ * the open chest or station). Returns false (the drag cancelled) when a slot is missing or covered.
+ */
+export function dragSlot(from: number, to: number): boolean {
+  const screen = document.querySelector<HTMLElement>('.screen-slots:not([hidden])');
+  const source = screen?.querySelector(`[data-slot="${from}"]`);
+  const target = screen?.querySelector(`[data-slot="${to}"]`);
+  if (!screen || !source || !target) return false;
+  // The mouse's pointer id (1 in Chrome) is always active, so the screen may capture it.
+  const mouse = { bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 };
+  source.dispatchEvent(
+    new PointerEvent('pointerdown', { ...mouse, ...middleOf(source), buttons: 1 }),
+  );
+  const end = middleOf(target);
+  const under = document.elementFromPoint(end.clientX, end.clientY)?.closest('[data-slot]');
+  if (under !== target) {
+    screen.dispatchEvent(new PointerEvent('pointercancel', { ...mouse, ...end }));
+    return false;
+  }
+  screen.dispatchEvent(new PointerEvent('pointermove', { ...mouse, ...end, buttons: 1 }));
+  screen.dispatchEvent(new PointerEvent('pointerup', { ...mouse, ...end, buttons: 0 }));
+  return true;
 }
 
 /** Sets the view angles (radians; the pitch is clamped like the mouse look). */

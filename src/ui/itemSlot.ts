@@ -1,4 +1,6 @@
+import { tagNameKey } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
+import type { TagKey } from '../content/schema.ts';
 import { t } from '../i18n/i18n.ts';
 import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
@@ -12,14 +14,41 @@ export interface ItemArt {
   icons: readonly string[];
 }
 
-/** Display name of a stack, with the tool's remaining uses when it is worn. */
+/** Display name of a stack: an unknown item with its saved key, a worn tool with its uses left. */
 export function stackName(art: ItemArt, stack: Readonly<ItemStack>): string {
   const id = art.registry.itemId(stack.item);
   if (id < 0) return stack.item;
   const name = t(art.registry.items[id]!.nameKey);
+  if (stack.original !== undefined) return t('slot.unknown', { name, key: stack.original });
   if (stack.durability === undefined) return name;
   const max = art.registry.itemTables.durability[id]!;
   return t('slot.worn', { name, left: stack.durability, max });
+}
+
+/** Whether an ingredient key names a tag rather than an item. */
+function isTag(key: string): key is TagKey {
+  return key.startsWith('tag:');
+}
+
+/** Item id that pictures an ingredient: the item, or the first item carrying the tag (−1: none). */
+export function ingredientItem(registry: Registry, key: string): number {
+  if (!isTag(key)) return registry.itemId(key);
+  return registry.items.findIndex((item) => item.tags?.includes(key));
+}
+
+/** Name of an item, or of a tag (« Any Log »). */
+export function ingredientName(registry: Registry, key: string): string {
+  if (isTag(key)) return t(tagNameKey(key));
+  const id = registry.itemId(key);
+  return id < 0 ? key : t(registry.items[id]!.nameKey);
+}
+
+/** A small icon of an item or tag (blank until the icons are made). */
+export function itemIcon(art: ItemArt, key: string): HTMLImageElement {
+  const img = h('img', { class: 'item-icon', attrs: { alt: '', draggable: 'false' } });
+  const url = art.icons[ingredientItem(art.registry, key)] ?? '';
+  if (url) img.src = url;
+  return img;
 }
 
 /**

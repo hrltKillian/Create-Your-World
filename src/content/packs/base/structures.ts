@@ -3,8 +3,7 @@ import type { StructureDef } from '../../schema.ts';
 /*
  * Structures of the base pack (docs « Génération » step 8). Layers go from the ground up, rows from
  * north to south, characters from west to east; `.` is the natural ground, then air.
- * `C` marks the cell of the chest, which arrives with containers (M8, carrying {lootTable,
- * lootSeed}); until then the legend puts a placeholder block there.
+ * `C` marks a chest, filled from the structure's loot table when it is generated.
  */
 export const structures = [
   {
@@ -65,9 +64,9 @@ export const structures = [
       D: 'block:dirt',
       G: 'block:gravel',
       S: 'block:stone',
-      // The chest (M8): a crate of planks until then.
-      C: 'block:planks',
+      C: 'block:chest[facing4=e]',
     },
+    lootTables: { C: 'loot:camp' },
   },
   {
     // A pile of stones on a gravel bed, a chest buried in its heart.
@@ -84,8 +83,8 @@ export const structures = [
     legend: {
       S: 'block:stone',
       G: 'block:gravel',
-      // The chest (M8): loose gravel until then.
-      C: 'block:gravel',
+      C: 'block:chest[facing4=s]',
     },
+    lootTables: { C: 'loot:cairn' },
   },
 ] as const satisfies readonly StructureDef[];

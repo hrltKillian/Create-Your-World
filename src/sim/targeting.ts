@@ -1,6 +1,6 @@
 import type { RawTables } from '../content/registry.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
-import { FACE_NORMALS, type RayHit, raycast } from '../world/raycast.ts';
+import { createRayHit, FACE_NORMALS, type RayHit, raycast } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { ClientTarget } from './commands.ts';
 import { eyeHeight } from './physics.ts';
@@ -40,9 +40,8 @@ export function aim(
 }
 
 /**
- * Accepts a client target when the aimed face looks towards the eye, the cell is within reach (+
- * slack) of the eye, and a ray towards a point just inside the face stops in that cell. The hit,
- * with the client's face as its normal, goes into `out`.
+ * Accepts a client target when the aimed face is in sight of the eye (faceInSight). The hit, with
+ * the client's face as its normal, goes into `out`.
  */
 function confirmTarget(
   world: VoxelWorld,
@@ -53,19 +52,44 @@ function confirmTarget(
   t: ClientTarget,
   out: RayHit,
 ): boolean {
+  if (!faceInSight(world, tables, ex, ey, ez, t.x, t.y, t.z, t.face, out)) return false;
   const f = t.face * 3;
+  out.nx = FACE_NORMALS[f]!;
+  out.ny = FACE_NORMALS[f + 1]!;
+  out.nz = FACE_NORMALS[f + 2]!;
+  return true;
+}
+
+/**
+ * Whether a face of a cell is in sight of an eye: the face looks towards the eye, the cell is
+ * within reach (+ slack) of it, and a ray towards a point just inside the face stops in that cell
+ * (the ray's hit goes into `out`).
+ */
+function faceInSight(
+  world: VoxelWorld,
+  tables: RawTables,
+  ex: number,
+  ey: number,
+  ez: number,
+  x: number,
+  y: number,
+  z: number,
+  face: number,
+  out: RayHit,
+): boolean {
+  const f = face * 3;
   const nx = FACE_NORMALS[f]!;
   const ny = FACE_NORMALS[f + 1]!;
   const nz = FACE_NORMALS[f + 2]!;
   // Centre of the face; the eye must be in front of its plane.
-  const fx = t.x + 0.5 + nx * 0.5;
-  const fy = t.y + 0.5 + ny * 0.5;
-  const fz = t.z + 0.5 + nz * 0.5;
+  const fx = x + 0.5 + nx * 0.5;
+  const fy = y + 0.5 + ny * 0.5;
+  const fz = z + 0.5 + nz * 0.5;
   if ((ex - fx) * nx + (ey - fy) * ny + (ez - fz) * nz <= 0) return false;
   // Closest point of the cell to the eye.
-  const cx = Math.max(t.x, Math.min(t.x + 1, ex)) - ex;
-  const cy = Math.max(t.y, Math.min(t.y + 1, ey)) - ey;
-  const cz = Math.max(t.z, Math.min(t.z + 1, ez)) - ez;
+  const cx = Math.max(x, Math.min(x + 1, ex)) - ex;
+  const cy = Math.max(y, Math.min(y + 1, ey)) - ey;
+  const cz = Math.max(z, Math.min(z + 1, ez)) - ez;
   const reach = REACH + REACH_SLACK;
   if (cx * cx + cy * cy + cz * cz > reach * reach) return false;
   const dx = fx - nx * 0.01 - ex;
@@ -73,9 +97,28 @@ function confirmTarget(
   const dz = fz - nz * 0.01 - ez;
   const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
   raycast(world, tables, ex, ey, ez, dx / length, dy / length, dz / length, length + 0.01, out);
-  if (!out.hit || out.x !== t.x || out.y !== t.y || out.z !== t.z) return false;
-  out.nx = nx;
-  out.ny = ny;
-  out.nz = nz;
-  return true;
+  return out.hit && out.x === x && out.y === y && out.z === z;
+}
+
+/** Scratch hit of cellInSight. */
+const sight = createRayHit();
+
+/**
+ * Whether a player sees a cell from the simulation's eye, as a client target is confirmed: one of
+ * its faces is within reach (+ slack) and a ray towards it stops in the cell first (chests and
+ * stations do not open through walls).
+ */
+export function cellInSight(
+  world: VoxelWorld,
+  tables: RawTables,
+  player: PlayerState,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  const b = player.body;
+  const ey = b.y + eyeHeight(b);
+  for (let face = 0; face < 6; face++)
+    if (faceInSight(world, tables, b.x, ey, b.z, x, y, z, face, sight)) return true;
+  return false;
 }

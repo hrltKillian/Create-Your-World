@@ -5,10 +5,13 @@ import { findSpawn } from '../world/gen/spawn.ts';
 import { LightEngine } from '../world/light/LightEngine.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
+import type { BlockEntity } from './blockEntities.ts';
+import { applyBlockEntityCommand, checkOpened } from './blockEntityCommands.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
+import { applyCraftCommand, stepCrafting } from './craftQueue.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
@@ -20,6 +23,7 @@ import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
 import { SpatialHash } from './spatialHash.ts';
+import { stepStations } from './stations.ts';
 import { createTime, stepTime, type TimeState } from './time.ts';
 
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
@@ -48,7 +52,7 @@ export type Entity = PlayerState | ItemDropState;
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, item drops,
- * inventory and debug commands.
+ * inventory, block entities (chests, stations), craft queues and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -65,6 +69,8 @@ export class Simulation implements ColumnSink {
   readonly entities = new Map<number, Entity>();
   /** Entity positions on the x/z plane (cells of 8 blocks). */
   readonly spatial = new SpatialHash(8);
+  /** Chests and stations by cell key (`cellKey`), loaded or not, in creation order. */
+  readonly blockEntities = new Map<number, BlockEntity>();
   /** Next entity id; ids are never reused. */
   nextEntityId = 1;
   tick = 0;
@@ -167,6 +173,12 @@ export class Simulation implements ColumnSink {
       this.track(player);
       stepInteraction(this, player, out);
     }
+    // Block entities, craft queues and timed states.
+    for (const player of this.players.values()) {
+      checkOpened(this, player, out);
+      stepCrafting(this, player, out);
+    }
+    stepStations(this, out);
     stepItemDrops(this, out);
     this.columns.integrate(INTEGRATE_PER_TICK);
     stepLight(this.light, SEAM_NODES_PER_TICK, out);
@@ -244,12 +256,27 @@ export class Simulation implements ColumnSink {
         if (player) applyInventoryCommand(this, player, command, out);
         break;
       }
+      case 'container.open':
+      case 'container.close':
+      case 'container.move':
+      case 'station.move': {
+        const player = this.players.get(playerId);
+        if (player) applyBlockEntityCommand(this, player, command, out);
+        break;
+      }
+      case 'craft.enqueue':
+      case 'craft.cancel': {
+        const player = this.players.get(playerId);
+        if (player) applyCraftCommand(this, player, command, out);
+        break;
+      }
       case 'debug.teleport':
       case 'debug.setStat':
       case 'debug.fill':
       case 'debug.give':
       case 'debug.setTime':
       case 'debug.freezeTime':
+      case 'debug.open':
         if (this.allowDebug) applyDebugCommand(this, playerId, command, out);
         else reject(out, playerId, command.type, 'debug disabled');
         break;

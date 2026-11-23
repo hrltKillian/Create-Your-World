@@ -1,6 +1,8 @@
 import type { ColumnCodec } from '../world/codec/columnRecord.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { StoreCounts } from '../world/ioProtocol.ts';
+import type { BlockEntity } from './blockEntities.ts';
+import type { CraftEntry } from './craftQueue.ts';
 import type { Inventory } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
@@ -61,12 +63,22 @@ export interface PlayerRecord {
   /** Text item keys. */
   readonly inventory: Inventory;
   readonly interaction: InteractionState;
+  /** The craft queue, its reserved ingredients with text item keys (from save version 2). */
+  readonly craft: readonly CraftEntry[];
+  /** Item keys and tags seen (recipe reveal), sorted (from save version 2). */
+  readonly seen: readonly string[];
 }
 
 /** An item drop as saved with its column (its render interpolation is not kept). */
 export type DropRecord = Omit<ItemDropState, 'prevX' | 'prevY' | 'prevZ'>;
 
-/** Store `columns`, key `[worldId, cx, cz]`: the persisted sections and the drops of a column. */
+/** A chest or station as saved with its column (text item keys). */
+export type BlockEntityRecord = BlockEntity;
+
+/**
+ * Store `columns`, key `[worldId, cx, cz]`: the persisted sections, the drops and the block
+ * entities of a column.
+ */
 export interface ColumnRecord {
   readonly worldId: string;
   readonly cx: number;
@@ -77,7 +89,12 @@ export interface ColumnRecord {
   readonly payload: Uint8Array;
   /** Item drops lying in the column. */
   readonly entities: readonly DropRecord[];
-  /** Tick its contents were simulated to (unloaded columns stand still until M8 replays them). */
+  /** Chests and stations of the column, by cell key (from save version 2). */
+  readonly blockEntities: readonly BlockEntityRecord[];
+  /**
+   * Tick of the save. Each station keeps its own last simulated tick (`tick`): out of the
+   * simulation radius it stands still, and catches up from that tick when it comes back.
+   */
   readonly lastTick: number;
 }
 

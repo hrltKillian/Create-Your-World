@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { openErrorKey } from '../../../src/app/worlds.ts';
+import type { ContainerEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
+import { countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import type { ColumnRecord, StoredWorld } from '../../../src/sim/storage.ts';
@@ -14,7 +16,7 @@ import {
   SAVE_VERSION,
   SaveVersionError,
 } from '../../../src/world/codec/migrations.ts';
-import { columnKey } from '../../../src/world/coords.ts';
+import { cellKey, columnKey } from '../../../src/world/coords.ts';
 import { restoreFrom, settle } from '../../helpers/save.ts';
 
 /** A stored world from `tests/fixtures/saves/vN/world.json` (payloads in base64). */
@@ -87,6 +89,10 @@ describe('save versions', () => {
       { item: 'item:torch', count: 3 },
       null,
     ]);
+    // Version 2 adds an empty craft queue, an empty seen set and no block entities.
+    expect(player.craft).toEqual([]);
+    expect(player.seen).toEqual({});
+    expect(sim.blockEntities.size).toBe(0);
     const drop = sim.entities.get(2) as ItemDropState;
     expect(drop).toMatchObject({ kind: 'itemDrop', item: 'item:sand', count: 2 });
     expect(drop.body.y).toBeCloseTo(65, 3);
@@ -100,5 +106,30 @@ describe('save versions', () => {
     expect(key(8, 65, 8)).toBe('block:torch');
     expect(key(10, 65, 10)).toBe('block:broadleaf_log[axis=x]');
     expect(key(40, 70, 5)).toBe('block:stone');
+  });
+
+  it('loads the v2 fixture: a chest, a kiln smelting and a craft queue, which run on', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(2), removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const chest = sim.blockEntities.get(cellKey(2, 65, 2)) as ContainerEntity;
+    expect(chest.slots[0]).toEqual({ item: 'item:dirt', count: 12 });
+    expect(chest.slots[8]).toEqual({ item: 'item:flint', count: 3 });
+    const kiln = sim.blockEntities.get(cellKey(-2, 65, 2)) as StationEntity;
+    expect(kiln).toMatchObject({ process: 'process:copper_ingot', progressTicks: 142, tick: 450 });
+    const player = sim.players.get(1)!;
+    expect(player.craft).toEqual([
+      {
+        recipe: 'recipe:cord',
+        count: 1,
+        progressTicks: 11,
+        reserved: [{ item: 'item:plant_fiber', count: 3 }],
+      },
+    ]);
+    expect(player.seen['item:copper_ore']).toBe(true);
+    settle(sim);
+    step(160);
+    expect(kiln.slots[3]).toEqual({ item: 'item:copper_ingot', count: 2 });
+    expect(countItem(player.inventory, 'item:cord')).toBe(2);
   });
 });

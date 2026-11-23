@@ -1,0 +1,317 @@
+/* The Bag's silhouette and its Logbook. The queue's progress arrives as `--progress`. */
+
+/* Silhouette: a faint figure behind the 5 equipment boxes, head to feet. */
+
+.wear-figure {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 6px 12px;
+}
+
+.figure-head,
+.figure-torso,
+.figure-legs {
+  position: absolute;
+  background: rgba(169, 184, 178, 0.1);
+}
+
+.figure-head {
+  left: 9px;
+  top: 2px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.figure-torso {
+  left: 2px;
+  top: 58px;
+  width: 66px;
+  height: 104px;
+  border-radius: 22px 22px 10px 10px;
+}
+
+.figure-legs {
+  left: 10px;
+  top: 164px;
+  width: 50px;
+  height: 104px;
+  border-radius: 6px 6px 12px 12px;
+  /* Two legs: a gap down the middle. */
+  mask: linear-gradient(90deg, #000 44%, transparent 44% 56%, #000 56%);
+}
+
+.wear-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wear-slot .slot {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  background: rgba(14, 22, 26, 0.6);
+}
+
+.wear-label {
+  color: var(--c-ink-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Logbook: a field notebook of recipes, not a grid. */
+
+.logbook {
+  display: flex;
+  flex: 0 0 330px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logbook-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.logbook-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 9px 9px 3px 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--c-ink-muted);
+  font: 600 0.68rem var(--font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.logbook-tab.active {
+  background: rgba(232, 176, 74, 0.16);
+  color: var(--c-accent);
+}
+
+.logbook-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-accent);
+  color: #1b1408;
+  font-size: 0.62rem;
+  letter-spacing: 0;
+}
+
+.logbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.logbook-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--c-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.logbook-row .item-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.logbook-row.craftable {
+  border-left-color: var(--c-accent);
+}
+
+.logbook-row.selected {
+  background: rgba(232, 176, 74, 0.14);
+}
+
+.logbook-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.logbook-name {
+  font-size: 0.82rem;
+}
+
+.logbook-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Pips: owned/required, warm while short, green once there is enough. */
+.pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px 0 2px;
+  border-radius: 9px;
+  background: rgba(224, 100, 79, 0.18);
+  color: #f1b3a6;
+  font: 0.64rem var(--font-mono);
+}
+
+.pip.filled {
+  background: rgba(127, 176, 79, 0.2);
+  color: #c4e3a4;
+}
+
+.pip .item-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.logbook-detail {
+  min-height: 118px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.logbook-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.logbook-time {
+  margin-left: auto;
+  color: var(--c-ink-muted);
+  font: 0.72rem var(--font-mono);
+}
+
+.logbook-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.logbook-ingredients li {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  column-gap: 6px;
+  font-size: 0.78rem;
+}
+
+.logbook-ingredients .item-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.pip-count {
+  color: #f1b3a6;
+  font-family: var(--font-mono);
+}
+
+.logbook-ingredients li.filled .pip-count {
+  color: #c4e3a4;
+}
+
+.logbook-hint {
+  grid-column: 2 / -1;
+  color: var(--c-ink-muted);
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.logbook-requires {
+  margin: 6px 0 0;
+  color: var(--c-danger);
+  font-size: 0.76rem;
+}
+
+.logbook-batches {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.button.logbook-batch {
+  padding: 5px 14px;
+  font-size: 0.82rem;
+}
+
+.logbook-queue {
+  display: flex;
+  gap: 6px;
+}
+
+.queue-entry {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px 10px 10px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  color: var(--c-ink);
+  cursor: pointer;
+}
+
+.queue-entry.empty {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.queue-entry.active {
+  box-shadow: inset 0 0 0 2px rgba(232, 176, 74, 0.6);
+}
+
+.queue-entry:not(.empty):hover {
+  box-shadow: inset 0 0 0 2px var(--c-danger);
+}
+
+.queue-entry .item-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.queue-progress {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--c-accent);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}
+
+.logbook-empty,
+.logbook-footer {
+  margin: 4px 0;
+  color: var(--c-ink-muted);
+  font-size: 0.74rem;
+}

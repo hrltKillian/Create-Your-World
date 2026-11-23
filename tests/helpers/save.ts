@@ -5,8 +5,8 @@ import { createHost } from '../../src/sim/host.ts';
 import { InlineColumnSource } from '../../src/sim/InlineColumnSource.ts';
 import { MemoryStorage } from '../../src/sim/MemoryStorage.ts';
 import {
+  columnDigest,
   compressBatch,
-  dropDigest,
   restoreSim,
   type StoredColumns,
   snapshotSim,
@@ -58,7 +58,9 @@ export async function saveTo(
 ): Promise<Map<number, string>> {
   const batch = await compressBatch(snapshotSim(sim, TEST_WORLD, stored), zlibDeflater);
   await storage.write(batch);
-  return new Map(batch.columns.map((c) => [columnKey(c.cx, c.cz), dropDigest(c.entities)]));
+  return new Map(
+    batch.columns.map((c) => [columnKey(c.cx, c.cz), columnDigest(c.entities, c.blockEntities)]),
+  );
 }
 
 /** Restores the test world as an inline simulation (debug commands allowed) with tick helpers. */

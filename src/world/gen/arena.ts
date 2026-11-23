@@ -17,6 +17,8 @@ export interface ResolvedArena {
   readonly log: number;
   readonly leaves: number;
   readonly oreWall: readonly number[];
+  /** Stations and furniture of the workshop row, facing south (towards the spawn). */
+  readonly workshop: readonly number[];
   readonly air: number;
 }
 
@@ -37,6 +39,7 @@ export function resolveArena(registry: Registry): ResolvedArena {
     log: state(arena.tree.log),
     leaves: state(arena.tree.leaves),
     oreWall: arena.oreWall.map(state),
+    workshop: arena.workshop.map((key) => registry.withState(state(key), 'facing4', 's')),
     air: registry.air,
   };
 }
@@ -49,11 +52,17 @@ const POND = { x: -8, z: 3 } as const;
 const TREE = { x: 9, z: 5, height: 5 } as const;
 const ORE_WALL = { x: -7, z: -8 } as const;
 
+/** The cabin's door (its lower half; the upper half is above it), in the south wall. */
+export const ARENA_DOOR = { x: (CABIN.x0 + CABIN.x1) >> 1, y: G + 1, z: CABIN.z1 } as const;
+/** The workshop row between the spawn and the cabin: one block every `step` cells eastwards. */
+export const ARENA_WORKSHOP = { x: -3, y: G + 1, z: -3, step: 2 } as const;
+
 /**
  * Writes the arena's features over a flat column (the spawn is at 0.5, 65, 0.5): a closed cabin
- * with a 2-block door and a window to the north-east, a pond to the west, a gravel patch, a tree
- * and a wall of 2-block pillars of the listed blocks to the north-west. Each column writes only its
- * own voxels, so the result does not depend on the order in which columns are generated.
+ * with a 2-block door and a window to the north-east, a pond to the west, a gravel patch, a tree,
+ * a wall of 2-block pillars of the listed blocks to the north-west and the workshop row (stations
+ * and a chest) just north of the spawn. Each column writes only its own voxels, so the result does
+ * not depend on the order in which columns are generated.
  */
 export function placeArena(column: Column, arena: ResolvedArena): void {
   const x0 = column.cx * SECTION_SIZE;
@@ -75,9 +84,8 @@ export function placeArena(column: Column, arena: ResolvedArena): void {
       put(x, G + 4, z, arena.roof);
     }
   }
-  const doorX = (CABIN.x0 + CABIN.x1) >> 1;
-  put(doorX, G + 1, CABIN.z1, arena.door);
-  put(doorX, G + 2, CABIN.z1, arena.doorTop);
+  put(ARENA_DOOR.x, ARENA_DOOR.y, ARENA_DOOR.z, arena.door);
+  put(ARENA_DOOR.x, ARENA_DOOR.y + 1, ARENA_DOOR.z, arena.doorTop);
   put(CABIN.x1, G + 2, (CABIN.z0 + CABIN.z1) >> 1, arena.window);
 
   // Pond: deeper in the middle, ringed with shore blocks.
@@ -108,6 +116,10 @@ export function placeArena(column: Column, arena: ResolvedArena): void {
   arena.oreWall.forEach((state, i) => {
     put(ORE_WALL.x + i, G + 1, ORE_WALL.z, state);
     put(ORE_WALL.x + i, G + 2, ORE_WALL.z, state);
+  });
+  const row = ARENA_WORKSHOP;
+  arena.workshop.forEach((state, i) => {
+    put(row.x + i * row.step, row.y, row.z, state);
   });
   for (const section of column.sections) section.compact();
 }

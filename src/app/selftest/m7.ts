@@ -32,6 +32,7 @@ import {
 import {
   assert,
   needsFlatPlayer,
+  needsIdb,
   noErrorsCase,
   playerSession,
   type SelftestCase,
@@ -77,10 +78,8 @@ interface Point {
 }
 
 /** The IndexedDB cases: the saves in IndexedDB, a player on the flat world, fixed steps. */
-function needsIdb(app: App): string | null {
-  if (app.params.storage !== 'idb') return 'needs ?storage=idb';
-  if (app.game?.backend.unavailable) return 'IndexedDB is unavailable (?forceNoIdb=1 or blocked)';
-  return needsFlatPlayer(app);
+function needsIdbFlat(app: App): string | null {
+  return needsIdb(app) ?? needsFlatPlayer(app);
 }
 
 function saves(app: App): Storage {
@@ -237,7 +236,7 @@ export const M7_SUITE: readonly SelftestCase[] = [
     name: 'a world is created through the menus: Esc, Save & quit, Worlds, New world, Create',
     scenes: GAME_SCENES,
     timeoutMs: 45_000,
-    skip: needsIdb,
+    skip: needsIdbFlat,
     run: async (app) => {
       const game = app.game!;
       if (game.open) {
@@ -260,7 +259,7 @@ export const M7_SUITE: readonly SelftestCase[] = [
     name: '3 edits, a thrown item, the player, the bag and the clock survive save.now(), save.reload()',
     scenes: GAME_SCENES,
     timeoutMs: 60_000,
-    skip: needsIdb,
+    skip: needsIdbFlat,
     run: async (app) => {
       const id = made.created;
       assert(id && app.game?.open?.info.id === id, 'needs the world the menu case created');
@@ -315,7 +314,7 @@ export const M7_SUITE: readonly SelftestCase[] = [
     name: 'a world exported, then imported through the Worlds screen, has the same records',
     scenes: GAME_SCENES,
     timeoutMs: 30_000,
-    skip: needsIdb,
+    skip: needsIdbFlat,
     run: async (app) => {
       const id = made.created;
       assert(id, 'needs the world the menu case created');
@@ -352,7 +351,7 @@ export const M7_SUITE: readonly SelftestCase[] = [
     name: 'deleting the worlds through their cards leaves no record (inspect() at 0)',
     scenes: GAME_SCENES,
     timeoutMs: 30_000,
-    skip: needsIdb,
+    skip: needsIdbFlat,
     run: async (app) => {
       assert(made.created, 'needs the world the menu case created');
       await worldsScreen(app);

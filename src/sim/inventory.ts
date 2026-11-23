@@ -1,3 +1,4 @@
+import type { Crafting } from '../content/crafting.ts';
 import type { Registry } from '../content/registry.ts';
 import { isWhole } from '../core/guards.ts';
 import { HOTBAR_SLOTS } from '../core/player.ts';
@@ -35,6 +36,13 @@ export function sameStack(a: Readonly<ItemStack>, b: Readonly<ItemStack>): boole
   );
 }
 
+/** A new stack of an item; a tool comes with all its uses (crafted, given). */
+export function freshStack(registry: Registry, item: string, count: number): ItemStack {
+  const id = registry.itemId(item);
+  const durability = id < 0 ? 0 : registry.itemTables.durability[id]!;
+  return durability > 0 ? { item, count, durability } : { item, count };
+}
+
 /**
  * Adds the items of `stack` (left as it is), topping up matching stacks first, then filling empty
  * slots (hotbar first). Returns the count that did not fit.
@@ -44,25 +52,54 @@ export function addItem(
   registry: Registry,
   stack: Readonly<ItemStack>,
 ): number {
+  return addToRange(inventory, registry, 0, inventory.length, stack);
+}
+
+/** addItem within the slots [first, end) of any slot array (a chest, a station's outputs). */
+export function addToRange(
+  slots: Inventory,
+  registry: Registry,
+  first: number,
+  end: number,
+  stack: Readonly<ItemStack>,
+): number {
   const max = registry.maxStack(stack.item);
   let left = stack.count;
-  for (let i = 0; i < inventory.length && left > 0; i++) {
-    const target = inventory[i];
+  for (let i = first; i < end && left > 0; i++) {
+    const target = slots[i];
     if (!target || !sameStack(target, stack) || target.count >= max) continue;
     const moved = Math.min(left, max - target.count);
     target.count += moved;
     left -= moved;
   }
-  for (let i = 0; i < inventory.length && left > 0; i++) {
-    if (inventory[i]) continue;
+  for (let i = first; i < end && left > 0; i++) {
+    if (slots[i]) continue;
     const moved = Math.min(left, max);
     const added: ItemStack = { item: stack.item, count: moved };
     if (stack.durability !== undefined) added.durability = stack.durability;
     if (stack.original !== undefined) added.original = stack.original;
-    inventory[i] = added;
+    slots[i] = added;
     left -= moved;
   }
   return left;
+}
+
+/** Whether all the items of `stack` fit in the slots [first, end) (the addToRange rule). */
+export function roomFor(
+  slots: Inventory,
+  registry: Registry,
+  first: number,
+  end: number,
+  stack: Readonly<ItemStack>,
+): boolean {
+  const max = registry.maxStack(stack.item);
+  let room = 0;
+  for (let i = first; i < end && room < stack.count; i++) {
+    const target = slots[i];
+    if (!target) room += max;
+    else if (sameStack(target, stack)) room += Math.max(0, max - target.count);
+  }
+  return room >= stack.count;
 }
 
 /** Removes up to `count` items from a slot; returns what was removed (null if the slot is empty). */
@@ -86,50 +123,118 @@ export function moveItems(
   to: number,
   count?: number,
 ): boolean {
-  const source = inventory[from];
-  if (!source || from === to) return false;
-  const amount = Math.min(count ?? source.count, source.count);
-  const target = inventory[to];
-  if (!target) {
-    inventory[to] = takeFromSlot(inventory, from, amount);
+  return moveStack(registry, inventory, from, inventory, to, count);
+}
+
+/** moveItems from a slot of one slot array to a slot of another (inventory ⇄ chest). */
+export function moveStack(
+  registry: Registry,
+  source: Inventory,
+  from: number,
+  target: Inventory,
+  to: number,
+  count?: number,
+): boolean {
+  const stack = source[from];
+  if (!stack || (source === target && from === to)) return false;
+  const amount = Math.min(count ?? stack.count, stack.count);
+  const there = target[to];
+  if (!there) {
+    target[to] = takeFromSlot(source, from, amount);
     return true;
   }
-  if (sameStack(target, source)) {
-    const moved = Math.min(amount, registry.maxStack(target.item) - target.count);
+  if (sameStack(there, stack)) {
+    const moved = Math.min(amount, registry.maxStack(there.item) - there.count);
     if (moved <= 0) return false;
-    target.count += moved;
-    takeFromSlot(inventory, from, moved);
+    there.count += moved;
+    takeFromSlot(source, from, moved);
     return true;
   }
-  if (amount !== source.count) return false;
-  inventory[from] = target;
-  inventory[to] = source;
+  if (amount !== stack.count) return false;
+  source[from] = there;
+  target[to] = stack;
   return true;
 }
 
 /** Moves a stack between the hotbar and the bag (merging first); returns whether anything moved. */
 export function quickMove(inventory: Inventory, registry: Registry, slot: number): boolean {
-  const stack = inventory[slot];
-  if (!stack) return false;
   const toBag = slot < HOTBAR_SLOTS;
   const first = toBag ? HOTBAR_SLOTS : 0;
   const end = toBag ? INVENTORY_SLOTS : HOTBAR_SLOTS;
+  return moveInto(registry, inventory, slot, inventory, first, end);
+}
+
+/**
+ * Moves a whole stack into the slots [first, end) of a slot array: onto matching stacks first,
+ * then into empty slots. Returns whether anything moved.
+ */
+export function moveInto(
+  registry: Registry,
+  source: Inventory,
+  from: number,
+  target: Inventory,
+  first: number,
+  end: number,
+): boolean {
+  const stack = source[from];
+  if (!stack) return false;
   const before = stack.count;
   const max = registry.maxStack(stack.item);
   for (let i = first; i < end && stack.count > 0; i++) {
-    const target = inventory[i];
-    if (!target || !sameStack(target, stack) || target.count >= max) continue;
-    const moved = Math.min(stack.count, max - target.count);
-    target.count += moved;
+    const there = target[i];
+    if (!there || there === stack || !sameStack(there, stack) || there.count >= max) continue;
+    const moved = Math.min(stack.count, max - there.count);
+    there.count += moved;
     stack.count -= moved;
   }
   for (let i = first; i < end && stack.count > 0; i++) {
-    if (inventory[i]) continue;
-    inventory[i] = { ...stack };
+    if (target[i]) continue;
+    target[i] = { ...stack };
     stack.count = 0;
   }
-  if (stack.count === 0) inventory[slot] = null;
+  if (stack.count === 0) source[from] = null;
   return stack.count !== before;
+}
+
+/** Items of the slots [first, end) that fill an ingredient (an item, or a tag: Crafting.matches). */
+export function countMatching(
+  slots: Inventory,
+  first: number,
+  end: number,
+  crafting: Crafting,
+  ingredient: string,
+): number {
+  let total = 0;
+  for (let i = first; i < end; i++) {
+    const stack = slots[i];
+    if (stack && crafting.matches(stack.item, ingredient)) total += stack.count;
+  }
+  return total;
+}
+
+/**
+ * Removes `count` items filling an ingredient from the slots [first, end), in slot order (the
+ * caller checked countMatching). The stacks taken are pushed to `into` when given.
+ */
+export function takeMatching(
+  slots: Inventory,
+  first: number,
+  end: number,
+  crafting: Crafting,
+  ingredient: string,
+  count: number,
+  into?: Inventory,
+): void {
+  let left = count;
+  for (let i = first; i < end && left > 0; i++) {
+    const stack = slots[i];
+    if (!stack || !crafting.matches(stack.item, ingredient)) continue;
+    const taken = Math.min(left, stack.count);
+    if (into) into.push({ ...stack, count: taken });
+    stack.count -= taken;
+    left -= taken;
+    if (stack.count === 0) slots[i] = null;
+  }
 }
 
 /** Total count of an item across all slots. */
@@ -156,12 +261,24 @@ export function loadItemKey(stack: ItemStack, registry: Registry): void {
 
 /** Copy for saving (text keys, plain JSON). */
 export function serializeInventory(inventory: Inventory): Inventory {
-  return inventory.map((stack) => {
-    if (!stack) return null;
-    const saved: ItemStack = { item: savedItemKey(stack), count: stack.count };
-    if (stack.durability !== undefined) saved.durability = stack.durability;
-    return saved;
-  });
+  return inventory.map((stack) => (stack ? savedStack(stack) : null));
+}
+
+/** A stack as saved: its text key (an unknown item's own), count and wear. */
+export function savedStack(stack: Readonly<ItemStack>): ItemStack {
+  const saved: ItemStack = { item: savedItemKey(stack), count: stack.count };
+  if (stack.durability !== undefined) saved.durability = stack.durability;
+  return saved;
+}
+
+/** A saved stack, or null when malformed; an unknown item keeps its key (loadItemKey). */
+export function readStack(data: unknown, registry: Registry): ItemStack | null {
+  const saved = data as Partial<ItemStack> | null | undefined;
+  if (!saved || typeof saved.item !== 'string' || !isWhole(saved.count, 1)) return null;
+  const stack: ItemStack = { item: saved.item, count: saved.count };
+  if (isWhole(saved.durability, 0)) stack.durability = saved.durability;
+  loadItemKey(stack, registry);
+  return stack;
 }
 
 /**
@@ -169,15 +286,13 @@ export function serializeInventory(inventory: Inventory): Inventory {
  * keep their key (loadItemKey).
  */
 export function deserializeInventory(data: unknown, registry: Registry): Inventory {
-  const inventory = createInventory();
-  if (!Array.isArray(data)) return inventory;
-  for (let i = 0; i < INVENTORY_SLOTS; i++) {
-    const saved = data[i] as Partial<ItemStack> | null | undefined;
-    if (!saved || typeof saved.item !== 'string' || !isWhole(saved.count, 1)) continue;
-    const stack: ItemStack = { item: saved.item, count: saved.count };
-    if (isWhole(saved.durability, 0)) stack.durability = saved.durability;
-    loadItemKey(stack, registry);
-    inventory[i] = stack;
-  }
-  return inventory;
+  return deserializeSlots(data, INVENTORY_SLOTS, registry);
+}
+
+/** deserializeInventory for any slot array of `size` slots (chests, stations). */
+export function deserializeSlots(data: unknown, size: number, registry: Registry): Inventory {
+  const slots = new Array<ItemStack | null>(size).fill(null);
+  if (!Array.isArray(data)) return slots;
+  for (let i = 0; i < size; i++) slots[i] = readStack(data[i], registry);
+  return slots;
 }

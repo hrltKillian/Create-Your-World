@@ -1,0 +1,168 @@
+/*
+ * The Container and Station screens. A station's progress and flame arrive as `--progress` and
+ * `--flame`, read by transforms.
+ */
+
+/* Container */
+
+.container-slots {
+  display: flex;
+  justify-content: center;
+}
+
+.container-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.container-actions .button {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+/* Station: inputs → progress → output, the fire under the inputs. */
+
+.station {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 300px;
+}
+
+.station-machine {
+  display: grid;
+  grid-template-areas:
+    "inputs arrow outputs"
+    "fire . .";
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.station-inputs {
+  grid-area: inputs;
+}
+
+.station-outputs {
+  grid-area: outputs;
+}
+
+.station-arrow {
+  grid-area: arrow;
+}
+
+.station-fire {
+  grid-area: fire;
+}
+
+.station-slots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.station-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--c-ink-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.station-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Arrow head after the bar. */
+.station-bar::after {
+  content: "";
+  position: absolute;
+  right: -9px;
+  top: -4px;
+  border: 8px solid transparent;
+  border-left: 9px solid rgba(255, 255, 255, 0.12);
+  border-right: 0;
+}
+
+.station-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9852f, var(--c-accent));
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}
+
+/* A teardrop flame that shrinks as the burning fuel runs out. */
+.flame {
+  width: 20px;
+  height: 28px;
+  border-radius: 50% 50% 50% 50% / 64% 64% 36% 36%;
+  background: radial-gradient(circle at 50% 72%, #ffe9a0, #f19235 52%, #b8461f);
+  opacity: 0.15;
+  transform: scale(calc(0.35 + var(--flame, 0) * 0.65));
+  transform-origin: 50% 100%;
+}
+
+.flame.lit {
+  opacity: 1;
+}
+
+.station-processes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.station-process {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.75rem;
+}
+
+.station-process.active {
+  background: rgba(232, 176, 74, 0.14);
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+.process-item {
+  position: relative;
+  display: inline-grid;
+}
+
+.process-item .item-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.process-item .slot-count {
+  right: -4px;
+  bottom: -4px;
+  font-size: 0.64rem;
+}
+
+.process-to {
+  width: 12px;
+  height: 2px;
+  background: var(--c-ink-muted);
+}

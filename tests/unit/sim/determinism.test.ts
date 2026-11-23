@@ -22,6 +22,40 @@ function interactionRun(serialize: boolean): number {
   return stateHash(s.sim);
 }
 
+/** Crafts, fills a chest, runs a kiln, walks away and back; returns the final state hash. */
+function workshopRun(serialize: boolean): number {
+  const s = createTestSim({ seed: 'det-w', worldType: 'flat', allowDebug: true, serialize });
+  s.sim.addPlayer(1, 2);
+  s.step(60);
+  const fill = (x: number, z: number, state: string) =>
+    s.host.send({ type: 'debug.fill', x0: x, y0: 65, z0: z, x1: x, y1: 65, z1: z, state });
+  fill(2, -2, 'block:kiln[facing4=s,lit=0]');
+  fill(-2, -2, 'block:chest[facing4=s]');
+  for (const [item, count] of [
+    ['item:copper_ore', 4],
+    ['item:stick', 9],
+    ['item:flint', 2],
+    ['item:cord', 1],
+  ] as const)
+    s.host.send({ type: 'debug.give', item, count });
+  s.step(1);
+  s.host.send({ type: 'container.open', x: 2, y: 65, z: -2 });
+  s.host.send({ type: 'station.move', from: 0 });
+  s.host.send({ type: 'station.move', from: 1, to: 34, count: 4 });
+  s.host.send({ type: 'craft.enqueue', recipe: 'recipe:flint_hatchet', count: 1 });
+  s.step(200);
+  s.host.send({ type: 'container.open', x: -2, y: 65, z: -2 });
+  s.host.send({ type: 'container.move', from: 2 });
+  s.host.send({ type: 'debug.teleport', x: 20 * 32, y: 'surface', z: 0.5 });
+  s.step(400);
+  s.host.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });
+  s.step(600);
+  const types = new Set(s.events.map((e) => e.type));
+  for (const type of ['crafted', 'blockEntityOpened', 'blockEntityClosed'] as const)
+    expect(types.has(type), type).toBe(true);
+  return stateHash(s.sim);
+}
+
 describe('simulation determinism', () => {
   it('gives the same hash on two runs of the wander bot', () => {
     const a = runBot({ registry, seed: 'det-a', ticks: 900, bot: 'wander' });
@@ -43,6 +77,12 @@ describe('simulation determinism', () => {
     const a = interactionRun(false);
     expect(interactionRun(false)).toBe(a);
     expect(interactionRun(true)).toBe(a);
+  });
+
+  it('gives the same hash for crafting, chests and stations, also through JSON', () => {
+    const a = workshopRun(false);
+    expect(workshopRun(false)).toBe(a);
+    expect(workshopRun(true)).toBe(a);
   });
 
   it('gives different hashes for different seeds', () => {

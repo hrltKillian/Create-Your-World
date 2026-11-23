@@ -84,5 +84,9 @@ describe('registry', () => {
     expect(copy.states.map((s) => s.key)).toEqual(registry.states.map((s) => s.key));
     expect(Array.from(copy.tables.faceLayer)).toEqual(Array.from(t.faceLayer));
     expect(Array.from(copy.tables.flags)).toEqual(Array.from(t.flags));
+    expect(copy.items).toEqual(registry.items);
+    expect(copy.crafting.recipes).toEqual(registry.crafting.recipes);
+    expect(copy.crafting.processes).toEqual(registry.crafting.processes);
+    expect(copy.crafting.stations).toEqual(registry.crafting.stations);
   });
 });
