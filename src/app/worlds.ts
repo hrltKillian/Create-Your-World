@@ -113,6 +113,21 @@ export function newWorld(form: NewWorldForm, defaultName: string, now: number): 
   };
 }
 
+/**
+ * Deletes a stored world unless a tab has it open (it would save it back): false then. The lock is
+ * held while the records go.
+ */
+export async function deleteClosedWorld(storage: Storage, id: string): Promise<boolean> {
+  const lock = await lockWorld(id);
+  if (!lock) return false;
+  try {
+    await storage.deleteWorld(id);
+    return true;
+  } finally {
+    await lock.release();
+  }
+}
+
 /** A new world, locked: its simulation with the local player at the spawn. */
 export async function createWorld(deps: WorldDeps, world: NewWorld): Promise<WorldSlot> {
   const lock = await lockWorld(world.id);

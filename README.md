@@ -26,32 +26,34 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M6 — Underground and decoration.** `npm run dev` and click the canvas. Generation changed
-(version 2): a seed gives a new world.
+**M7 — Saves and menus.** `npm run dev`: the game now opens on the main menu.
 
-- A new world starts on dry meadow or forest land, with water and gravel within 40 blocks and the
-  Fungal Marsh, the Tundra and the Ochre Desert within 1 km.
-- Caves: winding tunnels and large caverns (y 12–50), a few entrances in dry land, never under
-  water; Magma fills their bottom below y 10 (it glows and burns). Ores by biome: Copper Ore
-  (meadow, forest, highlands), Cassiterite (tundra), Bog Iron (marsh pond bottoms), Fireclay
-  (desert), and Dawn Crystal glowing on the walls of deep caves. Gravel and clay banks line the
-  shores.
-- Decoration: broadleaf trees and conifers, berry bushes, giant glowcap mushrooms and glowblooms
-  in the marsh, boulders, palmthorns and thornbushes in the desert. Camps (meadow, forest, desert)
-  and stone cairns (tundra, highlands, marsh) stand on flat ground; their chest spot holds a
-  placeholder until containers arrive (M8).
-- Visit every biome from the dev console: `b = __game.world.findBiome('biome:tundra')`, then
-  `__game.player.teleport(b.x + 0.5, 'surface', b.z + 0.5)`. The keys are `biome:meadow`,
-  `biome:forest`, `biome:highlands`, `biome:tundra`, `biome:ochre_desert`, `biome:fungal_marsh`
-  and `biome:lake_basin`; `__game.world.biome(x, z)` names the biome of a column. Structures work
-  the same way: `__game.world.findStructure('structure:camp')` (or `'structure:cairn'`).
-- `?view=xray` (or `__game.render.debugView('xray')`, back with `'none'`) turns the terrain into
-  faint ghosts, so caves, ores, crystals and magma show through the ground.
-- `?seed=7&selftest=m6` runs the in-browser M6 checks (the spawn stands on solid ground of a spawn
-  biome, with no trunk, boulder or canopy in its feet and head cells; every biome is found within
-  1 500 blocks and generated as found; a glowing ore or magma lights the cave next to it; the xray
-  view changes the picture; ≤ 400 draws; the nearest camp or cairn is generated as its template);
-  `?selftest=all` runs every suite.
+- Main menu: Play (Continue once a world exists, with its name), Worlds and Settings. New world
+  asks for a name, a seed (left empty: a random one) and whether hostile creatures come (they
+  arrive in M10).
+- Worlds: a card per world (name, seed, last played) with Play, Export (a `.cyw.gz` copy kept
+  outside the browser) and Delete (asked again on the card); Import… reads an export back as a new
+  world. The line below the list tells how much of the browser's storage the saves use.
+- Esc pauses: Resume, Settings, Save & quit to menu. The world saves itself every 30 s, on pause,
+  on quit and as soon as the tab is hidden or closed (IndexedDB, through a worker), and comes back
+  as it was: edits, items on the ground, the player, the bag and the clock. A world already open
+  in another tab cannot be opened (a message says so).
+- Settings: render distance, field of view, mouse sensitivity, invert Y and the master, effects,
+  ambience and interface volumes, applied at once and kept in `localStorage` (`cyw.settings.v1`).
+- `?forceNoIdb=1` plays as a browser without IndexedDB: the « Saving unavailable » banner shows
+  and worlds only last until the page closes. `?skipMenu=1` boots straight into a new world,
+  `?world=<id>` into a saved one, `?storage=memory` keeps the saves in the page.
+- From the dev console: `await __game.save.now()`, `await __game.save.reload()` (save & quit, then
+  the same world again), `await __game.save.worlds()`, `await __game.save.inspect()` (records of the
+  open world per store) and `await __game.save.wipeAll()` (deletes every world no tab has open).
+- `?worldType=flat&fixedStep=1&selftest=m0,m7` runs the in-browser M7 checks in IndexedDB (a
+  world created through the menus; 3 edits, a thrown item, the player, the bag and the clock come
+  back after `save.reload()`; an export imported again has the same records; a deleted world
+  leaves no record; settings are stored); add `&forceNoIdb=1` for the banner check. They delete
+  the worlds they made. `npm run e2e` also opens one world in two tabs.
+- From M6: caves, magma and ores by biome, trees, camps and cairns; `__game.world.findBiome(key)`
+  and `findStructure(key)`, then `__game.player.teleport(x, 'surface', z)`; `?view=xray`;
+  `?seed=7&selftest=m6`.
 - From M5: a day lasts 20 minutes, light is real (sky light, torches 14 with
   `__game.player.give('item:torch', 16)`), `?time=21`, `?freezeTime=1`, `__game.time.set(0)`,
   `__game.world.light(x, y, z)` and `?view=light`.

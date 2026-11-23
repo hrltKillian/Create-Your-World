@@ -3,7 +3,6 @@ import { t } from '../i18n/i18n.ts';
 import { exportWorld, importWorld } from '../platform/exportWorld.ts';
 import { storageEstimate } from '../platform/SaveManager.ts';
 import type { Settings } from '../platform/settings.ts';
-import { lockWorld } from '../platform/worldLock.ts';
 import type { Storage, WorldRecord } from '../sim/storage.ts';
 import { h } from '../ui/h.ts';
 import { MainMenu } from '../ui/screens/mainMenu.ts';
@@ -12,7 +11,13 @@ import { PauseScreen } from '../ui/screens/pause.ts';
 import { SettingsScreen } from '../ui/screens/settings.ts';
 import { WorldsScreen } from '../ui/screens/worlds.ts';
 import { MenuNav, type MenuScreen } from './appState.ts';
-import { byLastPlayed, exportFileName, newWorldId, openErrorKey } from './worlds.ts';
+import {
+  byLastPlayed,
+  deleteClosedWorld,
+  exportFileName,
+  newWorldId,
+  openErrorKey,
+} from './worlds.ts';
 
 /** What the menus ask of the app. */
 export interface MenuHost {
@@ -210,20 +215,13 @@ export class Menus {
     }
   }
 
-  /** Deletes a world, unless another tab is playing it (it would save it back). */
+  /** Deletes a world, unless another tab is playing it. */
   private async deleteWorld(id: string): Promise<void> {
-    const lock = await lockWorld(id);
-    if (!lock) {
-      this.render('error.world.locked');
-      return;
-    }
     try {
-      await this.host.storage.deleteWorld(id);
-      await this.changed(null);
+      if (await deleteClosedWorld(this.host.storage, id)) await this.changed(null);
+      else this.render('error.world.locked');
     } catch {
       this.render('error.delete');
-    } finally {
-      await lock.release();
     }
   }
 

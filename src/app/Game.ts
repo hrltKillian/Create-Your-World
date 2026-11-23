@@ -78,8 +78,9 @@ export class Game {
   /** The world open in this tab (null in the menus). */
   open: OpenWorld | null = null;
   readonly menus: Menus;
+  /** Where the worlds are saved (IndexedDB, or memory: `unavailable` shows the banner). */
+  readonly backend: SaveBackend;
   private readonly host: GameHost;
-  private readonly backend: SaveBackend;
   private readonly loading: HTMLElement;
 
   constructor(host: GameHost, backend: SaveBackend) {
@@ -157,10 +158,13 @@ export class Game {
     if (this.state === 'paused') this.open?.resume();
   }
 
-  /** Save & quit: the last save, the world closed, then the main menu. */
-  async saveAndQuit(): Promise<void> {
+  /**
+   * Save & quit (from the pause menu): the last save, the world closed, then the main menu.
+   * Resolves with the save's success (false also when there was no world to quit).
+   */
+  async saveAndQuit(): Promise<boolean> {
     const open = this.open;
-    if (!open || !this.go('quit')) return;
+    if (!open || !this.go('quit')) return false;
     this.menus.setQuitting(true);
     // Nothing may draw or tick the world while it closes.
     this.host.stopLoop();
@@ -169,11 +173,12 @@ export class Game {
       saved = await open.close();
     } catch (error) {
       this.host.fail(error);
-      return;
+      return false;
     }
     this.open = null;
     this.menus.setQuitting(false);
     await this.showMenu(saved ? null : 'error.saveFailed');
+    return saved;
   }
 
   /** The main menu (at boot, after a failed opening or save & quit), with a notice key. */

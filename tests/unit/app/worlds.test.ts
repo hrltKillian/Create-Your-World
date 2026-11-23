@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   byLastPlayed,
   createWorld,
+  deleteClosedWorld,
   exportFileName,
   loadWorld,
   newWorld,
@@ -113,6 +114,25 @@ describe('worlds', () => {
     await expect(loadWorld(deps(storage), TEST_WORLD.id)).rejects.toMatchObject({
       key: 'error.world.newer',
     });
+    const lock = await lockWorld(TEST_WORLD.id);
+    expect(lock).not.toBeNull();
+    await lock!.release();
+  });
+
+  it('deletes a world no tab has open, and keeps one a tab is playing', async () => {
+    const storage = new MemoryStorage();
+    const made = await createWorld(deps(storage), {
+      ...newWorld({ name: '', seed: 'gone', hostiles: true }, '', 0),
+      id: TEST_WORLD.id,
+    });
+    await saveTo(storage, made.sim);
+    // The tab playing it holds its lock: the world stays.
+    expect(await deleteClosedWorld(storage, TEST_WORLD.id)).toBe(false);
+    expect((await storage.inspect(TEST_WORLD.id)).worlds).toBe(1);
+    await made.lock.release();
+    expect(await deleteClosedWorld(storage, TEST_WORLD.id)).toBe(true);
+    expect(await storage.inspect(TEST_WORLD.id)).toEqual({ worlds: 0, players: 0, columns: 0 });
+    // Its lock was let go.
     const lock = await lockWorld(TEST_WORLD.id);
     expect(lock).not.toBeNull();
     await lock!.release();

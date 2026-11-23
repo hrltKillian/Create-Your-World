@@ -8,7 +8,7 @@ import type { App } from './App.ts';
 /**
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
- * keys and light, the world clock and what the hotbar shows.
+ * keys and light, the world clock, what the hotbar shows, and saving or reloading the open world.
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -240,4 +240,32 @@ export function hotbarView(app: App): { selected: number; counts: string[] } | n
     (e) => e.textContent ?? '',
   );
   return { selected: hotbar.selected, counts };
+}
+
+/** Saves the open world now, like an autosave (deflated, one transaction); resolves with success. */
+export function saveNow(app: App): Promise<boolean> {
+  const saves = app.game?.open?.saves;
+  return saves ? saves.save() : Promise.reject(new Error('No open world'));
+}
+
+/** Longest wait for a reopened world's loading radius to be meshed. */
+const RELOAD_MS = 30_000;
+
+/**
+ * Saves and closes the open world (the pause menu's Save & quit), then opens it again from its
+ * records; resolves once the loading radius around the player is meshed.
+ */
+export async function reloadWorld(app: App): Promise<void> {
+  const game = app.game;
+  const id = game?.open?.info.id;
+  if (!game || !id) throw new Error('No open world');
+  if (game.state !== 'paused') game.pause();
+  if (!(await game.saveAndQuit()))
+    throw new Error(`Save & quit of world ${id} failed (state ${game.state})`);
+  await game.openWorld(id);
+  const session = app.session;
+  if (!session) throw new Error(`World ${id} did not open again (state ${game.state})`);
+  await waitForChunks(app, session.loadingRadius(), RELOAD_MS);
+  // The frame loop leaves the loading state on its next frame (there is none in a hidden page).
+  if (!document.hidden) await frameOrFail();
 }

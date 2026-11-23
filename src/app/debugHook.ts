@@ -21,12 +21,15 @@ import {
   look,
   nextFrame,
   press,
+  reloadWorld,
+  saveNow,
   setBlock,
   setTime,
   teleport,
   waitForChunks,
   yieldTask,
 } from './automation.ts';
+import { byLastPlayed, deleteClosedWorld } from './worlds.ts';
 
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
@@ -37,6 +40,12 @@ export function installDebugHook(app: App): void {
   const playerPlace = () => {
     const pose = app.freecam?.pose ?? app.session?.player.body;
     return pose ? { x: Math.floor(pose.x), z: Math.floor(pose.z) } : null;
+  };
+  /** The game's save storage (IndexedDB, or memory); throws in the developer scenes. */
+  const saves = () => {
+    const storage = app.game?.backend.storage;
+    if (!storage) throw new Error('No save storage (developer scene)');
+    return storage;
   };
   const api = {
     version: 7,
@@ -330,6 +339,36 @@ export function installDebugHook(app: App): void {
         if (!game) return null;
         game.changeSettings({ ...game.settings, ...patch });
         return game.settings;
+      },
+    },
+    save: {
+      /** Saves the open world now (deflated, one transaction); resolves with the save's success. */
+      now: () => saveNow(app),
+      /** Save & quit, then the same world opened again; resolves once its loading radius is meshed. */
+      reload: () => reloadWorld(app),
+      /** The stored worlds, most recently played first. */
+      worlds: async () =>
+        byLastPlayed(await saves().listWorlds()).map(({ id, name, seed, savedAt }) => ({
+          id,
+          name,
+          seed,
+          savedAt,
+        })),
+      /** Records of a world (default: the open one) in each store: { worlds, players, columns }. */
+      inspect: async (id = app.game?.open?.info.id) => {
+        if (!id) throw new Error('No open world: pass a world id');
+        return saves().inspect(id);
+      },
+      /** Deletes every stored world no tab has open (this tab's open world is kept). */
+      wipeAll: async () => {
+        const storage = saves();
+        let deleted = 0;
+        let kept = 0;
+        for (const { id } of await storage.listWorlds()) {
+          if (await deleteClosedWorld(storage, id)) deleted++;
+          else kept++;
+        }
+        return { deleted, kept };
       },
     },
     audio: {
