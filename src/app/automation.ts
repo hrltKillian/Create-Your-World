@@ -70,11 +70,18 @@ export interface WaitOptions {
 const STALL_MS = 50;
 
 /** Polls `done` until it holds; throws once `timeoutMs` has passed. */
+/** Multiplies every waitUntil timeout (the selftest runner stretches waits on slow CI renderers). */
+let waitScale = 1;
+
+export function scaleWaits(factor: number): void {
+  waitScale = factor;
+}
+
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
+  const limit = options.timeoutMs * waitScale;
   while (!done()) {
-    if (performance.now() - t0 > options.timeoutMs)
-      throw new Error(`${options.label} after ${options.timeoutMs} ms`);
+    if (performance.now() - t0 > limit) throw new Error(`${options.label} after ${limit} ms`);
     // Timers are throttled in hidden pages: only sleep while visible.
     if (options.pollMs && !document.hidden)
       await new Promise((resolve) => setTimeout(resolve, options.pollMs));

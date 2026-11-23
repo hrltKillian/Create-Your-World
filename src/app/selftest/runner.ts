@@ -1,4 +1,5 @@
 import type { App } from '../App.ts';
+import { scaleWaits } from '../automation.ts';
 import { SUITES } from './suites.ts';
 import { type SelftestCase, slowFactor } from './support.ts';
 
@@ -20,6 +21,8 @@ export const CASE_TIMEOUT_MS = 15_000;
 
 /** Runs the suites named by `?selftest=` ("m0", "m0,m1" or "all") and always shows a result banner. */
 export async function runSelftests(app: App, selection: string): Promise<SelftestReport> {
+  // Inner waits stretch with the case timeouts on slow CI renderers (?timing=0).
+  scaleWaits(slowFactor(app));
   const names =
     selection === 'all' ? Object.keys(SUITES) : selection.split(',').map((s) => s.trim());
   const results: SelftestResult[] = [];

@@ -23,7 +23,6 @@ import {
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
-  slowFactor,
   standAt,
   stateKey,
 } from './support.ts';
@@ -184,7 +183,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
       await standAt(app, BUILD);
       // Time the edit alone: the world around finishes streaming and meshing first.
       await waitUntil(() => scheduler.idle(), {
-        timeoutMs: 30_000 * slowFactor(app),
+        timeoutMs: 30_000,
         label: 'meshing still busy',
         pollMs: 50,
       });

@@ -155,7 +155,7 @@ export function drawsCase(skip: (app: App) => string | null): SelftestCase {
       const rd = session.renderDistance;
       // Frames stream in fixed-step mode too; pumping without a tick only loads faster.
       await waitUntil(() => session.chunksReady(rd), {
-        timeoutMs: 50_000 * slowFactor(app),
+        timeoutMs: 50_000,
         label: `render distance ${rd} not meshed`,
         pump: () => session.pumpOnce(false),
         pollMs: 50,
