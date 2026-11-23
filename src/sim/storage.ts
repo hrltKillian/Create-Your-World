@@ -3,6 +3,7 @@ import type { WorldType } from '../world/gen/generateColumn.ts';
 import type { StoreCounts } from '../world/ioProtocol.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import type { CraftEntry } from './craftQueue.ts';
+import type { CreatureState } from './creatures.ts';
 import type { Inventory } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
@@ -18,7 +19,7 @@ import type { TimeState } from './time.ts';
  * maps the ids of column payloads), so a save survives a pack whose ids moved.
  */
 
-/** World rules chosen at creation (hostile creatures arrive in M10). */
+/** World rules chosen at creation. */
 export interface WorldRules {
   readonly hostiles: boolean;
 }
@@ -85,6 +86,15 @@ export interface PlayerRecord {
 /** An item drop as saved with its column (its render interpolation is not kept). */
 export type DropRecord = Omit<ItemDropState, 'prevX' | 'prevY' | 'prevZ'>;
 
+/**
+ * A creature (never a hostile one) as saved with the column it stands in: its brain's state and
+ * its path's `pathLength` cells (from save version 4).
+ */
+export type CreatureRecord = Omit<CreatureState, 'prevX' | 'prevY' | 'prevZ' | 'prevYaw'>;
+
+/** An entity saved with its column. */
+export type EntityRecord = DropRecord | CreatureRecord;
+
 /** A chest or station as saved with its column (text item keys). */
 export type BlockEntityRecord = BlockEntity;
 
@@ -100,8 +110,10 @@ export interface ColumnRecord {
   readonly codec: ColumnCodec;
   /** Every persisted section (world/codec/columnRecord), deflated or raw. */
   readonly payload: Uint8Array;
-  /** Item drops lying in the column. */
-  readonly entities: readonly DropRecord[];
+  /** Item drops lying in the column, and its creatures (from save version 4). */
+  readonly entities: readonly EntityRecord[];
+  /** The column's first generation placed a herd: it never places one again (version 4). */
+  readonly herds: boolean;
   /** Chests and stations of the column, by cell key (from save version 2). */
   readonly blockEntities: readonly BlockEntityRecord[];
   /**

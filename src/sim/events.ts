@@ -122,6 +122,38 @@ export type SimEvent =
       readonly y: number;
       readonly z: number;
     }
+  /**
+   * A creature's blow landed on a player (combat.ts): `amount` of health before god mode, struck
+   * from (x, z) by entity `source` (the HUD's damage direction).
+   */
+  | {
+      readonly type: 'playerHurt';
+      readonly playerId: number;
+      readonly amount: number;
+      readonly source: number;
+      readonly x: number;
+      readonly z: number;
+    }
+  /** A creature lost `amount` health to a blow of entity `attacker` (hit markers). */
+  | {
+      readonly type: 'creatureHurt';
+      readonly id: number;
+      readonly amount: number;
+      readonly attacker: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
+  /** A creature died (killed by entity `attacker`); its loot lies at (x, y, z). */
+  | {
+      readonly type: 'creatureDied';
+      readonly id: number;
+      readonly creature: string;
+      readonly attacker: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
   /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
   | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
   /** The clock passed 18:30 of `day`: « The sun is setting… » and a sound (docs « Jour/nuit »). */

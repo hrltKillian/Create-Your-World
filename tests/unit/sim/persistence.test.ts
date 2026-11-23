@@ -63,6 +63,7 @@ describe('memory storage', () => {
       payload: new Uint8Array([0]),
       entities: [],
       blockEntities: [],
+      herds: false,
       lastTick: 0,
     });
     const storage = new MemoryStorage();
@@ -308,7 +309,7 @@ describe('restoring a world', () => {
     // Saved again, the items go back to their own key; the block stays unknown.
     const again = snapshotSim(r.sim, TEST_WORLD, new Map());
     expect(again.players[0]!.inventory[0]).toEqual({ item: 'item:relic', count: 3 });
-    expect(again.columns[0]!.entities[0]!.item).toBe('item:relic');
+    expect(again.columns[0]!.entities[0]).toMatchObject({ item: 'item:relic' });
     const [section] = unpackSections(again.columns[0]!.payload, (id) => id);
     expect(section!.blocks![localIndex(2, 2, 2)]).toBe(registry.unknownBlock);
   });

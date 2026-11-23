@@ -8,6 +8,14 @@ import { type BlockEntity, CONTAINER_SLOTS, type StationEntity } from './blockEn
 import { NEUTRAL_INPUT } from './commands.ts';
 import { CRAFT_QUEUE, type CraftEntry, MAX_CRAFT_COUNT } from './craftQueue.ts';
 import {
+  CREATURE_MODES,
+  type CreatureBody,
+  type CreatureMode,
+  type CreatureState,
+  isHostile,
+  PATH_MAX,
+} from './creatures.ts';
+import {
   deserializeInventory,
   deserializeSlots,
   type Inventory,
@@ -20,7 +28,7 @@ import {
 import type { DropBody, ItemDropState } from './itemDrops.ts';
 import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
 import { SHELTERS, type Shelter } from './shelter.ts';
-import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
+import type { BlockEntityRecord, CreatureRecord, DropRecord, PlayerRecord } from './storage.ts';
 import {
   clampGauge,
   createSurvival,
@@ -34,9 +42,9 @@ import {
 } from './survival.ts';
 
 /**
- * Save records of entities (docs « Sauvegarde »): players, item drops and block entities, with text
- * item keys. Readers never trust a record: a malformed field keeps its default (a new player at
- * the spawn), a malformed drop or block entity is dropped.
+ * Save records of entities (docs « Sauvegarde »): players, item drops, creatures and block
+ * entities, with text item keys. Readers never trust a record: a malformed field keeps its default
+ * (a new player at the spawn), a malformed drop, creature or block entity is dropped.
  */
 
 /**
@@ -226,6 +234,67 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
   if (isWhole(saved.durability, 0)) drop.durability = saved.durability;
   loadItemKey(drop, registry);
   return drop;
+}
+
+export function creatureRecord(c: Readonly<CreatureState>): CreatureRecord {
+  const { prevX, prevY, prevZ, prevYaw, ...record } = c;
+  return { ...record, body: { ...c.body }, path: c.path.slice(0, c.pathLength * 3) };
+}
+
+/**
+ * The creature of a (migrated) record, or null when it is malformed, of a creature the pack lacks,
+ * or hostile (hostiles are never saved).
+ */
+export function readCreature(data: unknown, registry: Registry): CreatureState | null {
+  const saved = (data ?? {}) as Partial<Record<keyof CreatureRecord, unknown>>;
+  if (saved.kind !== 'creature' || !isWhole(saved.id, 1) || typeof saved.creature !== 'string')
+    return null;
+  const def = registry.creature(saved.creature);
+  if (!def || isHostile(def) || !isPoint(saved.body)) return null;
+  const body: CreatureBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
+  assignFields(body, saved.body);
+  const path = Array.isArray(saved.path) ? saved.path.slice(0, PATH_MAX * 3) : [];
+  const cells = path.every((v) => isWhole(v, -Infinity)) ? Math.floor(path.length / 3) : 0;
+  const c: CreatureState = {
+    kind: 'creature',
+    id: saved.id,
+    creature: def.key,
+    body,
+    prevX: body.x,
+    prevY: body.y,
+    prevZ: body.z,
+    prevYaw: 0,
+    yaw: 0,
+    health: def.health,
+    mode: CREATURE_MODES.includes(saved.mode as CreatureMode)
+      ? (saved.mode as CreatureMode)
+      : 'idle',
+    modeTicks: 0,
+    target: -1,
+    goalX: body.x,
+    goalY: body.y,
+    goalZ: body.z,
+    path: path.slice(0, cells * 3) as number[],
+    pathLength: cells,
+    pathStep: 0,
+    planTick: -1,
+    planX: 0,
+    planZ: 0,
+    cooldown: 0,
+    invulnerable: 0,
+    sees: false,
+    watched: false,
+    unseen: 0,
+    herd: saved.id,
+    cave: false,
+  };
+  // Every number and flag of the record that has the right type (the path's length: its cells).
+  assignFields(c, saved);
+  c.pathLength = cells;
+  if (c.health <= 0 || c.mode === 'dying') return null;
+  c.health = Math.min(c.health, def.health);
+  c.prevYaw = c.yaw;
+  return c;
 }
 
 /** The slots of a block entity as saved (text item keys). */

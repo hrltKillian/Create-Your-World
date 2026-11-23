@@ -66,18 +66,20 @@ export class SpatialHash {
    * distance).
    */
   query(x: number, z: number, radius: number, out: number[]): number[] {
-    out.length = 0;
+    // Written by index and cut to length last: `out.length = 0` would make V8 drop the array's
+    // backing store, and every query that finds something allocate a new one.
+    let n = 0;
     const s = this.cellSize;
     const gx1 = Math.floor((x + radius) / s);
     const gz1 = Math.floor((z + radius) / s);
     for (let gx = Math.floor((x - radius) / s); gx <= gx1; gx++) {
       for (let gz = Math.floor((z - radius) / s); gz <= gz1; gz++) {
-        const start = out.length;
+        const start = n;
         for (let slot = this.head[this.bucket(gx, gz)]!; slot >= 0; slot = this.next[slot]!) {
-          if (this.cellX[slot] === gx && this.cellZ[slot] === gz) out.push(this.ids[slot]!);
+          if (this.cellX[slot] === gx && this.cellZ[slot] === gz) out[n++] = this.ids[slot]!;
         }
         // Buckets list newest first: reverse the cell's run so it is mostly ascending.
-        for (let a = start, b = out.length - 1; a < b; a++, b--) {
+        for (let a = start, b = n - 1; a < b; a++, b--) {
           const t = out[a]!;
           out[a] = out[b]!;
           out[b] = t;
@@ -85,12 +87,13 @@ export class SpatialHash {
       }
     }
     // Insertion sort, in place: near-linear on the mostly ascending runs above.
-    for (let i = 1; i < out.length; i++) {
+    for (let i = 1; i < n; i++) {
       const id = out[i]!;
       let j = i - 1;
       for (; j >= 0 && out[j]! > id; j--) out[j + 1] = out[j]!;
       out[j + 1] = id;
     }
+    out.length = n;
     return out;
   }
 

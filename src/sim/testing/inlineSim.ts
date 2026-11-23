@@ -16,6 +16,10 @@ export interface InlineSimOptions {
   readonly serialize?: boolean;
   /** Replaces the InlineColumnSource (tests of delivery order or of missing columns). */
   readonly source?: ColumnSource;
+  /** Creature rules (SimOptions): hostiles, natural spawns, grace period. */
+  readonly hostiles?: boolean;
+  readonly spawns?: boolean;
+  readonly graceTicks?: number;
 }
 
 export interface InlineSim {
@@ -38,6 +42,9 @@ export function createInlineSim(options: InlineSimOptions): InlineSim {
     source: options.source ?? new InlineColumnSource(options.registry),
     maxInFlight: 8,
     allowDebug: options.allowDebug,
+    hostiles: options.hostiles,
+    spawns: options.spawns,
+    graceTicks: options.graceTicks,
   });
   const host = createHost(sim, 1, options.serialize);
   return { sim, host, events: [] };

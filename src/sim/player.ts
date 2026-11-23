@@ -85,6 +85,10 @@ export interface PlayerState {
   restTicks: number;
   /** Sprinted this tick (hunger and thirst drain faster); set by stepPlayer, not saved. */
   sprinting: boolean;
+  /** Ticks the player stays loud after a blow given or taken (combat.ts; not saved). */
+  fightTicks: number;
+  /** Ticks before a creature's blow may hurt the player again (combat.ts; not saved). */
+  invulnerable: number;
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
@@ -153,6 +157,8 @@ export function createPlayer(
     exhausted: false,
     restTicks: STAMINA.regenDelayTicks,
     sprinting: false,
+    fightTicks: 0,
+    invulnerable: 0,
     input: NEUTRAL_INPUT,
     viewRadius,
     inventory: createInventory(),

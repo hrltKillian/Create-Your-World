@@ -22,7 +22,8 @@ export type DeathCause =
   | 'toxicity'
   | 'drowning'
   | 'fall'
-  | 'contact';
+  | 'contact'
+  | 'creature';
 export const DEATH_CAUSES: readonly DeathCause[] = [
   'starvation',
   'dehydration',
@@ -32,6 +33,7 @@ export const DEATH_CAUSES: readonly DeathCause[] = [
   'drowning',
   'fall',
   'contact',
+  'creature',
 ];
 
 /** Timed effects (docs « Mort »): Weakened after a respawn, Untargeted for its first seconds. */
@@ -182,6 +184,12 @@ export function addEffect(s: SurvivalState, key: EffectKey, ticks: number): void
     return;
   }
   s.effects.push({ key, ticks });
+}
+
+/** Whether a timed effect is on (Untargeted: creatures ignore the player). */
+export function hasEffect(s: Readonly<SurvivalState>, key: EffectKey): boolean {
+  for (let i = 0; i < s.effects.length; i++) if (s.effects[i]!.key === key) return true;
+  return false;
 }
 
 /** What a player does and touches this tick, besides the sampled environment. */

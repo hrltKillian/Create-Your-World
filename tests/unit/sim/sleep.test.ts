@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import { createHost } from '../../../src/sim/host.ts';
-import { SLEEP_NIGHT_HINT, SLEEP_SHELTER_HINT, SLEEP_WAIT_HINT } from '../../../src/sim/sleep.ts';
+import {
+  SLEEP_HOSTILES_HINT,
+  SLEEP_NIGHT_HINT,
+  SLEEP_SHELTER_HINT,
+  SLEEP_WAIT_HINT,
+} from '../../../src/sim/sleep.ts';
 import {
   DAY_TICKS,
   dayOf,
@@ -79,6 +84,20 @@ describe('sleeping', () => {
     s.step(2);
     expect(eventsOf(lieDown(s), 'hint').map((e) => e.key)).toEqual([SLEEP_SHELTER_HINT]);
     expect(s.player.respawn).toBeNull();
+  });
+
+  it('is refused with a hostile creature within 16 blocks, not farther', () => {
+    const s = hut('sleep-hostile');
+    s.send({ type: 'debug.setTime', hours: 23 }, { type: 'debug.freezeTime', frozen: true });
+    const place = (creature: string, z: number) =>
+      s.send({ type: 'debug.spawn', creature, x: 0.5, y: 'surface', z });
+    // A Prowler beyond the radius and a Trotter right outside keep no one awake.
+    place('creature:prowler', -b.sleep.hostileRadius - 4.5);
+    place('creature:trotter', -5.5);
+    expect(eventsOf(lieDown(s), 'slept')).toHaveLength(1);
+    s.send({ type: 'debug.setTime', hours: 23 });
+    place('creature:prowler', -b.sleep.hostileRadius + 1.5);
+    expect(eventsOf(lieDown(s), 'hint').map((e) => e.key)).toEqual([SLEEP_HOSTILES_HINT]);
   });
 
   it('forgets the respawn point once the bedroll is broken', () => {

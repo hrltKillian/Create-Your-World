@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -49,6 +49,13 @@ export const MIGRATIONS: readonly MigrationStep[] = [
           )
         : record.blockEntities,
     }),
+  },
+  // 4 → 5 (M10): columns keep their creatures among their entities, and whether their first
+  // generation placed a herd (none did before: their next load may place one).
+  {
+    world: (record) => record,
+    player: (record) => record,
+    column: (record) => ({ ...record, herds: false }),
   },
 ];
 

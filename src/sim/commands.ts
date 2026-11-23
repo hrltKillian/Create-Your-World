@@ -131,6 +131,14 @@ export type DebugCommand =
    * time), whether or not the player aims at it: the hook's `ui.open(x, y, z)`.
    */
   | { readonly type: 'debug.open'; readonly x: number; readonly y: number; readonly z: number }
+  /** Places a creature of the pack at a position (feet; `'surface'`: on the ground there). */
+  | {
+      readonly type: 'debug.spawn';
+      readonly creature: string;
+      readonly x: number;
+      readonly y: number | 'surface';
+      readonly z: number;
+    }
   | {
       /** Fills a box (inclusive corners) of loaded blocks with a block state given by its text key. */
       readonly type: 'debug.fill';

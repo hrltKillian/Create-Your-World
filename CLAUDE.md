@@ -106,6 +106,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `emissive` parts glow, `stride` in rad/block), voices `creatureSfx.ts` (`voicesOf`);
     `registry.creature(key)`/`registry.model(key)`; the bare hand `balance.combat.hand` (items carry
     `weapon`), the hostile grace `balance.creatures.spawnGraceTicks`;
+  - creatures in the sim: records `sim/creatures.ts` (`CreatureState` in `sim.entities`, `mode`
+    and timers, `spawnCreature`, `isAlert` (the stealth rule), `isGone`, `reachGap`,
+    `hostileNear`, `dormant`), bodies `sim/creatureBody.ts`; `sim/ai/`: senses `senses.ts`
+    (`NOISE`, `noiseOf`, `targetable`, `unawareOf` (stealth), `lineOfSight` DDA, `refreshSenses`
+    every 10 ticks), the five brains `brains.ts` (`think`, `alarm` when hurt), what they are made of
+    `behaviours.ts` (`BRAIN` numbers, `plan` (≤ 2 A* a tick), `graze`, `flee`, `fight`, `windUp`),
+    A* `pathfind.ts` (`findPath`, `ASTAR` budgets, `lastSearch`), tick steps 5–6
+    `creatureStep.ts` (swarmer zigzag, wall stun); tick step 8 `sim/combat.ts`
+    (`COMBAT`, `strike` a creature's blow, `hurtCreature` with front armour, knockback and loot,
+    `armorFactor`, `escalation`, `frontFactor`); spawns, despawns, herds and `sim.spawnLog`
+    `sim/spawning.ts` (`SPAWN`; `sim.rules`: `hostiles`, `spawns` (off in flat and arena worlds
+    unless asked: dev `?spawns=0|1`), `graceTicks` (`?grace=`)); the effective light
+    `effectiveLight` (`world/light.ts`); `debug.spawn` places one (facing the player);
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
     `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
@@ -120,7 +133,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
     heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
-    stamina limits, timed effects (`addEffect`) and tick step 11 `stepSurvival` in
+    stamina limits, timed effects (`addEffect`, `hasEffect`) and tick step 11 `stepSurvival` in
     `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
     `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
@@ -188,7 +201,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `timing=0` (selftests skip wall-clock thresholds and stretch waits; set by e2e on CI), `mute`
   (sounds are still logged), `skipMenu` (a new world, no menu), `world=<id>` (opens a saved world),
   `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`, `time` (hour 0–24 of the
-  world clock), `freezeTime` — more arrive with later milestones.
+  world clock), `freezeTime`, `spawns=0|1` (natural creature spawns and herds; by default only in
+  generated worlds, never in selftests unless given), `grace` (ticks without hostile spawns,
+  `grace=0`) — more arrive with later milestones.
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4,m5`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 - M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,

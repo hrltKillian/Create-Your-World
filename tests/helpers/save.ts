@@ -59,7 +59,10 @@ export async function saveTo(
   const batch = await compressBatch(snapshotSim(sim, TEST_WORLD, stored), zlibDeflater);
   await storage.write(batch);
   return new Map(
-    batch.columns.map((c) => [columnKey(c.cx, c.cz), columnDigest(c.entities, c.blockEntities)]),
+    batch.columns.map((c) => [
+      columnKey(c.cx, c.cz),
+      columnDigest(c.entities, c.blockEntities, c.herds),
+    ]),
   );
 }
 

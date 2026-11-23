@@ -12,7 +12,7 @@ import {
 import { countItem } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
-import type { SaveBatch } from '../../../src/sim/storage.ts';
+import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import type { Deflater } from '../../../src/world/codec/columnRecord.ts';
 import { columnKey } from '../../../src/world/coords.ts';
 import {
@@ -335,7 +335,8 @@ describe('save manager', () => {
     expect(dropsOf(r.sim).map((d) => d.item)).toEqual(['item:dirt']);
     await again.save();
     const stored = (await storage.loadWorld(TEST_WORLD.id))!;
-    expect(stored.columns.map((c) => [c.cx, c.entities.map((e) => e.item)])).toEqual([
+    const items = (c: ColumnRecord) => c.entities.map((e) => (e.kind === 'itemDrop' ? e.item : ''));
+    expect(stored.columns.map((c) => [c.cx, items(c)])).toEqual([
       [0, []],
       [1, ['item:dirt']],
     ]);

@@ -56,6 +56,8 @@ export class ColumnPipeline {
   private readonly source: ColumnSource;
   private readonly spec: WorldSpec;
   private readonly maxInFlight: number;
+  /** Called with each column just integrated (herds of its first generation). */
+  private readonly onIntegrated: (column: Column) => void;
   private readonly views = new Map<number, PlayerView>();
   /** Clients streaming from a free camera instead of their body. */
   private readonly detached = new Set<number>();
@@ -87,6 +89,7 @@ export class ColumnPipeline {
     source: ColumnSource,
     spec: WorldSpec,
     maxInFlight: number,
+    onIntegrated: (column: Column) => void,
   ) {
     this.world = world;
     this.air = air;
@@ -95,6 +98,7 @@ export class ColumnPipeline {
     this.source = source;
     this.spec = spec;
     this.maxInFlight = maxInFlight;
+    this.onIntegrated = onIntegrated;
   }
 
   /** A generated column arrives (any order, any time); results of another seed are dropped. */
@@ -170,6 +174,7 @@ export class ColumnPipeline {
       this.states.set(key, COLUMN_GENERATED);
       this.unlit.add(key);
       this.light.addColumn(column);
+      this.onIntegrated(column);
       count++;
     }
   }

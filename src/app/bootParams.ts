@@ -34,6 +34,13 @@ export interface BootParams {
   readonly time: number | null;
   /** The world clock stands still. */
   readonly freezeTime: boolean;
+  /**
+   * Creatures spawn (`?spawns=0|1`; null: generated worlds only). Off in selftests unless asked, so
+   * that no creature walks into the earlier milestones' cases.
+   */
+  readonly spawns: boolean | null;
+  /** Ticks without hostile spawns at the start of a world (`?grace=0`; null: the pack's). */
+  readonly grace: number | null;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -59,6 +66,8 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   host: null,
   time: null,
   freezeTime: false,
+  spawns: null,
+  grace: null,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
@@ -71,6 +80,13 @@ function hours(value: string | null): number | null {
   if (value === null || value.trim() === '') return null;
   const h = Number(value);
   return Number.isFinite(h) && h >= 0 && h < 24 ? h : null;
+}
+
+/** A whole number of at least 0, or null when absent or malformed. */
+function ticks(value: string | null): number | null {
+  if (value === null || value.trim() === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 /** Parses `location.search`. When `allowDebug` is false (production), every parameter is ignored. */
@@ -102,5 +118,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     host: params.get('host'),
     time: hours(params.get('time')),
     freezeTime: flag(params, 'freezeTime'),
+    spawns: params.has('spawns') ? flag(params, 'spawns') : params.has('selftest') ? false : null,
+    grace: ticks(params.get('grace')),
   };
 }
