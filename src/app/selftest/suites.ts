@@ -1,6 +1,7 @@
 import { blockToColumn } from '../../world/coords.ts';
 import { blockKey, fill, framesFor, nextFrame, press, teleport, waitUntil } from '../automation.ts';
 import { M4_SUITE } from './m4.ts';
+import { M5_SUITE } from './m5.ts';
 import {
   assert,
   chunksMeshed,
@@ -325,4 +326,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
     noErrorsCase('no errors after the m3 checks'),
   ],
   m4: M4_SUITE,
+  m5: M5_SUITE,
 };

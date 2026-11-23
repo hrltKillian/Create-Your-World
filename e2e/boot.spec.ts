@@ -40,3 +40,11 @@ test('the player digs, builds, strikes and hears it on the flat world', async ({
   // Every m4 case applies to this setup: none may be skipped.
   expect(text).not.toContain('skipped');
 });
+
+test('day and night, sky light, torches and the light view on the flat world', async ({ page }) => {
+  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&mute=1&selftest=m0,m5';
+  const text = await selftest(page, query);
+  expect(text).toMatch(/^SELFTEST PASS/);
+  // Every m5 case applies to this setup: none may be skipped.
+  expect(text).not.toContain('skipped');
+});

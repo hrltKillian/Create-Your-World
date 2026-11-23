@@ -32,7 +32,7 @@ import { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 import { PlayGate } from './playGate.ts';
 
-export const MILESTONE = 4;
+export const MILESTONE = 5;
 
 export type AppState =
   | 'boot'

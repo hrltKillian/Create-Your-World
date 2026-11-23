@@ -4,20 +4,22 @@ import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { serializeInventory } from '../sim/inventory.ts';
-import { daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
 import { Column } from '../world/Column.ts';
 import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
 import type { App } from './App.ts';
 import {
   blockKey,
+  clock,
   fill,
+  freezeTime,
   give,
   hotbarView,
+  lightAt,
   look,
   nextFrame,
   press,
-  sendNow,
   setBlock,
+  setTime,
   teleport,
   waitForChunks,
   yieldTask,
@@ -29,7 +31,7 @@ import {
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 4,
+    version: 5,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -89,24 +91,20 @@ export function installDebugHook(app: App): void {
       step: (n = 1) => app.session?.step(n),
       tick: () => app.session?.host.view.tick() ?? 0,
       hash: () => app.session?.host.view.hash() ?? null,
+    },
+    time: {
       /** The world clock: ticks, hour (0–24), day number, phase, daylight and the freeze flag. */
-      time: () => {
-        const time = app.session?.host.view.time();
-        if (!time) return null;
-        const hour = hourOf(time.ticks);
-        return {
-          ticks: time.ticks,
-          hour,
-          day: dayOf(time.ticks),
-          phase: phaseOf(hour),
-          daylight: daylightAt(hour),
-          frozen: time.frozen,
-        };
+      get: () => clock(app),
+      /** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now; returns the clock. */
+      set: (hours: number) => {
+        setTime(app, hours);
+        return clock(app);
       },
-      /** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now (debug.setTime). */
-      setTime: (hours: number) => sendNow(app, { type: 'debug.setTime', hours }),
-      /** Stops (or restarts) the clock, now (debug.freezeTime). */
-      freezeTime: (frozen = true) => sendNow(app, { type: 'debug.freezeTime', frozen }),
+      /** Stops (or, with false, restarts) the clock, now; returns the clock. */
+      freeze: (frozen = true) => {
+        freezeTime(app, frozen);
+        return clock(app);
+      },
     },
     input: {
       /** Sets the view angles (radians). */
@@ -153,6 +151,8 @@ export function installDebugHook(app: App): void {
       block: (x: number, y: number, z: number) => blockKey(app, x, y, z),
       /** Sets one block from a state key, e.g. the key `block` returns. */
       setBlock: (x: number, y: number, z: number, state: string) => setBlock(app, x, y, z, state),
+      /** Sky and block light (0–15 each) at a position; unloaded cells are dark. */
+      light: (x: number, y: number, z: number) => lightAt(app, x, y, z),
       voxelBytes: () => app.world?.voxelBytes() ?? 0,
       seed: () => app.session?.seed ?? null,
       spawn: () => app.session?.spawn ?? null,
