@@ -72,6 +72,12 @@ function setup(options: Partial<SaveManagerOptions> = {}) {
   return { s, storage, statuses, manager, edit };
 }
 
+/** Places a block (a chest, a station) at x, 65, z, without telling the save manager. */
+function place(s: ReturnType<typeof setup>['s'], x: number, z: number, state: string): void {
+  s.host.send({ type: 'debug.fill', x0: x, y0: 65, z0: z, x1: x, y1: 65, z1: z, state });
+  s.step();
+}
+
 describe('save manager', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -336,6 +342,48 @@ describe('save manager', () => {
     const third = await restoreFrom(storage);
     expect(dropsOf(third.sim).map((d) => [d.item, d.body.x])).toEqual([['item:dirt', 33.5]]);
     expect(countItem(third.sim.players.get(1)!.inventory, 'item:sand')).toBe(2);
+  });
+
+  it('rewrites a column whose chest changed, not while its block entities stand as saved', async () => {
+    const { s, manager, storage } = setup();
+    place(s, 2, 2, 'block:chest[facing4=n]'); // column (0, 0)
+    s.host.send({ type: 'container.open', x: 2, y: 65, z: 2 }); // its block entity comes
+    s.host.send({ type: 'debug.give', item: 'item:dirt', count: 5 });
+    s.step();
+    await manager.save();
+    expect(columnsOf(storage.batches[0])).toEqual([[0, 0]]);
+    s.step(10);
+    await manager.save();
+    expect(columnsOf(storage.batches[1])).toEqual([]);
+    // Items stored in a chest change no block: its column is written for its block entities.
+    s.host.send({ type: 'container.move', from: 0 });
+    s.step();
+    await manager.save();
+    expect(columnsOf(storage.batches[2])).toEqual([[0, 0]]);
+    const r = await restoreFrom(storage);
+    const chest = [...r.sim.blockEntities.values()].find((e) => e.x === 2)!;
+    expect(chest.slots[0]).toEqual({ item: 'item:dirt', count: 5 });
+  });
+
+  it('writes a column with a station while it ticks, then not once it stands still', async () => {
+    const { s, manager, storage } = setup();
+    place(s, -2, 2, 'block:kiln[facing4=n,lit=0]'); // column (-1, 0)
+    s.host.send({ type: 'container.open', x: -2, y: 65, z: 2 }); // its block entity comes
+    s.step();
+    await manager.save();
+    s.step(5); // the station keeps its own tick
+    await manager.save();
+    s.step(5);
+    s.host.send({ type: 'debug.teleport', x: 8 * 32 + 16, y: 'surface', z: 16 });
+    s.step(100); // out of the simulation radius, it stands still
+    for (let i = 0; i < 3; i++) {
+      await manager.save();
+      s.step(30);
+    }
+    const writes = storage.batches.filter((b) => b.columns.some((c) => c.cx === -1 && c.cz === 0));
+    // Twice while it ticks, then once more with how it was when it left the simulation radius.
+    expect(writes).toHaveLength(3);
+    expect(storage.batches).toHaveLength(5);
   });
 
   it('stays open when the last save fails, saving on as before; then stops for good', async () => {

@@ -106,7 +106,11 @@ describe('saving block entities and craft queues', () => {
   it('writes a column again when its block entities change, not while they are as stored', async () => {
     const s = flatSim('chest-digest');
     put(s, 2, 65, 2, 'block:chest[facing4=n]'); // column (0, 0)
-    put(s, 40, 65, 2, 'block:chest[facing4=n]'); // column (1, 0)
+    put(s, -2, 65, 2, 'block:chest[facing4=n]'); // column (-1, 0)
+    // Opened once, each chest gets its (empty) block entity, saved with its column.
+    send(s, { type: 'container.open', x: 2, y: 65, z: 2 });
+    send(s, { type: 'container.open', x: -2, y: 65, z: 2 });
+    expect(s.sim.blockEntities.size).toBe(2);
     const storage = new MemoryStorage();
     await saveTo(storage, s.sim);
     const r = await restoreFrom(storage);

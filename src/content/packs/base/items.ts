@@ -155,7 +155,7 @@ export const items: readonly PackItem[] = [
   ...equipment,
   ...consumables,
   ...containers,
-  // A saved item whose key the pack no longer has (keeps that key): never stacks with another.
-  // Stacks only with unknown items of the same original key (`sameStack`).
+  // A saved item whose key the pack no longer has: it keeps that key, and stacks only with the
+  // unknown items of the same key (`sameStack`).
   { key: 'item:unknown', nameKey: 'item.unknown', icon: 'tex:unknown', maxStack: 50 },
 ];
