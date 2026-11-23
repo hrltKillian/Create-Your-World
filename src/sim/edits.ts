@@ -1,11 +1,12 @@
-import { columnIndex, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
+import { columnIndex, SECTION_BITS, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
 import type { LightEngine } from '../world/light/LightEngine.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { SimEvent } from './events.ts';
 
 /**
- * Writes one voxel in a loaded column: keeps the heightmap right and hands the cell to the light
- * engine, which resolves it at the light step. Returns false outside the loaded world.
+ * Writes one voxel in a loaded column: marks its section persisted (kept when the column unloads),
+ * keeps the heightmap right and hands the cell to the light engine, which resolves it at the light
+ * step. Returns false outside the loaded world.
  */
 export function writeBlock(
   world: VoxelWorld,
@@ -20,6 +21,7 @@ export function writeBlock(
   if (!column) return false;
   if (world.getBlock(x, y, z) === state) return true;
   world.setBlock(x, y, z, state);
+  column.persisted |= 1 << (y >> SECTION_BITS);
   const cell = columnIndex(toLocal(x), toLocal(z));
   const top = column.heightmap[cell]!;
   if (state !== world.air) {

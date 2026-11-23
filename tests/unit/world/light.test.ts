@@ -5,7 +5,18 @@ import { createGenContext, generateColumn } from '../../../src/world/gen/generat
 import { LightEngine } from '../../../src/world/light/LightEngine.ts';
 import { FULL_SKY } from '../../../src/world/light.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
-import { addLit, block, edit, litWorld, STONE, sky, stoneBelow } from '../../helpers/lightWorld.ts';
+import {
+  addLit,
+  block,
+  edit,
+  lightErrors,
+  litWorld,
+  mismatches,
+  referenceLight,
+  STONE,
+  sky,
+  stoneBelow,
+} from '../../helpers/lightWorld.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const AIR = registry.air;
@@ -83,6 +94,47 @@ describe('light rules', () => {
     expect(sky(world, 40, 100, 40)).toBe(15);
   });
 
+  it('keeps the full sky above the world over the top layer (y 255) through edits', () => {
+    const top = WORLD_HEIGHT - 1;
+    const { world, light } = litWorld(1, (w) => stoneBelow(w, 4));
+    // One block: the cells below it are lit from the side; full sky again once it is removed.
+    edit(world, light, 40, top, 40, STONE);
+    expect(sky(world, 40, top - 1, 40)).toBe(14);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+    edit(world, light, 40, top, 40, AIR);
+    expect(sky(world, 40, top, 40)).toBe(15);
+    expect(sky(world, 40, 128, 40)).toBe(15);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+    // A 5×5 platform across the x = 32 border: 12 under its centre, 15 down the shaft once removed.
+    const platform = (state: number) => {
+      for (let x = 30; x <= 34; x++)
+        for (let z = 30; z <= 34; z++) edit(world, light, x, top, z, state);
+    };
+    platform(STONE);
+    expect(sky(world, 32, top - 1, 32)).toBe(12);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+    platform(AIR);
+    for (let y = top; y >= 128; y--) expect(sky(world, 32, y, 32)).toBe(15);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+  });
+
+  it('lights a closed top layer through its filter, generated or edited', () => {
+    const top = WORLD_HEIGHT - 1;
+    const { world, light } = litWorld(1, (w) => {
+      stoneBelow(w, 4);
+      box(w, -32, top, -32, 63, top, 63, GLASS);
+    });
+    // Full sky through glass gives 13, then 1 less per block down.
+    expect(sky(world, 16, top, 16)).toBe(13);
+    expect(sky(world, 40, top - 5, 16)).toBe(8);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+    edit(world, light, 16, top, 16, AIR);
+    expect(sky(world, 16, 128, 16)).toBe(15);
+    edit(world, light, 16, top, 16, GLASS);
+    expect(sky(world, 16, top, 16)).toBe(13);
+    expect(lightErrors(world, 0, 0)).toEqual([]);
+  });
+
   it('filters 1 per foliage or glass block and 2 per water block', () => {
     expect(registry.tables.lightFilter[FOLIAGE]).toBe(1);
     expect(registry.tables.lightFilter[GLASS]).toBe(1);
@@ -129,84 +181,6 @@ describe('light rules', () => {
   });
 });
 
-/**
- * Reference light of a 64×256×64 box of loaded blocks (outside counts as opaque): one flat-array
- * flood with the rules written out again, independent of the engine.
- */
-function referenceLight(world: VoxelWorld, x0: number, z0: number): Uint8Array {
-  const W = 64;
-  const n = W * W * WORLD_HEIGHT;
-  const filter = new Uint8Array(n);
-  const levels = [new Uint8Array(n), new Uint8Array(n)]; // sky, block
-  const queues: number[][] = [[], []];
-  for (let y = 0; y < WORLD_HEIGHT; y++)
-    for (let z = 0; z < W; z++)
-      for (let x = 0; x < W; x++) {
-        const i = x + z * W + y * W * W;
-        const state = world.getBlock(x0 + x, y, z0 + z);
-        filter[i] = registry.tables.lightFilter[state]!;
-        const emit = registry.tables.emit[state]!;
-        if (emit > 0) {
-          levels[1]![i] = emit;
-          queues[1]!.push(i);
-        }
-      }
-  for (let z = 0; z < W; z++)
-    for (let x = 0; x < W; x++)
-      for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
-        const i = x + z * W + y * W * W;
-        if (filter[i] !== 0) break;
-        levels[0]![i] = 15;
-        queues[0]!.push(i);
-      }
-  for (let channel = 0; channel < 2; channel++) {
-    const level = levels[channel]!;
-    const queue = queues[channel]!;
-    for (let head = 0; head < queue.length; head++) {
-      const i = queue[head]!;
-      const x = i % W;
-      const z = Math.floor(i / W) % W;
-      const y = Math.floor(i / (W * W));
-      const offer = (j: number, down: boolean) => {
-        const next =
-          channel === 0 && down && level[i] === 15 && filter[j] === 0
-            ? 15
-            : level[i]! - 1 - filter[j]!;
-        if (next > level[j]!) {
-          level[j] = next;
-          queue.push(j);
-        }
-      };
-      if (x > 0) offer(i - 1, false);
-      if (x < W - 1) offer(i + 1, false);
-      if (z > 0) offer(i - W, false);
-      if (z < W - 1) offer(i + W, false);
-      if (y > 0) offer(i - W * W, true);
-      if (y < WORLD_HEIGHT - 1) offer(i + W * W, false);
-    }
-  }
-  const packed = new Uint8Array(n);
-  for (let i = 0; i < n; i++) packed[i] = (levels[0]![i]! << 4) | levels[1]![i]!;
-  return packed;
-}
-
-/** Cells (up to 5) where `compare(world light, reference)` fails, as readable strings. */
-function mismatches(
-  world: VoxelWorld,
-  reference: Uint8Array,
-  compare: (actual: number, expected: number) => boolean,
-): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < reference.length && out.length < 5; i++) {
-    const x = i % 64;
-    const z = Math.floor(i / 64) % 64;
-    const y = Math.floor(i / 4096);
-    const actual = world.getLight(x, y, z);
-    if (!compare(actual, reference[i]!)) out.push(`${x},${y},${z}: ${actual} vs ${reference[i]}`);
-  }
-  return out;
-}
-
 const ctx = createGenContext('light-2x2', registry);
 
 /** Terrain of columns [0, 1]², with a roof, foliage, glass, a cavity and torches across seams. */
@@ -238,10 +212,10 @@ describe('seams', () => {
     for (const column of world.columns.values()) addLit(light, column);
     // Each column alone is never brighter than the truth, in either channel.
     const notBrighter = (a: number, e: number) => a >> 4 <= e >> 4 && (a & 15) <= (e & 15);
-    expect(mismatches(world, reference, notBrighter)).toEqual([]);
+    expect(mismatches(world, reference, 0, 0, notBrighter)).toEqual([]);
     expect(light.seamBacklog()).toBeGreaterThan(0);
     light.stitch(Number.POSITIVE_INFINITY);
-    expect(mismatches(world, reference, (a, e) => a === e)).toEqual([]);
+    expect(mismatches(world, reference)).toEqual([]);
     for (const column of world.columns.values())
       expect(light.stitched(column.cx, column.cz)).toBe(false); // outer seams have no neighbour
   });
@@ -265,7 +239,7 @@ describe('seams', () => {
       slices++;
     }
     expect(slices).toBeGreaterThan(10);
-    expect(mismatches(sliced, referenceLight(whole, 0, 0), (a, e) => a === e)).toEqual([]);
+    expect(mismatches(sliced, referenceLight(whole, 0, 0))).toEqual([]);
   });
 });
 

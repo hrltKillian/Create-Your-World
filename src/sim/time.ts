@@ -76,12 +76,14 @@ export function daylightAt(hour: number): number {
 }
 
 /**
- * `debug.setTime`: moves the clock to `hours` (0 ≤ hours < 24) of the current day. Returns false,
- * leaving the clock alone, when `hours` is out of range.
+ * `debug.setTime`: moves the clock to `hours` (0 ≤ hours < 24) of the current day, to the nearest
+ * tick but never past the day's last one. Returns false, leaving the clock alone, when `hours` is
+ * out of range.
  */
 export function setHour(time: TimeState, hours: number): boolean {
   if (!Number.isFinite(hours) || hours < 0 || hours >= 24) return false;
-  time.ticks = (dayOf(time.ticks) - 1) * DAY_TICKS + Math.round(hours * HOUR_TICKS);
+  const tick = Math.min(DAY_TICKS - 1, Math.round(hours * HOUR_TICKS));
+  time.ticks = (dayOf(time.ticks) - 1) * DAY_TICKS + tick;
   return true;
 }
 

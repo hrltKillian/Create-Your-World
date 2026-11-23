@@ -88,6 +88,10 @@ describe('time of day', () => {
     for (const bad of [-1, 24, Number.NaN, Number.POSITIVE_INFINITY])
       expect(setHour(time, bad)).toBe(false);
     expect(hourOf(time.ticks)).toBe(13.5);
+    // Just below 24 stays on the last tick of the same day instead of rounding to the next one.
+    expect(setHour(time, 23.9999)).toBe(true);
+    expect(dayOf(time.ticks)).toBe(3);
+    expect(time.ticks).toBe(3 * DAY_TICKS - 1);
   });
 
   it('round-trips through JSON and repairs malformed saves', () => {

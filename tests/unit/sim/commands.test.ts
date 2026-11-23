@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import type { ColumnSink, ColumnSource, WorldSpec } from '../../../src/sim/ports.ts';
+import type { ColumnSink, ColumnSource } from '../../../src/sim/ports.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 import { registry } from '../../helpers/registry.ts';
 import { createTestSim } from '../../helpers/simHarness.ts';
@@ -225,17 +225,17 @@ describe('state hash', () => {
     /** Delivers each tick's requests in reverse order, one tick late. */
     class ReversedSource implements ColumnSource {
       readonly inner = new InlineColumnSource(registry);
-      private pending: [WorldSpec, number, number][] = [];
+      private pending: Parameters<ColumnSource['request']>[] = [];
       connect(sink: ColumnSink): void {
         this.inner.connect(sink);
       }
-      request(world: WorldSpec, cx: number, cz: number): void {
-        this.pending.push([world, cx, cz]);
+      request(...args: Parameters<ColumnSource['request']>): void {
+        this.pending.push(args);
       }
       flush(): void {
         const batch = this.pending.reverse();
         this.pending = [];
-        for (const [world, cx, cz] of batch) this.inner.request(world, cx, cz);
+        for (const args of batch) this.inner.request(...args);
       }
     }
     const run = (reversed: boolean) => {

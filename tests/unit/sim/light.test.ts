@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COLUMN_GENERATED, COLUMN_LIT, ColumnPipeline } from '../../../src/sim/ColumnPipeline.ts';
+import { EditStore } from '../../../src/sim/editStore.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
 import { LightEngine } from '../../../src/world/light/LightEngine.ts';
@@ -46,7 +47,8 @@ describe('light in the simulation', () => {
     const light = new LightEngine(registry.tables);
     const source = new InlineColumnSource(registry);
     const spec = { seed: 'light-lit', worldType: 'default' } as const;
-    const pipeline = new ColumnPipeline(world, registry.air, light, source, spec, 1000);
+    const edits = new EditStore();
+    const pipeline = new ColumnPipeline(world, registry.air, light, edits, source, spec, 1000);
     source.connect({ deliver: (r) => pipeline.deliver(r), requestFailed: () => {} });
     const out: SimEvent[] = [];
     pipeline.setView(1, 16, 16, 2);

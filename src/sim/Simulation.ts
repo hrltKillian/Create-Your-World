@@ -10,6 +10,7 @@ import { TICK_SECONDS } from './clock.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyDebugCommand } from './debugCommands.ts';
+import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
@@ -67,6 +68,8 @@ export class Simulation implements ColumnSink {
   tick = 0;
   /** The world clock (time of day, day count). */
   readonly time: TimeState = createTime();
+  /** Edited sections of the unloaded columns. */
+  readonly edits = new EditStore();
   private readonly columns: ColumnPipeline;
   private readonly commands: StampedCommand[] = [];
 
@@ -83,6 +86,7 @@ export class Simulation implements ColumnSink {
       this.world,
       options.registry.air,
       this.light,
+      this.edits,
       options.source,
       { seed: this.seed, worldType: this.worldType },
       options.maxInFlight,

@@ -3,6 +3,7 @@ import { blockToColumn, columnKey, columnKeyX, columnKeyZ } from '../world/coord
 import type { LightEngine } from '../world/light/LightEngine.ts';
 import type { GenResult } from '../world/protocol.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
+import type { EditStore } from './editStore.ts';
 import type { SimEvent } from './events.ts';
 import type { ColumnSource, WorldSpec } from './ports.ts';
 import { MAX_STREAM_RADIUS, SPIRAL, streamRadii } from './streaming.ts';
@@ -43,13 +44,15 @@ type ViewRadius = 'unload2' | 'show2' | 'hide2';
 /**
  * Column streaming for every player view: requests to the column source, integration of the
  * arrivals (handed to the light engine), the GENERATED → LIT → MESHABLE states, mesh show/hide by
- * render distance and unloading. Deterministic for a given order of deliveries (maps and sets
+ * render distance and unloading. An unloading column leaves its edited sections in the edit store,
+ * and its next request carries them. Deterministic for a given order of deliveries (maps and sets
  * iterate in insertion order).
  */
 export class ColumnPipeline {
   private readonly world: VoxelWorld;
   private readonly air: number;
   private readonly light: LightEngine;
+  private readonly edits: EditStore;
   private readonly source: ColumnSource;
   private readonly spec: WorldSpec;
   private readonly maxInFlight: number;
@@ -80,6 +83,7 @@ export class ColumnPipeline {
     world: VoxelWorld,
     air: number,
     light: LightEngine,
+    edits: EditStore,
     source: ColumnSource,
     spec: WorldSpec,
     maxInFlight: number,
@@ -87,6 +91,7 @@ export class ColumnPipeline {
     this.world = world;
     this.air = air;
     this.light = light;
+    this.edits = edits;
     this.source = source;
     this.spec = spec;
     this.maxInFlight = maxInFlight;
@@ -160,6 +165,8 @@ export class ColumnPipeline {
       if (!this.light.slotFree(result.cx, result.cz)) continue;
       const column = columnFromResult(result, this.air);
       this.world.columns.set(key, column);
+      // The result was generated over the saved sections (none can change while it is requested).
+      this.edits.forget(key);
       this.states.set(key, COLUMN_GENERATED);
       this.unlit.add(key);
       this.light.addColumn(column);
@@ -199,7 +206,7 @@ export class ColumnPipeline {
         const key = columnKey(cx, cz);
         if (this.states.has(key) || this.requested.has(key)) continue;
         this.requested.add(key);
-        this.source.request(this.spec, cx, cz);
+        this.source.request(this.spec, cx, cz, this.edits.copies(key));
       }
     }
   }
@@ -239,6 +246,7 @@ export class ColumnPipeline {
   }
 
   private unload(key: number, column: Column, out: SimEvent[]): void {
+    this.edits.keep(key, column);
     this.world.columns.delete(key);
     this.states.delete(key);
     this.unlit.delete(key);

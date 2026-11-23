@@ -13,6 +13,8 @@ const SEAM_DZ = [0, 0, 1, -1] as const;
 const SEAM_SIDE = [31, 0, 31 << 5, 0] as const;
 const SEAM_STEP = [32, 32, 1, 1] as const;
 const ALL_SEAMS = 15;
+/** Cells of the top layer (y 255) have the open sky above the world (cell index >> 10). */
+const TOP_Y = WORLD_HEIGHT - 1;
 
 /** Box of changed cells in world block coordinates (empty while x1 < x0). */
 export interface LightBox {
@@ -32,7 +34,8 @@ export interface LightBox {
  * - Seams: when a column arrives, each border with a loaded face neighbour is compared and the
  *   cells that can light the other side feed the seam queues, drained under a node budget.
  * - Edits: `edited` takes the cell's light out; `flush` runs the removal pass (FIFO), then the
- *   re-add pass, to completion. Emitters and sky edges get their light back in the re-add pass.
+ *   re-add pass, to completion. Emitters, sky edges and the top layer (under the full sky above
+ *   the world) get their light back in the re-add pass.
  *
  * Every pass only raises a cell to what a neighbour justifies (or clears what may have come from
  * a removed cell), so the result is the unique fixed point whatever the order or the slicing.
@@ -141,8 +144,9 @@ export class LightEngine {
     // Removing from level 0 still visits the neighbours: they light the cell back if it lets light in.
     this.removeSky.push((skyOf(packed) << LEVEL_SHIFT) | entry);
     this.removeBlock.push((blockOf(packed) << LEVEL_SHIFT) | entry);
-    // The new state may emit.
+    // The new state may emit, or let the sky above the world in.
     this.addBlock.push(entry);
+    if (y === TOP_Y) this.addSky.push(entry);
   }
 
   /** Queues a cell of a loaded column to spread its light (columnLight's sky edges and emitters). */
@@ -246,13 +250,11 @@ export class LightEngine {
       const local = cell & 0x7fff;
       const packed = section.getLight(local);
       let level = (packed >> shift) & 15;
-      if (shift === BLOCK_SHIFT) {
-        // An emitter darkened by a removal (or just placed) gets its own level back.
-        const emit = this.emit[section.getBlock(local)]!;
-        if (emit > level) {
-          level = emit;
-          this.write(column, section, local, cell, (packed & 0xf0) | emit);
-        }
+      // A cell darkened by a removal (or just placed) gets its own source back first.
+      const own = this.ownLight(section, local, cell);
+      if (own > level) {
+        level = own;
+        this.write(column, section, local, cell, (packed & ~(15 << shift)) | (own << shift));
       }
       if (level > 1) this.neighbours(column, cell, level);
     }
@@ -317,11 +319,20 @@ export class LightEngine {
     if (current < level || (skyDown && level === MAX_LIGHT && current === MAX_LIGHT)) {
       this.write(column, section, local, cell, packed & ~(15 << shift));
       this.removeQueue.push((current << LEVEL_SHIFT) | entry);
-      if (shift === BLOCK_SHIFT && this.emit[section.getBlock(local)]! > 0)
-        this.addQueue.push(entry);
+      if (this.ownLight(section, local, cell) > 0) this.addQueue.push(entry);
     } else {
       this.addQueue.push(entry);
     }
+  }
+
+  /**
+   * Light a cell has from no neighbour, in the channel of the pass: its emission (block light), or
+   * the full sky above the world through its filter (sky light, top layer only).
+   */
+  private ownLight(section: Section, local: number, cell: number): number {
+    if (this.shift === BLOCK_SHIFT) return this.emit[section.getBlock(local)]!;
+    if (cell >> 10 !== TOP_Y) return 0;
+    return passLight(MAX_LIGHT, this.filter[section.getBlock(local)]!, true);
   }
 
   private write(

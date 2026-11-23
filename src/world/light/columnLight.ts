@@ -52,7 +52,7 @@ function openSky(column: Column, filter: Uint8Array): void {
     const lx = c & 31;
     const lz = c >> 5;
     let y = (top + 1) * SECTION_SIZE - 1;
-    while (y >= 0 && filter[blockAt(column, lx, y, lz)] === 0) y--;
+    while (y >= 0 && filter[column.getBlock(lx, y, lz)] === 0) y--;
     skyFloor[c] = y + 1;
     if (y + 1 > highest) highest = y + 1;
   }
@@ -74,12 +74,16 @@ function openSky(column: Column, filter: Uint8Array): void {
 
 /**
  * Seeds the open cells next to a darker cell of the column: the lowest one (it lights the block
- * below it) and those facing a neighbour whose sky floor is higher.
+ * below it) and those facing a neighbour whose sky floor is higher. A closed top cell (y 255) is
+ * seeded too: the flood gives it what the sky above the world passes through its filter.
  */
 function seedSkyEdges(engine: LightEngine, column: Column): void {
   for (let c = 0; c < skyFloor.length; c++) {
     const floor = skyFloor[c]!;
-    if (floor >= WORLD_HEIGHT) continue;
+    if (floor >= WORLD_HEIGHT) {
+      engine.seed(column, localIndex(c & 31, WORLD_HEIGHT - 1, c >> 5), SKY_SHIFT);
+      continue;
+    }
     const lx = c & 31;
     const lz = c >> 5;
     let edge = floor;
@@ -105,8 +109,4 @@ function seedEmitters(engine: LightEngine, column: Column, emit: Uint8Array): vo
     for (let i = 0; i < blocks.length; i++)
       if (emit[blocks[i]!] !== 0) engine.seed(column, (sy << 15) | i, BLOCK_SHIFT);
   }
-}
-
-function blockAt(column: Column, lx: number, y: number, lz: number): number {
-  return column.sections[y >> 5]!.getBlock(localIndex(lx, y & 31, lz));
 }
