@@ -90,6 +90,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
+  - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
+    `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
+    `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
+    `platform/SaveManager.ts` (autosave, `onEvent`, `watchPage`, `close`), `platform/worldLock.ts`,
+    `platform/exportWorld.ts`; IndexedDB tests stub `indexedDB` with fake-indexeddb's `IDBFactory`;
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,

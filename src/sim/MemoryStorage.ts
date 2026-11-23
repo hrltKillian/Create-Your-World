@@ -1,4 +1,5 @@
 import { columnKey } from '../world/coords.ts';
+import type { StoreCounts } from '../world/ioProtocol.ts';
 import type {
   ColumnRecord,
   PlayerRecord,
@@ -51,6 +52,15 @@ export class MemoryStorage implements Storage {
 
   async deleteWorld(id: string): Promise<void> {
     this.worlds.delete(id);
+  }
+
+  async inspect(id: string): Promise<StoreCounts> {
+    const entry = this.worlds.get(id);
+    return {
+      worlds: entry ? 1 : 0,
+      players: entry?.players.size ?? 0,
+      columns: entry?.columns.size ?? 0,
+    };
   }
 
   async getKv(key: string): Promise<unknown> {

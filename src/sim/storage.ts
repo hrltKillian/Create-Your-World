@@ -1,5 +1,6 @@
 import type { ColumnCodec } from '../world/codec/columnRecord.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
+import type { StoreCounts } from '../world/ioProtocol.ts';
 import type { Inventory } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
@@ -107,6 +108,8 @@ export interface Storage {
   write(batch: SaveBatch): Promise<void>;
   /** Deletes a world and every record of it. */
   deleteWorld(id: string): Promise<void>;
+  /** Records of a world in each store (debugging and tests: a deleted world has none). */
+  inspect(id: string): Promise<StoreCounts>;
   /** Store `kv`: last world played and other small values. */
   getKv(key: string): Promise<unknown>;
   setKv(key: string, value: unknown): Promise<void>;

@@ -100,18 +100,21 @@ function savedSections(sim: Simulation, key: number): readonly SavedSection[] {
 /**
  * Every record of a world, payloads raw (synchronous: usable when the tab hides). Each column with
  * persisted sections or item drops gets a record rebuilt from all of them; the columns of `stored`
- * (keys of the records in storage) left with nothing are removed.
+ * (keys of the records in storage) left with nothing are removed. With `only` (the changed columns
+ * of an autosave), the other columns are left out unless they hold item drops.
  */
 export function snapshotSim(
   sim: Simulation,
   info: WorldInfo,
   stored: ReadonlySet<number>,
+  only?: ReadonlySet<number>,
 ): SaveBatch {
   const drops = dropsByColumn(sim);
   const keys = new Set(drops.keys());
   for (const [key, column] of sim.world.columns) if (column.persisted !== 0) keys.add(key);
   for (const key of sim.edits.keys()) keys.add(key);
   const columns = [...keys]
+    .filter((key) => only === undefined || only.has(key) || drops.has(key))
     .sort((a, b) => a - b)
     .map(
       (key): ColumnRecord => ({
