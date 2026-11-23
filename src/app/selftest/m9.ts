@@ -362,8 +362,10 @@ export const M9_SUITE: readonly SelftestCase[] = [
           session.host.send({ type: 'station.move', from, to: OPEN_SLOTS_BASE + slot });
           session.step(1);
           const there = slotsAt(app, cell)[slot];
+          // With water to boil, the fire lights at once and burns the log out of its slot.
+          const burning = item === fuel && there === null && litAt(app, cell);
           assert(
-            there?.item === item,
+            there?.item === item || burning,
             `station slot ${slot} holds ${stackText(there)}, not ${item}`,
           );
         }
@@ -452,3 +454,10 @@ export const M9_SUITE: readonly SelftestCase[] = [
   },
   noErrorsCase('no errors and no missing strings after the m9 checks'),
 ];
+
+/** The station block at `cell` is in its lit state. */
+function litAt(app: App, cell: { x: number; y: number; z: number }): boolean {
+  const registry = app.registry!;
+  const state = app.world!.getBlock(cell.x, cell.y, cell.z);
+  return registry.prop(state, 'lit') === '1';
+}
