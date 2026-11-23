@@ -10,8 +10,21 @@ import type { SimEvent } from './events.ts';
 import { takeFromSlot } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
-import { breakSeconds, canHarvest, MINING, toolWear } from './mining.ts';
-import { PLACE_REPEAT_TICKS, type Placement, planPlacement, playerInCell } from './placement.ts';
+import {
+  breakSeconds,
+  canHarvest,
+  MINING,
+  TOOL_TOO_WEAK_HINT,
+  toolWear,
+  weakToolParams,
+} from './mining.ts';
+import {
+  otherHalfY,
+  PLACE_REPEAT_TICKS,
+  type Placement,
+  planPlacement,
+  playerInCell,
+} from './placement.ts';
 import { type PlayerState, STAMINA, spendStamina } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { AIM_HIT, AIM_OUT_OF_REACH, aim } from './targeting.ts';
@@ -58,6 +71,9 @@ function mine(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
     st.mineZ = hit.z;
     st.mineProgress = 0;
     reportStage(player, 0, out);
+    const params = weakToolParams(sim.registry, hit.state, itemId);
+    if (params)
+      out.push({ type: 'hint', playerId: player.playerId, key: TOOL_TOO_WEAK_HINT, params });
   }
   spendStamina(player, STAMINA.minePerSecond * TICK_SECONDS);
   st.mineProgress += seconds > 0 ? TICK_SECONDS / seconds : 1;
@@ -99,7 +115,7 @@ function stopMining(player: PlayerState, out: SimEvent[]): void {
 /** Breaks the aimed block, wears the held tool and pops the blocks that stood on it. */
 function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: SimEvent[]): void {
   const { x, y, z, state } = hit;
-  breakBlock(sim, player, x, y, z, canHarvest(sim.registry, state, itemId), out);
+  let top = breakWhole(sim, player, x, y, z, canHarvest(sim.registry, state, itemId), out);
   const wear = toolWear(sim.registry, state, itemId);
   const slot = player.input.slot;
   const stack = player.inventory[slot];
@@ -108,11 +124,31 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
     if (stack.durability <= 0) player.inventory[slot] = null;
     out.push({ type: 'inventoryChanged', playerId: player.playerId });
   }
-  for (let above = y + 1; above < WORLD_HEIGHT; above++) {
-    const def = sim.registry.blockDef(sim.world.getBlock(x, above, z));
+  while (top + 1 < WORLD_HEIGHT) {
+    const def = sim.registry.blockDef(sim.world.getBlock(x, top + 1, z));
     if (def.placement?.support !== 'below') break;
-    breakBlock(sim, player, x, above, z, true, out);
+    top = breakWhole(sim, player, x, top + 1, z, true, out);
   }
+}
+
+/**
+ * Breaks a block and, for a tall block (door), its other half too, which drops nothing (one item
+ * for the whole door). Returns the highest y removed.
+ */
+function breakWhole(
+  sim: Simulation,
+  player: PlayerState,
+  x: number,
+  y: number,
+  z: number,
+  harvest: boolean,
+  out: SimEvent[],
+): number {
+  const other = otherHalfY(sim.world, sim.registry, x, y, z);
+  breakBlock(sim, player, x, y, z, harvest, out);
+  if (other === y) return y;
+  breakBlock(sim, player, x, other, z, false, out);
+  return Math.max(y, other);
 }
 
 /** Removes a block, with its sound, event and (when harvested) its drops. */
@@ -171,21 +207,31 @@ export function usesAimedBlock(registry: Registry, state: number, crouch: boolea
   return !crouch && registry.prop(state, 'open') !== undefined;
 }
 
-/** Opens or closes a gate (closing is refused while a player stands in it). */
+/**
+ * Opens or closes a gate, both halves of a tall one (closing is refused while a player stands in
+ * it).
+ */
 function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const registry = sim.registry;
-  const open = registry.prop(hit.state, 'open') === '1';
-  const next = registry.withState(hit.state, 'open', open ? '0' : '1');
+  const { x, y, z } = hit;
+  const value = registry.prop(hit.state, 'open') === '1' ? '0' : '1';
+  const next = registry.withState(hit.state, 'open', value);
+  const other = otherHalfY(sim.world, registry, x, y, z);
+  const bottom = Math.min(y, other);
   if (
     (registry.tables.flags[next]! & FLAG_SOLID) !== 0 &&
-    playerInCell(sim.players.values(), hit.x, hit.y, hit.z)
+    playerInCell(sim.players.values(), x, bottom, z, Math.abs(other - y) + 1)
   ) {
     reject(out, player.playerId, 'input', 'occupied');
     return;
   }
-  editBlock(sim.world, registry.tables, hit.x, hit.y, hit.z, next, out);
+  editBlock(sim.world, registry.tables, x, y, z, next, out);
+  if (other !== y) {
+    const partner = registry.withState(sim.world.getBlock(x, other, z), 'open', value);
+    editBlock(sim.world, registry.tables, x, other, z, partner, out);
+  }
   const sfx = registry.blockSfx(next, 'place');
-  if (sfx) out.push({ type: 'sound', sfx, x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
+  if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
 }
 
 /** Places one of the held blocks against the aimed face. */
@@ -208,6 +254,11 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   }
   const { x, y, z } = placement;
   editBlock(sim.world, sim.registry.tables, x, y, z, placement.state, out);
+  // A tall block (door): its upper half goes in the cell above, checked free by planPlacement.
+  if (sim.registry.blockDef(state).placement?.tall === 2) {
+    const upper = sim.registry.withState(placement.state, 'half', 'upper');
+    editBlock(sim.world, sim.registry.tables, x, y + 1, z, upper, out);
+  }
   takeFromSlot(player.inventory, player.input.slot, 1);
   out.push({ type: 'blockPlaced', playerId: player.playerId, x, y, z, state: placement.state });
   const sfx = sim.registry.blockSfx(placement.state, 'place');

@@ -48,6 +48,7 @@ export const en = {
   'play.controls':
     '{forward}{left}{back}{right} move · {jump} jump · {sprint} sprint · {crouch} crouch · {bag} bag · {drop} drop · {camera} camera',
   'hud.hotbar': 'Hotbar',
+  'hint.toolTooWeak': 'Tool too weak: {tier} {tool} required',
   'slot.worn': '{name} · {left}/{max} uses left',
   'bag.title': 'Bag',
   'bag.close': '{key} or Esc to close',

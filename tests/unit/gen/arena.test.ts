@@ -28,7 +28,7 @@ function arenaWorld() {
 const G = FLAT_SURFACE;
 
 describe('arena world', () => {
-  it('builds a closed cabin with a 2-block gate and a glass window', () => {
+  it('builds a closed cabin with a 2-block gate (both halves) and a glass window', () => {
     const { block } = arenaWorld();
     for (let x = 3; x <= 7; x++) {
       for (let z = -9; z <= -5; z++) {
@@ -37,7 +37,7 @@ describe('arena world', () => {
         for (let y = G + 1; y <= G + 3; y++) {
           const expected =
             x === 5 && z === -5 && y <= G + 2
-              ? 'block:gate[facing4=s,open=0]'
+              ? `block:gate[facing4=s,open=0,half=${y === G + 1 ? 'lower' : 'upper'}]`
               : x === 7 && z === -7 && y === G + 2
                 ? 'block:glass'
                 : inside

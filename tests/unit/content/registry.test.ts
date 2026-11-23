@@ -23,18 +23,18 @@ describe('registry', () => {
     expect(registry.states[0]!.key).toBe('block:air');
     expect(registry.defaultState('block:stone')).toBeGreaterThan(0);
     const gates = registry.states.filter((s) => s.key.startsWith('block:gate['));
-    expect(gates).toHaveLength(8);
+    expect(gates).toHaveLength(16);
     expect(registry.states.filter((s) => s.key.startsWith('block:broadleaf_log['))).toHaveLength(3);
     expect(t.stateCount).toBe(registry.states.length);
   });
 
   it('builds readable state keys and changes one property at a time', () => {
     const gate = registry.defaultState('block:gate');
-    expect(registry.states[gate]!.key).toBe('block:gate[facing4=n,open=0]');
+    expect(registry.states[gate]!.key).toBe('block:gate[facing4=n,open=0,half=lower]');
     const open = registry.withState(gate, 'open', '1');
-    expect(registry.states[open]!.key).toBe('block:gate[facing4=n,open=1]');
+    expect(registry.states[open]!.key).toBe('block:gate[facing4=n,open=1,half=lower]');
     expect(registry.withState(open, 'facing4', 'e')).toBe(
-      registry.stateId('block:gate[facing4=e,open=1]'),
+      registry.stateId('block:gate[facing4=e,open=1,half=lower]'),
     );
     expect(registry.stateIdOrUnknown('block:nope')).toBe(registry.unknownBlock);
   });

@@ -1,4 +1,4 @@
-import { packItems } from './items.ts';
+import { blockItemKey, packItems } from './items.ts';
 import type { ContentPack } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
@@ -8,7 +8,7 @@ const MAX_DURABILITY = 65_535;
 
 const isCount = (v: number, min: number) => Number.isInteger(v) && v >= min;
 
-/** Items, tool tiers and loot tables (and the block drops naming them). */
+/** Items, tool tiers and names, and loot tables (and the block drops naming them). */
 export function validateItems(
   pack: ContentPack,
   blockKeys: ReadonlySet<string>,
@@ -21,6 +21,9 @@ export function validateItems(
   pack.blocks.forEach((block, i) => {
     if (block.drops.startsWith('loot:') && !lootKeys.has(block.drops))
       add(`blocks[${i}].drops`, `unknown loot table "${block.drops}"`);
+    // Liquids, unbreakable blocks and the bindings have no item to drop.
+    if (block.drops === 'self' && !itemKeys.has(blockItemKey(block.key)))
+      add(`blocks[${i}].drops`, 'only a placeable block can drop itself');
   });
 }
 
@@ -74,6 +77,9 @@ function checkTiers(pack: ContentPack, add: AddIssue): void {
     if (pack.strings[tier.nameKey] === undefined)
       add(`tiers[${i}].nameKey`, `no string for "${tier.nameKey}"`);
   });
+  for (const [kind, nameKey] of Object.entries(pack.toolNames ?? {})) {
+    if (pack.strings[nameKey] === undefined) add(`toolNames.${kind}`, `no string for "${nameKey}"`);
+  }
 }
 
 /** Loot tables: ranges, weights and item references. Returns the table keys. */

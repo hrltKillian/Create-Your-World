@@ -1,4 +1,4 @@
-import type { TierDef } from '../../schema.ts';
+import type { TierDef, ToolKind } from '../../schema.ts';
 import type { PackI18nKey } from './i18n.en.ts';
 
 type PackTier = TierDef & { readonly nameKey: PackI18nKey };
@@ -11,3 +11,9 @@ export const tiers = [
   { tier: 3, nameKey: 'tier.bronze' },
   { tier: 4, nameKey: 'tier.iron' },
 ] as const satisfies readonly PackTier[];
+
+/** Tool kind names, after the tier name in the "tool too weak" hint (« copper pickaxe »). */
+export const toolNames = {
+  pick: 'tool.pick',
+  axe: 'tool.axe',
+} as const satisfies Readonly<Record<ToolKind, PackI18nKey>>;

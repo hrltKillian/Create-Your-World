@@ -51,6 +51,19 @@ export type SimEvent =
       readonly count: number;
     }
   | { readonly type: 'inventoryChanged'; readonly playerId: number }
+  /**
+   * A HUD hint for one player, e.g. « Tool too weak: copper pickaxe required », sent once when the
+   * player starts mining a block (a new target, or again after releasing) that the held tool
+   * cannot harvest. `key` is an engine i18n key (`TOOL_TOO_WEAK_HINT`); every value of `params` is
+   * itself an i18n key (pack names: `tier`, `tool`). To show it: translate each value, then
+   * `t(key, translatedParams)`.
+   */
+  | {
+      readonly type: 'hint';
+      readonly playerId: number;
+      readonly key: string;
+      readonly params: Readonly<Record<string, string>>;
+    }
   /** A sound effect played at a world position. */
   | {
       readonly type: 'sound';

@@ -15,10 +15,16 @@ function broken(mutate: (pack: Record<string, Record<string, unknown>[]>) => voi
 }
 
 describe('items', () => {
-  it('gives every block that drops itself an implicit item that places it', () => {
+  it('gives every placeable block an implicit item that places it, whatever it drops', () => {
+    const { air, unknownBlock } = basePack.manifest.bindings;
     for (const block of basePack.blocks) {
       const item = id(`item:${block.key.slice('block:'.length)}`);
-      if (block.drops !== 'self') {
+      const unplaceable =
+        block.key === air ||
+        block.key === unknownBlock ||
+        block.shape === 'liquid' ||
+        block.hardness < 0;
+      if (unplaceable) {
         expect(item, block.key).toBe(-1);
         continue;
       }
@@ -28,8 +34,14 @@ describe('items', () => {
       expect(items.places[item]).toBe(registry.defaultState(block.key));
       expect(items.toolKind[item]).toBe(TOOL_NONE);
     }
-    expect(id('item:dirt')).toBeGreaterThanOrEqual(0);
-    expect(id('item:grass')).toBe(-1); // grass drops its loot table (dirt)
+    // Glass drops nothing and grass drops dirt (loot), yet both can be placed from their item.
+    expect(items.places[id('item:glass')]).toBe(registry.defaultState('block:glass'));
+    expect(items.places[id('item:grass')]).toBe(registry.defaultState('block:grass'));
+    for (const key of ['item:air', 'item:unknown', 'item:worldrock', 'item:fresh_water'])
+      expect(id(key), key).toBe(-1);
+    // Self-dropping blocks keep their item.
+    for (const key of ['item:dirt', 'item:stone', 'item:torch', 'item:gate'])
+      expect(id(key), key).toBeGreaterThanOrEqual(0);
   });
 
   it('defines the flint tools, which place nothing and never stack', () => {
@@ -67,6 +79,8 @@ describe('item validation', () => {
       p.items!.push({ key: 'item:dirt', nameKey: 'block.dirt', icon: 'tex:dirt', maxStack: 9 });
       p.loot![0]!.entries = [{ item: 'item:nope', count: [2, 1], weight: 0 }];
       p.blocks!.find((b) => b.key === 'block:sand')!.drops = 'loot:missing';
+      p.blocks!.find((b) => b.key === 'block:fresh_water')!.drops = 'self';
+      (p as unknown as { toolNames: Record<string, string> }).toolNames.pick = 'tool.nope';
       const icon = p.textures!.find((t) => t.key === 'tex:icon_flint_spear')!;
       icon.mask = ['..x.', '...'];
     });
@@ -74,6 +88,7 @@ describe('item validation', () => {
     const knife = basePack.items!.findIndex((i) => i.key === 'item:flint_knife');
     const hatchet = basePack.items!.findIndex((i) => i.key === 'item:flint_hatchet');
     const sand = basePack.blocks.findIndex((b) => b.key === 'block:sand');
+    const water = basePack.blocks.findIndex((b) => b.key === 'block:fresh_water');
     const spear = basePack.textures.findIndex((t) => t.key === 'tex:icon_flint_spear');
     expect(paths).toContain(`items[${knife}].icon`);
     expect(paths).toContain(`items[${hatchet}].maxStack`);
@@ -82,6 +97,8 @@ describe('item validation', () => {
     expect(paths).toContain('loot[0].entries[0].count');
     expect(paths).toContain('loot[0].entries[0].weight');
     expect(paths).toContain(`blocks[${sand}].drops`);
+    expect(paths).toContain(`blocks[${water}].drops`); // a liquid has no item to drop
+    expect(paths).toContain('toolNames.pick');
     expect(paths).toContain(`textures[${spear}].mask[0]`);
     expect(paths).toContain(`textures[${spear}].mask[1]`);
   });

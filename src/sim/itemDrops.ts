@@ -60,6 +60,11 @@ export interface ItemDropState {
   age: number;
   /** Ticks before anyone may pick it up. */
   pickupDelay: number;
+  /**
+   * Entity id of the player who threw it (−1: none). That player cannot pick it up until it has
+   * once been farther than the magnet radius from them, so a throw never comes straight back.
+   */
+  thrower: number;
 }
 
 /** Scratch list of nearby entity ids (no allocation once warmed up). */
@@ -96,6 +101,7 @@ export function spawnDrop(
     prevZ: z,
     age: 0,
     pickupDelay,
+    thrower: -1,
   };
   if (stack.durability !== undefined) drop.durability = stack.durability;
   sim.entities.set(drop.id, drop);
@@ -132,6 +138,7 @@ export function stepItemDrops(sim: Simulation, out: SimEvent[]): void {
     entity.prevZ = b.z;
     stepDropBody(sim.world, tables, b);
     sim.spatial.update(entity.id, b.x, b.z);
+    if (entity.thrower >= 0) releaseFromThrower(sim, entity);
   }
   for (const player of sim.players.values()) pickUp(sim, player, out);
   if (sim.tick % DROPS.mergeEveryTicks === 0) mergeDrops(sim);
@@ -193,13 +200,23 @@ function distanceToPlayer(drop: DropBody, player: PlayerState): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-/** Moves every drop within the magnet radius into the player's inventory, as far as it fits. */
+/** Forgets the thrower once the drop is beyond their magnet radius (or they are gone). */
+function releaseFromThrower(sim: Simulation, drop: ItemDropState): void {
+  const thrower = sim.entities.get(drop.thrower);
+  if (thrower?.kind !== 'player' || distanceToPlayer(drop.body, thrower) > DROPS.magnet)
+    drop.thrower = -1;
+}
+
+/**
+ * Moves every drop within the magnet radius into the player's inventory, as far as it fits:
+ * not while its pickup delay runs, nor the drops this player threw and has not yet left.
+ */
 function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   sim.spatial.query(player.body.x, player.body.z, DROPS.magnet, near);
   let changed = false;
   for (let i = 0; i < near.length; i++) {
     const drop = sim.entities.get(near[i]!);
-    if (drop?.kind !== 'itemDrop' || drop.pickupDelay > 0) continue;
+    if (drop?.kind !== 'itemDrop' || drop.pickupDelay > 0 || drop.thrower === player.id) continue;
     if (distanceToPlayer(drop.body, player) > DROPS.magnet) continue;
     const left = addItem(player.inventory, sim.registry, drop.item, drop.count, drop.durability);
     const taken = drop.count - left;
@@ -220,7 +237,10 @@ function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   if (changed) out.push({ type: 'inventoryChanged', playerId: player.playerId });
 }
 
-/** Older drops absorb newer ones of the same item close by (never tools, which carry wear). */
+/**
+ * Older drops absorb newer ones of the same item close by (never tools, which carry wear, nor
+ * drops held back for different throwers, so a throw cannot merge into what its thrower may take).
+ */
 function mergeDrops(sim: Simulation): void {
   const r2 = DROPS.mergeRadius * DROPS.mergeRadius;
   for (const a of sim.entities.values()) {
@@ -230,7 +250,7 @@ function mergeDrops(sim: Simulation): void {
     for (let i = 0; i < near.length && a.count < max; i++) {
       const b = sim.entities.get(near[i]!);
       if (b?.kind !== 'itemDrop' || b.id <= a.id || b.item !== a.item) continue;
-      if (b.durability !== undefined) continue;
+      if (b.durability !== undefined || b.thrower !== a.thrower) continue;
       const dx = b.body.x - a.body.x;
       const dy = b.body.y - a.body.y;
       const dz = b.body.z - a.body.z;

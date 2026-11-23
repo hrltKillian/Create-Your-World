@@ -143,6 +143,8 @@ function checkStates(
     seen.add(prop);
     combos *= STATE_VALUES[prop]?.length ?? 1;
   });
+  if (block.placement?.tall === 2 && !seen.has('half'))
+    add(`${path}.placement.tall`, 'a tall block needs the "half" state');
   for (const [prop, override] of Object.entries(block.whenState ?? {})) {
     if (!seen.has(prop)) add(`${path}.whenState.${prop}`, `block has no "${prop}" state`);
     for (const [slot, key] of Object.entries(override?.textures ?? {})) {

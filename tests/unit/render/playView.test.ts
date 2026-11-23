@@ -38,6 +38,7 @@ function drop(id: number, item: string, x: number, z: number): ItemDropState {
     prevZ: z,
     age: 0,
     pickupDelay: 0,
+    thrower: -1,
   };
 }
 

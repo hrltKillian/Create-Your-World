@@ -16,14 +16,25 @@ export function blockItemKey(block: BlockKey): ItemKey {
   return `item:${block.slice(block.indexOf(':') + 1)}`;
 }
 
-/** Blocks that drop themselves: each has an implicit item that places it. */
-function selfDropping(pack: ContentPack) {
-  return pack.blocks.filter((block) => block.drops === 'self');
+/**
+ * Placeable blocks (docs/conception.md « Registres »): each has an implicit item that places it,
+ * whatever breaking it yields (`drops`). All blocks but the air and unknown-block bindings,
+ * liquids and unbreakable blocks.
+ */
+function placeable(pack: ContentPack) {
+  const { air, unknownBlock } = pack.manifest.bindings;
+  return pack.blocks.filter(
+    (block) =>
+      block.key !== air &&
+      block.key !== unknownBlock &&
+      block.shape !== 'liquid' &&
+      block.hardness >= 0,
+  );
 }
 
-/** Every item of a pack: one implicit item per block that drops itself, then the pack's items. */
+/** Every item of a pack: one implicit item per placeable block, then the pack's items. */
 export function packItems(pack: ContentPack): ItemDef[] {
-  const implicit = selfDropping(pack).map(
+  const implicit = placeable(pack).map(
     (block): ItemDef => ({
       key: blockItemKey(block.key),
       nameKey: block.nameKey,
@@ -54,7 +65,7 @@ export function buildItemTables(
   items: readonly ItemDef[],
   blockState: (key: BlockKey) => number,
 ): ItemTables {
-  const placed = new Map(selfDropping(pack).map((b) => [blockItemKey(b.key) as string, b.key]));
+  const placed = new Map(placeable(pack).map((b) => [blockItemKey(b.key) as string, b.key]));
   const n = items.length;
   const tables = {
     count: n,

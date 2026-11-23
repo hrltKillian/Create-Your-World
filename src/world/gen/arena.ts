@@ -7,8 +7,9 @@ import { FLAT_SURFACE } from './flat.ts';
 export interface ResolvedArena {
   readonly wall: number;
   readonly roof: number;
-  /** Closed door facing south (the cabin's door is in its south wall). */
+  /** Closed door facing south (the cabin's door is in its south wall): lower and upper half. */
   readonly door: number;
+  readonly doorTop: number;
   readonly window: number;
   readonly liquid: number;
   readonly shore: number;
@@ -23,10 +24,12 @@ export function resolveArena(registry: Registry): ResolvedArena {
   const arena = registry.pack.arena;
   if (!arena) throw new Error('The content pack has no arena');
   const state = (key: `block:${string}`) => registry.defaultState(key);
+  const door = registry.withState(state(arena.cabin.door), 'facing4', 's');
   return {
     wall: state(arena.cabin.wall),
     roof: state(arena.cabin.roof),
-    door: registry.withState(state(arena.cabin.door), 'facing4', 's'),
+    door,
+    doorTop: registry.withState(door, 'half', 'upper'),
     window: state(arena.cabin.window),
     liquid: state(arena.pond.liquid),
     shore: state(arena.pond.shore),
@@ -74,7 +77,7 @@ export function placeArena(column: Column, arena: ResolvedArena): void {
   }
   const doorX = (CABIN.x0 + CABIN.x1) >> 1;
   put(doorX, G + 1, CABIN.z1, arena.door);
-  put(doorX, G + 2, CABIN.z1, arena.door);
+  put(doorX, G + 2, CABIN.z1, arena.doorTop);
   put(CABIN.x1, G + 2, (CABIN.z0 + CABIN.z1) >> 1, arena.window);
 
   // Pond: deeper in the middle, ringed with shore blocks.

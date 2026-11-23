@@ -41,6 +41,8 @@ export const strings = {
   'tier.copper': 'Copper',
   'tier.bronze': 'Bronze',
   'tier.iron': 'Iron',
+  'tool.pick': 'pickaxe',
+  'tool.axe': 'hatchet',
   'biome.meadow': 'Meadow',
   'biome.forest': 'Forest',
   'biome.highlands': 'Highlands',

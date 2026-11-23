@@ -33,10 +33,11 @@ digging: blocks break, drop as small spinning items that fly to you, and stack i
   right arm strikes in third person and the hand chops in first person. Harder blocks take longer,
   the right tool is faster, and stone mined by hand gives nothing.
 - The right button places the selected block where the ghost shows it (hold to keep placing);
-  it opens and closes gates, and crouch (C) + right button places against them instead.
+  it opens and closes gates (two blocks tall: placed, opened and broken whole), and crouch (C) +
+  right button places against them instead. Every placeable block has an item, even glass.
 - 1–8 or the mouse wheel pick a hotbar slot; E or Tab opens the bag (drag a stack, right-drag
   half of it, Shift+click sends it across, a number key over a slot swaps). G throws one item,
-  Shift+G the whole stack.
+  Shift+G the whole stack; a thrown item comes back only once you have walked away from it.
 - Sounds are synthesized in the browser at startup and start after the first click; `?mute=1`
   silences them.
 - `?worldType=arena` adds a small test area at the spawn: a closed cabin with a gate and a

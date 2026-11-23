@@ -81,6 +81,15 @@ describe('content validation of shapes and state overrides', () => {
     expect(validatePack(pack).some((i) => /whenState\.open\.collision$/.test(i.path))).toBe(true);
   });
 
+  it('requires the half state on tall blocks (doors)', () => {
+    const pack = broken((p) => {
+      const gate = p.blocks.find((b) => b.key === 'block:gate')!;
+      gate.states = ['facing4', 'open'];
+    });
+    const gate = basePack.blocks.findIndex((b) => b.key === 'block:gate');
+    expect(validatePack(pack).map((i) => i.path)).toEqual([`blocks[${gate}].placement.tall`]);
+  });
+
   it('requires a tint-aware texture on tinted opaque blocks', () => {
     const pack = broken((p) => {
       const grass = p.blocks.find((b) => b.key === 'block:grass')!;

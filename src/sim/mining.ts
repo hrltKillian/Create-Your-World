@@ -19,6 +19,9 @@ export const MINING = {
   hitSoundTicks: 4,
 } as const;
 
+/** Engine i18n key of the hint « Tool too weak: {tier} {tool} required » (SimEvent `hint`). */
+export const TOOL_TOO_WEAK_HINT = 'hint.toolTooWeak';
+
 /** Whether the held item (−1: empty hand) is the kind of tool the block wants. */
 function rightTool(registry: Registry, block: BlockDef, itemId: number): boolean {
   return (
@@ -33,6 +36,23 @@ export function canHarvest(registry: Registry, state: number, itemId: number): b
   const block = registry.blockDef(state);
   const tier = rightTool(registry, block, itemId) ? registry.itemTables.toolTier[itemId]! : 0;
   return tier >= (block.minTier ?? 0);
+}
+
+/**
+ * Parameters of the « Tool too weak » hint when the held item cannot harvest the block: the pack's
+ * i18n keys naming the block's minimum tier and its tool kind. Null when the item is good enough,
+ * or when the pack names neither.
+ */
+export function weakToolParams(
+  registry: Registry,
+  state: number,
+  itemId: number,
+): { readonly tier: string; readonly tool: string } | null {
+  if (canHarvest(registry, state, itemId)) return null;
+  const block = registry.blockDef(state);
+  const tier = registry.pack.tiers?.find((def) => def.tier === block.minTier)?.nameKey;
+  const tool = block.tool === undefined ? undefined : registry.pack.toolNames?.[block.tool];
+  return tier !== undefined && tool !== undefined ? { tier, tool } : null;
 }
 
 /**

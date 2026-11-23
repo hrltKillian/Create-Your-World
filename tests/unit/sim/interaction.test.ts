@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
+import { basePack } from '../../../src/content/packs/base/index.ts';
 import { clampPitch } from '../../../src/core/angles.ts';
+import { en } from '../../../src/i18n/en.ts';
 import type { ClientTarget, InputCommand } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
-import { breakSeconds, canHarvest } from '../../../src/sim/mining.ts';
+import { breakSeconds, canHarvest, TOOL_TOO_WEAK_HINT } from '../../../src/sim/mining.ts';
+import { type Placement, planPlacement } from '../../../src/sim/placement.ts';
+import { WORLD_HEIGHT } from '../../../src/world/coords.ts';
+import type { WorldType } from '../../../src/world/gen/generateColumn.ts';
+import { createRayHit } from '../../../src/world/raycast.ts';
 import { registry } from '../../helpers/registry.ts';
 import { createTestSim } from '../../helpers/simHarness.ts';
 
 /** A flat world (grass at y 64) with the player standing at (0.5, 65, 0.5), looking north. */
-function setup() {
-  const harness = createTestSim({ seed: 'mine', worldType: 'flat', allowDebug: true });
+function setup(worldType: WorldType = 'flat') {
+  const harness = createTestSim({ seed: 'mine', worldType, allowDebug: true });
   const player = harness.sim.addPlayer(1, 2);
   harness.step(60);
   harness.events.length = 0;
@@ -77,6 +83,38 @@ describe('mining', () => {
     s.put(0, 66, -1, 'block:stone');
     expect(ticksToBreak(s)).toBe(Math.ceil(((1.5 * 1.5) / 2) * 30));
     expect(countItem(s.player.inventory, 'item:stone')).toBe(1);
+  });
+
+  it('hints once per target that the tool is too weak, naming the tier and tool kind', () => {
+    const s = setup();
+    s.put(0, 66, -1, 'block:stone');
+    s.put(1, 66, -1, 'block:darkstone');
+    s.tick(Math.ceil(1.5 * 1.5 * 3.3 * 30), { primary: true }); // the stone breaks by hand
+    expect(s.block(0, 66, -1)).toBe('block:air');
+    const hint = { type: 'hint', playerId: 1, key: TOOL_TOO_WEAK_HINT };
+    expect(of(s.events, 'hint')).toEqual([
+      { ...hint, params: { tier: 'tier.flint', tool: 'tool.pick' } },
+    ]);
+    expect(en[TOOL_TOO_WEAK_HINT]).toBe('Tool too weak: {tier} {tool} required');
+    expect([basePack.strings['tier.flint'], basePack.strings['tool.pick']]).toEqual([
+      'Flint',
+      'pickaxe',
+    ]);
+    // Another target, mined with a flint pickaxe: darkstone needs bronze; stone does not hint.
+    s.give('item:flint_pickaxe');
+    s.events.length = 0;
+    s.tick(10, { primary: true, yaw: -1 });
+    s.tick(1, { primary: false });
+    s.put(0, 66, -1, 'block:stone');
+    s.tick(10, { primary: true });
+    expect(of(s.events, 'hint')).toEqual([
+      { ...hint, params: { tier: 'tier.bronze', tool: 'tool.pick' } },
+    ]);
+    s.events.length = 0;
+    s.put(0, 66, -1, 'block:dirt');
+    s.tick(1, { primary: false, slot: 1 });
+    s.tick(10, { primary: true, slot: 1 }); // dirt by hand: no minimum tier
+    expect(of(s.events, 'hint')).toEqual([]);
   });
 
   it('wears a tool twice as fast on the wrong block and slows down when exhausted', () => {
@@ -178,19 +216,20 @@ describe('placement', () => {
     expect(s.block(0, 66, -2)).toBe('block:broadleaf_log[axis=z]');
     s.tick(1, { secondary: false, slot: 1 });
     s.tick(1, { secondary: true, slot: 1, target: { x: 1, y: 64, z: -2, face: 2 } });
-    expect(s.block(1, 65, -2)).toBe('block:gate[facing4=s,open=0]');
+    expect(s.block(1, 65, -2)).toBe('block:gate[facing4=s,open=0,half=lower]');
+    expect(s.block(1, 66, -2)).toBe('block:gate[facing4=s,open=0,half=upper]');
   });
 
   it('toggles a gate on the press only, and places against it when crouching', () => {
     const s = setup();
     s.give('item:dirt', 5);
-    s.put(0, 65, -2, 'block:gate[facing4=s,open=0]');
+    s.put(0, 65, -2, 'block:gate[facing4=s,open=0,half=lower]');
     const gate: ClientTarget = { x: 0, y: 65, z: -2, face: 4 };
     s.tick(13, { secondary: true, target: gate });
-    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=1]');
+    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=1,half=lower]');
     s.tick(1, { secondary: false, target: gate });
     s.tick(1, { secondary: true, target: gate });
-    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=0]');
+    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=0,half=lower]');
     expect(countItem(s.player.inventory, 'item:dirt')).toBe(5);
     s.tick(1, { secondary: false, target: gate });
     s.tick(1, { secondary: true, crouch: true, target: gate });
@@ -205,5 +244,86 @@ describe('placement', () => {
     s.tick(1, { secondary: true, target: { x: 0, y: 66, z: -3, face: 4 } });
     expect(s.block(0, 66, 0)).toBe('block:air'); // would be inside the player: refused
     expect(reasons(s.events)).toEqual(['occupied']);
+  });
+});
+
+describe('doors (two-block gates)', () => {
+  const door = (open: 0 | 1, half: 'lower' | 'upper') =>
+    `block:gate[facing4=s,open=${open},half=${half}]`;
+  const lower: ClientTarget = { x: 0, y: 65, z: -2, face: 4 };
+  const upper: ClientTarget = { x: 0, y: 66, z: -2, face: 4 };
+  /** Items lying on the ground (the door is 2 m away: out of the pickup magnet). */
+  const lying = (s: ReturnType<typeof setup>) =>
+    [...s.sim.entities.values()].flatMap((e) => (e.kind === 'itemDrop' ? [[e.item, e.count]] : []));
+  /** One press of secondary on a target. */
+  const use = (s: ReturnType<typeof setup>, target: ClientTarget) => {
+    s.tick(1, { secondary: false, target });
+    s.tick(1, { secondary: true, target });
+  };
+
+  it('places both halves, toggles both from either one and breaks whole for one item', () => {
+    const s = setup();
+    s.give('item:gate', 2);
+    s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -2, face: 2 } });
+    expect([s.block(0, 65, -2), s.block(0, 66, -2)]).toEqual([door(0, 'lower'), door(0, 'upper')]);
+    expect(countItem(s.player.inventory, 'item:gate')).toBe(1);
+    use(s, upper);
+    expect([s.block(0, 65, -2), s.block(0, 66, -2)]).toEqual([door(1, 'lower'), door(1, 'upper')]);
+    use(s, lower);
+    expect([s.block(0, 65, -2), s.block(0, 66, -2)]).toEqual([door(0, 'lower'), door(0, 'upper')]);
+    ticksToBreak(s, { target: lower, slot: 1 });
+    expect([s.block(0, 65, -2), s.block(0, 66, -2)]).toEqual(['block:air', 'block:air']);
+    expect(of(s.events, 'blockBroken')).toHaveLength(2);
+    expect(lying(s)).toEqual([['item:gate', 1]]);
+  });
+
+  it('refuses a door whose upper cell is taken or above the world', () => {
+    const s = setup();
+    s.give('item:gate');
+    s.put(0, 66, -2, 'block:stone');
+    s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -2, face: 2 } });
+    expect(reasons(s.events)).toEqual(['occupied']);
+    expect(s.block(0, 65, -2)).toBe('block:air');
+    const top = WORLD_HEIGHT - 2;
+    s.put(0, top, -2, 'block:stone');
+    s.step(1);
+    const hit = { ...createRayHit(), hit: true, x: 0, y: top, z: -2, ny: 1 };
+    hit.state = s.sim.world.getBlock(0, top, -2);
+    const out: Placement = { x: 0, y: 0, z: 0, state: 0 };
+    const gate = registry.defaultState('block:gate');
+    const plan = (state: number) =>
+      planPlacement(s.sim.world, registry, [], s.player, hit, state, out);
+    expect(plan(gate)).toBe('occupied');
+    expect(plan(registry.defaultState('block:planks'))).toBeNull(); // a one-cell block fits
+  });
+
+  it('pops whole, for one item, when the block under it breaks', () => {
+    const s = setup();
+    s.put(0, 65, -2, 'block:dirt');
+    s.give('item:gate');
+    s.tick(1, { secondary: true, target: { x: 0, y: 65, z: -2, face: 2 } });
+    expect(s.block(0, 67, -2)).toBe('block:gate[facing4=s,open=0,half=upper]');
+    ticksToBreak(s, { target: { x: 0, y: 65, z: -2, face: 4 } });
+    expect([65, 66, 67].map((y) => s.block(0, y, -2))).toEqual([
+      'block:air',
+      'block:air',
+      'block:air',
+    ]);
+    expect(lying(s)).toEqual([
+      ['item:dirt', 1],
+      ['item:gate', 1],
+    ]);
+  });
+
+  it('lets the player walk into the arena cabin once its door is open', () => {
+    const s = setup('arena');
+    s.host.send({ type: 'debug.teleport', x: 5.5, y: 65, z: -3.5 });
+    s.step(5);
+    s.tick(20, { forward: 1 });
+    expect(s.player.body.z).toBeGreaterThan(-4); // the closed door stops it
+    use(s, { x: 5, y: 65, z: -5, face: 4 });
+    expect([s.block(5, 65, -5), s.block(5, 66, -5)]).toEqual([door(1, 'lower'), door(1, 'upper')]);
+    s.tick(30, { forward: 1 });
+    expect(s.player.body.z).toBeLessThan(-6); // inside the cabin (its south wall is at z −5)
   });
 });

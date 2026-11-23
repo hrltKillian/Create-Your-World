@@ -8,7 +8,7 @@ import { models } from './models.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
 import { crackTextures, textures } from './textures.ts';
-import { tiers } from './tiers.ts';
+import { tiers, toolNames } from './tiers.ts';
 import { biomes, features, worldgen } from './worldgen.ts';
 
 /** The neutral placeholder content pack shipped with the game. */
@@ -51,6 +51,7 @@ export const basePack: ContentPack = {
   },
   items,
   tiers,
+  toolNames,
   loot,
   sounds,
   sfx,

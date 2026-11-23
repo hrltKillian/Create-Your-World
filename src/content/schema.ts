@@ -111,6 +111,7 @@ export interface BlockDef {
   readonly placement?: {
     readonly support?: 'below' | 'face';
     readonly orient?: 'axis' | 'facing';
+    /** Two cells high (doors): needs the `half` state; placed, toggled and broken whole. */
     readonly tall?: 2;
   };
   readonly sound: SoundMaterial;
@@ -249,7 +250,7 @@ export interface SfxDef {
 
 /** Layout of the `arena` test world around its spawn, described with the pack's own blocks. */
 export interface ArenaDef {
-  /** Closed 5×4×5 cabin: walls, roof, a door (2 stacked blocks) and a window. */
+  /** Closed 5×4×5 cabin: walls, roof, a door (a tall block, both halves) and a window. */
   readonly cabin: {
     readonly wall: BlockKey;
     readonly roof: BlockKey;
@@ -394,9 +395,11 @@ export interface ContentPack {
   readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
   readonly devScene?: DevSceneDef;
   readonly arena?: ArenaDef;
-  /** Items besides the implicit ones (every block that drops itself has an item of the same name). */
+  /** Items besides the implicit ones (every placeable block has an item of the same name). */
   readonly items?: readonly ItemDef[];
   readonly tiers?: readonly TierDef[];
+  /** Name (i18n key) of each tool kind, for the same hint. */
+  readonly toolNames?: Readonly<Partial<Record<ToolKind, string>>>;
   readonly loot?: readonly LootTableDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
