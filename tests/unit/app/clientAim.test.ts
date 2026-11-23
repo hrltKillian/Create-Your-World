@@ -8,7 +8,7 @@ const DOWN = -Math.PI / 2 + 0.01;
 
 function aimer() {
   const world = flatWorld();
-  const player = createPlayer(1, 0.5, 64, 0.5, 2);
+  const player = createPlayer(1, 0.5, 64, 0.5, 2, registry.pack.balance);
   return { world, player, aim: new ClientAim(world, registry, player) };
 }
 

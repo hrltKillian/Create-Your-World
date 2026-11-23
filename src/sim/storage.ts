@@ -6,7 +6,8 @@ import type { CraftEntry } from './craftQueue.ts';
 import type { Inventory } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
-import type { InteractionState } from './player.ts';
+import type { BlockCell, InteractionState } from './player.ts';
+import type { SurvivalState } from './survival.ts';
 import type { TimeState } from './time.ts';
 
 /**
@@ -67,6 +68,16 @@ export interface PlayerRecord {
   readonly craft: readonly CraftEntry[];
   /** Item keys and tags seen (recipe reveal), sorted (from save version 2). */
   readonly seen: readonly string[];
+  /** Gauges, timed effects and the last environment sample (from save version 3). */
+  readonly survival: SurvivalState;
+  /** Worn items, one slot per wear slot, text keys (from save version 3). */
+  readonly equipment: Inventory;
+  /** The bedroll to come back to (from save version 3). */
+  readonly respawn: BlockCell | null;
+  /** Abandoned Packs left by deaths (from save version 3). */
+  readonly graves: readonly BlockCell[];
+  /** Keys of the objectives done, in order (from save version 3). */
+  readonly objectives: readonly string[];
 }
 
 /** An item drop as saved with its column (its render interpolation is not kept). */

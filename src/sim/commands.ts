@@ -101,7 +101,8 @@ export type DebugCommand =
       readonly y: number | 'surface';
       readonly z: number;
     }
-  | { readonly type: 'debug.setStat'; readonly stat: 'stamina'; readonly value: number }
+  /** Sets a gauge, clamped to its range (stamina, or one of the survival gauges). */
+  | { readonly type: 'debug.setStat'; readonly stat: DebugStat; readonly value: number }
   /** Adds items to the player's inventory (what does not fit drops at the player's feet). */
   | { readonly type: 'debug.give'; readonly item: string; readonly count: number }
   /** Moves the clock to an hour (0 ≤ hours < 24) of the current day. */
@@ -124,6 +125,16 @@ export type DebugCommand =
       readonly z1: number;
       readonly state: string;
     };
+
+/** Gauges a debug.setStat may set. */
+export type DebugStat =
+  | 'stamina'
+  | 'health'
+  | 'hunger'
+  | 'thirst'
+  | 'temperature'
+  | 'toxicity'
+  | 'breath';
 
 export interface StampedCommand {
   readonly playerId: number;

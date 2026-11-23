@@ -106,6 +106,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
     `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
     (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
+  - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
+    typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
+    heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
+    stamina limits, timed effects (`addEffect`) and tick step 11 `stepSurvival` in
+    `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
+    the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
+    `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
+    any gauge; balance tests compute their expectations from the balance (`tests/unit/sim/
+    survival.test.ts`);
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),

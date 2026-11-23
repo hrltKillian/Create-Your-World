@@ -3,6 +3,7 @@
  * described by these types, so the game can be re-themed without touching engine code.
  */
 
+import type { BalanceDef } from './balanceSchema.ts';
 import type {
   CreatureDef,
   ImplicitItemTraits,
@@ -14,6 +15,7 @@ import type {
   TierDef,
 } from './itemSchema.ts';
 
+export * from './balanceSchema.ts';
 export * from './itemSchema.ts';
 
 export type BlockKey = `block:${string}`;
@@ -508,6 +510,8 @@ export interface ContentPack {
   readonly processes?: readonly ProcessDef[];
   readonly stations?: readonly StationDef[];
   readonly creatures?: readonly CreatureDef[];
+  /** Survival rules (balance.ts). */
+  readonly balance: BalanceDef;
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

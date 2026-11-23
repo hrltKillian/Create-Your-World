@@ -14,7 +14,7 @@ import type { SavedSection } from '../world/protocol.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
 import { finite, reject, validCell } from './commandRules.ts';
-import type { DebugCommand } from './commands.ts';
+import type { DebugCommand, DebugStat } from './commands.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack } from './inventory.ts';
@@ -66,8 +66,40 @@ export function applyDebugCommand(
     }
     const ty = teleportY(sim, command.x, command.y, command.z);
     sim.teleport(player, command.x, ty, command.z);
-  } else if (command.stat === 'stamina' && finite(command.value)) {
-    player.stamina = Math.max(0, Math.min(STAMINA.max, command.value));
+  } else if (!finite(command.value) || !setStat(sim, player, command.stat, command.value)) {
+    reject(out, playerId, command.type, 'invalid');
+  }
+}
+
+/** Sets a gauge, clamped to its range; false for an unknown gauge. */
+function setStat(sim: Simulation, player: PlayerState, stat: DebugStat, value: number): boolean {
+  const b = sim.registry.pack.balance;
+  const s = player.survival;
+  const clamp = (max: number, min = 0) => Math.max(min, Math.min(max, value));
+  switch (stat) {
+    case 'stamina':
+      player.stamina = clamp(STAMINA.max);
+      return true;
+    case 'health':
+      s.health = clamp(b.health.max);
+      return true;
+    case 'hunger':
+      s.hunger = clamp(b.hunger.max);
+      return true;
+    case 'thirst':
+      s.thirst = clamp(b.thirst.max);
+      return true;
+    case 'temperature':
+      s.temperature = clamp(b.temperature.limit, -b.temperature.limit);
+      return true;
+    case 'toxicity':
+      s.toxicity = clamp(b.toxicity.max);
+      return true;
+    case 'breath':
+      s.breath = clamp(b.breath.seconds);
+      return true;
+    default:
+      return false;
   }
 }
 

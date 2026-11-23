@@ -253,6 +253,8 @@ export const blocks = [
     collision: 'none',
     opaque: false,
     light: { emit: 14 },
+    // A little warmth right next to it (« Modèle thermique »: torch +3 °C over 1 block).
+    heat: { celsius: 3, radius: 1 },
     hardness: 0,
     drops: 'self',
     placement: { support: 'below' },

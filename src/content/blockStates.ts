@@ -31,6 +31,7 @@ export interface Effective {
   readonly collision: BlockDef['collision'];
   readonly textures: BlockDef['textures'];
   readonly shape: BlockShape;
+  readonly heat: BlockDef['heat'];
 }
 
 /** Block properties after applying `whenState` overrides for the active state values. */
@@ -45,6 +46,7 @@ export function effective(
     collision: block.collision,
     textures: block.textures,
     shape: block.shape,
+    heat: block.heat,
   };
   for (const [prop, override] of Object.entries(block.whenState ?? {}) as [
     StateProp,
@@ -58,6 +60,7 @@ export function effective(
       collision: override.collision ?? result.collision,
       textures: { ...result.textures, ...override.textures },
       shape: override.shape ?? result.shape,
+      heat: override.heat ?? result.heat,
     };
   }
   return result;

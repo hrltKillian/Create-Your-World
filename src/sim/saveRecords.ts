@@ -1,5 +1,6 @@
 import { stationSlotCount } from '../content/crafting.ts';
 import type { Registry } from '../content/registry.ts';
+import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { SAVE_VERSION } from '../world/codec/migrations.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
@@ -17,8 +18,18 @@ import {
   serializeInventory,
 } from './inventory.ts';
 import type { DropBody, ItemDropState } from './itemDrops.ts';
-import { createPlayer, type PlayerState } from './player.ts';
+import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
+import { SHELTERS, type Shelter } from './shelter.ts';
 import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
+import {
+  createSurvival,
+  DEATH_CAUSES,
+  type DeathCause,
+  EFFECT_KEYS,
+  type EffectKey,
+  type SurvivalState,
+  type TimedEffect,
+} from './survival.ts';
 
 /**
  * Save records of entities (docs « Sauvegarde »): players, item drops and block entities, with text
@@ -56,6 +67,11 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     interaction: { ...player.interaction },
     craft: player.craft.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) })),
     seen: Object.keys(player.seen).sort(),
+    survival: { ...player.survival, effects: player.survival.effects.map((e) => ({ ...e })) },
+    equipment: serializeInventory(player.equipment),
+    respawn: player.respawn ? { ...player.respawn } : null,
+    graves: player.graves.map((cell) => ({ ...cell })),
+    objectives: [...player.objectives],
   };
 }
 
@@ -90,11 +106,38 @@ function readCraft(data: unknown, registry: Registry): CraftEntry[] {
   return queue;
 }
 
-/** A saved seen set (keys of other packs are kept: they cost nothing). */
+/** The strings of a saved list (keys of other packs are kept: they cost nothing). */
+function readKeys(data: unknown): string[] {
+  return Array.isArray(data) ? data.filter((key): key is string => typeof key === 'string') : [];
+}
+
+/** A saved seen set. */
 function readSeen(data: unknown): Record<string, true> {
   const seen: Record<string, true> = {};
-  if (Array.isArray(data)) for (const key of data) if (typeof key === 'string') seen[key] = true;
+  for (const key of readKeys(data)) seen[key] = true;
   return seen;
+}
+
+/** A saved block cell, or null unless its coordinates are whole and inside the world's height. */
+function readCell(data: unknown): BlockCell | null {
+  const { x, y, z } = (data ?? {}) as Partial<Record<keyof BlockCell, unknown>>;
+  if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
+    return null;
+  return { x, y, z };
+}
+
+/** A saved survival state: full gauges for what is missing or malformed. */
+function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
+  const survival = assignFields(createSurvival(balance), data);
+  const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
+  if (SHELTERS.includes(saved.shelter as Shelter)) survival.shelter = saved.shelter as Shelter;
+  if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
+  for (const effect of Array.isArray(saved.effects) ? saved.effects : []) {
+    const { key, ticks } = (effect ?? {}) as Partial<TimedEffect>;
+    if (EFFECT_KEYS.includes(key as EffectKey) && isWhole(ticks, 1))
+      survival.effects.push({ key: key as EffectKey, ticks });
+  }
+  return survival;
 }
 
 /**
@@ -108,7 +151,8 @@ export function readPlayer(
 ): PlayerState | null {
   const saved = (data ?? {}) as Partial<PlayerRecord>;
   if (!isWhole(saved.playerId, 0) || !isWhole(saved.id, 1)) return null;
-  const player = createPlayer(saved.playerId, spawn.x, spawn.y, spawn.z, 6, saved.id);
+  const { x, y, z } = spawn;
+  const player = createPlayer(saved.playerId, x, y, z, 6, registry.pack.balance, saved.id);
   assignFields(player.body, saved.body);
   const { yaw, pitch, stamina, exhausted, restTicks, viewRadius } = saved;
   assignFields(player, { yaw, pitch, stamina, exhausted, restTicks, viewRadius });
@@ -120,6 +164,12 @@ export function readPlayer(
   assignFields(player.interaction, saved.interaction);
   player.craft = readCraft(saved.craft, registry);
   player.seen = readSeen(saved.seen);
+  player.survival = readSurvival(saved.survival, registry.pack.balance);
+  player.equipment = deserializeSlots(saved.equipment, WEAR_SLOTS.length, registry);
+  player.respawn = readCell(saved.respawn);
+  const graves = Array.isArray(saved.graves) ? saved.graves.map(readCell) : [];
+  player.graves = graves.filter((cell) => cell !== null);
+  player.objectives = readKeys(saved.objectives);
   return player;
 }
 
@@ -182,9 +232,9 @@ export function readBlockEntity(
   lastTick: number,
 ): BlockEntity | null {
   const saved = (data ?? {}) as Partial<Record<keyof StationEntity, unknown>>;
-  const { x, y, z } = saved;
-  if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
-    return null;
+  const cell = readCell(saved);
+  if (!cell) return null;
+  const { x, y, z } = cell;
   const slots = Array.isArray(saved.slots) ? saved.slots : [];
   if (saved.kind === 'container')
     return {

@@ -178,7 +178,7 @@ describe('block overlays', () => {
 describe('hand view', () => {
   it('draws the arm and the held item, and strokes while primary is held', () => {
     const hand = new HandView(shared, registry, items);
-    const player = createPlayer(1, 0, 64, 0, 2);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
     hand.draw(player, 1 / 60, true, 1, 0);
     expect(hand.batch.size).toBe(1);
     expect(hand.swing).toBe(0);
@@ -197,7 +197,7 @@ describe('hand view', () => {
 
   it('plays one stroke for a placement', () => {
     const hand = new HandView(shared, registry, items);
-    const player = createPlayer(1, 0, 64, 0, 2);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
     hand.strike();
     hand.draw(player, 0.1, true, 1, 0);
     expect(hand.swing).toBeGreaterThan(0);

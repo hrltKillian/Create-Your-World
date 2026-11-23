@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -25,6 +25,13 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     world: (record) => record,
     player: (record) => ({ ...record, craft: [], seen: [] }),
     column: (record) => ({ ...record, blockEntities: [] }),
+  },
+  // 2 → 3 (M9): players wear equipment, may have a bedroll to respawn at, graves and objectives;
+  // their survival state is left out, which reads as full gauges.
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, equipment: [], respawn: null, graves: [], objectives: [] }),
+    column: (record) => record,
   },
 ];
 

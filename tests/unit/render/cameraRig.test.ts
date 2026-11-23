@@ -16,7 +16,7 @@ function solidAt(w: VoxelWorld, x: number, y: number, z: number): boolean {
 
 /** Third-person pose after the camera settles (2 s of 60 fps frames). */
 function settle(w: VoxelWorld, x: number, y: number, z: number, yaw: number, pitch: number) {
-  const player = createPlayer(1, x, y, z, 2);
+  const player = createPlayer(1, x, y, z, 2, registry.pack.balance);
   const rig = new CameraRig();
   rig.mode = 'third';
   rig.yaw = yaw;
@@ -85,7 +85,7 @@ describe('third-person camera', () => {
   it('stays out of a low ceiling while crouching', () => {
     const w = flatWorld();
     for (let x = -4; x <= 4; x++) for (let z = -8; z <= 8; z++) w.setBlock(x, 66, z, STONE);
-    const player = createPlayer(1, 0.5, 64, 0.5, 2);
+    const player = createPlayer(1, 0.5, 64, 0.5, 2, registry.pack.balance);
     player.body.crouching = true;
     for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 6) {
       for (const pitch of [-1.2, -0.4, 0, 0.6, 1.2]) {

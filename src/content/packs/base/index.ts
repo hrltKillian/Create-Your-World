@@ -1,4 +1,5 @@
 import type { ContentPack } from '../../schema.ts';
+import { balance } from './balance.ts';
 import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
 import { stationBlocks } from './blocksStations.ts';
@@ -73,6 +74,7 @@ export const basePack: ContentPack = {
   processes,
   stations,
   creatures,
+  balance,
   sounds,
   sfx,
   worldgen,
