@@ -13,6 +13,13 @@ export interface WorkerPort {
 
 export type JobPriority = 'urgent' | 'normal';
 
+/** Voxels of an edited section, kept while its column is unloaded (light is never saved). */
+export interface SavedSection {
+  readonly sy: number;
+  readonly uniformBlock: number;
+  readonly blocks: Uint16Array | null;
+}
+
 /** Generate one column of terrain. */
 export interface GenJob {
   readonly kind: 'gen';
@@ -20,6 +27,8 @@ export interface GenJob {
   readonly worldType: WorldType;
   readonly cx: number;
   readonly cz: number;
+  /** Edited sections laid over the generated ones before the light (handed over, not copied). */
+  readonly saved?: readonly SavedSection[];
 }
 
 /** Mesh one section from its padded copy (34³ ids and light, 34² biomes). */
@@ -48,6 +57,8 @@ export interface GenResult {
   readonly sections: readonly SectionPayload[];
   readonly heightmap: Int16Array;
   readonly biomes: Uint8Array;
+  /** Sections that came from the job's `saved` ones (bit per section): they stay persisted. */
+  readonly persisted: number;
   /** Generation time inside the worker (ms). */
   readonly ms: number;
 }
@@ -99,9 +110,11 @@ export interface JobRunner {
 
 /** Buffers a job hands over to the worker (transferred, not copied). */
 export function jobTransfers(job: Job): ArrayBuffer[] {
-  return job.kind === 'mesh'
-    ? ([job.ids.buffer, job.light.buffer, job.biomes.buffer] as ArrayBuffer[])
-    : [];
+  if (job.kind === 'mesh')
+    return [job.ids.buffer, job.light.buffer, job.biomes.buffer] as ArrayBuffer[];
+  const out: ArrayBuffer[] = [];
+  for (const s of job.saved ?? []) if (s.blocks) out.push(s.blocks.buffer as ArrayBuffer);
+  return out;
 }
 
 /** Buffers a result hands back to the main thread. */

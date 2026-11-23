@@ -114,6 +114,7 @@ export class BoxBatch {
         uDaylight: shared.uDaylight,
         uSkyTint: shared.uSkyTint,
         uTorchTint: shared.uTorchTint,
+        uFlicker: shared.uFlicker,
         uMinLight: shared.uMinLight,
       },
       fog,

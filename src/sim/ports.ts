@@ -1,5 +1,5 @@
 import type { WorldType } from '../world/gen/generateColumn.ts';
-import type { GenResult } from '../world/protocol.ts';
+import type { GenResult, SavedSection } from '../world/protocol.ts';
 
 /** Which world to generate. */
 export interface WorldSpec {
@@ -19,6 +19,9 @@ export interface ColumnSink {
 export interface ColumnSource {
   /** Called once by the simulation the source feeds. */
   connect(sink: ColumnSink): void;
-  /** Starts generating a column; the result is handed to the sink later. */
-  request(world: WorldSpec, cx: number, cz: number): void;
+  /**
+   * Starts generating a column, over its saved sections if it was edited (the source owns them
+   * from now on); the result is handed to the sink later.
+   */
+  request(world: WorldSpec, cx: number, cz: number, saved?: readonly SavedSection[]): void;
 }

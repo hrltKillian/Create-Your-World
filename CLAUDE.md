@@ -74,14 +74,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - Shared helpers, to import rather than copy:
   - game numbers: `PHYSICS` (`sim/physics.ts`), `STAMINA` (`sim/player.ts`);
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
-    `insideBorder`); packed light: `world/light.ts` (`skyOf`, `blockOf`, `FULL_SKY`);
+    `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
+    `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
+  - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
+  - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
+    sun and moon: `render/Sky.ts`;
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
-  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`);
+  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
+    `litWorld`/`edit` for light);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
 
 ## Automation
@@ -89,19 +94,24 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - `window.__game` exists only when `__DEBUG_HOOK__` is true (dev, bench, tests) and is loaded by a
   dynamic import: it must never appear in `dist/**/*.js` of a production build.
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
-  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute` (sounds are
-  still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`
-  — more arrive with later milestones.
-- Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4`; `__game.input.press(action, ticks)`
+  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `timing=0` (selftests skip wall-clock thresholds; set by e2e on CI), `mute` (sounds are
+  still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`,
+  `time` (hour 0–24 of the world clock), `freezeTime` — more arrive with later milestones.
+- Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4,m5`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 - M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,
   `render.target()`/`crack()`/`hand()`/`sectionVersionLag()`, `perf.editToMeshMs()`, `audio.log()`,
   `ui.screen()`/`bag(open?)`/`hotbar()`.
+- M5 hook entries (version 5): `time.get()` (ticks, hour, day, phase, daylight, frozen),
+  `time.set(hours)` and `time.freeze(frozen?)` (`debug.setTime`/`debug.freezeTime`, applied without
+  a tick; both return the clock), `world.light(x, y, z)` (`{ sky, block }`, 0–15).
+  `render.capture()` gives `avgLuma` and `uniqueColors`.
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
-  `give`) and `press`, `look`, `blockKey`, `hotbarView`, shared by `debugHook.ts` and the
-  selftests; `selftest/support.ts` has the case type and `playerSession`/`needsFlatPlayer`, one
-  file per large suite (`selftest/m4.ts`), and every suite ends with `noErrorsCase()`.
+  `give`, `setTime`, `freezeTime`) and `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
+  shared by `debugHook.ts` and the selftests; `selftest/support.ts` has the case type,
+  `playerSession`/`needsFlatPlayer`, `standAt`, `stateKey` and `PLAY_SCENES`, one file per large
+  suite (`selftest/m4.ts`, `m5.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 

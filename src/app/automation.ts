@@ -1,11 +1,14 @@
 import { clampPitch } from '../core/angles.ts';
 import type { Action } from '../input/bindings.ts';
+import type { Command } from '../sim/commands.ts';
+import { type DayPhase, daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
+import { blockOf, skyOf } from '../world/light.ts';
 import type { App } from './App.ts';
 
 /**
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
- * keys and what the hotbar shows.
+ * keys and light, the world clock and what the hotbar shows.
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -103,9 +106,10 @@ export async function waitForChunks(app: App, radius: number, timeoutMs: number)
 }
 
 /** Renders frames for `ms` of wall time, calling `eachFrame` before each one; fails if frames stop. */
-export async function framesFor(ms: number, eachFrame?: () => void): Promise<void> {
+export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 0): Promise<void> {
   const t0 = performance.now();
-  while (performance.now() - t0 < ms) {
+  // At least `minFrames` frames too: on a slow renderer a few frames may span the whole time.
+  for (let frames = 0; performance.now() - t0 < ms || frames < minFrames; frames++) {
     eachFrame?.();
     await frameOrFail();
   }
@@ -136,6 +140,14 @@ export function fill(
   if (app.params.fixedStep) session.step(1);
 }
 
+/** Sends a command and applies it now, without a tick (the clock commands). */
+function sendNow(app: App, command: Command): void {
+  const session = app.session;
+  if (!session) return;
+  session.host.send(command);
+  session.pumpOnce(false);
+}
+
 /** Sets one block from a state key (a one-block `fill`). */
 export function setBlock(app: App, x: number, y: number, z: number, state: string): void {
   fill(app, x, y, z, x, y, z, state);
@@ -145,6 +157,56 @@ export function setBlock(app: App, x: number, y: number, z: number, state: strin
 export function blockKey(app: App, x: number, y: number, z: number): string | null {
   if (!app.world || !app.registry) return null;
   return app.registry.states[app.world.getBlock(x, y, z)]?.key ?? null;
+}
+
+/** Sky and block light (0–15 each) at a position (null without a world; unloaded cells are dark). */
+export function lightAt(
+  app: App,
+  x: number,
+  y: number,
+  z: number,
+): { sky: number; block: number } | null {
+  if (!app.world) return null;
+  const packed = app.world.getLight(Math.floor(x), Math.floor(y), Math.floor(z));
+  return { sky: skyOf(packed), block: blockOf(packed) };
+}
+
+/** The world clock as automation reads it. */
+export interface ClockView {
+  readonly ticks: number;
+  /** Hour of the day, 0 ≤ hour < 24 (fractional). */
+  readonly hour: number;
+  /** Day number, 1 on the world's first day. */
+  readonly day: number;
+  readonly phase: DayPhase;
+  /** Sky light factor (`uDaylight`). */
+  readonly daylight: number;
+  readonly frozen: boolean;
+}
+
+/** The world clock (null without a world session). */
+export function clock(app: App): ClockView | null {
+  const time = app.session?.host.view.time();
+  if (!time) return null;
+  const hour = hourOf(time.ticks);
+  return {
+    ticks: time.ticks,
+    hour,
+    day: dayOf(time.ticks),
+    phase: phaseOf(hour),
+    daylight: daylightAt(hour),
+    frozen: time.frozen,
+  };
+}
+
+/** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now (`debug.setTime`). */
+export function setTime(app: App, hours: number): void {
+  sendNow(app, { type: 'debug.setTime', hours });
+}
+
+/** Stops or restarts the clock, now (`debug.freezeTime`). */
+export function freezeTime(app: App, frozen: boolean): void {
+  sendNow(app, { type: 'debug.freezeTime', frozen });
 }
 
 /** Holds an action for `ticks` ticks; fixed-step sessions also advance those ticks now. */

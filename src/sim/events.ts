@@ -6,7 +6,10 @@ export type SimEvent =
   | { readonly type: 'columnHidden'; readonly cx: number; readonly cz: number }
   | { readonly type: 'columnUnloaded'; readonly cx: number; readonly cz: number }
   | { readonly type: 'playerLanded'; readonly playerId: number; readonly fall: number }
-  /** Blocks changed inside a box (inclusive corners): the sections around it need remeshing. */
+  /**
+   * Blocks, or the light an edit changed, inside a box (inclusive corners): the sections around it
+   * need remeshing.
+   */
   | {
       readonly type: 'blocksChanged';
       readonly x0: number;

@@ -8,7 +8,8 @@ const CI = Boolean(process.env.CI);
  */
 export default defineConfig({
   testDir: './e2e',
-  timeout: 120_000,
+  // CI renders in software (SwiftShader) and stretches selftest waits ×4 (?timing=0).
+  timeout: process.env.CI ? 400_000 : 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,

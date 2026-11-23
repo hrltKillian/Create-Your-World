@@ -1,13 +1,16 @@
 import { blockToColumn } from '../../world/coords.ts';
 import { blockKey, fill, framesFor, nextFrame, press, teleport, waitUntil } from '../automation.ts';
 import { M4_SUITE } from './m4.ts';
+import { M5_SUITE } from './m5.ts';
 import {
   assert,
+  assertTiming,
   chunksMeshed,
   needsFlatPlayer,
   noErrorsCase,
   playerSession,
   type SelftestCase,
+  slowFactor,
 } from './support.ts';
 
 /** In-browser acceptance checks, one suite per milestone. Earlier suites must stay green. */
@@ -112,7 +115,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const session = app.session;
         assert(session, 'no world session');
         await waitUntil(() => session.chunksReady(session.loadingRadius()), {
-          timeoutMs: 25_000,
+          timeoutMs: 25_000 * slowFactor(app),
           label: 'loading radius not meshed',
         });
         // The loading screen goes away on the next frame.
@@ -149,7 +152,12 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         // Frames do not tick the simulation in fixed-step mode.
         const pump = app.params.fixedStep ? () => session.step(1) : undefined;
         const waitFor = (what: string, done: () => boolean) =>
-          waitUntil(done, { timeoutMs: 30_000, label: `${what} not reached`, pump, pollMs: 50 });
+          waitUntil(done, {
+            timeoutMs: 30_000 * slowFactor(app),
+            label: `${what} not reached`,
+            pump,
+            pollMs: 50,
+          });
         await waitFor(`radius ${rd} meshed`, () => session.chunksReady(rd));
         const before = app.view!.chunks.stats().meshes;
         const smaller = Math.max(1, rd - 4);
@@ -248,7 +256,8 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         try {
           const rig = () => session.entities.rig(session.player.id)!;
           // One tick per rendered frame for a wall-clock time, so the display rate does not matter.
-          const play = (ms: number) => framesFor(ms, () => session.step(1));
+          // At least 20 frames as well: a slow renderer may draw only a few in that time.
+          const play = (ms: number) => framesFor(ms, () => session.step(1), 20);
           app.input!.force('forward', 1e6);
           await play(600);
           app.input!.force('forward', 0);
@@ -317,7 +326,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         await chunksMeshed(app, 3, 10_000);
         const ms = performance.now() - t0;
         assert(session.playerColumnLit(), 'player column not lit');
-        assert(ms < 3000, `radius 3 meshed after ${ms.toFixed(0)} ms`);
+        assertTiming(app, ms < 3000, `radius 3 meshed after ${ms.toFixed(0)} ms`);
         teleport(app, 0.5, 65, 0.5);
         await chunksMeshed(app, 3, 20_000);
       },
@@ -325,4 +334,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
     noErrorsCase('no errors after the m3 checks'),
   ],
   m4: M4_SUITE,
+  m5: M5_SUITE,
 };

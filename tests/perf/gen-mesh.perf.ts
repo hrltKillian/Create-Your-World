@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Column } from '../../src/world/Column.ts';
 import { createGenContext, generateColumn } from '../../src/world/gen/generateColumn.ts';
+import { columnLight } from '../../src/world/light/columnLight.ts';
 import { meshSection } from '../../src/world/mesh/greedyMesher.ts';
 import { createPadded, fillPadded } from '../../src/world/mesh/padded.ts';
 import { VoxelWorld } from '../../src/world/VoxelWorld.ts';
@@ -17,13 +18,14 @@ const median = (values: number[]) =>
   [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
 
 describe('performance', () => {
-  it(`generates a column in ≤ ${GEN_MEDIAN_MS} ms (median)`, () => {
+  it(`generates a column with its local light in ≤ ${GEN_MEDIAN_MS} ms (median)`, () => {
     const ctx = createGenContext('perf', registry);
     const times: number[] = [];
     for (let i = 0; i < 45; i++) {
       const column = new Column(i % 9, Math.floor(i / 9), registry.air);
       const t0 = performance.now();
       generateColumn(ctx, column);
+      columnLight(column, registry.tables);
       if (i >= 5) times.push(performance.now() - t0);
     }
     console.info(`gen median ${median(times).toFixed(2)} ms`);

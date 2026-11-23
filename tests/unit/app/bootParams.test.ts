@@ -18,7 +18,23 @@ describe('boot params', () => {
     expect(parseBootParams('?worldType=moon', true).worldType).toBe('default');
   });
 
+  it('reads the clock hour and freeze flag, ignoring hours out of range', () => {
+    const p = parseBootParams('?time=13.5&freezeTime=1', true);
+    expect(p.time).toBe(13.5);
+    expect(p.freezeTime).toBe(true);
+    expect(parseBootParams('?time=0', true).time).toBe(0);
+    expect(parseBootParams('?time=24', true).time).toBeNull();
+    expect(parseBootParams('?time=noon', true).time).toBeNull();
+    expect(parseBootParams('', true)).toMatchObject({ time: null, freezeTime: false });
+  });
+
   it('ignores every parameter in production', () => {
     expect(parseBootParams('?seed=42&forceNoWebGL=1', false)).toEqual(DEFAULT_BOOT_PARAMS);
+  });
+
+  it('keeps selftest timing thresholds unless ?timing=0', () => {
+    expect(parseBootParams('?seed=1', true).timing).toBe(true);
+    expect(parseBootParams('?timing=0', true).timing).toBe(false);
+    expect(parseBootParams('?timing=0', false).timing).toBe(true);
   });
 });

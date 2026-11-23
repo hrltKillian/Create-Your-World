@@ -1,8 +1,11 @@
 import { fmtBytes, fmtNumber } from '../i18n/fmt.ts';
 import { t } from '../i18n/i18n.ts';
+import { daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
 import type { DebugLine } from '../ui/debug/DebugOverlay.ts';
 import { columnIndex, toColumn, toLocal } from '../world/coords.ts';
 import type { App } from './App.ts';
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 /**
  * Lines of the debug overlay: frame and render statistics and the camera, then (in a generated
@@ -46,8 +49,21 @@ function worldLines(app: App, x: number, z: number): DebugLine[] {
     : undefined;
   const mesh = session.scheduler.stats();
   const pool = app.workers?.stats();
+  const time = session.host.view.time();
+  const hour = hourOf(time.ticks);
+  const clock = `${pad2(Math.floor(hour))}:${pad2(Math.floor((hour % 1) * 60))}`;
+  const phase = t(`time.${phaseOf(hour)}`);
   return [
     { label: 'debug.seed', value: session.seed },
+    {
+      label: 'debug.time',
+      value: t(time.frozen ? 'debug.timeFrozen' : 'debug.timeValue', {
+        day: dayOf(time.ticks),
+        clock,
+        phase,
+      }),
+    },
+    { label: 'debug.daylight', value: fmtNumber(daylightAt(hour), 2) },
     { label: 'debug.biome', value: biome ? t(biome.def.nameKey) : '—' },
     { label: 'debug.columns', value: fmtNumber(world.columns.size) },
     { label: 'debug.meshQueue', value: `${mesh.pending} / ${mesh.inFlight}` },

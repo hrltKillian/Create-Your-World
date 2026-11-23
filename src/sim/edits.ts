@@ -1,28 +1,27 @@
-import type { RawTables } from '../content/registry.ts';
-import { columnIndex, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
-import { blockOf, skyOf } from '../world/light.ts';
-import { FACE_NORMALS } from '../world/raycast.ts';
+import { columnIndex, SECTION_BITS, toColumn, toLocal, WORLD_HEIGHT } from '../world/coords.ts';
+import type { LightEngine } from '../world/light/LightEngine.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { SimEvent } from './events.ts';
 
 /**
- * Writes one voxel changed by gameplay (break, place, toggle) in a loaded column: keeps the
- * heightmap right, gives the cell an approximate light and asks for a remesh. Returns false outside
- * the loaded world.
+ * Writes one voxel in a loaded column: marks its section persisted (kept when the column unloads),
+ * keeps the heightmap right and hands the cell to the light engine, which resolves it at the light
+ * step. Returns false outside the loaded world.
  */
-export function editBlock(
+export function writeBlock(
   world: VoxelWorld,
-  tables: RawTables,
+  light: LightEngine,
   x: number,
   y: number,
   z: number,
   state: number,
-  out: SimEvent[],
 ): boolean {
   if (y < 0 || y >= WORLD_HEIGHT) return false;
   const column = world.getColumn(toColumn(x), toColumn(z));
   if (!column) return false;
+  if (world.getBlock(x, y, z) === state) return true;
   world.setBlock(x, y, z, state);
+  column.persisted |= 1 << (y >> SECTION_BITS);
   const cell = columnIndex(toLocal(x), toLocal(z));
   const top = column.heightmap[cell]!;
   if (state !== world.air) {
@@ -32,43 +31,35 @@ export function editBlock(
     while (h > 0 && world.getBlock(x, h - 1, z) === world.air) h--;
     column.heightmap[cell] = h;
   }
-  approximateLight(world, tables, x, y, z, state);
+  light.edited(x, y, z);
+  return true;
+}
+
+/** A gameplay edit (break, place, toggle): `writeBlock` plus the remesh of the cell. */
+export function editBlock(
+  world: VoxelWorld,
+  light: LightEngine,
+  x: number,
+  y: number,
+  z: number,
+  state: number,
+  out: SimEvent[],
+): boolean {
+  if (!writeBlock(world, light, x, y, z, state)) return false;
   out.push({ type: 'blocksChanged', x0: x, y0: y, z0: z, x1: x, y1: y, z1: z });
   return true;
 }
 
 /**
- * Stand-in for the light engine (M5): the edited cell takes full sky light when nothing above
- * filters it, else its brightest neighbour minus one, and its own emission. Only this cell
- * changes, so a fresh hole is not black; the light engine will propagate edits properly.
+ * Light step of a tick: the edits are resolved to completion and the light they changed is
+ * remeshed (urgent, like the edits), then the seams are stitched for at most `budget` nodes.
+ * Seam light never needs a remesh: it reaches at most 14 blocks from a seam, inside columns that
+ * cannot be MESHABLE before that seam is stitched and its entries are drained.
  */
-function approximateLight(
-  world: VoxelWorld,
-  tables: RawTables,
-  x: number,
-  y: number,
-  z: number,
-  state: number,
-): void {
-  const filter = tables.lightFilter[state]!;
-  let sky = 0;
-  let block = 0;
-  if (filter < 15) {
-    for (let f = 0; f < 18; f += 3) {
-      const light = world.getLight(
-        x + FACE_NORMALS[f]!,
-        y + FACE_NORMALS[f + 1]!,
-        z + FACE_NORMALS[f + 2]!,
-      );
-      sky = Math.max(sky, skyOf(light));
-      block = Math.max(block, blockOf(light));
-    }
-    let open = true;
-    for (let above = y + 1; above < WORLD_HEIGHT && open; above++)
-      open = tables.lightFilter[world.getBlock(x, above, z)] === 0;
-    sky = Math.max(0, (open ? 15 : sky - 1) - filter);
-    block = Math.max(0, block - 1 - filter);
+export function stepLight(light: LightEngine, budget: number, out: SimEvent[]): void {
+  if (light.flush()) {
+    const b = light.changed;
+    out.push({ type: 'blocksChanged', x0: b.x0, y0: b.y0, z0: b.z0, x1: b.x1, y1: b.y1, z1: b.z1 });
   }
-  block = Math.max(block, tables.emit[state]!);
-  world.setLight(x, y, z, (sky << 4) | block);
+  light.stitch(budget);
 }

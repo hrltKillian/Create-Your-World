@@ -1,4 +1,5 @@
 import type { ColumnSink, ColumnSource, WorldSpec } from '../sim/ports.ts';
+import type { SavedSection } from '../world/protocol.ts';
 import type { WorkerPool } from './WorkerPool.ts';
 
 /** Column source backed by the world worker pool. */
@@ -14,9 +15,10 @@ export class WorkerColumnSource implements ColumnSource {
     this.sink = sink;
   }
 
-  request(world: WorldSpec, cx: number, cz: number): void {
+  request(world: WorldSpec, cx: number, cz: number, saved?: readonly SavedSection[]): void {
+    // The saved sections' buffers are transferred to the worker and come back in the result.
     this.pool
-      .run({ kind: 'gen', seed: world.seed, worldType: world.worldType, cx, cz }, 'normal')
+      .run({ kind: 'gen', seed: world.seed, worldType: world.worldType, cx, cz, saved }, 'normal')
       .then(
         (result) => this.sink?.deliver(result),
         () => this.sink?.requestFailed(cx, cz),

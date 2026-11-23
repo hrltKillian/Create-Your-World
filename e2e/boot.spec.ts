@@ -3,9 +3,11 @@ import { expect, type Page, test } from '@playwright/test';
 async function selftest(page: Page, query: string): Promise<string> {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`/?storage=memory&noLock=1&${query}`);
+  // Wall-clock thresholds are checked locally; CI runners render in software (SwiftShader).
+  const timing = process.env.CI ? '&timing=0' : '';
+  await page.goto(`/?storage=memory&noLock=1&${query}${timing}`);
   const banner = page.locator('#selftest-result');
-  await expect(banner).toBeVisible({ timeout: 100_000 });
+  await expect(banner).toBeVisible({ timeout: process.env.CI ? 380_000 : 100_000 });
   const text = (await banner.textContent()) ?? '';
   expect(errors, 'uncaught page errors').toEqual([]);
   return text;
@@ -38,5 +40,13 @@ test('the player digs, builds, strikes and hears it on the flat world', async ({
   const text = await selftest(page, query);
   expect(text).toMatch(/^SELFTEST PASS/);
   // Every m4 case applies to this setup: none may be skipped.
+  expect(text).not.toContain('skipped');
+});
+
+test('day and night, sky light, torches and the light view on the flat world', async ({ page }) => {
+  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&mute=1&selftest=m0,m5';
+  const text = await selftest(page, query);
+  expect(text).toMatch(/^SELFTEST PASS/);
+  // Every m5 case applies to this setup: none may be skipped.
   expect(text).not.toContain('skipped');
 });

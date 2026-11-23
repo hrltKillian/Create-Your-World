@@ -12,16 +12,20 @@ import {
   look,
   press,
   setBlock,
-  teleport,
   waitUntil,
   withinFrames,
 } from '../automation.ts';
 import {
   assert,
+  assertTiming,
   needsFlatPlayer,
   noErrorsCase,
+  PLAY_SCENES,
   playerSession,
   type SelftestCase,
+  slowFactor,
+  standAt,
+  stateKey,
 } from './support.ts';
 
 /**
@@ -51,17 +55,11 @@ const GROUND_AHEAD_PITCH = -1;
 /** Effectively "held until released". */
 const HOLD_TICKS = 1e6;
 
-const PLAY_SCENES: readonly App['state'][] = ['loading', 'world'];
-
 /** Shader programs once loaded, before the cases dig, place, strike and open the bag (−1: unknown). */
 let programsBeforePlay = -1;
 
 function shaderPrograms(app: App): number {
   return app.renderer?.webgl.info.programs?.length ?? 0;
-}
-
-function stateKey(app: App, state: number): string {
-  return app.registry!.states[state]?.key ?? `#${state}`;
 }
 
 /** The flat ground's states, read from the GROUND column. */
@@ -71,13 +69,6 @@ function flatGround(app: App): { surface: number; filler: number } {
     surface: world.getBlock(GROUND.x, FLAT_SURFACE, GROUND.z),
     filler: world.getBlock(GROUND.x, FLAT_SURFACE - 1, GROUND.z),
   };
-}
-
-/** Puts the player on the surface of a column, at rest, and renders a frame (eye, aim, ear). */
-async function standAt(app: App, spot: { x: number; z: number }): Promise<void> {
-  teleport(app, spot.x + 0.5, FLAT_SURFACE + 1, spot.z + 0.5);
-  app.session!.step(5);
-  await frameOrFail();
 }
 
 /** Mean interval (ms) of the next `n` animation frames. */
@@ -193,7 +184,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
       await standAt(app, BUILD);
       // Time the edit alone: the world around finishes streaming and meshing first.
       await waitUntil(() => scheduler.idle(), {
-        timeoutMs: 30_000,
+        timeoutMs: 30_000 * slowFactor(app),
         label: 'meshing still busy',
         pollMs: 50,
       });
@@ -213,7 +204,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
           `sectionVersionLag() is ${lag()} after ${EDIT_FRAMES} frames (${JSON.stringify(scheduler.stats())})`,
         );
         const ms = scheduler.editToMeshMs;
-        assert(ms <= limit, `editToMeshMs ${ms.toFixed(1)} > ${limit.toFixed(1)}`);
+        assertTiming(app, ms <= limit, `editToMeshMs ${ms.toFixed(1)} > ${limit.toFixed(1)}`);
       } finally {
         setBlock(app, x, y, z, air);
       }
@@ -234,7 +225,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
         return state;
       };
       // One tick per rendered frame for a wall-clock time: the pose eases per frame.
-      const play = (ms: number) => framesFor(ms, () => session.step(1));
+      const play = (ms: number) => framesFor(ms, () => session.step(1), 10);
       try {
         app.input!.force('primary', HOLD_TICKS);
         await play(400);

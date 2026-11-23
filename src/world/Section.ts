@@ -43,7 +43,10 @@ export class Section {
       if (value === this.uniformLight) return;
       this.light = new Uint8Array(SECTION_VOLUME).fill(this.uniformLight);
     }
-    this.light[index] = value;
+    if (this.light[index] !== value) {
+      this.light[index] = value;
+      this.version++;
+    }
   }
 
   /** Fills every voxel with one state (keeps the section uniform). */

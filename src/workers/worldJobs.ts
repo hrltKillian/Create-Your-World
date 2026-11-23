@@ -42,6 +42,7 @@ export class WorldJobs {
       this.registry.air,
       job.cx,
       job.cz,
+      job.saved,
     );
     return { ...result, ms: this.now() - start };
   }

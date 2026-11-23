@@ -1,4 +1,4 @@
-import { SECTIONS_PER_COLUMN } from './coords.ts';
+import { localIndex, SECTION_BITS, SECTION_MASK, SECTIONS_PER_COLUMN } from './coords.ts';
 import type { GenResult, SectionPayload } from './protocol.ts';
 import { Section } from './Section.ts';
 
@@ -11,11 +11,21 @@ export class Column {
   readonly heightmap = new Int16Array(1024);
   /** Biome id per (x, z). */
   readonly biomes = new Uint8Array(1024);
+  /**
+   * Sections holding edits, or restored from saved ones (bit per section, docs « Sauvegarde »):
+   * they are kept when the column unloads.
+   */
+  persisted = 0;
 
   constructor(cx: number, cz: number, air = 0) {
     this.cx = cx;
     this.cz = cz;
     this.sections = Array.from({ length: SECTIONS_PER_COLUMN }, () => new Section(air));
+  }
+
+  /** Block at local (lx, lz) and height y (0–255). */
+  getBlock(lx: number, y: number, lz: number): number {
+    return this.sections[y >> SECTION_BITS]!.getBlock(localIndex(lx, y & SECTION_MASK, lz));
   }
 
   byteSize(): number {
@@ -48,5 +58,6 @@ export function columnFromResult(result: GenResult, air: number): Column {
   }
   column.heightmap.set(result.heightmap);
   column.biomes.set(result.biomes);
+  column.persisted = result.persisted;
   return column;
 }

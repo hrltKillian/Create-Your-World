@@ -60,6 +60,7 @@ export type InventoryCommand =
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =
+  /** Moves the player, at rest; `'surface'` lands on the top of the ground (edits included). */
   | {
       readonly type: 'debug.teleport';
       readonly x: number;
@@ -69,6 +70,10 @@ export type DebugCommand =
   | { readonly type: 'debug.setStat'; readonly stat: 'stamina'; readonly value: number }
   /** Adds items to the player's inventory (what does not fit drops at the player's feet). */
   | { readonly type: 'debug.give'; readonly item: string; readonly count: number }
+  /** Moves the clock to an hour (0 ≤ hours < 24) of the current day. */
+  | { readonly type: 'debug.setTime'; readonly hours: number }
+  /** Stops or restarts the clock (the world keeps ticking). */
+  | { readonly type: 'debug.freezeTime'; readonly frozen: boolean }
   | {
       /** Fills a box (inclusive corners) of loaded blocks with a block state given by its text key. */
       readonly type: 'debug.fill';

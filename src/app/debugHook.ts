@@ -9,13 +9,17 @@ import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColu
 import type { App } from './App.ts';
 import {
   blockKey,
+  clock,
   fill,
+  freezeTime,
   give,
   hotbarView,
+  lightAt,
   look,
   nextFrame,
   press,
   setBlock,
+  setTime,
   teleport,
   waitForChunks,
   yieldTask,
@@ -27,7 +31,7 @@ import {
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 4,
+    version: 5,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -88,6 +92,20 @@ export function installDebugHook(app: App): void {
       tick: () => app.session?.host.view.tick() ?? 0,
       hash: () => app.session?.host.view.hash() ?? null,
     },
+    time: {
+      /** The world clock: ticks, hour (0–24), day number, phase, daylight and the freeze flag. */
+      get: () => clock(app),
+      /** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now; returns the clock. */
+      set: (hours: number) => {
+        setTime(app, hours);
+        return clock(app);
+      },
+      /** Stops (or, with false, restarts) the clock, now; returns the clock. */
+      freeze: (frozen = true) => {
+        freezeTime(app, frozen);
+        return clock(app);
+      },
+    },
     input: {
       /** Sets the view angles (radians). */
       look: (yaw: number, pitch: number) => look(app, yaw, pitch),
@@ -133,6 +151,8 @@ export function installDebugHook(app: App): void {
       block: (x: number, y: number, z: number) => blockKey(app, x, y, z),
       /** Sets one block from a state key, e.g. the key `block` returns. */
       setBlock: (x: number, y: number, z: number, state: string) => setBlock(app, x, y, z, state),
+      /** Sky and block light (0–15 each) at a position; unloaded cells are dark. */
+      light: (x: number, y: number, z: number) => lightAt(app, x, y, z),
       voxelBytes: () => app.world?.voxelBytes() ?? 0,
       seed: () => app.session?.seed ?? null,
       spawn: () => app.session?.spawn ?? null,

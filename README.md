@@ -26,32 +26,31 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M4 — Mining and building.** `npm run dev`, click the canvas to capture the mouse, and start
-digging: blocks break, drop as small spinning items that fly to you, and stack in the hotbar.
+**M5 — Light and time.** `npm run dev`, click the canvas and watch a day go by: a day lasts
+20 minutes (one game hour is 50 s) and a new world starts at 07:00.
 
-- Hold the left button to mine the block under the crosshair (outline, then 8 crack stages); the
-  right arm strikes in third person and the hand chops in first person. Harder blocks take longer,
-  the right tool is faster, and stone mined by hand gives nothing (a hint at the top says which
-  tool it needs).
-- The right button places the selected block where the ghost shows it (hold to keep placing);
-  it opens and closes gates (two blocks tall: placed, opened and broken whole), and crouch (C) +
-  right button places against them instead. Every placeable block has an item, even glass.
-- 1–8 or the mouse wheel pick a hotbar slot; E or Tab opens the bag (drag a stack, right-drag
-  half of it, Shift+click sends it across, a number key over a slot swaps). G throws one item,
-  Shift+G the whole stack; a thrown item comes back only once you have walked away from it.
-- Sounds are synthesized in the browser at startup and start after the first click; `?mute=1`
-  silences them.
-- `?worldType=arena` adds a small test area at the spawn: a closed cabin with a gate and a
-  window, a pond, gravel, a tree and a wall of rock and ore pillars. `?worldType=flat` is the
-  endless field.
-- Flint tools have no recipe yet: in dev, `__game.player.give('item:flint_pickaxe')` (also
-  `flint_hatchet`, `flint_knife`, `flint_spear`); `__game.player.inventory()` lists the slots.
-- `?selftest=m4&worldType=flat&fixedStep=1` runs the in-browser M4 checks (dig, place, edit to
-  mesh in 3 frames, strike pose, break sound, no shader compiled during play); `?selftest=all`
-  runs every suite.
-- From M3: WASD/ZQSD to move, Space jump, Shift sprint, V first/third person, F3 debug panel,
-  `?seed=42`, `?rd=4`, `?freecam=1`, `?kb=azerty`; `npm run headless -- --seed=42 --ticks=3000
-  --bot=wander` runs the simulation in plain Node (`--world=arena` for the arena).
+- The sky follows the hour: a blue day, warm sunrise and sunset, a deep blue night with stars, a
+  round sun and a round moon crossing it; the fog and the far edge of the world take the horizon
+  colour. Nights are dark (sky light × 0.12), never black.
+- Light is real now: sky light falls straight down, spreads sideways and fades by one level per
+  block (leaves and glass take one more, water and ice two), so overhangs, caves and closed rooms
+  are dark. Torches give 14 and flicker (`__game.player.give('item:torch', 16)` in dev, then
+  right-click the ground). Light is smoothed at block corners.
+- Under water: short blue fog (1 to 20 blocks), darker at night.
+- F3 shows the day, clock, phase and daylight. `?time=21` starts at 21:00, `?freezeTime=1` stops
+  the clock; in dev `__game.time.set(0)`, `__game.time.freeze(true)`, `__game.time.get()` and
+  `__game.world.light(x, y, z)` (sky and block light of a cell). `?view=light` (or
+  `__game.render.debugView('light')`) shows the light levels in grey.
+- `?selftest=m5&worldType=flat&fixedStep=1` runs the in-browser M5 checks (noon ≥ 2.5 × as bright
+  as midnight, `step(1500)` is one hour, a sealed cavity has no sky light, a torch gives 14 and
+  11 three blocks away, the light view, ≤ 400 draws); `?selftest=all` runs every suite.
+- From M4: hold the left button to mine, the right button places the held block (and opens
+  gates), 1–8 or the wheel pick a hotbar slot, E or Tab opens the bag, G throws an item;
+  `?worldType=arena` adds a small test area, `?worldType=flat` is the endless field, `?mute=1`
+  silences the synthesized sounds.
+- From M3: WASD/ZQSD to move, Space jump, Shift sprint, V first/third person, `?seed=42`, `?rd=4`,
+  `?freecam=1`, `?kb=azerty`; `npm run headless -- --seed=42 --ticks=3000 --bot=wander` runs the
+  simulation in plain Node (`--world=arena` for the arena).
 
 ## Roadmap
 

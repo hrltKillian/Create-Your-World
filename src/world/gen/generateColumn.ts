@@ -269,7 +269,7 @@ export function generateColumn(ctx: GenContext, column: Column): void {
     const lz = cell >> 5;
     // Start above the tallest thing generation can place (water surface or trees).
     let y = Math.min(WORLD_HEIGHT - 1, Math.max(heights[cell]!, sea) + 24);
-    while (y > 0 && getLocal(column, lx, y, lz) === ctx.registry.air) y--;
+    while (y > 0 && column.getBlock(lx, y, lz) === ctx.registry.air) y--;
     column.heightmap[cell] = y + 1;
   }
   for (const section of column.sections) section.compact();
@@ -277,10 +277,6 @@ export function generateColumn(ctx: GenContext, column: Column): void {
 
 function setLocal(column: Column, lx: number, y: number, lz: number, state: number): void {
   column.sections[y >> SECTION_BITS]!.setBlock(localIndex(lx, y & SECTION_MASK, lz), state);
-}
-
-function getLocal(column: Column, lx: number, y: number, lz: number): number {
-  return column.sections[y >> SECTION_BITS]!.getBlock(localIndex(lx, y & SECTION_MASK, lz));
 }
 
 /**
@@ -350,7 +346,7 @@ function writeTree(
     )
       return;
     if (onlyAir) {
-      const current = getLocal(column, lx, wy, lz);
+      const current = column.getBlock(lx, wy, lz);
       if (current !== air && (ctx.registry.tables.flags[current]! & FLAG_REPLACEABLE) === 0) return;
     }
     setLocal(column, lx, wy, lz, state);

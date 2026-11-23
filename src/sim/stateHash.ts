@@ -48,14 +48,17 @@ function hashSection(h: number, section: Section): number {
 }
 
 /**
- * FNV-1a over a canonical serialization of the simulation state: tick, entity counter, every entity
- * record (canonical JSON, by id), and every loaded column (by key) with its pipeline state, voxels,
- * light, heightmap and biomes. Storage details (uniform or expanded sections) do not change it.
+ * FNV-1a over a canonical serialization of the simulation state: tick, clock, entity counter, every
+ * entity record (canonical JSON, by id), every loaded column (by key) with its pipeline state,
+ * persisted sections, voxels, light, heightmap and biomes, and the saved sections of the unloaded
+ * ones (edit store, by key). Storage details (uniform or expanded sections) do not change it.
  * Two runs with the same commands must give the same hash.
  */
 export function stateHash(sim: Simulation): number {
   let h = 0x811c9dc5;
   h = hashNumber(h, sim.tick);
+  h = hashNumber(h, sim.time.ticks);
+  h = fnv1aU32(h, sim.time.frozen ? 1 : 0);
   h = hashNumber(h, sim.nextEntityId);
   for (const id of [...sim.entities.keys()].sort((a, b) => a - b)) {
     h = fnv1aString(canonicalJson(sim.entities.get(id)), h);
@@ -64,9 +67,17 @@ export function stateHash(sim: Simulation): number {
     const column = sim.world.columns.get(key)!;
     h = hashNumber(h, key);
     h = fnv1aU32(h, sim.columnState(column.cx, column.cz));
+    h = fnv1aU32(h, column.persisted);
     for (const section of column.sections) h = hashSection(h, section);
     for (let i = 0; i < 1024; i++) h = fnv1aU32(h, column.heightmap[i]! & 0xffff);
     for (let i = 0; i < 1024; i++) h = fnv1aU32(h, column.biomes[i]!);
+  }
+  for (const key of [...sim.edits.keys()].sort((a, b) => a - b)) {
+    h = hashNumber(h, key);
+    for (const saved of sim.edits.get(key)!) {
+      h = fnv1aU32(h, saved.sy);
+      h = hashRuns(h, saved.blocks, saved.uniformBlock);
+    }
   }
   return h;
 }
