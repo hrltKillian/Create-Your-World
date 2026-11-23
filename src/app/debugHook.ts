@@ -5,7 +5,9 @@ import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { serializeInventory } from '../sim/inventory.ts';
 import { Column } from '../world/Column.ts';
-import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
+import { findBiome, findStructure } from '../world/gen/find.ts';
+import { columnHash, generateColumn } from '../world/gen/generateColumn.ts';
+import { pointInfo } from '../world/gen/sample.ts';
 import type { App } from './App.ts';
 import {
   blockKey,
@@ -30,8 +32,13 @@ import {
  * `__DEBUG_HOOK__`, so it never ships in production builds.
  */
 export function installDebugHook(app: App): void {
+  /** The player's (or free camera's) block column, the default origin of searches. */
+  const playerPlace = () => {
+    const pose = app.freecam?.pose ?? app.session?.player.body;
+    return pose ? { x: Math.floor(pose.x), z: Math.floor(pose.z) } : null;
+  };
   const api = {
-    version: 5,
+    version: 6,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -162,6 +169,21 @@ export function installDebugHook(app: App): void {
         if (!session) return null;
         const info = pointInfo(session.host.view.gen, Math.floor(x), Math.floor(z));
         return { biome: session.host.view.gen.biomes[info.biome]!.def.key, height: info.height };
+      },
+      /**
+       * Nearest column of a biome (key, e.g. from `biome`) within `maxRadius` blocks of a point
+       * (default: the player): { x, z, distance } or null. Analytic, sampled every 16 blocks.
+       */
+      findBiome: (biome: string, maxRadius = 3000, from = playerPlace()) => {
+        const session = app.session;
+        return session && from ? findBiome(session.host.view.gen, biome, from, maxRadius) : null;
+      },
+      /** Nearest structure of a kind (its key) within `maxRadius` blocks: { x, y, z, distance }. */
+      findStructure: (structure: string, maxRadius = 3000, from = playerPlace()) => {
+        const session = app.session;
+        return session && from
+          ? findStructure(session.host.view.gen, structure, from, maxRadius)
+          : null;
       },
       /** Hash of a column generated on the main thread (compare with the Node golden tests). */
       genHash: (cx: number, cz: number) => {

@@ -1,13 +1,13 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`world generation > matches golden column hashes (GEN_VERSION 1) 1`] = `
+exports[`world generation > matches golden column hashes (GEN_VERSION 2) 1`] = `
 {
-  "GEN_VERSION": 1,
+  "GEN_VERSION": 2,
   "hashes": {
-    "-12,7": "e2c8df0d",
-    "0,0": "6bd749d6",
-    "40,40": "6cfc718e",
-    "5,-3": "947159f9",
+    "-12,7": "689505ce",
+    "0,0": "22ca105e",
+    "40,40": "2e1392e0",
+    "5,-3": "b60b1bda",
   },
 }
 `;

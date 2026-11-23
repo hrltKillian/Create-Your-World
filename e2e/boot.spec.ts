@@ -1,13 +1,16 @@
 import { expect, type Page, test } from '@playwright/test';
 
-async function selftest(page: Page, query: string): Promise<string> {
+// CI renders in software (SwiftShader) and stretches selftest waits ×4 (?timing=0).
+const CI_FACTOR = process.env.CI ? 4 : 1;
+
+async function selftest(page: Page, query: string, timeout = 100_000): Promise<string> {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   // Wall-clock thresholds are checked locally; CI runners render in software (SwiftShader).
   const timing = process.env.CI ? '&timing=0' : '';
   await page.goto(`/?storage=memory&noLock=1&${query}${timing}`);
   const banner = page.locator('#selftest-result');
-  await expect(banner).toBeVisible({ timeout: process.env.CI ? 380_000 : 100_000 });
+  await expect(banner).toBeVisible({ timeout: timeout * CI_FACTOR });
   const text = (await banner.textContent()) ?? '';
   expect(errors, 'uncaught page errors').toEqual([]);
   return text;
@@ -26,8 +29,13 @@ test('the test scene passes its selftests', async ({ page }) => {
   expect(await selftest(page, 'scene=testchunk&selftest=m0,m1')).toMatch(/^SELFTEST PASS/);
 });
 
-test('the generated world streams and passes its selftests', async ({ page }) => {
-  expect(await selftest(page, 'seed=7&rd=3&selftest=m0,m2')).toMatch(/^SELFTEST PASS/);
+test('the generated world streams; spawn, biomes, ores, xray and structures', async ({ page }) => {
+  // Real ticks (no fixed step), a far teleport and two full re-meshes: more time than the rest.
+  test.setTimeout(180_000 * CI_FACTOR);
+  const text = await selftest(page, 'seed=7&rd=4&mute=1&selftest=m0,m2,m6', 170_000);
+  expect(text).toMatch(/^SELFTEST PASS/);
+  // Every m2 and m6 case applies to the generated world: none may be skipped.
+  expect(text).not.toContain('skipped');
 });
 
 test('the player walks, animates and switches cameras on the flat world', async ({ page }) => {

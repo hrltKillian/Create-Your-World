@@ -1,7 +1,18 @@
 import { i18nMissing } from '../../i18n/i18n.ts';
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
 import type { App } from '../App.ts';
-import { frameOrFail, teleport, waitForChunks } from '../automation.ts';
+import {
+  type ClockView,
+  clock,
+  frameOrFail,
+  framesFor,
+  freezeTime,
+  look,
+  setTime,
+  teleport,
+  waitForChunks,
+  waitUntil,
+} from '../automation.ts';
 
 /** Shared pieces of the in-browser selftest suites. */
 
@@ -58,6 +69,17 @@ export function needsFlatPlayer(app: App): string | null {
   return null;
 }
 
+/** The generated-world checks (m6) need a player in the default world (not flat or arena). */
+export function needsGeneratedPlayer(app: App): string | null {
+  if (app.params.freecam) return 'needs a player (no ?freecam)';
+  if (app.params.worldType !== 'default')
+    return `needs the generated world (not ?worldType=${app.params.worldType})`;
+  return null;
+}
+
+/** Wall time for the camera and the frame loop to settle after a teleport or a view switch. */
+export const SETTLE_MS = 300;
+
 /** The play session once the loading radius around the player is meshed. */
 export async function playerSession(app: App) {
   await app.ready();
@@ -83,4 +105,53 @@ export async function standAt(app: App, spot: { x: number; z: number }): Promise
 /** Text key of a block state (`#id` for an unknown id), for fills and messages. */
 export function stateKey(app: App, state: number): string {
   return app.registry!.states[state]?.key ?? `#${state}`;
+}
+
+/** The world clock as automation reads it (fails without a world session). */
+export function readClock(app: App): ClockView {
+  const time = clock(app);
+  assert(time, 'no world clock');
+  return time;
+}
+
+/** Runs `body`, then puts the clock back (hour of the day and freeze flag) even if it failed. */
+export async function keepingClock(app: App, body: () => Promise<void> | void): Promise<void> {
+  const saved = readClock(app);
+  try {
+    await body();
+  } finally {
+    setTime(app, saved.hour);
+    freezeTime(app, saved.frozen);
+  }
+}
+
+/** « ≤ 400 draws » (M5, and M6 with caves and decoration): the surface view at render distance. */
+const MAX_DRAWS = 400;
+
+/** The draw-call budget case of a suite (`skip` picks the world it runs in). */
+export function drawsCase(skip: (app: App) => string | null): SelftestCase {
+  return {
+    name: `the surface view takes at most ${MAX_DRAWS} draws once the render distance is meshed`,
+    scenes: PLAY_SCENES,
+    timeoutMs: 60_000,
+    skip,
+    run: async (app) => {
+      const session = await playerSession(app);
+      const rd = session.renderDistance;
+      // Frames stream in fixed-step mode too; pumping without a tick only loads faster.
+      await waitUntil(() => session.chunksReady(rd), {
+        timeoutMs: 50_000 * slowFactor(app),
+        label: `render distance ${rd} not meshed`,
+        pump: () => session.pumpOnce(false),
+        pollMs: 50,
+      });
+      // Along the horizon: the widest view of the ground.
+      look(app, 0, 0);
+      await framesFor(SETTLE_MS);
+      // The counters of the last whole frame (they are reset at the start of each one).
+      await frameOrFail();
+      const calls = app.renderer!.webgl.info.render.calls;
+      assert(calls <= MAX_DRAWS, `${calls} draws at render distance ${rd} (> ${MAX_DRAWS})`);
+    },
+  };
 }

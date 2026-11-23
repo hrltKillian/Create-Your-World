@@ -32,7 +32,7 @@ import { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 import { PlayGate } from './playGate.ts';
 
-export const MILESTONE = 5;
+export const MILESTONE = 6;
 
 export type AppState =
   | 'boot'
@@ -141,6 +141,7 @@ export class App {
   setDebugView(view: DebugView): void {
     this.debugView = view;
     this.view?.setDebugView(view);
+    this.session?.scheduler.setXray(view === 'xray');
   }
 
   private startTitle(report: CapabilityReport): void {

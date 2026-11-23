@@ -1,4 +1,4 @@
-import type { BiomeDef, TreeFeatureDef, WorldgenDef } from '../../schema.ts';
+import type { BiomeDef, FeatureDef, OreDef, WorldgenDef } from '../../schema.ts';
 import type { PackI18nKey } from './i18n.en.ts';
 
 /** Terrain shape and climate of the base pack. */
@@ -37,6 +37,34 @@ export const worldgen = {
   bedrock: 'block:worldrock',
   stone: 'block:stone',
   deepStone: 'block:darkstone',
+  magmaBelowY: 10,
+  magma: 'block:magma',
+  caves: {
+    tunnelScale: [72, 44],
+    tunnelThreshold: 0.0045,
+    cavernScale: [80, 40],
+    cavernThreshold: 0.62,
+    cavernY: [12, 50],
+    surfaceMargin: 4,
+    entranceScale: 24,
+    entranceThreshold: 0.7,
+  },
+  banks: {
+    below: 3,
+    above: 1,
+    scale: 24,
+    depth: 2,
+    patches: [
+      { block: 'block:gravel', min: 0.2 },
+      { block: 'block:clay', max: -0.35 },
+    ],
+  },
+  spawn: {
+    near: ['block:gravel'],
+    nearRadius: 40,
+    far: ['biome:fungal_marsh', 'biome:tundra', 'biome:ochre_desert'],
+    farRadius: 1000,
+  },
 } as const satisfies WorldgenDef;
 
 type PackBiome = BiomeDef & { readonly nameKey: PackI18nKey };
@@ -55,6 +83,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b25a', foliage: '#64a046', water: '#3a78c6' },
     fog: '#9cc0dc',
+    features: [{ feature: 'feature:boulder', chance: 0.04 }],
     plants: [{ block: 'block:tall_grass', chance: 0.05 }],
   },
   {
@@ -73,7 +102,11 @@ export const biomes = [
     liquid: 'block:foul_water',
     tints: { grass: '#7d8c45', foliage: '#6b7a3c', water: '#6e7a3f' },
     fog: '#9aa27c',
-    plants: [{ block: 'block:tall_grass', chance: 0.12 }],
+    features: [{ feature: 'feature:giant_mushroom', chance: 0.16 }],
+    plants: [
+      { block: 'block:tall_grass', chance: 0.1 },
+      { block: 'block:glowbloom', chance: 0.02 },
+    ],
   },
   {
     key: 'biome:tundra',
@@ -88,7 +121,10 @@ export const biomes = [
     liquidCap: 'block:ice',
     tints: { grass: '#9fb59a', foliage: '#6f8a6b', water: '#4a7fb8' },
     fog: '#c7d6e2',
-    trees: [{ feature: 'feature:conifer', chance: 0.08 }],
+    features: [
+      { feature: 'feature:conifer', chance: 0.08 },
+      { feature: 'feature:boulder', chance: 0.05 },
+    ],
     plants: [{ block: 'block:frost_lichen', chance: 0.05 }],
   },
   {
@@ -106,6 +142,11 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#bfae6a', foliage: '#a3984f', water: '#3f86b8' },
     fog: '#e3c79c',
+    features: [
+      { feature: 'feature:palmthorn', chance: 0.1 },
+      { feature: 'feature:thornbush', chance: 0.04 },
+      { feature: 'feature:sandstone_boulder', chance: 0.03 },
+    ],
     plants: [{ block: 'block:dry_shrub', chance: 0.02 }],
   },
   {
@@ -123,7 +164,10 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#7fa05e', foliage: '#5b8448', water: '#3d74b8' },
     fog: '#a9bfd0',
-    trees: [{ feature: 'feature:conifer', chance: 0.12 }],
+    features: [
+      { feature: 'feature:conifer', chance: 0.12 },
+      { feature: 'feature:boulder', chance: 0.1 },
+    ],
     plants: [{ block: 'block:tall_grass', chance: 0.04 }],
   },
   {
@@ -138,11 +182,15 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#6fa84a', foliage: '#4f8f36', water: '#3a72c2' },
     fog: '#9dbdd6',
-    trees: [
+    features: [
       { feature: 'feature:broadleaf', chance: 0.55 },
       { feature: 'feature:conifer', chance: 0.1 },
+      { feature: 'feature:boulder', chance: 0.02 },
     ],
-    plants: [{ block: 'block:tall_grass', chance: 0.1 }],
+    plants: [
+      { block: 'block:tall_grass', chance: 0.1 },
+      { block: 'block:berry_bush', chance: 0.015 },
+    ],
   },
   {
     key: 'biome:meadow',
@@ -155,26 +203,122 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b44f', foliage: '#5f9a3e', water: '#3f76c4' },
     fog: '#9fc2de',
-    trees: [{ feature: 'feature:broadleaf', chance: 0.06 }],
-    plants: [{ block: 'block:tall_grass', chance: 0.16 }],
+    features: [
+      { feature: 'feature:broadleaf', chance: 0.06 },
+      { feature: 'feature:thornbush', chance: 0.03 },
+      { feature: 'feature:boulder', chance: 0.02 },
+    ],
+    plants: [
+      { block: 'block:tall_grass', chance: 0.16 },
+      { block: 'block:berry_bush', chance: 0.008 },
+    ],
   },
 ] as const satisfies readonly PackBiome[];
 
+/** Decoration features (biomes give their chance per 8×8 cell). */
 export const features = [
   {
     key: 'feature:broadleaf',
     kind: 'broadleaf',
-    log: 'block:broadleaf_log',
-    leaves: 'block:foliage',
-    height: [4, 6],
+    block: 'block:broadleaf_log',
+    crown: 'block:foliage',
+    size: [4, 6],
     soil: ['block:grass'],
   },
   {
     key: 'feature:conifer',
     kind: 'conifer',
-    log: 'block:conifer_log',
-    leaves: 'block:needles',
-    height: [6, 9],
+    block: 'block:conifer_log',
+    crown: 'block:needles',
+    size: [6, 9],
     soil: ['block:grass', 'block:snow'],
   },
-] as const satisfies readonly TreeFeatureDef[];
+  {
+    key: 'feature:giant_mushroom',
+    kind: 'mushroom',
+    block: 'block:mushroom_stem',
+    crown: 'block:glowcap',
+    size: [4, 7],
+    soil: ['block:peat'],
+  },
+  {
+    key: 'feature:boulder',
+    kind: 'boulder',
+    block: 'block:stone',
+    size: [1, 2],
+    soil: ['block:grass', 'block:snow', 'block:sand', 'block:gravel'],
+  },
+  {
+    key: 'feature:sandstone_boulder',
+    kind: 'boulder',
+    block: 'block:ochre_sandstone',
+    size: [1, 2],
+    soil: ['block:ochre_sand'],
+  },
+  {
+    key: 'feature:palmthorn',
+    kind: 'column',
+    block: 'block:palmthorn',
+    size: [2, 4],
+    soil: ['block:ochre_sand'],
+  },
+  {
+    key: 'feature:thornbush',
+    kind: 'patch',
+    block: 'block:thornbush',
+    size: [1, 3],
+    soil: ['block:grass', 'block:ochre_sand'],
+  },
+] as const satisfies readonly FeatureDef[];
+
+/** Ores by biome (docs « Génération » step 6); centres are drawn per section. */
+export const ores = [
+  {
+    key: 'ore:copper',
+    block: 'block:copper_ore',
+    biomes: ['biome:meadow', 'biome:forest', 'biome:highlands'],
+    yRange: [40, 110],
+    veinsPerSection: 6,
+    veinSize: [4, 8],
+    replaces: ['block:stone'],
+  },
+  {
+    key: 'ore:cassiterite',
+    block: 'block:cassiterite',
+    biomes: ['biome:tundra'],
+    yRange: [50, 100],
+    veinsPerSection: 6,
+    veinSize: [3, 6],
+    replaces: ['block:stone'],
+  },
+  {
+    // Pond bottoms of the marsh: the silt under the foul water.
+    key: 'ore:bog_iron',
+    block: 'block:bog_iron',
+    biomes: ['biome:fungal_marsh'],
+    yRange: [54, 62],
+    veinsPerSection: 24,
+    veinSize: [3, 6],
+    replaces: ['block:silt'],
+    underLiquid: true,
+  },
+  {
+    key: 'ore:fireclay',
+    block: 'block:fireclay',
+    biomes: ['biome:ochre_desert'],
+    yRange: [60, 85],
+    veinsPerSection: 8,
+    veinSize: [4, 8],
+    replaces: ['block:ochre_sandstone', 'block:stone'],
+  },
+  {
+    key: 'ore:dawn_crystal',
+    block: 'block:dawn_crystal',
+    biomes: '*',
+    yRange: [5, 28],
+    veinsPerSection: 24,
+    veinSize: [2, 4],
+    replaces: ['block:darkstone', 'block:stone'],
+    caveWall: true,
+  },
+] as const satisfies readonly OreDef[];

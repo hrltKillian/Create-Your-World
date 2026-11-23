@@ -183,6 +183,27 @@ const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon' | 'fracture'>, Pa
     }
     return PATTERNS.bricks(seed, Math.min(3, n), x, y, size);
   },
+  sludge: (seed, n, x, y, size) => {
+    const crust = Math.max(1, n - 3);
+    const v = 0.7 * tileNoise(seed, x, y, size, 4) + 0.3 * hashUnit(seed, x, y);
+    if (v > 0.42)
+      return set(pick((v - 0.42) / 0.58 + dither(x, y) * 0.3, crust, n - crust), SPECIAL);
+    return set(pick(v / 0.42 + dither(x, y) * 0.3, 0, crust));
+  },
+  crystal: (seed, n, x, y, size) => {
+    const rock = Math.max(1, n - 2);
+    // Three slanted shards: diamonds twice as tall as wide, the core in the brightest colour.
+    for (let i = 0; i < 3; i++) {
+      const cx = hash32(seed, i, 17) % size;
+      const cy = hash32(seed, i, 19) % size;
+      const dx = Math.min(Math.abs(x - cx), size - Math.abs(x - cx));
+      const dy = Math.min(Math.abs(y - cy), size - Math.abs(y - cy));
+      const d = 2 * dx + dy;
+      if (d <= 4) return set(d <= 1 ? n - 1 : rock, SPECIAL);
+    }
+    const v = 0.6 * tileNoise(seed, x, y, size, 4) + 0.4 * hashUnit(seed, x, y);
+    return set(pick(v + dither(x, y) * 0.3, 0, rock));
+  },
   checker: (_seed, n, x, y) => set(((x >> 2) + (y >> 2)) % 2 === 0 ? 0 : Math.min(1, n - 1)),
 };
 

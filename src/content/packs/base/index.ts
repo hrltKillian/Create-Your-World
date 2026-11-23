@@ -1,15 +1,17 @@
 import type { ContentPack } from '../../schema.ts';
 import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
+import { undergroundBlocks } from './blocksUnderground.ts';
 import { strings } from './i18n.en.ts';
 import { itemIcons, items } from './items.ts';
 import { loot } from './loot.ts';
 import { models } from './models.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
+import { structures } from './structures.ts';
 import { crackTextures, textures } from './textures.ts';
 import { tiers, toolNames } from './tiers.ts';
-import { biomes, features, worldgen } from './worldgen.ts';
+import { biomes, features, ores, worldgen } from './worldgen.ts';
 
 /** The neutral placeholder content pack shipped with the game. */
 export const basePack: ContentPack = {
@@ -25,7 +27,7 @@ export const basePack: ContentPack = {
       avatarModel: 'model:explorer',
     },
   },
-  blocks: [...blocks, ...natureBlocks],
+  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks],
   // Icons and cracks go last so that block texture layers keep their indices.
   textures: [...textures, ...itemIcons, ...crackTextures],
   strings,
@@ -58,5 +60,7 @@ export const basePack: ContentPack = {
   worldgen,
   biomes,
   features,
+  ores,
+  structures,
   models,
 };

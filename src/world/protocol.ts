@@ -39,6 +39,8 @@ export interface MeshJob {
   readonly ids: Uint16Array;
   readonly light: Uint8Array;
   readonly biomes: Uint8Array;
+  /** Mesh for the `xray` debug view (terrain blocks as see-through ghosts). */
+  readonly xray?: boolean;
 }
 
 export interface SectionPayload {

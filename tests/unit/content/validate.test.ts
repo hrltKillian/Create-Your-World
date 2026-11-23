@@ -110,3 +110,59 @@ describe('content validation of shapes and state overrides', () => {
     expect(validatePack(pack).map((i) => i.path)).toEqual([at(1), at(first), at(first + 1)]);
   });
 });
+
+describe('content validation of world generation', () => {
+  it('checks features, ores and the decoration chances of biomes', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    pack.features[0].crown = undefined;
+    pack.features[3].size = [1, 5];
+    pack.ores[0].block = 'block:nope';
+    pack.ores[1].biomes = ['biome:nope'];
+    pack.ores[2].veinSize = [6, 3];
+    pack.ores[2].yRange = [64, 70]; // bog iron forms under the liquid, below the sea level (62)
+    pack.biomes[0].features = [
+      { feature: 'feature:boulder', chance: 0.7 },
+      { feature: 'feature:boulder', chance: 0.6 },
+    ];
+    const paths = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'features[0].crown',
+        'features[3].size',
+        'ores[0].block',
+        'ores[1].biomes[0]',
+        'ores[2].veinSize',
+        'ores[2].underLiquid',
+        'biomes[0].features',
+      ]),
+    );
+  });
+
+  it('checks the spawn rules and the structure templates', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    pack.worldgen.spawn.near = ['block:nope'];
+    pack.worldgen.spawn.far = ['biome:nope'];
+    const [camp, cairn] = pack.structures;
+    camp.biomes = ['biome:nope'];
+    camp.legend.Q = 'block:nope[axis=x]';
+    camp.layers[1][2] = '.C.......';
+    camp.layers[2][0] = '...........x';
+    cairn.layers = new Array(11).fill(cairn.layers[0]);
+    cairn.chance = 0.95;
+    pack.structures.push({ ...cairn, key: 'structure:twin', chance: 0.5, layers: [['..']] });
+    const paths = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'worldgen.spawn.near[0]',
+        'worldgen.spawn.far[0]',
+        'structures[0].biomes[0]',
+        'structures[0].legend.Q',
+        'structures[0].layers[1][2]',
+        'structures[0].layers[2][0]',
+        'structures[1].layers',
+        'structures',
+      ]),
+    );
+    expect(validatePack(basePack)).toEqual([]);
+  });
+});

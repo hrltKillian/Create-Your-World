@@ -26,24 +26,35 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M5 — Light and time.** `npm run dev`, click the canvas and watch a day go by: a day lasts
-20 minutes (one game hour is 50 s) and a new world starts at 07:00.
+**M6 — Underground and decoration.** `npm run dev` and click the canvas. Generation changed
+(version 2): a seed gives a new world.
 
-- The sky follows the hour: a blue day, warm sunrise and sunset, a deep blue night with stars, a
-  round sun and a round moon crossing it; the fog and the far edge of the world take the horizon
-  colour. Nights are dark (sky light × 0.12), never black.
-- Light is real now: sky light falls straight down, spreads sideways and fades by one level per
-  block (leaves and glass take one more, water and ice two), so overhangs, caves and closed rooms
-  are dark. Torches give 14 and flicker (`__game.player.give('item:torch', 16)` in dev, then
-  right-click the ground). Light is smoothed at block corners.
-- Under water: short blue fog (1 to 20 blocks), darker at night.
-- F3 shows the day, clock, phase and daylight. `?time=21` starts at 21:00, `?freezeTime=1` stops
-  the clock; in dev `__game.time.set(0)`, `__game.time.freeze(true)`, `__game.time.get()` and
-  `__game.world.light(x, y, z)` (sky and block light of a cell). `?view=light` (or
-  `__game.render.debugView('light')`) shows the light levels in grey.
-- `?selftest=m5&worldType=flat&fixedStep=1` runs the in-browser M5 checks (noon ≥ 2.5 × as bright
-  as midnight, `step(1500)` is one hour, a sealed cavity has no sky light, a torch gives 14 and
-  11 three blocks away, the light view, ≤ 400 draws); `?selftest=all` runs every suite.
+- A new world starts on dry meadow or forest land, with water and gravel within 40 blocks and the
+  Fungal Marsh, the Tundra and the Ochre Desert within 1 km.
+- Caves: winding tunnels and large caverns (y 12–50), a few entrances in dry land, never under
+  water; Magma fills their bottom below y 10 (it glows and burns). Ores by biome: Copper Ore
+  (meadow, forest, highlands), Cassiterite (tundra), Bog Iron (marsh pond bottoms), Fireclay
+  (desert), and Dawn Crystal glowing on the walls of deep caves. Gravel and clay banks line the
+  shores.
+- Decoration: broadleaf trees and conifers, berry bushes, giant glowcap mushrooms and glowblooms
+  in the marsh, boulders, palmthorns and thornbushes in the desert. Camps (meadow, forest, desert)
+  and stone cairns (tundra, highlands, marsh) stand on flat ground; their chest spot holds a
+  placeholder until containers arrive (M8).
+- Visit every biome from the dev console: `b = __game.world.findBiome('biome:tundra')`, then
+  `__game.player.teleport(b.x + 0.5, 'surface', b.z + 0.5)`. The keys are `biome:meadow`,
+  `biome:forest`, `biome:highlands`, `biome:tundra`, `biome:ochre_desert`, `biome:fungal_marsh`
+  and `biome:lake_basin`; `__game.world.biome(x, z)` names the biome of a column. Structures work
+  the same way: `__game.world.findStructure('structure:camp')` (or `'structure:cairn'`).
+- `?view=xray` (or `__game.render.debugView('xray')`, back with `'none'`) turns the terrain into
+  faint ghosts, so caves, ores, crystals and magma show through the ground.
+- `?seed=7&selftest=m6` runs the in-browser M6 checks (the spawn stands on solid ground of a spawn
+  biome, with no trunk, boulder or canopy in its feet and head cells; every biome is found within
+  1 500 blocks and generated as found; a glowing ore or magma lights the cave next to it; the xray
+  view changes the picture; ≤ 400 draws; the nearest camp or cairn is generated as its template);
+  `?selftest=all` runs every suite.
+- From M5: a day lasts 20 minutes, light is real (sky light, torches 14 with
+  `__game.player.give('item:torch', 16)`), `?time=21`, `?freezeTime=1`, `__game.time.set(0)`,
+  `__game.world.light(x, y, z)` and `?view=light`.
 - From M4: hold the left button to mine, the right button places the held block (and opens
   gates), 1–8 or the wheel pick a hotbar slot, E or Tab opens the bag, G throws an item;
   `?worldType=arena` adds a small test area, `?worldType=flat` is the endless field, `?mute=1`

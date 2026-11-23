@@ -3,7 +3,7 @@ import { WorldJobs } from '../../../src/workers/worldJobs.ts';
 import { columnKey, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { createGenContext, generateColumn } from '../../../src/world/gen/generateColumn.ts';
 import { LightEngine } from '../../../src/world/light/LightEngine.ts';
-import { FULL_SKY } from '../../../src/world/light.ts';
+import { FULL_SKY, skyOf } from '../../../src/world/light.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import {
   addLit,
@@ -329,9 +329,10 @@ describe('generation light', () => {
     const top = result.sections[7]!;
     expect(top.light).toBeNull();
     expect(top.uniformLight).toBe(FULL_SKY);
+    // Magma lights the deep caves (block light), but no sky light reaches the bottom section.
     const bottom = result.sections[0]!;
-    expect(bottom.light).toBeNull();
-    expect(bottom.uniformLight).toBe(0);
+    const deep = bottom.light ?? [bottom.uniformLight];
+    expect(Array.from(deep).every((packed) => skyOf(packed) === 0)).toBe(true);
     expect(result.sections.some((s) => s.light !== null)).toBe(true);
   });
 

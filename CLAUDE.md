@@ -79,6 +79,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
   - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
     sun and moon: `render/Sky.ts`;
+  - world generation queries without generating (always the same arithmetic as the bulk pass):
+    `world/gen/sample.ts` (`LatticeCache`, `heightAt`, `biomeOf`, `pointInfo`), `caveAt`
+    (`world/gen/caves.ts`), `bankAt`/`topBlockAt` (`world/gen/banks.ts`), structure sites
+    (`world/gen/structures.ts`: `siteIn`, `regionOf`, `nearSite`); searches `world/gen/find.ts`
+    (`spiral`, `findBiome`, `findStructure`, `biomesWithin`) and the spawn `world/gen/spawn.ts`; a
+    generation step reads the padded `heights` (`PADDED` rows) and writes only its own column
+    (decoration: `world/gen/decor.ts`);
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
@@ -86,7 +93,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
-    `litWorld`/`edit` for light);
+    `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
+    `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
 
 ## Automation
@@ -106,12 +114,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `time.set(hours)` and `time.freeze(frozen?)` (`debug.setTime`/`debug.freezeTime`, applied without
   a tick; both return the clock), `world.light(x, y, z)` (`{ sky, block }`, 0–15).
   `render.capture()` gives `avgLuma` and `uniqueColors`.
+- M6 hook entries (version 6): `world.findBiome(key, maxRadius?, from?)` (`{ x, z, distance }`,
+  sampled every 16 blocks) and `world.findStructure(key, maxRadius?, from?)` (`{ x, y, z,
+  distance }`), both from the player by default; `render.debugView('xray')` (or `?view=xray`)
+  meshes terrain blocks as faint ghosts so ores and caves show (`MeshScheduler.setXray`).
+- Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
+  skipped in flat/arena worlds and with `?freecam`).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`) and `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
   shared by `debugHook.ts` and the selftests; `selftest/support.ts` has the case type,
-  `playerSession`/`needsFlatPlayer`, `standAt`, `stateKey` and `PLAY_SCENES`, one file per large
-  suite (`selftest/m4.ts`, `m5.ts`), and every suite ends with `noErrorsCase()`.
+  `playerSession`, `needsFlatPlayer`/`needsGeneratedPlayer`, `standAt`, `stateKey`, `PLAY_SCENES`,
+  `SETTLE_MS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
+  (`selftest/m4.ts`, `m5.ts`, `m6.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
