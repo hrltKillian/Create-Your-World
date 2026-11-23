@@ -185,6 +185,16 @@ describe('sleeping with two players (allPlayersSleeping)', () => {
     expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);
   });
 
+  it('gets a sleeper up when a hostile creature comes within 16 blocks', () => {
+    const s = twoSleepers('sleep-hostile-near');
+    s.both({ ...ON_BED, secondary: true }, {});
+    expect(s.player.sleeping).not.toBeNull();
+    s.send({ type: 'debug.spawn', creature: 'creature:prowler', x: 0.5, y: 'surface', z: -9.5 });
+    s.both({}, {});
+    expect(s.player.sleeping).toBeNull();
+    expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);
+  });
+
   it('does not pass the night when one sleeper gets up in the tick the other lies down', () => {
     const s = twoSleepers('sleep-same-tick');
     s.both({ ...ON_BED, secondary: true }, {});
