@@ -6,10 +6,10 @@ import { registry } from '../helpers/registry.ts';
 /**
  * Creatures (docs « M10 »: 60 creatures in one tick ≤ 3 ms under Node): a flat world at night with
  * 60 creatures of every kind around a player they hunt, flee or watch, who paces in the middle of
- * a column (no streaming), the whole simulation tick measured (thoughts, sight tests, A* searches,
- * movement, blows), its 95th percentile after a warm-up: busy ticks with two A* searches, not a
- * garbage collection or a compilation that a loaded machine stretches. Apple M4: a median about
- * 0.1 ms, a p95 about 0.2 ms.
+ * a column (no streaming) and swings, the whole simulation tick measured (thoughts, sight tests,
+ * A* searches, movement, blows both ways), its 95th percentile after a warm-up: busy ticks with
+ * two A* searches, not a garbage collection or a compilation that a loaded machine stretches.
+ * Apple M4: a median about 0.1 ms, a p95 about 0.2 ms.
  */
 const TICK_MAX_MS = 3;
 /** The middle of column (0, 0). */
@@ -53,7 +53,8 @@ describe('creature performance', () => {
     const out: SimEvent[] = [];
     const times: number[] = [];
     for (let i = 0; i < 400; i++) {
-      // The player paces back and forth: creatures hear, chase and plan again.
+      // The player paces back and forth and swings (melee aim): creatures hear, chase and plan
+      // again.
       host.send({
         type: 'input',
         forward: 1,
@@ -62,8 +63,8 @@ describe('creature performance', () => {
         sprint: false,
         crouch: false,
         yaw: Math.floor(i / 40) % 2 === 0 ? 0 : Math.PI,
-        pitch: 0,
-        primary: false,
+        pitch: -0.3,
+        primary: i % 8 < 4,
         secondary: false,
         slot: 0,
       });

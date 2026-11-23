@@ -115,7 +115,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
     A* `pathfind.ts` (`findPath`, `ASTAR` budgets, `lastSearch`), tick steps 5–6
     `creatureStep.ts` (swarmer zigzag, wall stun); tick step 8 `sim/combat.ts`
     (`COMBAT`, `strike` a creature's blow, `hurtCreature` with front armour, knockback and loot,
-    `armorFactor`, `escalation`, `frontFactor`); spawns, despawns, herds and `sim.spawnLog`
+    `armorFactor`, `escalation`, `frontFactor`); the player's attacks at tick step 7
+    `sim/melee.ts` (`MELEE`, `stepMelee`: primary on a creature in reach before mining, the blow on
+    the release, charged after 15 ticks held (`player.charge`, `attackCooldown`), `meleeDamage`,
+    `meleeKnockback`, `weaponOf`, `aimedCreature`); blows sound `sounds.combat.hit`/`hurt`; the
+    dying time `DYING_TICKS` (`core/creatures.ts`, shared with the renderer); drawn by
+    `render/CreatureView.ts` (posed models, glow, red flash, death fall and shrink) animated by
+    `render/creatureRig.ts` (`animateCreature`: gait legs, wind-up, look, hit freeze); BoxBatch
+    boxes take `glow` and `flash`; spawns, despawns, herds and `sim.spawnLog`
     `sim/spawning.ts` (`SPAWN`; `sim.rules`: `hostiles`, `spawns` (off in flat and arena worlds
     unless asked: dev `?spawns=0|1`), `graceTicks` (`?grace=`)); the effective light
     `effectiveLight` (`world/light.ts`); `debug.spawn` places one (facing the player);
@@ -158,11 +165,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `objectiveDone`, the keys in `player.objectives`);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
     `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
-    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners) and the
-    death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them (compass every frame, the
-    rest at 10 Hz) and hands the gate over to the death screen; what needs the sim's rules
-    (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass `sunBearing`/
-    `aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
+    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners
+    (`replay` restarts a `.play` animation), `CombatMarks` (`#hud-hit`, `#hud-damage`,
+    `damageBearing`)) and the death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them
+    (compass every frame, the rest at 10 Hz) and hands the gate over to the death screen; what needs
+    the sim's rules (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass
+    `sunBearing`/`aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),

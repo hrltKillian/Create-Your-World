@@ -208,6 +208,8 @@ export interface SoundBindings {
   readonly pickup: SfxKey;
   /** Interface click (bag, slots). */
   readonly click: SfxKey;
+  /** A player's blow landing on a creature, and a creature's blow landing on a player. */
+  readonly combat: { readonly hit: SfxKey; readonly hurt: SfxKey };
 }
 
 export type SfxSource = 'noise' | 'sine' | 'triangle' | 'square' | 'sawtooth';

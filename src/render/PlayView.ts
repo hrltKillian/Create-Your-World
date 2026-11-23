@@ -6,6 +6,7 @@ import { blockToColumn, SECTION_SIZE } from '../world/coords.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import { BlockOverlay, type OverlayTargets } from './BlockOverlay.ts';
 import { BoxBatch, WORLD_BOXES } from './BoxBatch.ts';
+import { CreatureView } from './CreatureView.ts';
 import { DropView } from './DropView.ts';
 import { EntityView } from './EntityView.ts';
 import { HandView } from './HandView.ts';
@@ -30,12 +31,13 @@ export interface PlayFrame {
 
 /**
  * Everything drawn during play on top of the chunks: the world BoxBatch (avatar, held item in
- * third person, item drops, break particles), the block overlays and the first-person hand view.
- * It reacts to the simulation's interaction events.
+ * third person, creatures, item drops, break particles), the block overlays and the first-person
+ * hand view. It reacts to the simulation's interaction and combat events.
  */
 export class PlayView {
   readonly batch: BoxBatch;
   readonly entities: EntityView;
+  readonly creatures: CreatureView;
   readonly drops: DropView;
   readonly particles: Particles;
   readonly overlay: BlockOverlay;
@@ -56,6 +58,7 @@ export class PlayView {
     );
     this.batch = new BoxBatch(shared, WORLD_BOXES, true);
     this.entities = new EntityView(this.batch, sim.world, registry, items);
+    this.creatures = new CreatureView(this.batch, sim.world, registry);
     this.drops = new DropView(this.batch, sim.world, registry, items);
     this.particles = new Particles(this.batch, sim.world, registry.tables);
     this.overlay = new BlockOverlay(shared, sim.world, registry.tables, registry.pack);
@@ -71,6 +74,7 @@ export class PlayView {
     else if (event.type === 'blockBroken')
       this.particles.burst(event.x, event.y, event.z, event.state);
     else if (event.type === 'blockPlaced' && local) this.hand.strike();
+    else if (event.type === 'creatureHurt') this.creatures.hurt(event.id);
   }
 
   draw(frame: PlayFrame): void {
@@ -81,6 +85,7 @@ export class PlayView {
       blockToColumn(pose.z) * SECTION_SIZE,
     );
     this.entities.drawPlayer(frame.player, frame.alpha, frame.dt, frame.avatarVisible);
+    this.creatures.drawAll(this.sim.entities, frame.alpha, frame.dt);
     this.drops.drawAll(this.sim.entities, pose.x, pose.y, pose.z, frame.alpha, frame.dt);
     this.particles.update(frame.dt);
     this.batch.end();

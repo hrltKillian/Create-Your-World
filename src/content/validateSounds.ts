@@ -49,6 +49,8 @@ export function validateSounds(pack: ContentPack, add: AddIssue): void {
   const bound: [string, string][] = [
     ['sounds.pickup', sounds.pickup],
     ['sounds.click', sounds.click],
+    ['sounds.combat.hit', sounds.combat.hit],
+    ['sounds.combat.hurt', sounds.combat.hurt],
   ];
   for (const [material, actions] of Object.entries(sounds.blocks)) {
     for (const [action, key] of Object.entries(actions))

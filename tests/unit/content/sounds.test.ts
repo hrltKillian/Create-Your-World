@@ -5,12 +5,14 @@ import { validatePack } from '../../../src/content/validate.ts';
 import { MAX_SFX_SECONDS, sfxSeconds } from '../../../src/content/validateSounds.ts';
 
 describe('sound recipes', () => {
-  it('has one recipe for every bound sound and creature voice', () => {
+  it('has one recipe for every bound sound, combat blow and creature voice', () => {
     const recipes = new Set(basePack.sfx!.map((def) => def.key));
     const sounds = basePack.sounds!;
     const bound = [
       sounds.pickup,
       sounds.click,
+      sounds.combat.hit,
+      sounds.combat.hurt,
       ...Object.values(sounds.blocks).flatMap((m) => [m.break, m.hit, m.place]),
       ...basePack.creatures!.flatMap((c) => Object.values(c.sounds)),
     ];

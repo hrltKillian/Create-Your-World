@@ -19,6 +19,10 @@ const STROKE_DY = -0.06;
 const STROKE_DZ = -0.12;
 const STROKE_YAW = 0.25;
 const STROKE_PITCH = -1.0;
+/** While an attack charges the fist is drawn back and up, the arm tipped back. */
+const WINDUP_DY = 0.07;
+const WINDUP_DZ = 0.1;
+const WINDUP_PITCH = 0.55;
 /** Forearm box (m): it runs from the fist back towards the camera. */
 const ARM_WIDTH = 0.12;
 const ARM_LENGTH = 0.6;
@@ -41,7 +45,10 @@ export class HandView {
   visible = false;
   /** Progress (0…1) of the current stroke; 0 at rest. */
   swing = 0;
+  /** Blend (0…1) towards the drawn-back pose of a charging attack. */
+  windup = 0;
   private stroking = false;
+  private charging = false;
   private readonly registry: Registry;
   private readonly items: readonly ItemModel[];
   private readonly armSkin: BoxSkin;
@@ -66,7 +73,8 @@ export class HandView {
   }
 
   /**
-   * Animates and fills the batch for one frame: strokes repeat while the player holds primary.
+   * Animates and fills the batch for one frame: strokes repeat while the player holds primary to
+   * mine; an attack draws the arm back while primary is held and strikes once on the release.
    * `sky` and `block` are the light at the eye (0–1). Nothing is drawn when not `visible`.
    */
   draw(
@@ -77,11 +85,15 @@ export class HandView {
     block: number,
   ): void {
     this.visible = visible;
-    if (player.input.primary) this.stroking = true;
+    const charging = player.charge >= 0;
+    const mining = player.input.primary && !charging;
+    if (mining || (this.charging && !charging)) this.stroking = true;
+    this.charging = charging;
+    this.windup += ((charging ? 1 : 0) - this.windup) * Math.min(1, dt * 10);
     if (this.stroking) {
       this.swing += dt / STROKE_SECONDS;
       if (this.swing >= 1) {
-        this.stroking = player.input.primary;
+        this.stroking = mining;
         this.swing = this.stroking ? this.swing % 1 : 0;
       }
     }
@@ -92,13 +104,14 @@ export class HandView {
 
   private drawArm(player: Readonly<PlayerState>, sky: number, block: number): void {
     const s = Math.sin(Math.PI * this.swing);
+    const w = this.windup;
     const fist = this.fist.makeTranslation(
       REST_X + STROKE_DX * s,
-      REST_Y + STROKE_DY * s,
-      REST_Z + STROKE_DZ * s,
+      REST_Y + STROKE_DY * s + WINDUP_DY * w,
+      REST_Z + STROKE_DZ * s + WINDUP_DZ * w,
     );
     fist.multiply(this.step.makeRotationY(REST_YAW + STROKE_YAW * s));
-    fist.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s));
+    fist.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s + WINDUP_PITCH * w));
     const half = ARM_WIDTH / 2;
     this.box.makeScale(ARM_WIDTH, ARM_WIDTH, ARM_LENGTH).setPosition(-half, -half, 0);
     this.batch.add(this.box.multiplyMatrices(fist, this.box), this.armSkin, sky, block);

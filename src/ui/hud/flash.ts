@@ -20,10 +20,14 @@ export class Flash {
 
   show(text: string): void {
     this.text.textContent = text;
-    const classes = this.element.classList;
-    classes.remove('play');
-    // Reading the layout restarts the animation when the class comes back.
-    void this.element.offsetWidth;
-    classes.add('play');
+    replay(this.element);
   }
+}
+
+/** Plays an element's `.play` CSS animation again from its start. */
+export function replay(element: HTMLElement): void {
+  element.classList.remove('play');
+  // Reading the layout restarts the animation when the class comes back.
+  void element.offsetWidth;
+  element.classList.add('play');
 }

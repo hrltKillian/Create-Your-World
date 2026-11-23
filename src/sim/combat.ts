@@ -1,17 +1,11 @@
 import type { CreatureDef } from '../content/schema.ts';
+import { DYING_TICKS } from '../core/creatures.ts';
 import { hash32 } from '../core/hash.ts';
 import { BRAIN, setMode, voice } from './ai/behaviours.ts';
 import { alarm } from './ai/brains.ts';
 import { lineOfSight, targetOf } from './ai/senses.ts';
 import { ticksOf } from './clock.ts';
-import {
-  type CreatureState,
-  creatureDef,
-  DYING_TICKS,
-  eyeY,
-  isGone,
-  reachGap,
-} from './creatures.ts';
+import { type CreatureState, creatureDef, eyeY, isGone, reachGap } from './creatures.ts';
 import { type Gear, wornGear } from './environment.ts';
 import type { SimEvent } from './events.ts';
 import { spawnDrop } from './itemDrops.ts';
@@ -23,7 +17,8 @@ import { adjustGauges, hurt } from './survival.ts';
 import { dayOf } from './time.ts';
 
 /*
- * Tick step 8 « Combat » (docs « Combat »), the creatures' side: telegraphed blows land when their
+ * Tick step 8 « Combat » (docs « Combat »), the creatures' side (the player's attacks, at tick
+ * step 7, are in melee.ts and land through `hurtCreature`): telegraphed blows land when their
  * wind-up ends, if the target is still within reach + 0.3 and in sight (else it dodged); a
  * charger's wind-up launches its charge, which hits on contact. Worn armour takes
  * `damage × 20/(20 + A)`; a blow knocks back (6 m/s across, 3 up, × the attack's factor ×
@@ -100,6 +95,7 @@ export function stepCombat(sim: Simulation, out: SimEvent[]): void {
   for (const player of sim.players.values()) {
     if (player.invulnerable > 0) player.invulnerable--;
     if (player.fightTicks > 0) player.fightTicks--;
+    if (player.attackCooldown > 0) player.attackCooldown--;
   }
   for (const c of sim.entities.values()) {
     if (c.kind !== 'creature') continue;
@@ -163,6 +159,8 @@ export function strike(
   player.invulnerable = COMBAT.playerInvulnerableTicks;
   player.fightTicks = COMBAT.fightTicks;
   knock(b, c.body.x, c.body.z, attack.knockback);
+  const sfx = sim.registry.pack.sounds?.combat.hurt;
+  if (sfx) out.push({ type: 'sound', sfx, x: b.x, y: b.y + eyeHeight(b), z: b.z });
   out.push({
     type: 'playerHurt',
     playerId: player.playerId,

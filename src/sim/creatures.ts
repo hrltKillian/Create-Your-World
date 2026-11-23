@@ -38,8 +38,6 @@ export type CreatureMode = (typeof CREATURE_MODES)[number];
 export const PATH_MAX = 32;
 /** Creatures farther than this from every player stand still (hostiles there are despawned). */
 export const ACTIVE_RADIUS = 96;
-/** Ticks a dead creature falls over before it is removed. */
-export const DYING_TICKS = 20;
 /** A new creature stands still this long: its senses look around before it decides anything. */
 const SETTLE_TICKS = 15;
 

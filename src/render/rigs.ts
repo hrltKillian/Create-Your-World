@@ -29,8 +29,10 @@ export interface Motion {
   readonly swimming: boolean;
   /** View pitch (radians, positive looks up). */
   readonly pitch: number;
-  /** Primary held: the right arm strikes (mining, later attacks). */
+  /** Primary held: the right arm strikes (mining, attacks). */
   readonly striking: boolean;
+  /** Primary held for an attack (sim/melee.ts): the arm stays cocked until the release. */
+  readonly charging: boolean;
   readonly dt: number;
 }
 
@@ -74,7 +76,9 @@ export function animate(rig: RigState, motion: Motion): void {
     a.legR = -a.legL;
   }
   rig.strike += ((motion.striking ? 1 : 0) - rig.strike) * Math.min(1, motion.dt * 14);
-  if (motion.striking) rig.strikePhase += motion.dt * STRIKE_RATE;
+  // Cocked at the top of the chop while charging: the release brings the arm down.
+  if (motion.charging) rig.strikePhase = -Math.PI / 2;
+  else if (motion.striking) rig.strikePhase += motion.dt * STRIKE_RATE;
   else rig.strikePhase = 0;
   const strikeAngle = STRIKE_RAISE + Math.sin(rig.strikePhase) * STRIKE_CHOP;
   a.armR = a.armR! + (strikeAngle - a.armR!) * rig.strike;
@@ -125,6 +129,9 @@ const local = new Matrix4();
 const size = new Matrix4();
 const point = new Vector3();
 
+/** What posing reads from a rig (the avatar's or a creature's): angles by part name. */
+export type PosedRig = Pick<RigState, 'angles' | 'headPivotY'>;
+
 /**
  * World matrix of every part of a model: root (feet position, yaw), then each part's rotation
  * about its pivot, chained through parents; root upper-body parts are lowered by `crouchDrop`
@@ -132,7 +139,7 @@ const point = new Vector3();
  */
 export function poseModel(
   prepared: PreparedModel,
-  rig: RigState,
+  rig: PosedRig,
   root: Matrix4,
   crouchDrop: number,
   visit: (partIndex: number, unitBox: Matrix4) => void,

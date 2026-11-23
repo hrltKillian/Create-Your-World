@@ -65,7 +65,7 @@ export function createInteraction(): InteractionState {
   };
 }
 
-/** A player's entity record, serialisable plain data (creatures join in M10). */
+/** A player's entity record, serialisable plain data. */
 export interface PlayerState {
   readonly kind: 'player';
   /** Entity id: unique in the world and never reused. */
@@ -89,6 +89,10 @@ export interface PlayerState {
   fightTicks: number;
   /** Ticks before a creature's blow may hurt the player again (combat.ts; not saved). */
   invulnerable: number;
+  /** Ticks before the player may attack again (melee.ts; not saved). */
+  attackCooldown: number;
+  /** Ticks primary has been held for an attack, −1 when not attacking (melee.ts; not saved). */
+  charge: number;
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
@@ -159,6 +163,8 @@ export function createPlayer(
     sprinting: false,
     fightTicks: 0,
     invulnerable: 0,
+    attackCooldown: 0,
+    charge: -1,
     input: NEUTRAL_INPUT,
     viewRadius,
     inventory: createInventory(),

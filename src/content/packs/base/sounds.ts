@@ -3,7 +3,10 @@ import type { SoundBindings, SoundMaterial } from '../../schema.ts';
 const material = (m: SoundMaterial) =>
   ({ break: `sfx:break_${m}`, hit: `sfx:hit_${m}`, place: `sfx:place_${m}` }) as const;
 
-/** One break, hit and place sound per sound material, the pickup sound and the UI click. */
+/**
+ * One break, hit and place sound per sound material, the pickup sound, the UI click and the blows
+ * of combat.
+ */
 export const sounds: SoundBindings = {
   blocks: {
     stone: material('stone'),
@@ -19,4 +22,5 @@ export const sounds: SoundBindings = {
   },
   pickup: 'sfx:pickup',
   click: 'sfx:click',
+  combat: { hit: 'sfx:melee_hit', hurt: 'sfx:player_hurt' },
 };

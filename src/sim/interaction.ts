@@ -15,6 +15,7 @@ import type { SimEvent } from './events.ts';
 import { spendUses, takeFromSlot } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
+import { stepMelee } from './melee.ts';
 import {
   breakSeconds,
   canHarvest,
@@ -44,14 +45,16 @@ const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 
 /**
  * One tick of a player's interaction with the world (docs/conception.md « Priorité des actions »).
- * Primary mines the aimed block while held (creatures come first from M10). Secondary uses an
- * interactive block on the press (toggles a gate, opens a chest or station, sleeps on a bedroll,
- * takes back an Abandoned Pack), else eats, drinks or fills while held (consume.ts), else places
- * the held block, again every 6 ticks while held; crouching forces the placement.
+ * Primary attacks a creature in reach (melee.ts), else mines the aimed block while held. Secondary
+ * uses an interactive block on the press (toggles a gate, opens a chest or station, sleeps on a
+ * bedroll, takes back an Abandoned Pack), else eats, drinks or fills while held (consume.ts), else
+ * places the held block, again every 6 ticks while held; crouching forces the placement.
  */
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const status = aim(sim.world, sim.registry.tables, player, hit);
-  if (player.input.primary && status === AIM_HIT) mine(sim, player, out);
+  const blockDistance = status === AIM_HIT ? hit.distance : Number.POSITIVE_INFINITY;
+  const attacking = stepMelee(sim, player, blockDistance, out);
+  if (player.input.primary && status === AIM_HIT && !attacking) mine(sim, player, out);
   else stopMining(player, out);
   useButton(sim, player, status, out);
 }

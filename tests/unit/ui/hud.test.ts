@@ -5,6 +5,7 @@ import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
 import { createSurvival, DEATH_CAUSES } from '../../../src/sim/survival.ts';
 import { DAY_TICKS, HOUR_TICKS, hourOf } from '../../../src/sim/time.ts';
 import { clockText, durationText } from '../../../src/ui/hud/clock.ts';
+import { CombatMarks, damageBearing } from '../../../src/ui/hud/combatMarks.ts';
 import {
   bearingOf,
   Compass,
@@ -321,5 +322,36 @@ describe('pickup messages', () => {
     expect(rows(feed)).toHaveLength(PICKUP_LINES);
     expect(rows(feed)[0]).toBe('+1 I2');
     expect(rows(feed).at(-1)).toBe(`+1 I${PICKUP_LINES + 1}`);
+  });
+});
+
+describe('combat marks', () => {
+  it('turns a damage arc towards where the blow came from, relative to the view', () => {
+    // Looking north (yaw 0): ahead, on the right (east), behind.
+    expect(damageBearing(0, 0, 0, 0, -3)).toBeCloseTo(0);
+    expect(damageBearing(0, 0, 0, 3, 0)).toBeCloseTo(QUARTER);
+    expect(Math.abs(damageBearing(0, 0, 0, 0, 3))).toBeCloseTo(2 * QUARTER);
+    expect(damageBearing(0, 0, 0, -3, 0)).toBeCloseTo(-QUARTER);
+    // Looking west (yaw π/2), a blow from the north comes from the right.
+    expect(damageBearing(5, 5, QUARTER, 5, 1)).toBeCloseTo(QUARTER);
+  });
+
+  it('plays the hit marker, and one arc per blow (the oldest reused)', () => {
+    const marks = new CombatMarks();
+    const el = fake(marks.element);
+    const arcs = el.findAll((e) => e.className.split(' ').includes('damage-arc'));
+    expect(arcs).toHaveLength(4);
+    const marker = el.querySelector('.hit-marker')!;
+    expect(marker.classList.contains('play')).toBe(false);
+    marks.hit();
+    expect(marker.classList.contains('play')).toBe(true);
+    for (let i = 0; i < 5; i++) marks.hurt(i);
+    expect(arcs.map((arc) => arc.style.getPropertyValue('--a'))).toEqual([
+      '4rad',
+      '1rad',
+      '2rad',
+      '3rad',
+    ]);
+    expect(arcs.every((arc) => arc.classList.contains('play'))).toBe(true);
   });
 });

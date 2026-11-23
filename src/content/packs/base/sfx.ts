@@ -123,4 +123,21 @@ export const sfx: readonly SfxDef[] = [
       noise({ type: 'highpass', freq: 4000 }, 0.12, 0.012),
     ],
   },
+  {
+    // A dull thump with a short slap on top: a blow landing on a hide.
+    key: sounds.combat.hit,
+    layers: [
+      tone('sine', 140, 70, 0.5, 0.12),
+      noise({ type: 'bandpass', freq: 1400, q: 1.2 }, 0.4, 0.05),
+      noise({ type: 'lowpass', freq: 500 }, 0.3, 0.09, 0.01),
+    ],
+  },
+  {
+    // A low knock and a gasp of breath: the player is struck.
+    key: sounds.combat.hurt,
+    layers: [
+      tone('triangle', 220, 110, 0.4, 0.16),
+      noise({ type: 'bandpass', freq: 900, q: 0.9 }, 0.3, 0.18, 0.02),
+    ],
+  },
 ];
