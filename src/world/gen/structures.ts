@@ -33,7 +33,7 @@ const MAX_SLOPE = 2;
 /** Most filler blocks a foundation puts under a footprint cell. */
 const FOUNDATION = 8;
 /** Template cell: the biome's surface on the bottom layer, air above it. */
-const GROUND = -1;
+export const GROUND = -1;
 const SALT_POINT = 51;
 const SALT_PICK = 52;
 

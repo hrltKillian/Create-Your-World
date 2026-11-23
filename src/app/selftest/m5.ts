@@ -6,7 +6,6 @@ import { MAX_LIGHT } from '../../world/light.ts';
 import type { App } from '../App.ts';
 import {
   type ClockView,
-  clock,
   fill,
   frameOrFail,
   framesFor,
@@ -15,16 +14,18 @@ import {
   look,
   setBlock,
   setTime,
-  waitUntil,
 } from '../automation.ts';
 import {
   assert,
+  drawsCase,
+  keepingClock,
   needsFlatPlayer,
   noErrorsCase,
   PLAY_SCENES,
   playerSession,
+  readClock,
+  SETTLE_MS,
   type SelftestCase,
-  slowFactor,
   standAt,
   stateKey,
 } from './support.ts';
@@ -51,30 +52,9 @@ const DAY_NIGHT_RATIO = 2.5;
 /** « torche 14, et 11 à 3 blocs »: one level lost per block of air. */
 const TORCH_LIGHT = 14;
 const TORCH_REACH = 3;
-/** « ≤ 400 draws » (surface view, render distance 6 by default). */
-const MAX_DRAWS = 400;
-/** Wall time for the camera and the frame loop to settle after a teleport or a view switch. */
-const SETTLE_MS = 300;
-
-function readClock(app: App): ClockView {
-  const time = clock(app);
-  assert(time, 'no world clock');
-  return time;
-}
 
 function describeClock(time: ClockView): string {
   return `day ${time.day} ${time.hour.toFixed(4)} h (${time.ticks} ticks)`;
-}
-
-/** Runs `body`, then puts the clock back (hour of the day and freeze flag) even if it failed. */
-async function keepingClock(app: App, body: () => Promise<void> | void): Promise<void> {
-  const saved = readClock(app);
-  try {
-    await body();
-  } finally {
-    setTime(app, saved.hour);
-    freezeTime(app, saved.frozen);
-  }
 }
 
 /** Mean luminance of the captured view at an hour, once frames have drawn the sky and light. */
@@ -253,29 +233,6 @@ export const M5_SUITE: readonly SelftestCase[] = [
       assert(added.length === 0, `errors with the light view: ${added.join(' | ')}`);
     },
   },
-  {
-    name: 'the surface view takes at most 400 draws once the render distance is meshed',
-    scenes: PLAY_SCENES,
-    timeoutMs: 60_000,
-    skip: needsFlatPlayer,
-    run: async (app) => {
-      const session = await playerSession(app);
-      const rd = session.renderDistance;
-      // Frames stream in fixed-step mode too; pumping without a tick only loads faster.
-      await waitUntil(() => session.chunksReady(rd), {
-        timeoutMs: 50_000 * slowFactor(app),
-        label: `render distance ${rd} not meshed`,
-        pump: () => session.pumpOnce(false),
-        pollMs: 50,
-      });
-      // Along the horizon: the widest view of the ground.
-      look(app, 0, 0);
-      await framesFor(SETTLE_MS);
-      // The counters of the last whole frame (they are reset at the start of each one).
-      await frameOrFail();
-      const calls = app.renderer!.webgl.info.render.calls;
-      assert(calls <= MAX_DRAWS, `${calls} draws at render distance ${rd} (> ${MAX_DRAWS})`);
-    },
-  },
+  drawsCase(needsFlatPlayer),
   noErrorsCase('no errors and no missing strings after the m5 checks'),
 ];

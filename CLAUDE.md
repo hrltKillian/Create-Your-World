@@ -118,12 +118,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
   sampled every 16 blocks) and `world.findStructure(key, maxRadius?, from?)` (`{ x, y, z,
   distance }`), both from the player by default; `render.debugView('xray')` (or `?view=xray`)
   meshes terrain blocks as faint ghosts so ores and caves show (`MeshScheduler.setXray`).
+- Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
+  skipped in flat/arena worlds and with `?freecam`).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`) and `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
   shared by `debugHook.ts` and the selftests; `selftest/support.ts` has the case type,
-  `playerSession`/`needsFlatPlayer`, `standAt`, `stateKey` and `PLAY_SCENES`, one file per large
-  suite (`selftest/m4.ts`, `m5.ts`), and every suite ends with `noErrorsCase()`.
+  `playerSession`, `needsFlatPlayer`/`needsGeneratedPlayer`, `standAt`, `stateKey`, `PLAY_SCENES`,
+  `SETTLE_MS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
+  (`selftest/m4.ts`, `m5.ts`, `m6.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
