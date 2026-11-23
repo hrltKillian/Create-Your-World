@@ -1,4 +1,4 @@
-import type { InputCommand } from '../sim/commands.ts';
+import type { ClientTarget, InputCommand } from '../sim/commands.ts';
 import {
   type Action,
   actionForCode,
@@ -109,10 +109,10 @@ export class InputManager {
   }
 
   /**
-   * Builds this tick's command from the held keys and the view. Buttons pressed and released
-   * since the previous sample count as held for this tick.
+   * Builds this tick's command from the held keys, the view and the block the client aims at.
+   * Buttons pressed and released since the previous sample count as held for this tick.
    */
-  sample(look: LookTarget): InputCommand {
+  sample(look: LookTarget, target?: ClientTarget): InputCommand {
     const command: InputCommand = {
       type: 'input',
       forward: this.axis('forward', 'back'),
@@ -125,6 +125,7 @@ export class InputManager {
       primary: this.isDown('primary') || this.latched.has('primary'),
       secondary: this.isDown('secondary') || this.latched.has('secondary'),
       slot: this.slot,
+      ...(target ? { target } : {}),
     };
     this.latched.clear();
     return command;

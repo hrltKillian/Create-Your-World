@@ -6,7 +6,7 @@ import { itemIcons, items } from './items.ts';
 import { loot } from './loot.ts';
 import { models } from './models.ts';
 import { sounds } from './sounds.ts';
-import { textures } from './textures.ts';
+import { crackTextures, textures } from './textures.ts';
 import { tiers } from './tiers.ts';
 import { biomes, features, worldgen } from './worldgen.ts';
 
@@ -25,8 +25,8 @@ export const basePack: ContentPack = {
     },
   },
   blocks: [...blocks, ...natureBlocks],
-  // Icons go last so that block texture layers keep their indices.
-  textures: [...textures, ...itemIcons],
+  // Icons and cracks go last so that block texture layers keep their indices.
+  textures: [...textures, ...itemIcons, ...crackTextures],
   strings,
   tints: { grass: '#7fb04f', foliage: '#5f9a3e', water: '#3f76c4' },
   devScene: {

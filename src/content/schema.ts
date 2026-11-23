@@ -135,7 +135,9 @@ export type TexturePattern =
   | 'furnaceFront'
   | 'checker'
   /** Pixel art drawn from `mask` (item icons). */
-  | 'icon';
+  | 'icon'
+  /** Crack overlay of a block being mined, at one of 8 stages (`stage`). */
+  | 'fracture';
 
 /**
  * How a texture uses its alpha channel. On opaque blocks, only `tintMask` and `tintFull` faces
@@ -155,7 +157,12 @@ export interface TextureDef {
    * is a palette index. Scaled to the pack's texture size.
    */
   readonly mask?: readonly string[];
+  /** `fracture` pattern only: crack stage 0…CRACK_STAGES−1 (each contains the earlier cracks). */
+  readonly stage?: number;
 }
+
+/** Crack stages of a block being mined (mineProgress events, `fracture` textures). */
+export const CRACK_STAGES = 8;
 
 export interface ToolDef {
   readonly kind: ToolKind;

@@ -1,4 +1,4 @@
-import type { TextureDef } from '../../schema.ts';
+import { CRACK_STAGES, type TextureDef } from '../../schema.ts';
 
 /** Texture recipes of the base pack: pattern + sRGB palette (darkest first) + seed. */
 export const textures = [
@@ -265,3 +265,16 @@ export const textures = [
     seed: 91,
   },
 ] as const satisfies readonly TextureDef[];
+
+/**
+ * Crack overlays of a block being mined, one per stage. They multiply the block under them, so the
+ * palette is a darkening factor: the crack, then its lighter rim.
+ */
+export const crackTextures: TextureDef[] = Array.from({ length: CRACK_STAGES }, (_, stage) => ({
+  key: `tex:crack_${stage}`,
+  pattern: 'fracture',
+  palette: ['#5e554d', '#a89e93'],
+  seed: 211,
+  alpha: 'coverage',
+  stage,
+}));

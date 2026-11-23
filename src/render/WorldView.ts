@@ -9,6 +9,7 @@ import {
   WebGLRenderTarget,
 } from 'three';
 import { ChunkMeshes } from './ChunkMeshes.ts';
+import type { HandView } from './HandView.ts';
 import type { Renderer } from './Renderer.ts';
 import { Sky } from './Sky.ts';
 import { createVoxelMaterials, type DebugView, type VoxelMaterials } from './voxelMaterial.ts';
@@ -43,6 +44,7 @@ export class WorldView {
   private readonly chunkRoot = new Group();
   private readonly sky = new Sky(ZENITH, HORIZON);
   private readonly fog: Fog;
+  private hand: HandView | null = null;
   private elapsed = 0;
 
   constructor(
@@ -63,7 +65,18 @@ export class WorldView {
     renderer.setResizeHandler((width, height) => {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
+      if (this.hand) {
+        this.hand.camera.aspect = width / height;
+        this.hand.camera.updateProjectionMatrix();
+      }
     });
+  }
+
+  /** The first-person hand view, drawn after the world on a cleared depth buffer when visible. */
+  attachHand(hand: HandView): void {
+    this.hand = hand;
+    hand.camera.aspect = this.camera.aspect;
+    hand.camera.updateProjectionMatrix();
   }
 
   /** Fog and far plane follow the render distance (in columns). */
@@ -91,6 +104,13 @@ export class WorldView {
     const webgl = this.renderer.webgl;
     webgl.info.reset();
     webgl.render(this.scene, this.camera);
+    const hand = this.hand;
+    if (hand?.visible && hand.batch.size > 0) {
+      webgl.autoClear = false;
+      webgl.clearDepth();
+      webgl.render(hand.scene, hand.camera);
+      webgl.autoClear = true;
+    }
   }
 
   /** Renders the current view into a small target and returns colour statistics. */

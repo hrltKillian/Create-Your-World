@@ -88,4 +88,16 @@ describe('content validation of shapes and state overrides', () => {
     });
     expect(validatePack(pack).some((i) => /\.tint$/.test(i.path))).toBe(true);
   });
+
+  it('gives a crack stage to fracture textures, and only to them', () => {
+    const pack = broken((p) => {
+      const cracks = p.textures.filter((t) => t.pattern === 'fracture');
+      cracks[0]!.stage = 8;
+      delete cracks[1]!.stage;
+      p.textures[1]!.stage = 2;
+    });
+    const at = (i: number) => `textures[${i}].stage`;
+    const first = basePack.textures.findIndex((t) => t.pattern === 'fracture');
+    expect(validatePack(pack).map((i) => i.path)).toEqual([at(1), at(first), at(first + 1)]);
+  });
 });

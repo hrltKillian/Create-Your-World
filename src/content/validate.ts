@@ -1,6 +1,7 @@
 import {
   type BlockDef,
   type ContentPack,
+  CRACK_STAGES,
   STATE_VALUES,
   type TextureAlpha,
   type TextureSlot,
@@ -74,6 +75,11 @@ function validateTextures(pack: ContentPack, add: AddIssue): void {
     });
     if ((tex.pattern === 'icon') !== (tex.mask !== undefined))
       add(`${path}.mask`, 'the icon pattern, and only it, needs a mask');
+    if ((tex.pattern === 'fracture') !== (tex.stage !== undefined))
+      add(`${path}.stage`, 'the fracture pattern, and only it, needs a stage');
+    const stage = tex.stage;
+    if (stage !== undefined && !(Number.isInteger(stage) && stage >= 0 && stage < CRACK_STAGES))
+      add(`${path}.stage`, `must be an integer from 0 to ${CRACK_STAGES - 1} (got ${stage})`);
     checkMask(tex.mask, tex.palette.length, `${path}.mask`, add);
   });
   if (pack.textures.length > MAX_TEXTURE_LAYERS) {

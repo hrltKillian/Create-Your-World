@@ -205,8 +205,38 @@ export function installDebugHook(app: App): void {
         const session = app.session;
         if (!session) return null;
         const rig = session.entities.rig(who === 'player' ? session.player.id : who);
-        return rig ? { angles: rigDegrees(rig), headPivotY: rig.headPivotY } : null;
+        return rig
+          ? { angles: rigDegrees(rig), headPivotY: rig.headPivotY, strike: rig.strike }
+          : null;
       },
+      /** The block under the crosshair (null: none) and the placement ghost (null: none). */
+      target: () => {
+        const aim = app.session?.aim;
+        if (!aim) return null;
+        const { hit, ghost } = aim;
+        return {
+          block: hit.hit
+            ? { x: hit.x, y: hit.y, z: hit.z, nx: hit.nx, ny: hit.ny, nz: hit.nz }
+            : null,
+          ghost: ghost.state >= 0 ? { x: ghost.x, y: ghost.y, z: ghost.z } : null,
+        };
+      },
+      /** Crack stage shown on the mined block (−1: none). */
+      crack: () => app.session?.play.overlay.crackStage ?? -1,
+      /** First-person hand view: drawn this frame, stroke progress (0 at rest), boxes. */
+      hand: () => {
+        const hand = app.session?.play.hand;
+        return hand ? { visible: hand.visible, swing: hand.swing, boxes: hand.batch.size } : null;
+      },
+      /** Boxes in the world batch this frame and live break particles. */
+      boxes: () => {
+        const play = app.session?.play;
+        return play ? { boxes: play.batch.size, particles: play.particles.alive() } : null;
+      },
+      /** Time (ms) from the last edit to the upload of every section it touched. */
+      editToMeshMs: () => app.session?.scheduler.editToMeshMs ?? null,
+      /** Sections whose mesh on screen is older than their data (0 once edits are visible). */
+      sectionVersionLag: () => app.session?.scheduler.sectionVersionLag() ?? null,
       debugView: (view?: DebugView) => {
         if (view !== undefined) {
           if (!DEBUG_VIEWS.includes(view))

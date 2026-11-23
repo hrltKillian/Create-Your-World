@@ -13,6 +13,10 @@ export interface RigState {
   readonly angles: Record<string, number>;
   /** Height of the drawn head pivot above the feet (blocks), from the last pose; for tests. */
   headPivotY: number;
+  /** Blend (0–1) towards the strike pose, eased while the use button is held. */
+  strike: number;
+  /** Phase of the chopping motion (radians). */
+  strikePhase: number;
 }
 
 export interface Motion {
@@ -25,14 +29,20 @@ export interface Motion {
   readonly swimming: boolean;
   /** View pitch (radians, positive looks up). */
   readonly pitch: number;
+  /** Primary held: the right arm strikes (mining, later attacks). */
+  readonly striking: boolean;
   readonly dt: number;
 }
 
 export function createRig(): RigState {
-  return { phase: 0, amplitude: 0, time: 0, angles: {}, headPivotY: 0 };
+  return { phase: 0, amplitude: 0, time: 0, angles: {}, headPivotY: 0, strike: 0, strikePhase: 0 };
 }
 
 const STRIDE = 2.2; // radians per block walked
+/** Strike pose: the right arm raised forward, chopping by ±STRIKE_CHOP at STRIKE_RATE rad/s. */
+const STRIKE_RAISE = -1.3;
+const STRIKE_CHOP = 0.5;
+const STRIKE_RATE = 20;
 
 /** Procedural animation: walk/run swing, crouch lean, jump/fall pose, swim strokes, breathing. */
 export function animate(rig: RigState, motion: Motion): void {
@@ -63,6 +73,11 @@ export function animate(rig: RigState, motion: Motion): void {
     a.legL = Math.sin(rig.time * 5) * 0.35;
     a.legR = -a.legL;
   }
+  rig.strike += ((motion.striking ? 1 : 0) - rig.strike) * Math.min(1, motion.dt * 14);
+  if (motion.striking) rig.strikePhase += motion.dt * STRIKE_RATE;
+  else rig.strikePhase = 0;
+  const strikeAngle = STRIKE_RAISE + Math.sin(rig.strikePhase) * STRIKE_CHOP;
+  a.armR = a.armR! + (strikeAngle - a.armR!) * rig.strike;
 }
 
 /** Degrees view of the rig's angles (tests and the debug hook). */
@@ -83,6 +98,8 @@ export interface PreparedModel {
   readonly drops: Uint8Array;
   /** Index of the part named "head" (−1 if none). */
   readonly head: number;
+  /** Index of the part named "armR", which holds items (−1 if none). */
+  readonly hand: number;
 }
 
 /** Legs follow the gait convention: part names starting with "leg" stay on the ground. */
@@ -98,7 +115,7 @@ export function prepareModel(model: ModelDef): PreparedModel {
     drops[i] = parent < 0 && !part.name.startsWith('leg') ? 1 : 0;
     index.set(part.name, i);
   });
-  return { model, parents, drops, head: index.get('head') ?? -1 };
+  return { model, parents, drops, head: index.get('head') ?? -1, hand: index.get('armR') ?? -1 };
 }
 
 const pivotIn = new Matrix4();

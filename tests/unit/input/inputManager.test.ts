@@ -23,6 +23,12 @@ const key = (type: 'keydown' | 'keyup', code: string, k: string) =>
   win.dispatch(type, { code, key: k, repeat: false });
 
 describe('InputManager', () => {
+  it('sends the client target only when there is one', () => {
+    expect('target' in input.sample(look)).toBe(false);
+    const target = { x: 1, y: 63, z: -2, face: 2 };
+    expect(input.sample(look, target).target).toEqual(target);
+  });
+
   it('keeps a tap that starts and ends between two ticks for one tick', () => {
     key('keydown', 'Space', ' ');
     key('keyup', 'Space', ' ');

@@ -1,5 +1,5 @@
 import type { RawTables } from '../content/registry.ts';
-import { clampPitch } from '../core/angles.ts';
+import { clampPitch, type Vec3 } from '../core/angles.ts';
 import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
 import type { LookTarget } from '../input/LookTarget.ts';
 import type { PlayerState } from '../sim/player.ts';
@@ -29,7 +29,9 @@ export class CameraRig implements LookTarget {
   /** Current third-person distance (smoothed), for tests. */
   distance = 0;
   readonly pose: CameraPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
-  private eye = EYE_HEIGHT;
+  /** The interpolated eye, where the client's aim starts (the camera, in first person). */
+  readonly eye: Vec3 = { x: 0, y: 0, z: 0 };
+  private eyeHeight = EYE_HEIGHT;
 
   addLook(dYaw: number, dPitch: number): void {
     this.yaw += dYaw;
@@ -53,8 +55,11 @@ export class CameraRig implements LookTarget {
     const y = player.prevY + (b.y - player.prevY) * alpha;
     const z = player.prevZ + (b.z - player.prevZ) * alpha;
     const targetEye = b.crouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
-    this.eye += (targetEye - this.eye) * Math.min(1, dt * 14);
-    const eyeY = y + this.eye;
+    this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, dt * 14);
+    const eyeY = y + this.eyeHeight;
+    this.eye.x = x;
+    this.eye.y = eyeY;
+    this.eye.z = z;
     this.pose.yaw = this.yaw;
     this.pose.pitch = this.pitch;
     if (this.mode === 'first') {

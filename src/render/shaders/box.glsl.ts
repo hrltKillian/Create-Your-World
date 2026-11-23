@@ -1,8 +1,17 @@
-/** Instanced boxes (avatar, creatures, items): one texture-array layer and one light value per box. */
+/**
+ * Instanced boxes (avatar, items, drops, particles): three texture-array layers (sides, top,
+ * bottom), a light value and a texture mapping per box. Face UVs follow the chunk shader's
+ * convention, from the box's place in texture space (`aTexOrigin.xyz` + position × `aTexSize`),
+ * so a box cut from a block shows the same pixels as the block. Sprite boxes (`aTexOrigin.w` = 1,
+ * items extruded from an icon) sample the icon plane on every face, staying inside their own
+ * pixels, so their edges take the colour of the border pixels.
+ */
 
 export const boxVertex = /* glsl */ `
-in float aLayer;
+in vec3 aLayers;
 in vec2 aLight;
+in vec4 aTexOrigin;
+in vec3 aTexSize;
 out vec2 vUv;
 flat out float vLayer;
 out vec2 vLight;
@@ -10,8 +19,19 @@ out vec3 vNormal;
 #include <fog_pars_vertex>
 
 void main() {
-  vUv = uv;
-  vLayer = aLayer;
+  vec3 t = aTexOrigin.xyz + position * aTexSize;
+  vLayer = aLayers.x;
+  if (aTexOrigin.w > 0.5) vUv = aTexOrigin.xy + clamp(position.xy, 0.001, 0.999) * aTexSize.xy;
+  else if (normal.x > 0.5) vUv = vec2(-t.z, t.y);
+  else if (normal.x < -0.5) vUv = vec2(t.z, t.y);
+  else if (normal.y > 0.5) {
+    vUv = vec2(t.x, t.z);
+    vLayer = aLayers.y;
+  } else if (normal.y < -0.5) {
+    vUv = vec2(t.x, -t.z);
+    vLayer = aLayers.z;
+  } else if (normal.z > 0.5) vUv = vec2(t.x, t.y);
+  else vUv = vec2(-t.x, t.y);
   vLight = aLight;
   vNormal = normalize(mat3(modelMatrix * instanceMatrix) * normal);
   vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);

@@ -1,6 +1,6 @@
 import { toolCode } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
-import type { BlockDef } from '../content/schema.ts';
+import { type BlockDef, CRACK_STAGES } from '../content/schema.ts';
 
 /** Mining rules (docs/conception.md « Casser »). */
 export const MINING = {
@@ -11,7 +11,7 @@ export const MINING = {
   /** Mining speed while exhausted. */
   exhaustedSpeed: 0.6,
   /** Crack stages reported while mining. */
-  stages: 8,
+  stages: CRACK_STAGES,
   /** Durability a tool loses per block, with the right kind of tool and with any other. */
   wear: 1,
   wrongToolWear: 2,

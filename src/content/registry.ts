@@ -120,6 +120,7 @@ export class Registry {
   private readonly itemIndex: ReadonlyMap<string, number>;
   private readonly lootIndex: ReadonlyMap<string, LootTableDef>;
   private readonly defaults: Uint16Array;
+  private readonly withStateMemo = new Map<StateProp, Map<string, Int32Array>>();
 
   constructor(
     pack: ContentPack,
@@ -193,12 +194,28 @@ export class Registry {
     return this.pack.sounds?.blocks[this.blockDef(stateId).sound][action];
   }
 
-  /** Same block with one state property changed. */
+  /**
+   * Same block with one state property changed. Memoised per (property, value), so callers that
+   * run every frame (the placement ghost) do not build keys again.
+   */
   withState(stateId: number, prop: StateProp, value: string): number {
     const info = this.states[stateId];
     if (!info || info.props[prop] === undefined) return stateId;
-    const block = this.blocks[info.block]!;
-    return this.stateId(stateKey(block, { ...info.props, [prop]: value }));
+    let byValue = this.withStateMemo.get(prop);
+    if (!byValue) {
+      byValue = new Map();
+      this.withStateMemo.set(prop, byValue);
+    }
+    let memo = byValue.get(value);
+    if (!memo) {
+      memo = new Int32Array(this.states.length).fill(-1);
+      byValue.set(value, memo);
+    }
+    if (memo[stateId]! < 0) {
+      const block = this.blocks[info.block]!;
+      memo[stateId] = this.stateId(stateKey(block, { ...info.props, [prop]: value }));
+    }
+    return memo[stateId]!;
   }
 }
 

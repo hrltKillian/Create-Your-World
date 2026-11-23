@@ -1,5 +1,5 @@
 import { blockItemKey } from '../content/items.ts';
-import { FLAG_SOLID } from '../content/registry.ts';
+import { FLAG_SOLID, type Registry } from '../content/registry.ts';
 import { hash32 } from '../core/hash.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
 import { createRayHit } from '../world/raycast.ts';
@@ -159,11 +159,16 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
     return;
   }
   if (status !== AIM_HIT) return;
-  if (!input.crouch && sim.registry.prop(hit.state, 'open') !== undefined) {
+  if (usesAimedBlock(sim.registry, hit.state, input.crouch)) {
     if (pressed) toggleOpen(sim, player, out);
     return;
   }
   place(sim, player, out);
+}
+
+/** Whether secondary acts on the aimed block (opens a gate) instead of placing: crouch forces. */
+export function usesAimedBlock(registry: Registry, state: number, crouch: boolean): boolean {
+  return !crouch && registry.prop(state, 'open') !== undefined;
 }
 
 /** Opens or closes a gate (closing is refused while a player stands in it). */
