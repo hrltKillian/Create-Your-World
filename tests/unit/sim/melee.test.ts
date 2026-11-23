@@ -94,7 +94,7 @@ describe('melee', () => {
     expect(run(false)).toEqual([6]);
   });
 
-  it('a charged blow lands on the release after 0.5 s: ×1.8 damage and ×1.5 knockback', () => {
+  it('a charged blow lands on the release after 0.5 s (15 ticks held): ×1.8 damage and ×1.5 knockback', () => {
     const run = (hold: number) => {
       const s = world(`charge-${hold}`);
       s.give('item:flint_knife');
@@ -103,13 +103,13 @@ describe('melee', () => {
       const pitch = pitchAt(s, c);
       s.tick(hold, { primary: true, pitch });
       expect(blows(s)).toEqual([]);
-      expect(s.player.charge).toBe(hold - 1);
+      expect(s.player.charge).toBe(hold);
       s.tick(1, { pitch });
       expect(s.player.charge).toBe(-1);
       return { dealt: blows(s), speed: Math.hypot(c.body.vx, c.body.vz) };
     };
-    const light = run(MELEE.chargeTicks);
-    const charged = run(MELEE.chargeTicks + 1);
+    const light = run(MELEE.chargeTicks - 1);
+    const charged = run(MELEE.chargeTicks);
     expect(light.dealt[0]).toBeCloseTo(4 * 1.5, 9);
     expect(charged.dealt[0]).toBeCloseTo(4 * 1.8 * 1.5, 9);
     expect(charged.speed / light.speed).toBeCloseTo(1.5, 1);
@@ -164,6 +164,49 @@ describe('melee', () => {
     };
     expect(run(true)).toEqual({ mining: false, charging: true, blows: 1 });
     expect(run(false)).toEqual({ mining: true, charging: false, blows: 0 });
+  });
+
+  it('a charge held at death is dropped: no blow after the respawn without a click', () => {
+    const s = world('charge-death');
+    const c = trotter(s, true);
+    const pitch = pitchAt(s, c);
+    s.tick(20, { primary: true, pitch });
+    expect(s.player.charge).toBeGreaterThan(0);
+    s.send({ type: 'debug.kill', cause: 'fall' });
+    s.tick(30, { pitch });
+    expect(s.player.charge).toBe(-1);
+    s.send({ type: 'player.respawn' });
+    s.events.length = 0;
+    s.tick(10, { pitch: pitchAt(s, c) });
+    expect(blows(s)).toEqual([]);
+  });
+
+  it('attacks a creature in or behind a plant or a torch, which stays (creatures are tested first)', () => {
+    const run = (block: string, creature: string, z: number) => {
+      const s = world(`through-${block}-${creature}`);
+      s.give('item:flint_spear');
+      const c = place(s, creature, 0.5, z);
+      c.modeTicks = 600;
+      s.put(0, 65, -2, block);
+      s.events.length = 0;
+      click(s, pitchAt(s, c));
+      return { blows: blows(s).length, kept: s.block(0, 65, -2) === block };
+    };
+    expect(run('block:tall_grass', 'creature:trotter', -1.5)).toEqual({ blows: 1, kept: true });
+    expect(run('block:tall_grass', 'creature:swarmling', -1.5)).toEqual({ blows: 1, kept: true });
+    expect(run('block:torch', 'creature:swarmling', -3)).toEqual({ blows: 1, kept: true });
+  });
+
+  it('a solid block on the line shields a creature: primary mines the block', () => {
+    const s = world('shield');
+    s.give('item:flint_spear');
+    const c = place(s, 'creature:swarmling', 0.5, -3);
+    c.modeTicks = 600;
+    s.put(0, 65, -2, 'block:glass');
+    s.events.length = 0;
+    click(s, pitchAt(s, c));
+    expect(blows(s)).toEqual([]);
+    expect(eventsOf(s.events, 'mineProgress').length).toBeGreaterThan(0);
   });
 
   it('a creature out of the weapon’s reach is not attacked', () => {
@@ -228,6 +271,14 @@ describe("a creature's blow", () => {
     expect(strike(s.sim, shagback(s), def, s.player, out)).toBe(true);
     expect(100 - s.player.survival.health).toBeCloseTo(def.attack!.damage * armorFactor(6), 9);
     expect(eventsOf(out, 'sound').map((e) => e.sfx)).toEqual(['sfx:player_hurt']);
+  });
+
+  it('lands on a player standing in its own block column (both eyes in one cell)', () => {
+    const s = world('point-blank');
+    const c = place(s, 'creature:shagback', 0.3, 0.3);
+    expect(Math.floor(c.body.x)).toBe(Math.floor(s.player.body.x));
+    expect(strike(s.sim, c, def, s.player, [])).toBe(true);
+    expect(s.player.survival.health).toBeCloseTo(100 - def.attack!.damage, 9);
   });
 
   it('a wall between them at the impact dodges the blow', () => {

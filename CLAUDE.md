@@ -109,8 +109,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - creatures in the sim: records `sim/creatures.ts` (`CreatureState` in `sim.entities`, `mode`
     and timers, `spawnCreature`, `isAlert` (the stealth rule), `isGone`, `reachGap`,
     `hostileNear`, `dormant`), bodies `sim/creatureBody.ts`; `sim/ai/`: senses `senses.ts`
-    (`NOISE`, `noiseOf`, `targetable`, `unawareOf` (stealth), `lineOfSight` DDA, `refreshSenses`
-    every 10 ticks), the five brains `brains.ts` (`think`, `alarm` when hurt), what they are made of
+    (`NOISE`, `noiseOf`, `targetable`, `unawareOf` (stealth), `lineOfSight` (the raycast with
+    `RAY_OPAQUE`), `refreshSenses` every 10 ticks), the five brains `brains.ts` (`think`, `alarm` when hurt), what they are made of
     `behaviours.ts` (`BRAIN` numbers, `plan` (≤ 2 A* a tick), `graze`, `flee`, `fight`, `windUp`),
     A* `pathfind.ts` (`findPath`, `ASTAR` budgets, `lastSearch`), tick steps 5–6
     `creatureStep.ts` (swarmer zigzag, wall stun); tick step 8 `sim/combat.ts`
@@ -118,7 +118,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `armorFactor`, `escalation`, `frontFactor`); the player's attacks at tick step 7
     `sim/melee.ts` (`MELEE`, `stepMelee`: primary on a creature in reach before mining, the blow on
     the release, charged after 15 ticks held (`player.charge`, `attackCooldown`), `meleeDamage`,
-    `meleeKnockback`, `weaponOf`, `aimedCreature`); blows sound `sounds.combat.hit`/`hurt`; the
+    `meleeKnockback`, `weaponOf`, `meleeTarget`: creatures are tested first, only solid blocks
+    stop a blow (`blowReach`), the hitbox test `creatureOnRay` shared with `app/ClientAim.ts`,
+    whose `creature` the HUD names); no placement or closing gate into a player or a creature
+    (`bodyInCell`, sim/placement.ts); blows sound `sounds.combat.hit`/`hurt`; the
     dying time `DYING_TICKS` (`core/creatures.ts`, shared with the renderer); drawn by
     `render/CreatureView.ts` (posed models, glow, red flash, death fall and shrink) animated by
     `render/creatureRig.ts` (`animateCreature`: gait legs, wind-up, look, hit freeze); BoxBatch

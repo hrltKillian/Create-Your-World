@@ -138,7 +138,7 @@ function setup() {
   const session = {
     player,
     rig: { yaw: 0 },
-    aim: { hit: { hit: false, state: 0 } },
+    aim: { hit: { hit: false, state: 0 }, creature: undefined as unknown },
     listeners,
     host: {
       view: { registry, time: () => createTime(), world, gen: { biomes } },
@@ -162,10 +162,22 @@ function setup() {
   const emit = (event: unknown) => {
     for (const listener of listeners) listener(event);
   };
-  return { bridge, player, sent, gate, inventory, listeners, layer, die, emit };
+  return { bridge, player, sent, gate, inventory, listeners, layer, die, emit, session };
 }
 
 describe('HudBridge', () => {
+  it('names the aimed creature before the block behind it', () => {
+    const { bridge, session } = setup();
+    const line = bridge.hud.target.element as unknown as FakeElement;
+    session.aim.hit = { hit: true, state: block('block:stone') };
+    bridge.frame(0.1);
+    expect(line.querySelector('.target-name')!.textContent).toBe('Stone');
+    session.aim.creature = { kind: 'creature', creature: 'creature:trotter' };
+    bridge.frame(0.1);
+    expect(line.querySelector('.target-name')!.textContent).toBe('Trotter');
+    expect(line.querySelector('.target-hint')!.hidden).toBe(true);
+  });
+
   it('puts the HUD under the play layer and the death screen over it', () => {
     const { layer, bridge } = setup();
     expect(layer.childNodes[0]).toBe(bridge.hud.element);

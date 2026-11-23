@@ -5,6 +5,7 @@ import { en } from '../../../src/i18n/en.ts';
 import type { ClientTarget, InputCommand } from '../../../src/sim/commands.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import { breakSeconds, canHarvest, TOOL_TOO_WEAK_HINT } from '../../../src/sim/mining.ts';
+import { eyeHeight } from '../../../src/sim/physics.ts';
 import { type Placement, planPlacement } from '../../../src/sim/placement.ts';
 import { WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import type { WorldType } from '../../../src/world/gen/generateColumn.ts';
@@ -15,6 +16,15 @@ import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts
 /** A flat world (grass at y 64) with the player standing at (0.5, 65, 0.5), looking north. */
 function setup(worldType: WorldType = 'flat') {
   return playerTestSim({ seed: 'mine', worldType });
+}
+
+/** Places a creature on the ground, idle for a while. */
+function spawnAt(s: ReturnType<typeof setup>, creature: string, x: number, z: number): void {
+  const before = s.sim.nextEntityId;
+  expect(rejections(s.send({ type: 'debug.spawn', creature, x, y: 'surface', z }))).toEqual([]);
+  const c = s.sim.entities.get(before);
+  if (c?.kind !== 'creature') throw new Error('no creature placed');
+  c.modeTicks = 600;
 }
 
 /** Holds primary on a block until it breaks; returns the ticks it took. */
@@ -239,6 +249,37 @@ describe('placement', () => {
     expect(countItem(s.player.inventory, 'item:tall_grass')).toBe(5 - placed.length);
   });
 
+  it('refuses a block in a creature and closing a gate on one', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    spawnAt(s, 'creature:trotter', 0.5, -2.5);
+    s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -3, face: 2 } });
+    expect(rejections(s.events)).toEqual(['occupied']);
+    expect(s.block(0, 65, -3)).toBe('block:air');
+    spawnAt(s, 'creature:trotter', 2.5, -2.5);
+    s.put(2, 65, -3, 'block:gate[facing4=s,open=1,half=lower]');
+    s.put(2, 66, -3, 'block:gate[facing4=s,open=1,half=upper]');
+    s.events.length = 0;
+    s.tick(1, { secondary: false });
+    s.tick(1, { secondary: true, target: { x: 2, y: 65, z: -3, face: 4 } });
+    expect(rejections(s.events)).toEqual(['occupied']);
+    expect(s.block(2, 65, -3)).toBe('block:gate[facing4=s,open=1,half=lower]');
+  });
+
+  it('secondary uses no block behind a creature in reach (creatures are tested first)', () => {
+    const run = (withTrotter: boolean) => {
+      const s = setup();
+      s.give('item:dirt', 5);
+      if (withTrotter) spawnAt(s, 'creature:trotter', 0.5, -1.5);
+      const eye = 65 + eyeHeight(s.player.body);
+      s.events.length = 0;
+      s.tick(1, { secondary: true, pitch: Math.atan2(65.65 - eye, 2) });
+      return eventsOf(s.events, 'blockPlaced').length;
+    };
+    expect(run(false)).toBe(1);
+    expect(run(true)).toBe(0);
+  });
+
   it('falls back to its own ray when the client target is hidden', () => {
     const s = setup();
     s.give('item:dirt', 5);
@@ -295,7 +336,7 @@ describe('doors (two-block gates)', () => {
     const out: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
     const gate = registry.defaultState('block:gate');
     const plan = (state: number) =>
-      planPlacement(s.sim.world, registry, [], s.player, hit, state, out);
+      planPlacement(s.sim.world, registry, new Map(), s.player, hit, state, out);
     expect(plan(gate)).toBe('occupied');
     expect(plan(registry.defaultState('block:planks'))).toBeNull(); // a one-cell block fits
     expect(out.upper).toBe(-1);

@@ -161,15 +161,19 @@ export class HudBridge {
     if (biome) this.hud.biome.show(t(biome.def.nameKey));
   }
 
-  /** The aimed block's name and hint (nothing while dead). */
+  /** The aimed creature's name, or the aimed block's name and hint (nothing while dead). */
   private updateTarget(): void {
-    const hit = this.session.aim.hit;
+    const { hit, creature } = this.session.aim;
     const player = this.session.player;
-    if (!hit.hit || player.survival.dead) {
+    const registry = this.session.host.view.registry;
+    if (player.survival.dead || (!creature && !hit.hit)) {
       this.hud.target.update(null, null);
       return;
     }
-    const registry = this.session.host.view.registry;
+    if (creature) {
+      this.hud.target.update(t(registry.creature(creature.creature)!.nameKey), null);
+      return;
+    }
     const stack = player.inventory[this.input.slot];
     const item = stack ? registry.itemId(stack.item) : -1;
     const line = targetText(registry, hit.state, item, this.input.keyLabel('secondary'));

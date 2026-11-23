@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { unawareOf } from '../../../src/sim/ai/senses.ts';
+import { lineOfSight, unawareOf } from '../../../src/sim/ai/senses.ts';
 import { hurtCreature } from '../../../src/sim/combat.ts';
 import { type CreatureState, creatureCensus, isAlert } from '../../../src/sim/creatures.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { creatureRecord, readCreature } from '../../../src/sim/saveRecords.ts';
+import { flatWorld } from '../../helpers/flatWorld.ts';
 import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
@@ -154,6 +155,33 @@ describe('creatures', () => {
     expect(shellback.mode).toBe('stunned');
     expect(shellback.modeTicks).toBeGreaterThan(40);
     expect(s.player.survival.health).toBeCloseTo(100 - 12, 5);
+  });
+
+  it('sees between two points of one cell; opaque blocks between two points block the sight', () => {
+    const w = flatWorld();
+    const t = registry.tables;
+    expect(lineOfSight(w, t, 0.2, 65.2, 0.2, 0.8, 65.6, 0.8)).toBe(true);
+    expect(lineOfSight(w, t, 0.5, 65.5, 0.5, 0.5, 65.5, 0.5)).toBe(true);
+    expect(lineOfSight(w, t, 0.2, 65.2, 0.2, 1.3, 65.6, 0.8)).toBe(true);
+    w.setBlock(1, 65, 0, registry.defaultState('block:stone'));
+    expect(lineOfSight(w, t, 0.5, 65.5, 0.5, 2.5, 65.5, 0.5)).toBe(false);
+    // Glass lets the sight through (creatures see through what is not opaque).
+    w.setBlock(1, 65, 0, registry.defaultState('block:glass'));
+    expect(lineOfSight(w, t, 0.5, 65.5, 0.5, 2.5, 65.5, 0.5)).toBe(true);
+  });
+
+  it('a buried creature rises out of the block only into free space, never through rock', () => {
+    const run = (roof: boolean) => {
+      const s = world(`buried-${roof}`);
+      const c = place(s, 'creature:trotter', 0.5, -1.5);
+      c.modeTicks = 600;
+      if (roof) s.fill(-3, 67, -5, 3, 70, 1, 'block:stone');
+      s.put(0, 65, -2, 'block:dirt');
+      s.step(10);
+      return c.body.y;
+    };
+    expect(run(false)).toBe(66);
+    expect(run(true)).toBe(65);
   });
 
   it("a Shellback's brow plate stops 60 % of a blow from the front", () => {

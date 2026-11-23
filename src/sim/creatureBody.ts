@@ -65,11 +65,14 @@ export function stepCreatureBody(
     : Math.max(-PHYSICS.terminal, b.vy - PHYSICS.gravity * dt);
   setAabb(b, width, height);
   if (overlapsSolid(world, tables)) {
-    // Buried by a placed block: rise out of it, one cell per tick.
-    b.y = Math.floor(b.y) + 1;
+    // Buried (a debug fill): one cell up if the box is free there, else stuck: never through rock.
     b.vx = 0;
     b.vy = 0;
     b.vz = 0;
+    const y = b.y;
+    b.y = Math.floor(y) + 1;
+    setAabb(b, width, height);
+    if (overlapsSolid(world, tables)) b.y = y;
     return false;
   }
   const wantY = b.vy * dt;

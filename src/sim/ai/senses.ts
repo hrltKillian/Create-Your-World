@@ -1,6 +1,7 @@
-import { FLAG_OPAQUE, type RawTables } from '../../content/registry.ts';
+import type { RawTables } from '../../content/registry.ts';
 import type { CreatureDef } from '../../content/schema.ts';
 import { lookVector, type Vec3 } from '../../core/angles.ts';
+import { createRayHit, RAY_OPAQUE, raycast } from '../../world/raycast.ts';
 import type { VoxelWorld } from '../../world/VoxelWorld.ts';
 import { type CreatureState, eyeY, isAlert } from '../creatures.ts';
 import { eyeHeight } from '../physics.ts';
@@ -69,9 +70,13 @@ export function notices(
   return c.sees || distanceTo(c, player) <= noiseOf(player) * def.senses.hearing;
 }
 
+/** Scratch hit of lineOfSight. */
+const sight = createRayHit();
+
 /**
- * Whether nothing opaque lies strictly between two points: a voxel walk (Amanatides–Woo DDA) from
- * the cell of the first to the cell of the second. Unloaded cells block.
+ * Whether nothing opaque lies between two points (two points of one cell included): the voxel walk
+ * of world/raycast.ts along the segment, stopped by opaque blocks only (creatures see through
+ * glass, plants and water). Unloaded cells block.
  */
 export function lineOfSight(
   world: VoxelWorld,
@@ -86,38 +91,11 @@ export function lineOfSight(
   const dx = x1 - x0;
   const dy = y1 - y0;
   const dz = z1 - z0;
-  let x = Math.floor(x0);
-  let y = Math.floor(y0);
-  let z = Math.floor(z0);
-  const ex = Math.floor(x1);
-  const ey = Math.floor(y1);
-  const ez = Math.floor(z1);
-  const sx = dx > 0 ? 1 : -1;
-  const sy = dy > 0 ? 1 : -1;
-  const sz = dz > 0 ? 1 : -1;
-  // Fraction of the segment between two x (y, z) cell borders, and to the next border.
-  const tdx = dx !== 0 ? Math.abs(1 / dx) : Number.POSITIVE_INFINITY;
-  const tdy = dy !== 0 ? Math.abs(1 / dy) : Number.POSITIVE_INFINITY;
-  const tdz = dz !== 0 ? Math.abs(1 / dz) : Number.POSITIVE_INFINITY;
-  let tx = dx !== 0 ? (dx > 0 ? x + 1 - x0 : x0 - x) * tdx : Number.POSITIVE_INFINITY;
-  let ty = dy !== 0 ? (dy > 0 ? y + 1 - y0 : y0 - y) * tdy : Number.POSITIVE_INFINITY;
-  let tz = dz !== 0 ? (dz > 0 ? z + 1 - z0 : z0 - z) * tdz : Number.POSITIVE_INFINITY;
-  for (let i = 0; i < SIGHT_LIMIT * 3; i++) {
-    if (tx < ty && tx < tz) {
-      x += sx;
-      tx += tdx;
-    } else if (ty < tz) {
-      y += sy;
-      ty += tdy;
-    } else {
-      z += sz;
-      tz += tdz;
-    }
-    if (x === ex && y === ey && z === ez) return true;
-    const state = world.getBlock(x, y, z);
-    if ((tables.flags[state]! & FLAG_OPAQUE) !== 0 || state === world.outside) return false;
-  }
-  return false;
+  const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  // Two equal points: a ray of length 0 with no direction tests their cell alone.
+  const k = length > 0 ? 1 / length : 0;
+  raycast(world, tables, x0, y0, z0, dx * k, dy * k, dz * k, length, sight, RAY_OPAQUE);
+  return !sight.hit;
 }
 
 const look: Vec3 = { x: 0, y: 0, z: -1 };

@@ -8,8 +8,10 @@ import { insideBorder, WORLD_HEIGHT } from '../world/coords.ts';
 import type { RayHit } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { solidCell } from './collision.ts';
+import { isGone } from './creatures.ts';
 import { bodyHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
+import type { Entity } from './Simulation.ts';
 
 /** A held secondary button places again every 6 ticks. */
 export const PLACE_REPEAT_TICKS = 6;
@@ -32,15 +34,15 @@ const EPSILON = 1e-4;
 /**
  * Plans the placement of a block (`state`, its default state) against the aimed face: into the
  * aimed cell when it is replaceable (tall grass, water) and not already that block, else into the
- * cell in front of the face. The cell must be replaceable, inside the world and free of players;
- * the block's support rule must hold; its orientation follows the face (axis) or faces the player
- * (facing). A tall block (door) also needs the cell above, for its upper half (`out.upper`).
- * Writes `out` and returns null, or returns the refusal.
+ * cell in front of the face. The cell must be replaceable, inside the world and, for a solid
+ * block, free of `entities` (bodyInCell); the block's support rule must hold; its orientation
+ * follows the face (axis) or faces the player (facing). A tall block (door) also needs the cell
+ * above, for its upper half (`out.upper`). Writes `out` and returns null, or returns the refusal.
  */
 export function planPlacement(
   world: VoxelWorld,
   registry: Registry,
-  players: Iterable<PlayerState>,
+  entities: ReadonlyMap<number, Readonly<Entity>>,
   placer: PlayerState,
   hit: RayHit,
   state: number,
@@ -69,7 +71,7 @@ export function planPlacement(
     placed = registry.withState(state, 'axis', hit.nx !== 0 ? 'x' : hit.nz !== 0 ? 'z' : 'y');
   else if (rules?.orient === 'facing')
     placed = registry.withState(state, 'facing4', facingTowards(placer.yaw));
-  if ((tables.flags[placed]! & FLAG_SOLID) !== 0 && playerInCell(players, x, y, z, cells))
+  if ((tables.flags[placed]! & FLAG_SOLID) !== 0 && bodyInCell(entities, registry, x, y, z, cells))
     return 'occupied';
   out.x = x;
   out.y = y;
@@ -116,21 +118,35 @@ export function facingTowards(yaw: number): string {
   return lz > 0 ? 'n' : 's';
 }
 
-/** Whether any player's collision box overlaps the block cell (and the `cells` − 1 above it). */
-export function playerInCell(
-  players: Iterable<PlayerState>,
+/**
+ * Whether a body overlaps the block cell (and the `cells` − 1 above it): a player's collision box
+ * or the hitbox of a creature that is not leaving (docs « Poser »: no entity in the cell). Item
+ * drops do not count.
+ */
+export function bodyInCell(
+  entities: ReadonlyMap<number, Readonly<Entity>>,
+  registry: Registry,
   x: number,
   y: number,
   z: number,
   cells = 1,
 ): boolean {
-  const half = PHYSICS.width / 2;
-  for (const player of players) {
-    const b = player.body;
+  for (const e of entities.values()) {
+    let half: number;
+    let height: number;
+    if (e.kind === 'player') {
+      half = PHYSICS.width / 2;
+      height = bodyHeight(e.body);
+    } else if (e.kind === 'creature' && !isGone(e)) {
+      const hitbox = registry.creature(e.creature)!.hitbox;
+      half = hitbox[0] / 2;
+      height = hitbox[1];
+    } else continue;
+    const b = e.body;
     if (
       b.x + half > x + EPSILON &&
       b.x - half < x + 1 - EPSILON &&
-      b.y + bodyHeight(b) > y + EPSILON &&
+      b.y + height > y + EPSILON &&
       b.y < y + cells - EPSILON &&
       b.z + half > z + EPSILON &&
       b.z - half < z + 1 - EPSILON

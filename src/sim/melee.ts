@@ -1,24 +1,28 @@
+import type { RawTables, Registry } from '../content/registry.ts';
 import type { WeaponDef } from '../content/schema.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
+import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
+import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { unawareOf } from './ai/senses.ts';
 import { ticksOf } from './clock.ts';
 import { hurtCreature } from './combat.ts';
 import { type CreatureState, creatureDef, isGone } from './creatures.ts';
 import type { SimEvent } from './events.ts';
-import { spendUses } from './inventory.ts';
+import { type ItemStack, spendUses } from './inventory.ts';
 import { eyeHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
-import type { Simulation } from './Simulation.ts';
+import type { Entity, Simulation } from './Simulation.ts';
 import { hasEffect } from './survival.ts';
 
 /*
  * The player's side of combat (docs « Combat », « Priorité des actions »), at tick step 7: primary
- * on a creature within the held weapon's reach attacks it instead of mining. The blow lands on the
- * release: a light one, or a charged one (×1.8 damage, ×1.5 knockback) once primary was held for
- * 0.5 s. A stealthy blow (the creature off its guard and the player out of its view: `unawareOf`)
- * deals ×1.5, a Weakened player ×0.8; the creature's front armour, invulnerability and knockback
- * resistance apply in `hurtCreature`. The weapon's cooldown separates two attacks. Zero
- * allocation per tick.
+ * on a creature within the held weapon's reach attacks it instead of mining. Creatures are tested
+ * first (docs « Ciblage »): only a solid block stops a blow, so a creature in or behind tall grass
+ * or a torch is still in reach. The blow lands on the release: a light one, or a charged one
+ * (×1.8 damage, ×1.5 knockback) once primary was held for 0.5 s. A stealthy blow (the creature off
+ * its guard and the player out of its view: `unawareOf`) deals ×1.5, a Weakened player ×0.8; the
+ * creature's front armour, invulnerability and knockback resistance apply in `hurtCreature`. The
+ * weapon's cooldown separates two attacks. Zero allocation per tick.
  */
 
 export const MELEE = {
@@ -29,11 +33,15 @@ export const MELEE = {
   stealthDamage: 1.5,
 } as const;
 
-/** The held item's weapon, else the bare hand. */
-export function weaponOf(sim: Simulation, player: Readonly<PlayerState>): WeaponDef {
-  const stack = player.inventory[player.input.slot];
-  const weapon = stack ? sim.registry.item(stack.item)?.weapon : undefined;
-  return weapon ?? sim.registry.pack.balance.combat.hand;
+/** The weapon of a held stack, else the bare hand. */
+export function weaponOf(registry: Registry, stack: ItemStack | null | undefined): WeaponDef {
+  const weapon = stack ? registry.item(stack.item)?.weapon : undefined;
+  return weapon ?? registry.pack.balance.combat.hand;
+}
+
+/** The weapon a player holds (the selected hotbar slot), else the bare hand. */
+function heldWeapon(sim: Simulation, player: Readonly<PlayerState>): WeaponDef {
+  return weaponOf(sim.registry, player.inventory[player.input.slot]);
 }
 
 /** Damage of a blow before the creature's own armour; `weakness` is the Weakened factor (or 1). */
@@ -53,28 +61,27 @@ export function meleeKnockback(weapon: WeaponDef, charged: boolean): number {
 }
 
 /**
- * One tick of primary against creatures. A press (or a hold) on a creature in reach starts an
- * attack, counted in `player.charge`; the release strikes the creature aimed at then, if the
- * cooldown is over. `blockDistance` is how far the aimed block is (a creature behind it is out of
- * reach). Returns whether primary is busy with an attack this tick (no mining then).
+ * One tick of primary against creatures; `target` is the creature aimed at in reach (meleeTarget).
+ * A press (or a hold) on a creature starts an attack, counting the ticks held in `player.charge`;
+ * the release strikes the creature aimed at then, if the cooldown is over. Returns whether primary
+ * is busy with an attack this tick (no mining then).
  */
 export function stepMelee(
   sim: Simulation,
   player: PlayerState,
-  blockDistance: number,
+  target: CreatureState | undefined,
   out: SimEvent[],
 ): boolean {
-  const weapon = weaponOf(sim, player);
-  const target = aimedCreature(sim, player, Math.min(weapon.reach, blockDistance));
   if (player.input.primary) {
     if (player.charge < 0 && !target) return false;
-    player.charge++;
+    player.charge = Math.max(player.charge, 0) + 1;
     return true;
   }
   if (player.charge < 0) return false;
   const charged = player.charge >= MELEE.chargeTicks;
   player.charge = -1;
-  if (target && player.attackCooldown === 0) attack(sim, player, target, weapon, charged, out);
+  if (target && player.attackCooldown === 0)
+    attack(sim, player, target, heldWeapon(sim, player), charged, out);
   return true;
 }
 
@@ -114,43 +121,79 @@ function wearWeapon(sim: Simulation, player: PlayerState, out: SimEvent[]): void
 /** Creatures up to this much farther than the reach may still show a hitbox edge within it. */
 const HITBOX_MARGIN = 1;
 
-/** Scratch: nearby entity ids, the view direction and the slab test's interval. */
+/** Scratch: nearby entity ids, the view direction, the reach ray and the slab test's interval. */
 const near: number[] = [];
 const dir: Vec3 = { x: 0, y: 0, z: -1 };
+const wall = createRayHit();
 let tNear = 0;
 let tFar = 0;
 
 /**
- * The creature whose hitbox the player's view ray (from the simulation's eye) enters first within
- * `reach` blocks, else undefined. Dying and burrowing creatures are not targets.
+ * How far a blow reaches along a ray (from the eye, normalised direction `d`): `reach`, cut short
+ * by the first solid block. Plants, torches and liquids do not stop a blow.
  */
-export function aimedCreature(
+export function blowReach(
+  world: VoxelWorld,
+  tables: RawTables,
+  ox: number,
+  oy: number,
+  oz: number,
+  d: Readonly<Vec3>,
+  reach: number,
+): number {
+  raycast(world, tables, ox, oy, oz, d.x, d.y, d.z, reach, wall, RAY_SOLID);
+  return wall.hit ? wall.distance : reach;
+}
+
+/**
+ * How far along a ray (from (ox, oy, oz), normalised direction `d`) it enters the hitbox of an
+ * entity that is a creature to attack, when that is within `limit`; else −1. Dying and burrowing
+ * creatures are not targets. The simulation's aim and the client's alike.
+ */
+export function creatureOnRay(
+  registry: Registry,
+  e: Readonly<Entity> | undefined,
+  ox: number,
+  oy: number,
+  oz: number,
+  d: Readonly<Vec3>,
+  limit: number,
+): number {
+  if (e?.kind !== 'creature' || isGone(e)) return -1;
+  const hitbox = registry.creature(e.creature)!.hitbox;
+  const half = hitbox[0] / 2;
+  const p = e.body;
+  tNear = 0;
+  tFar = limit;
+  const enters =
+    slab(ox, d.x, p.x - half, p.x + half) &&
+    slab(oy, d.y, p.y, p.y + hitbox[1]) &&
+    slab(oz, d.z, p.z - half, p.z + half);
+  return enters ? tNear : -1;
+}
+
+/**
+ * The creature a player's blow would hit now: the first whose hitbox the view ray from the
+ * simulation's eye enters within the held weapon's reach and before any solid block (blowReach),
+ * else undefined.
+ */
+export function meleeTarget(
   sim: Simulation,
   player: Readonly<PlayerState>,
-  reach: number,
 ): CreatureState | undefined {
   const b = player.body;
   const ey = b.y + eyeHeight(b);
   lookVector(player.yaw, player.pitch, dir);
-  sim.spatial.query(b.x, b.z, reach + HITBOX_MARGIN, near);
+  const reach = heldWeapon(sim, player).reach;
+  let bestT = blowReach(sim.world, sim.registry.tables, b.x, ey, b.z, dir, reach);
+  sim.spatial.query(b.x, b.z, bestT + HITBOX_MARGIN, near);
   let best: CreatureState | undefined;
-  let bestT = reach;
   for (let i = 0; i < near.length; i++) {
     const c = sim.entities.get(near[i]!);
-    if (c?.kind !== 'creature' || isGone(c)) continue;
-    const hitbox = creatureDef(sim, c).hitbox;
-    const half = hitbox[0] / 2;
-    const p = c.body;
-    tNear = 0;
-    tFar = bestT;
-    if (
-      slab(b.x, dir.x, p.x - half, p.x + half) &&
-      slab(ey, dir.y, p.y, p.y + hitbox[1]) &&
-      slab(b.z, dir.z, p.z - half, p.z + half)
-    ) {
-      best = c;
-      bestT = tNear;
-    }
+    const t = creatureOnRay(sim.registry, c, b.x, ey, b.z, dir, bestT);
+    if (t < 0) continue;
+    best = c as CreatureState;
+    bestT = t;
   }
   return best;
 }
