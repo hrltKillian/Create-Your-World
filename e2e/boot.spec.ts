@@ -31,7 +31,7 @@ test('the test scene passes its selftests', async ({ page }) => {
 
 test('the generated world streams; spawn, biomes, ores, xray and structures', async ({ page }) => {
   // Real ticks (no fixed step), a far teleport and two full re-meshes: more time than the rest.
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * CI_FACTOR);
   const text = await selftest(page, 'seed=7&rd=4&mute=1&selftest=m0,m2,m6', 170_000);
   expect(text).toMatch(/^SELFTEST PASS/);
   // Every m2 and m6 case applies to the generated world: none may be skipped.
