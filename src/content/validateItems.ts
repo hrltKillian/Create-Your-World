@@ -1,5 +1,11 @@
 import { blockItemKey, packItems } from './items.ts';
-import type { ContentPack } from './schema.ts';
+import {
+  type ContentPack,
+  type ImplicitItemTraits,
+  type ItemDef,
+  type ItemKey,
+  WEAR_SLOTS,
+} from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -7,6 +13,14 @@ const MAX_STACK = 999;
 const MAX_DURABILITY = 65_535;
 
 const isCount = (v: number, min: number) => Number.isInteger(v) && v >= min;
+const positive = (v: number) => Number.isFinite(v) && v > 0;
+
+/** What crafting data may name: every item, the tags items carry and the loot tables. */
+export interface ItemRefs {
+  readonly items: ReadonlyMap<string, ItemDef>;
+  readonly tags: ReadonlySet<string>;
+  readonly loot: ReadonlySet<string>;
+}
 
 /** Items, tool tiers and names, and loot tables (and the block drops naming them). */
 export function validateItems(
@@ -14,20 +28,36 @@ export function validateItems(
   blockKeys: ReadonlySet<string>,
   textureKeys: ReadonlySet<string>,
   add: AddIssue,
-): void {
+): ItemRefs {
   const itemKeys = checkItems(pack, blockKeys, textureKeys, add);
+  const items = new Map(packItems(pack).map((item) => [item.key as string, item]));
+  (pack.items ?? []).forEach((item, i) => {
+    checkTraits(pack, item, `items[${i}]`, add);
+    checkUses(item, `items[${i}]`, items, add);
+  });
+  pack.blocks.forEach((block, i) => {
+    if (block.item) checkTraits(pack, block.item, `blocks[${i}].item`, add);
+    for (const [empty, filled] of Object.entries(block.liquid?.fills ?? {})) {
+      const path = `blocks[${i}].liquid.fills`;
+      if (items.get(empty)?.container?.contents !== 'empty')
+        add(path, `"${empty}" is no empty container`);
+      if (!items.get(filled ?? '')?.container) add(path, `"${filled}" is no container`);
+    }
+  });
   const unknownItem = pack.manifest.bindings.unknownItem;
   if (!itemKeys.has(unknownItem))
     add('manifest.bindings.unknownItem', `unknown item "${unknownItem}"`);
   checkTiers(pack, add);
-  const lootKeys = checkLoot(pack, itemKeys, add);
+  const loot = checkLoot(pack, itemKeys, add);
   pack.blocks.forEach((block, i) => {
-    if (block.drops.startsWith('loot:') && !lootKeys.has(block.drops))
+    if (block.drops.startsWith('loot:') && !loot.has(block.drops))
       add(`blocks[${i}].drops`, `unknown loot table "${block.drops}"`);
     // Liquids, unbreakable blocks and the bindings have no item to drop.
     if (block.drops === 'self' && !itemKeys.has(blockItemKey(block.key)))
       add(`blocks[${i}].drops`, 'only a placeable block can drop itself');
   });
+  const tags = new Set<string>([...items.values()].flatMap((item) => item.tags ?? []));
+  return { items, tags, loot };
 }
 
 /** Pack items (the implicit block items come from valid blocks). Returns every item key. */
@@ -54,22 +84,65 @@ function checkItems(
     }
     if (!isCount(item.maxStack, 1) || item.maxStack > MAX_STACK)
       add(`${path}.maxStack`, `must be an integer 1–${MAX_STACK}`);
-    (item.tags ?? []).forEach((tag, t) => {
-      if (!tag.startsWith('tag:')) add(`${path}.tags[${t}]`, `"${tag}" must start with "tag:"`);
-    });
     const tool = item.tool;
     if (tool) {
       if (!Number.isInteger(tool.tier) || tool.tier < 0 || tool.tier > 4)
         add(`${path}.tool.tier`, 'must be an integer 0–4');
-      if (!(tool.speed > 0) || !Number.isFinite(tool.speed))
-        add(`${path}.tool.speed`, 'must be > 0');
+      if (!positive(tool.speed)) add(`${path}.tool.speed`, 'must be > 0');
       if (!isCount(tool.durability, 1) || tool.durability > MAX_DURABILITY)
         add(`${path}.tool.durability`, `must be an integer 1–${MAX_DURABILITY}`);
-      // Each tool keeps its own wear, so tools never stack.
-      if (item.maxStack !== 1) add(`${path}.maxStack`, 'a tool must have maxStack 1');
     }
+    // Tools, gear and water containers keep their own wear or charges, so they never stack.
+    if ((tool || item.wear || item.container) && item.maxStack !== 1)
+      add(`${path}.maxStack`, 'a tool, a wearable or a container must have maxStack 1');
   });
   return keys;
+}
+
+/** Traits implicit block items can carry too: tags, fuel and the hint. */
+function checkTraits(pack: ContentPack, traits: ImplicitItemTraits, path: string, add: AddIssue) {
+  (traits.tags ?? []).forEach((tag, t) => {
+    if (!tag.startsWith('tag:')) add(`${path}.tags[${t}]`, `"${tag}" must start with "tag:"`);
+  });
+  if (traits.fuel && !positive(traits.fuel.seconds)) add(`${path}.fuel.seconds`, 'must be > 0');
+  if (traits.hintKey !== undefined && pack.strings[traits.hintKey] === undefined)
+    add(`${path}.hintKey`, `no string for "${traits.hintKey}"`);
+}
+
+/** Weapon, wear, consumption and water container data of a pack item. */
+function checkUses(
+  item: ItemDef,
+  path: string,
+  items: ReadonlyMap<string, ItemDef>,
+  add: AddIssue,
+): void {
+  const ref = (at: string, key: ItemKey | undefined) => {
+    if (key !== undefined && !items.has(key)) add(at, `unknown item "${key}"`);
+  };
+  const weapon = item.weapon;
+  if (weapon) {
+    for (const field of ['damage', 'cooldown', 'reach'] as const)
+      if (!positive(weapon[field])) add(`${path}.weapon.${field}`, 'must be > 0');
+    if (!(weapon.knockback >= 0)) add(`${path}.weapon.knockback`, 'must be ≥ 0');
+  }
+  const wear = item.wear;
+  if (wear) {
+    if (!WEAR_SLOTS.includes(wear.slot)) add(`${path}.wear.slot`, `unknown slot "${wear.slot}"`);
+    if (!isCount(wear.durability, 1) || wear.durability > MAX_DURABILITY)
+      add(`${path}.wear.durability`, `must be an integer 1–${MAX_DURABILITY}`);
+  }
+  if (item.consume) {
+    if (!positive(item.consume.seconds)) add(`${path}.consume.seconds`, 'must be > 0');
+    ref(`${path}.consume.returns`, item.consume.returns);
+  }
+  const container = item.container;
+  if (container) {
+    if (!isCount(container.charges, 1)) add(`${path}.container.charges`, 'must be an integer ≥ 1');
+    ref(`${path}.container.emptyAs`, container.emptyAs);
+    const empty = items.get(container.emptyAs)?.container;
+    if (empty && (empty.contents !== 'empty' || empty.charges !== container.charges))
+      add(`${path}.container.emptyAs`, 'must be an empty container with the same charges');
+  }
 }
 
 function checkTiers(pack: ContentPack, add: AddIssue): void {
@@ -98,6 +171,7 @@ function checkLoot(pack: ContentPack, itemKeys: ReadonlySet<string>, add: AddIss
     if (!isCount(min, 0) || !isCount(max, min))
       add(`${path}.rolls`, 'must be integers 0 ≤ min ≤ max');
     if (table.entries.length === 0) add(`${path}.entries`, 'needs at least one entry');
+    if (table.empty !== undefined && !(table.empty >= 0)) add(`${path}.empty`, 'must be ≥ 0');
     table.entries.forEach((entry, e) => {
       const epath = `${path}.entries[${e}]`;
       if (!itemKeys.has(entry.item)) add(`${epath}.item`, `unknown item "${entry.item}"`);

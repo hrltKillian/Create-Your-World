@@ -35,11 +35,20 @@ export const undergroundBlocks = [
     contact: { damagePerSec: 4 },
     drops: 'none',
   }),
-  deposit('block:cassiterite', 'block.cassiterite', 'tex:cassiterite', 2.5, 2),
-  deposit('block:bog_iron', 'block.bog_iron', 'tex:bog_iron', 2, 2, { sound: 'gravel' }),
-  deposit('block:fireclay', 'block.fireclay', 'tex:fireclay', 1.5, 2, { sound: 'soil' }),
+  deposit('block:cassiterite', 'block.cassiterite', 'tex:cassiterite', 2.5, 2, {
+    item: { hintKey: 'where.cassiterite' },
+  }),
+  deposit('block:bog_iron', 'block.bog_iron', 'tex:bog_iron', 2, 2, {
+    sound: 'gravel',
+    item: { hintKey: 'where.bog_iron' },
+  }),
+  deposit('block:fireclay', 'block.fireclay', 'tex:fireclay', 1.5, 2, {
+    sound: 'soil',
+    item: { hintKey: 'where.fireclay' },
+  }),
   deposit('block:dawn_crystal', 'block.dawn_crystal', 'tex:dawn_crystal', 3, 3, {
     light: { emit: 7 },
+    drops: 'loot:dawn_crystal',
     sound: 'glass',
   }),
 ] as const satisfies readonly PackBlock[];

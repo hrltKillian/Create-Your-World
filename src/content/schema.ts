@@ -3,6 +3,19 @@
  * described by these types, so the game can be re-themed without touching engine code.
  */
 
+import type {
+  CreatureDef,
+  ImplicitItemTraits,
+  ItemDef,
+  LootTableDef,
+  ProcessDef,
+  RecipeDef,
+  StationDef,
+  TierDef,
+} from './itemSchema.ts';
+
+export * from './itemSchema.ts';
+
 export type BlockKey = `block:${string}`;
 export type ItemKey = `item:${string}`;
 export type TagKey = `tag:${string}`;
@@ -13,6 +26,8 @@ export type StationKey = `station:${string}`;
 export type BiomeKey = `biome:${string}`;
 export type CreatureKey = `creature:${string}`;
 export type ModelKey = `model:${string}`;
+export type RecipeKey = `recipe:${string}`;
+export type ProcessKey = `process:${string}`;
 
 export type Tier = 0 | 1 | 2 | 3 | 4;
 
@@ -106,7 +121,9 @@ export interface BlockDef {
   readonly states?: readonly StateProp[];
   readonly whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>;
   readonly heat?: { readonly celsius: number; readonly radius: number };
+  /** Per-block state the simulation keeps (chest contents, a kiln's slots and fire…). */
   readonly blockEntity?: 'container' | 'station' | 'grave' | 'bed';
+  /** The station this block is: recipes and processes of that station need it nearby. */
   readonly station?: StationKey;
   readonly placement?: {
     readonly support?: 'below' | 'face';
@@ -115,6 +132,8 @@ export interface BlockDef {
     readonly tall?: 2;
   };
   readonly sound: SoundMaterial;
+  /** Traits of the block's implicit item (logs are fuel and carry `tag:log`…). */
+  readonly item?: ImplicitItemTraits;
 }
 
 export type TexturePattern =
@@ -168,45 +187,6 @@ export interface TextureDef {
 
 /** Crack stages of a block being mined (mineProgress events, `fracture` textures). */
 export const CRACK_STAGES = 8;
-
-export interface ToolDef {
-  readonly kind: ToolKind;
-  readonly tier: Tier;
-  /** Mining speed when the block wants this kind of tool (the hand is 1). */
-  readonly speed: number;
-  /** Uses before the tool breaks. */
-  readonly durability: number;
-}
-
-export interface ItemDef {
-  readonly key: ItemKey;
-  readonly nameKey: string;
-  /** Icon texture, or the block whose faces draw it. */
-  readonly icon: TexKey | { readonly block: BlockKey };
-  readonly maxStack: number;
-  readonly tags?: readonly TagKey[];
-  readonly tool?: ToolDef;
-}
-
-/** Display name of a tool tier (hint « Tool too weak: copper pickaxe required »). */
-export interface TierDef {
-  readonly tier: Tier;
-  readonly nameKey: string;
-}
-
-export interface LootEntry {
-  readonly item: ItemKey;
-  /** Inclusive range. */
-  readonly count: readonly [number, number];
-  readonly weight: number;
-}
-
-export interface LootTableDef {
-  readonly key: LootKey;
-  /** Inclusive range of entries drawn. */
-  readonly rolls: readonly [number, number];
-  readonly entries: readonly LootEntry[];
-}
 
 /**
  * Sound effects the engine plays for gameplay actions (keyed by the block's sound material) and
@@ -402,6 +382,8 @@ export interface StructureDef {
   readonly layers: readonly (readonly string[])[];
   /** Character → block state key, e.g. `block:planks` or `block:broadleaf_log[axis=x]`. */
   readonly legend: Readonly<Record<string, string>>;
+  /** Character of a container block (a chest) → the loot table that fills it when generated. */
+  readonly lootTables?: Readonly<Record<string, LootKey>>;
 }
 
 export type OreKey = `ore:${string}`;
@@ -520,6 +502,10 @@ export interface ContentPack {
   /** Name (i18n key) of each tool kind, for the same hint. */
   readonly toolNames?: Readonly<Partial<Record<ToolKind, string>>>;
   readonly loot?: readonly LootTableDef[];
+  readonly recipes?: readonly RecipeDef[];
+  readonly processes?: readonly ProcessDef[];
+  readonly stations?: readonly StationDef[];
+  readonly creatures?: readonly CreatureDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

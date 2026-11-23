@@ -1,9 +1,12 @@
 import type { BlockDef } from '../../schema.ts';
+import { LOG_ITEM, SAND_ITEM } from './blocks.ts';
 import type { PackI18nKey } from './i18n.en.ts';
+import { FUELS } from './recipes.ts';
 
 type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 
-const cube = (
+/** A full opaque cube with one texture, dropping itself. */
+export const cube = (
   key: `block:${string}`,
   nameKey: PackI18nKey,
   texture: `tex:${string}`,
@@ -68,12 +71,14 @@ export const natureBlocks = [
     drops: 'none',
     sound: 'glass',
   },
-  cube('block:ochre_sand', 'block.ochre_sand', 'tex:ochre_sand', 0.5, 'sand'),
+  cube('block:ochre_sand', 'block.ochre_sand', 'tex:ochre_sand', 0.5, 'sand', { item: SAND_ITEM }),
   cube('block:ochre_sandstone', 'block.ochre_sandstone', 'tex:ochre_sandstone', 1.2, 'stone', {
     tool: 'pick',
     minTier: 1,
   }),
-  cube('block:peat', 'block.peat', 'tex:peat', 0.6, 'soil'),
+  cube('block:peat', 'block.peat', 'tex:peat', 0.6, 'soil', {
+    item: { fuel: FUELS.peat, hintKey: 'where.peat' },
+  }),
   cube('block:silt', 'block.silt', 'tex:silt', 0.5, 'soil'),
   {
     key: 'block:foul_water',
@@ -90,6 +95,15 @@ export const natureBlocks = [
     hardness: 0,
     drops: 'none',
     sound: 'water',
+    liquid: {
+      drinkable: true,
+      thirstPerSip: 8,
+      toxicityPerSip: 10,
+      fills: {
+        'item:flask_empty': 'item:flask_foul',
+        'item:waterskin_empty': 'item:waterskin_foul',
+      },
+    },
   },
   {
     key: 'block:conifer_log',
@@ -105,6 +119,7 @@ export const natureBlocks = [
     states: ['axis'],
     placement: { orient: 'axis' },
     sound: 'wood',
+    item: LOG_ITEM,
   },
   {
     key: 'block:needles',
@@ -118,14 +133,18 @@ export const natureBlocks = [
     opaque: false,
     light: { filter: 1 },
     hardness: 0.2,
-    drops: 'none',
+    drops: 'loot:needles',
     sound: 'leaves',
   },
   plant('block:frost_lichen', 'block.frost_lichen', 'tex:frost_lichen'),
-  plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub'),
-  plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush'),
+  plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub', { drops: 'loot:dry_shrub' }),
+  plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush', { drops: 'loot:berry_bush' }),
   plant('block:thornbush', 'block.thornbush', 'tex:thornbush', { contact: { damagePerSec: 1 } }),
-  plant('block:glowbloom', 'block.glowbloom', 'tex:glowbloom', { light: { emit: 5 } }),
+  plant('block:glowbloom', 'block.glowbloom', 'tex:glowbloom', {
+    light: { emit: 5 },
+    drops: 'self',
+    item: { hintKey: 'where.glowbloom' },
+  }),
   {
     key: 'block:palmthorn',
     nameKey: 'block.palmthorn',
@@ -137,7 +156,7 @@ export const natureBlocks = [
     light: { filter: 1 },
     contact: { damagePerSec: 1 },
     hardness: 0.4,
-    drops: 'self',
+    drops: 'loot:palmthorn',
     placement: { support: 'below' },
     sound: 'wood',
   },
@@ -157,5 +176,6 @@ export const natureBlocks = [
   cube('block:glowcap', 'block.glowcap', 'tex:glowcap', 0.4, 'leaves', {
     light: { emit: 6 },
     tool: 'axe',
+    item: { hintKey: 'where.glowcap' },
   }),
 ] as const satisfies readonly PackBlock[];

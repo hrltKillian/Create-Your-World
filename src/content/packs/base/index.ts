@@ -1,11 +1,15 @@
 import type { ContentPack } from '../../schema.ts';
 import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
+import { stationBlocks } from './blocksStations.ts';
 import { undergroundBlocks } from './blocksUnderground.ts';
 import { strings } from './i18n.en.ts';
-import { itemIcons, items } from './items.ts';
-import { loot } from './loot.ts';
+import { consumableIcons, containerIcons, equipmentIcons } from './iconsGear.ts';
+import { materialIcons, toolIcons } from './iconsTools.ts';
+import { items } from './items.ts';
+import { creatures, loot } from './loot.ts';
 import { models } from './models.ts';
+import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
 import { structures } from './structures.ts';
@@ -28,9 +32,17 @@ export const basePack: ContentPack = {
       avatarModel: 'model:explorer',
     },
   },
-  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks],
+  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks],
   // Icons and cracks go last so that block texture layers keep their indices.
-  textures: [...textures, ...itemIcons, ...crackTextures],
+  textures: [
+    ...textures,
+    ...toolIcons,
+    ...materialIcons,
+    ...equipmentIcons,
+    ...consumableIcons,
+    ...containerIcons,
+    ...crackTextures,
+  ],
   strings,
   tints: { grass: '#7fb04f', foliage: '#5f9a3e', water: '#3f76c4' },
   devScene: {
@@ -56,6 +68,10 @@ export const basePack: ContentPack = {
   tiers,
   toolNames,
   loot,
+  recipes,
+  processes,
+  stations,
+  creatures,
   sounds,
   sfx,
   worldgen,

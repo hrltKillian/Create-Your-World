@@ -1,4 +1,12 @@
-import type { BlockKey, ContentPack, ItemDef, ItemKey, ToolKind } from './schema.ts';
+import type {
+  BlockDef,
+  BlockKey,
+  ContentPack,
+  ItemDef,
+  ItemKey,
+  ToolDef,
+  ToolKind,
+} from './schema.ts';
 
 /** Stack size of the implicit item of a block. */
 export const BLOCK_STACK = 50;
@@ -9,6 +17,16 @@ const TOOL_CODES: Readonly<Record<ToolKind, number>> = { pick: 1, axe: 2 };
 
 export function toolCode(kind: ToolKind | undefined): number {
   return kind === undefined ? TOOL_NONE : TOOL_CODES[kind];
+}
+
+/**
+ * Whether a tool (none: the hand) harvests a block, i.e. breaking it yields its drops (docs
+ * « Casser »): a tool of the block's kind counts its tier, anything else tier 0, and the tier must
+ * reach the block's `minTier`.
+ */
+export function harvests(block: BlockDef, tool: ToolDef | undefined): boolean {
+  const tier = tool !== undefined && tool.kind === block.tool ? tool.tier : 0;
+  return tier >= (block.minTier ?? 0);
 }
 
 /** Key of the implicit item of a block: `block:dirt` → `item:dirt`. */
@@ -32,7 +50,10 @@ function placeable(pack: ContentPack) {
   );
 }
 
-/** Every item of a pack: one implicit item per placeable block, then the pack's items. */
+/**
+ * Every item of a pack: one implicit item per placeable block (with the traits the block gives it:
+ * tags, fuel, hint), then the pack's items.
+ */
 export function packItems(pack: ContentPack): ItemDef[] {
   const implicit = placeable(pack).map(
     (block): ItemDef => ({
@@ -40,6 +61,7 @@ export function packItems(pack: ContentPack): ItemDef[] {
       nameKey: block.nameKey,
       icon: { block: block.key },
       maxStack: BLOCK_STACK,
+      ...block.item,
     }),
   );
   return [...implicit, ...(pack.items ?? [])];

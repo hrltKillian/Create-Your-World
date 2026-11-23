@@ -6,6 +6,7 @@ import {
   type TextureAlpha,
   type TextureSlot,
 } from './schema.ts';
+import { validateCrafting } from './validateCrafting.ts';
 import { validateItems } from './validateItems.ts';
 import { validateSounds } from './validateSounds.ts';
 import { validateWorld } from './validateWorld.ts';
@@ -54,7 +55,7 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateModels(pack, textures.keys, add);
   validateDevScene(pack, blockKeys, add);
   validateArena(pack, blockKeys, add);
-  validateItems(pack, blockKeys, textures.keys, add);
+  validateCrafting(pack, validateItems(pack, blockKeys, textures.keys, add), add);
   validateSounds(pack, add);
   checkTints(pack.tints, 'tints', add);
   (pack.biomes ?? []).forEach((b, i) => {

@@ -1,4 +1,5 @@
 import { combinations, effective, internBoxes, stateKey } from './blockStates.ts';
+import { Crafting } from './crafting.ts';
 import { buildItemTables, type ItemTables, packItems } from './items.ts';
 import type {
   BlockDef,
@@ -128,6 +129,8 @@ export class Registry {
   /** Items by numeric id: the implicit block items, then the pack's items. */
   readonly items: readonly ItemDef[];
   readonly itemTables: ItemTables;
+  /** Recipes, processes and stations, with the ingredient and fuel rules. */
+  readonly crafting: Crafting;
   private readonly blockIndex: ReadonlyMap<string, number>;
   private readonly stateIndex: ReadonlyMap<string, number>;
   private readonly itemIndex: ReadonlyMap<string, number>;
@@ -157,6 +160,7 @@ export class Registry {
     this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
     this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));
     this.lootIndex = new Map((pack.loot ?? []).map((table) => [table.key, table]));
+    this.crafting = new Crafting(pack, this.items);
   }
 
   blockDef(stateId: number): BlockDef {
@@ -191,6 +195,12 @@ export class Registry {
   /** Numeric id of an item key, −1 if the pack has no such item. */
   itemId(key: string): number {
     return this.itemIndex.get(key) ?? -1;
+  }
+
+  /** Definition of an item key, undefined if the pack has no such item. */
+  item(key: string): ItemDef | undefined {
+    const id = this.itemId(key);
+    return id < 0 ? undefined : this.items[id];
   }
 
   /** Largest stack of an item (1 for unknown items). */

@@ -1,5 +1,6 @@
-import type { BlockDef, Box16 } from '../../schema.ts';
+import type { BlockDef, Box16, ImplicitItemTraits } from '../../schema.ts';
 import type { PackI18nKey } from './i18n.en.ts';
+import { FUELS } from './recipes.ts';
 
 type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 
@@ -8,6 +9,11 @@ const TORCH: readonly Box16[] = [[7, 0, 7, 9, 10, 9]];
 const GATE_CLOSED: readonly Box16[] = [[0, 0, 0, 16, 16, 3]];
 /** Swung open against the west side. */
 const GATE_OPEN: readonly Box16[] = [[0, 0, 0, 3, 16, 16]];
+
+/** Logs are fuel, and recipes name any of them by their tag. */
+export const LOG_ITEM: ImplicitItemTraits = { tags: ['tag:log'], fuel: FUELS.log };
+/** Sands melt into glass alike. */
+export const SAND_ITEM: ImplicitItemTraits = { tags: ['tag:sand'] };
 
 /** Base pack blocks. The first block must be air (pack binding). */
 export const blocks = [
@@ -113,6 +119,7 @@ export const blocks = [
     hardness: 0.5,
     drops: 'self',
     sound: 'sand',
+    item: SAND_ITEM,
   },
   {
     key: 'block:gravel',
@@ -123,7 +130,8 @@ export const blocks = [
     collision: 'full',
     opaque: true,
     hardness: 0.6,
-    drops: 'self',
+    // Flint 35 % of the time, else the gravel itself.
+    drops: 'loot:gravel',
     sound: 'gravel',
   },
   {
@@ -135,7 +143,7 @@ export const blocks = [
     collision: 'full',
     opaque: true,
     hardness: 0.6,
-    drops: 'self',
+    drops: 'loot:clay',
     sound: 'soil',
   },
   {
@@ -152,6 +160,7 @@ export const blocks = [
     states: ['axis'],
     placement: { orient: 'axis' },
     sound: 'wood',
+    item: LOG_ITEM,
   },
   {
     key: 'block:foliage',
@@ -165,7 +174,7 @@ export const blocks = [
     opaque: false,
     light: { filter: 1 },
     hardness: 0.2,
-    drops: 'none',
+    drops: 'loot:foliage',
     sound: 'leaves',
   },
   {
@@ -180,6 +189,7 @@ export const blocks = [
     tool: 'axe',
     drops: 'self',
     sound: 'wood',
+    item: { fuel: FUELS.planks },
   },
   {
     key: 'block:glass',
@@ -210,6 +220,13 @@ export const blocks = [
     hardness: 0,
     drops: 'none',
     sound: 'water',
+    // Sips and filled containers arrive with M9 (« Eau potable »).
+    liquid: {
+      drinkable: true,
+      thirstPerSip: 8,
+      toxicityPerSip: 2,
+      fills: { 'item:flask_empty': 'item:flask_raw', 'item:waterskin_empty': 'item:waterskin_raw' },
+    },
   },
   {
     key: 'block:tall_grass',
@@ -222,7 +239,8 @@ export const blocks = [
     opaque: false,
     replaceable: true,
     hardness: 0,
-    drops: 'none',
+    // Plant fibre 60 % of the time.
+    drops: 'loot:tall_grass',
     placement: { support: 'below' },
     sound: 'leaves',
   },
@@ -279,6 +297,7 @@ export const blocks = [
       },
     },
     blockEntity: 'station',
+    station: 'station:kiln',
     placement: { orient: 'facing' },
     sound: 'stone',
   },
@@ -295,5 +314,6 @@ export const blocks = [
     minTier: 1,
     drops: 'self',
     sound: 'stone',
+    item: { hintKey: 'where.copper_ore' },
   },
 ] as const satisfies readonly PackBlock[];

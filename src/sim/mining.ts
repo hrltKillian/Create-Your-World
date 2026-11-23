@@ -1,4 +1,4 @@
-import { toolCode } from '../content/items.ts';
+import { harvests, toolCode } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
 import { type BlockDef, CRACK_STAGES } from '../content/schema.ts';
 
@@ -33,9 +33,7 @@ function rightTool(registry: Registry, block: BlockDef, itemId: number): boolean
 
 /** Whether breaking the block with the held item yields its drops (tier ≥ the block's minTier). */
 export function canHarvest(registry: Registry, state: number, itemId: number): boolean {
-  const block = registry.blockDef(state);
-  const tier = rightTool(registry, block, itemId) ? registry.itemTables.toolTier[itemId]! : 0;
-  return tier >= (block.minTier ?? 0);
+  return harvests(registry.blockDef(state), itemId < 0 ? undefined : registry.items[itemId]!.tool);
 }
 
 /**

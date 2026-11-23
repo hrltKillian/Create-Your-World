@@ -92,6 +92,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
+  - items and crafting data: `content/items.ts` (`packItems`, `blockItemKey`, `harvests`: the
+    harvest rule), `registry.item(key)`, `registry.crafting` (`content/crafting.ts`: recipes,
+    processes and stations by key, `matches` for item-or-tag ingredients, `burnSeconds` for the
+    fuel rules); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty` share); the progression
+    proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
