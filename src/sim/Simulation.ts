@@ -21,6 +21,7 @@ import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
 import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
+import { stepObjectives } from './objectives.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
@@ -55,8 +56,8 @@ export type Entity = PlayerState | ItemDropState;
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, item drops,
- * inventory, equipment, block entities (chests, stations, packs), craft queues, survival, deaths
- * and debug commands.
+ * inventory, equipment, block entities (chests, stations, packs), craft queues, survival, deaths,
+ * objectives and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -199,6 +200,7 @@ export class Simulation implements ColumnSink {
     stepLight(this.light, SEAM_NODES_PER_TICK, out);
     this.columns.promote(out);
     this.columns.stream(out);
+    stepObjectives(this, out);
   }
 
   /** Integrates and requests outside play (loading screen, tests). */

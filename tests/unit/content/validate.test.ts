@@ -216,3 +216,26 @@ describe('content validation of the balance', () => {
     ]);
   });
 });
+
+describe('content validation of the objectives', () => {
+  it('checks keys, strings, compass points and what each condition asks for', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    const [first, second, third, fourth] = pack.objectives;
+    first.key = second.key;
+    second.textKey = 'objective.nope';
+    second.compass = 'up';
+    third.condition = { items: ['item:nope', 'tag:nope'], stations: ['station:nope'], nights: 1.5 };
+    fourth.condition = { enclosed: false };
+    const issues = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(issues).toEqual([
+      'objectives[1].key',
+      'objectives[1].textKey',
+      'objectives[1].compass',
+      'objectives[2].condition.items[0]',
+      'objectives[2].condition.items[1]',
+      'objectives[2].condition.stations[0]',
+      'objectives[2].condition.nights',
+      'objectives[3].condition',
+    ]);
+  });
+});

@@ -95,6 +95,11 @@ export function passedHour(prev: number, now: number, hour: number): number {
   return day > Math.floor((prev - offset) / DAY_TICKS) ? day + 1 : 0;
 }
 
+/** Nights survived since the world began: the times the clock passed 06:00 after the first day. */
+export function nightsSurvived(ticks: number): number {
+  return Math.max(0, Math.floor((ticks - DAY_START * HOUR_TICKS) / DAY_TICKS));
+}
+
 /**
  * The clock's messages (docs « Jour/nuit ») for the time from `prev` to `now`: the sun sets at
  * 18:30, a night is survived at 06:00 (from the second day on).

@@ -362,10 +362,14 @@ export function installDebugHook(app: App): void {
         return app.inventory?.screen() ?? null;
       },
       /**
-       * The open screen: 'bag' (with the Logbook), 'container' or 'station' over the world, a menu
-       * ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
+       * The open screen: 'death', 'bag' (with the Logbook), 'container' or 'station' over the world,
+       * a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
        */
-      screen: () => app.inventory?.screen() ?? app.game?.menus.screen() ?? null,
+      screen: () =>
+        (app.hud?.deathOpen() ? 'death' : null) ??
+        app.inventory?.screen() ??
+        app.game?.menus.screen() ??
+        null,
       /** Clicks the first element a selector matches (false: none, or a disabled button). */
       click,
       /** Drags a stack between two `[data-slot]` numbers of the open screen, like the mouse. */

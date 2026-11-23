@@ -14,6 +14,7 @@ export class FakeElement extends FakeNode {
   disabled = false;
   parent: FakeElement | null = null;
   private readonly properties = new Map<string, string>();
+  /** Inline style: `transform`, and the custom properties set (`getPropertyValue` reads them). */
   readonly style = {
     transform: '',
     setProperty: (name: string, value: string) => {
@@ -70,6 +71,11 @@ export class FakeElement extends FakeNode {
   append(...nodes: (FakeElement | string)[]): void {
     for (const node of nodes) if (typeof node !== 'string') node.parent = this;
     this.childNodes.push(...nodes);
+  }
+
+  prepend(...nodes: (FakeElement | string)[]): void {
+    for (const node of nodes) if (typeof node !== 'string') node.parent = this;
+    this.childNodes.unshift(...nodes);
   }
 
   replaceChildren(...nodes: (FakeElement | string)[]): void {

@@ -120,6 +120,8 @@ export type SimEvent =
       readonly y: number;
       readonly z: number;
     }
+  /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
+  | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
   /** The clock passed 18:30 of `day`: « The sun is setting… » and a sound (docs « Jour/nuit »). */
   | { readonly type: 'sunset'; readonly day: number }
   /** The clock passed 06:00: night `night` is over (« Night N survived »). */

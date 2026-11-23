@@ -10,6 +10,7 @@ import { materialIcons, toolIcons } from './iconsTools.ts';
 import { items } from './items.ts';
 import { creatures, loot } from './loot.ts';
 import { models } from './models.ts';
+import { objectives } from './objectives.ts';
 import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
@@ -75,6 +76,7 @@ export const basePack: ContentPack = {
   stations,
   creatures,
   balance,
+  objectives,
   sounds,
   sfx,
   worldgen,

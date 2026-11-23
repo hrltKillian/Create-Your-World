@@ -126,7 +126,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
     32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
     Abandoned Pack (`registry.grave`), `player.respawn` and `recoverPack` in `sim/death.ts` (tick
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
-    `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour` in `sim/time.ts`;
+    `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
+    `sim/time.ts`;
+  - objectives (docs « Objectifs jusqu'au fer »): the chain in data `content/packs/base/
+    objectives.ts` (`ObjectiveDef`, `content/objectiveSchema.ts`: items seen, stations within
+    crafting reach, an enclosed shelter, nights survived; a `compass` point), checked once a second
+    at tick step 16 (`stepObjectives`, `conditionHolds` in `sim/objectives.ts`; event
+    `objectiveDone`, the keys in `player.objectives`);
+  - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
+    `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
+    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners) and the
+    death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them (compass every frame, the
+    rest at 10 Hz) and hands the gate over to the death screen; what needs the sim's rules
+    (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass `sunBearing`/
+    `aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
@@ -200,6 +213,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
   `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
   `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
+- M9 screens: `ui.screen()` also names `'death'` (`#screen-death`, `data-action="respawn"`; it
+  follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
+  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-effects`
+  (rows carry `data-effect`), `#hud-banner`, `#hud-sleep`.
 - Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
   saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
   row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its

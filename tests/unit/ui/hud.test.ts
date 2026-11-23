@@ -1,0 +1,260 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { basePack } from '../../../src/content/packs/base/index.ts';
+import { lookVector, type Vec3 } from '../../../src/core/angles.ts';
+import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
+import { createSurvival, DEATH_CAUSES } from '../../../src/sim/survival.ts';
+import { DAY_TICKS, HOUR_TICKS, hourOf } from '../../../src/sim/time.ts';
+import { clockText, durationText } from '../../../src/ui/hud/clock.ts';
+import {
+  bearingOf,
+  Compass,
+  compassOffset,
+  headingOf,
+  POINT_BEARINGS,
+} from '../../../src/ui/hud/compass.ts';
+import { EffectList, HUD_EFFECTS } from '../../../src/ui/hud/effects.ts';
+import { ObjectivesPanel, objectiveProgress } from '../../../src/ui/hud/objectives.ts';
+import { VIGNETTES, type Vignette, vignetteLevels } from '../../../src/ui/hud/vignettes.ts';
+import { BREATH_BUBBLES, Vitals } from '../../../src/ui/hud/vitals.ts';
+import { DeathScreen } from '../../../src/ui/screens/death.ts';
+import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
+
+/*
+ * The HUD's pure formatting and selection (compass bearings, clock text, objective progress,
+ * vignette levels) and its views on the fake DOM. Thresholds come from the pack's balance.
+ */
+
+const b = basePack.balance;
+const chain = basePack.objectives!;
+const QUARTER = Math.PI / 2;
+const fake = (element: HTMLElement) => element as unknown as FakeElement;
+const levels = (): Record<Vignette, number> => ({
+  health: 0,
+  cold: 0,
+  heat: 0,
+  toxicity: 0,
+  water: 0,
+});
+
+beforeEach(() => {
+  installFakeDom();
+  addStrings(basePack.strings);
+});
+afterEach(removeFakeDom);
+
+describe('compass', () => {
+  it('measures bearings clockwise from north (−z), east being +x', () => {
+    expect(bearingOf(0, -1)).toBeCloseTo(POINT_BEARINGS.north);
+    expect(bearingOf(1, 0)).toBeCloseTo(POINT_BEARINGS.east);
+    expect(bearingOf(0, 1)).toBeCloseTo(POINT_BEARINGS.south);
+    expect(bearingOf(-1, 0)).toBeCloseTo(POINT_BEARINGS.west);
+    expect(bearingOf(1, -1)).toBeCloseTo(QUARTER / 2);
+  });
+
+  it('heads where the view looks, for any yaw', () => {
+    const dir: Vec3 = { x: 0, y: 0, z: 0 };
+    for (const yaw of [0, 0.4, QUARTER, 2, -1.3, 7]) {
+      lookVector(yaw, 0, dir);
+      expect(headingOf(yaw)).toBeCloseTo(bearingOf(dir.x, dir.z));
+    }
+    // Turning left (a positive yaw) faces west.
+    expect(headingOf(QUARTER)).toBeCloseTo(POINT_BEARINGS.west);
+  });
+
+  it('places a bearing on the strip, wrapping around north, and hides what is behind', () => {
+    expect(compassOffset(POINT_BEARINGS.north, 0, QUARTER)).toBe(0);
+    expect(compassOffset(POINT_BEARINGS.east, 0, QUARTER)).toBeCloseTo(1);
+    expect(compassOffset(QUARTER / 2, 0, QUARTER)).toBeCloseTo(0.5);
+    expect(compassOffset(POINT_BEARINGS.west, 0, QUARTER)).toBeCloseTo(-1);
+    // 350° seen from 10°: 20° to the left.
+    const deg = Math.PI / 180;
+    expect(compassOffset(350 * deg, 10 * deg, QUARTER)).toBeCloseTo(-20 / 90);
+    expect(compassOffset(POINT_BEARINGS.south, 0, QUARTER)).toBeNaN();
+  });
+
+  it('moves its marks through CSS variables and hides those behind the player', () => {
+    const compass = new Compass();
+    const marks = fake(compass.element).findAll((e) => e.className.includes('compass-mark'));
+    const north = marks.find((m) => m.textContent === 'N')!;
+    const south = marks.find((m) => m.textContent === 'S')!;
+    compass.update(0, { sun: QUARTER / 2, moon: Number.NaN, objective: Number.NaN, graves: [0] });
+    expect(north.style.getPropertyValue('--x')).toBe('0');
+    expect(north.style.getPropertyValue('--o')).toBe('1');
+    expect(south.style.getPropertyValue('--o')).toBe('0');
+    const sun = marks.find((m) => m.className.includes('compass-sun'))!;
+    expect(sun.style.getPropertyValue('--x')).toBe('0.5');
+    const graves = () =>
+      fake(compass.element).findAll((e) => e.className.includes('compass-grave'));
+    expect(graves()).toHaveLength(1);
+    compass.update(Math.PI, { sun: Number.NaN, moon: Number.NaN, objective: 0, graves: [] });
+    expect(south.style.getPropertyValue('--x')).toBe('0');
+    expect(north.style.getPropertyValue('--o')).toBe('0');
+    expect(graves()[0]!.style.getPropertyValue('--o')).toBe('0');
+  });
+});
+
+describe('clock and durations', () => {
+  it('writes « hh:mm · Day n » for every minute of the day, without float slips', () => {
+    expect(clockText(7.5, 1)).toBe('07:30 · Day 1');
+    const ticksPerMinute = HOUR_TICKS / 60;
+    for (let minute = 0; minute < 24 * 60; minute++) {
+      const ticks = 3 * DAY_TICKS + minute * ticksPerMinute;
+      const hh = String(Math.floor(minute / 60)).padStart(2, '0');
+      const mm = String(minute % 60).padStart(2, '0');
+      expect(clockText(hourOf(ticks), 4)).toBe(`${hh}:${mm} · Day 4`);
+    }
+    expect(clockText(hourOf(DAY_TICKS - 1), 1)).toBe('23:59 · Day 1');
+  });
+
+  it('rounds the time left of an effect up', () => {
+    expect(durationText(0)).toBe('0:00');
+    expect(durationText(0.2)).toBe('0:01');
+    expect(durationText(65)).toBe('1:05');
+    expect(durationText(119.9)).toBe('2:00');
+    expect(durationText(-3)).toBe('0:00');
+  });
+});
+
+describe('objectives', () => {
+  it('shows the first step not done, counting the steps done in any order', () => {
+    expect(objectiveProgress(chain, [])).toEqual({
+      current: chain[0],
+      done: 0,
+      total: chain.length,
+    });
+    const ahead = objectiveProgress(chain, [chain[1]!.key, 'objective:removed']);
+    expect(ahead).toEqual({ current: chain[0], done: 1, total: chain.length });
+    const all = chain.map((o) => o.key);
+    expect(objectiveProgress(chain, all)).toEqual({
+      current: null,
+      done: all.length,
+      total: all.length,
+    });
+  });
+
+  it('draws the count, the current objective and its hint, then the closing line', () => {
+    const panel = new ObjectivesPanel(chain);
+    const el = fake(panel.element);
+    expect(panel.update([])).toBe(chain[0]);
+    expect(el.textContent).toContain(`0/${chain.length}`);
+    expect(el.querySelector('.objectives-text')!.textContent).toBe(
+      basePack.strings[chain[0]!.textKey],
+    );
+    expect(el.querySelector('.objectives-hint')!.textContent).toBe(
+      basePack.strings[chain[0]!.hintKey!],
+    );
+    const all = chain.map((o) => o.key);
+    expect(panel.update(all)).toBeNull();
+    expect(el.classList.contains('complete')).toBe(true);
+    expect(el.querySelector('.objectives-hint')!.hidden).toBe(true);
+    expect(new ObjectivesPanel([]).element.hidden).toBe(true);
+    expect(i18nMissing()).toEqual([]);
+  });
+});
+
+describe('vitals and vignettes', () => {
+  it('fills the vials, sounds the alarm under the thresholds and shows toxicity and breath when needed', () => {
+    const vitals = new Vitals(b);
+    const el = fake(vitals.element);
+    const s = createSurvival(b);
+    vitals.update(s, 0);
+    const health = el.querySelector('.vial-health')!;
+    expect(health.style.getPropertyValue('--fill')).toBe('1');
+    expect(health.getAttribute('aria-label')).toBe(`Health ${b.health.max}`);
+    expect(el.querySelector('.vial-toxicity')!.hidden).toBe(true);
+    expect(el.querySelector('.breath')!.hidden).toBe(true);
+    s.health = b.health.lowAt - 1;
+    s.toxicity = b.toxicity.nauseousAt;
+    s.breath = b.breath.seconds / 2;
+    vitals.update(s, 0);
+    expect(health.classList.contains('alarm')).toBe(true);
+    expect(el.querySelector('.vial-value')!.textContent).toBe(String(b.health.lowAt - 1));
+    const toxicity = el.querySelector('.vial-toxicity')!;
+    expect(toxicity.hidden).toBe(false);
+    expect(toxicity.classList.contains('alarm')).toBe(true);
+    const bubbles = el.findAll((e) => e.className === 'breath-bubble');
+    expect(bubbles).toHaveLength(BREATH_BUBBLES);
+    expect(bubbles.map((bubble) => bubble.style.getPropertyValue('--fill'))).toEqual([
+      '1',
+      '1',
+      '0.5',
+      '0',
+      '0',
+    ]);
+  });
+
+  it('shows the thermometer with its trend and status', () => {
+    const vitals = new Vitals(b);
+    const thermo = fake(vitals.element).querySelector('.thermo')!;
+    const s = createSurvival(b);
+    s.temperature = -b.temperature.severeAt;
+    s.target = -b.temperature.limit;
+    s.ambient = -16;
+    vitals.update(s, -2);
+    expect(thermo.classList.contains('falling')).toBe(true);
+    expect(thermo.classList.contains('cold')).toBe(true);
+    expect(thermo.classList.contains('severe')).toBe(true);
+    expect(thermo.textContent).toBe('-16°');
+    s.target = s.temperature;
+    vitals.update(s, -2);
+    expect(thermo.classList.contains('falling')).toBe(false);
+  });
+
+  it('sets each vignette from the gauges past their thresholds', () => {
+    const s = createSurvival(b);
+    expect(vignetteLevels(s, b, false, levels())).toEqual(levels());
+    s.health = 0;
+    s.temperature = -b.temperature.mildAt;
+    s.toxicity = b.toxicity.nauseousAt;
+    const out = vignetteLevels(s, b, true, levels());
+    expect(out.health).toBe(1);
+    expect(out.cold).toBeCloseTo(b.temperature.mildAt / b.temperature.limit);
+    expect(out.heat).toBe(0);
+    expect(out.toxicity).toBeCloseTo(b.toxicity.nauseousAt / b.toxicity.max);
+    expect(out.water).toBe(1);
+    s.health = b.health.lowAt - 0.01;
+    expect(vignetteLevels(s, b, false, levels()).health).toBeGreaterThanOrEqual(0.3);
+    expect(Object.keys(out)).toEqual([...VIGNETTES]);
+  });
+});
+
+describe('effects and the death screen', () => {
+  it('lists effects in order with the time left of the timed ones', () => {
+    const list = new EffectList();
+    const el = fake(list.element);
+    list.update([
+      { key: 'freezing', seconds: null },
+      { key: 'weakened', seconds: 90 },
+    ]);
+    const rows = () => el.childNodes.map((row) => (row as FakeElement).getAttribute('data-effect'));
+    expect(rows()).toEqual(['freezing', 'weakened']);
+    expect(el.textContent).toBe('Freezing' + 'Weakened1:30');
+    list.update([{ key: 'weakened', seconds: 89 }]);
+    expect(rows()).toEqual(['weakened']);
+    expect(el.textContent).toBe('Weakened1:29');
+    // Every effect has its name.
+    list.update(HUD_EFFECTS.map((key) => ({ key, seconds: null })));
+    expect(rows()).toEqual([...HUD_EFFECTS]);
+    expect(i18nMissing()).toEqual([]);
+  });
+
+  it('names the cause and where the player wakes, and respawns on its button', () => {
+    let respawns = 0;
+    const death = new DeathScreen(() => respawns++);
+    const el = fake(death.element);
+    expect(death.isOpen()).toBe(false);
+    death.show('cold', true);
+    expect(death.isOpen()).toBe(true);
+    expect(el.id).toBe('screen-death');
+    expect(el.querySelector('.death-cause')!.textContent).toBe('Froze to death');
+    expect(el.textContent).toContain('bedroll');
+    death.show('', false);
+    expect(el.querySelector('.death-cause')!.textContent).toBe('Your journey ended');
+    for (const cause of DEATH_CAUSES) death.show(cause, false);
+    el.findAction('respawn')!.dispatch('click');
+    expect(respawns).toBe(1);
+    death.hide();
+    expect(death.isOpen()).toBe(false);
+    expect(i18nMissing()).toEqual([]);
+  });
+});

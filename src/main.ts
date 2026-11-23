@@ -3,6 +3,7 @@ import './ui/styles/inventory.css';
 import './ui/styles/logbook.css';
 import './ui/styles/stations.css';
 import './ui/styles/menus.css';
+import './ui/styles/hud.css';
 import { App } from './app/App.ts';
 
 const root = document.getElementById('app');

@@ -9,6 +9,7 @@ import {
 import { validateBalance } from './validateBalance.ts';
 import { validateCrafting } from './validateCrafting.ts';
 import { validateItems } from './validateItems.ts';
+import { validateObjectives } from './validateObjectives.ts';
 import { validateSounds } from './validateSounds.ts';
 import { validateWorld } from './validateWorld.ts';
 
@@ -56,7 +57,9 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateModels(pack, textures.keys, add);
   validateDevScene(pack, blockKeys, add);
   validateArena(pack, blockKeys, add);
-  validateCrafting(pack, validateItems(pack, blockKeys, textures.keys, add), add);
+  const items = validateItems(pack, blockKeys, textures.keys, add);
+  validateCrafting(pack, items, add);
+  validateObjectives(pack, items, add);
   validateSounds(pack, add);
   validateBalance(pack, add);
   checkTints(pack.tints, 'tints', add);

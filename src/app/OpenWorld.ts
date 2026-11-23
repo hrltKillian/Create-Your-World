@@ -20,6 +20,7 @@ import { hintBar } from '../ui/screens/hint.ts';
 import type { BootParams } from './bootParams.ts';
 import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
+import { HudBridge } from './HudBridge.ts';
 import { InventoryUi } from './inventoryUi.ts';
 import { type GateEvents, PlayGate } from './playGate.ts';
 import { PLAYER_ID, type WorldSlot } from './worlds.ts';
@@ -48,7 +49,7 @@ export interface OpenWorldDeps {
 
 /**
  * The world open in this tab: its lock, the play session over its simulation, its saves (autosave,
- * page hide, pause, save & quit) and the play layer (crosshair, click to play, hotbar, bag).
+ * page hide, pause, save & quit) and the play layer (crosshair, click to play, hotbar, bag, HUD).
  * `saveLast()` then `close()` save a last time and let everything go; the renderer, the world view,
  * the input and the audio belong to the App and serve the next world.
  */
@@ -60,6 +61,8 @@ export class OpenWorld {
   /** Click to play and the bag (none with the free camera). */
   readonly gate: PlayGate | null = null;
   readonly inventory: InventoryUi | null = null;
+  /** The survival HUD and the death screen (none with the free camera). */
+  readonly hud: HudBridge | null = null;
   private readonly lock: WorldLock;
   private readonly input: InputManager;
   private readonly events: GateEvents;
@@ -129,6 +132,7 @@ export class OpenWorld {
       gate,
       audio,
     );
+    this.hud = new HudBridge(this.layer, session, input, gate, this.inventory);
   }
 
   /** One frame of play: input, ticks, streaming, meshing, the HUD; returns the camera pose. */
@@ -136,6 +140,7 @@ export class OpenWorld {
     const session = this.session;
     const pose = session.frame(dt);
     this.inventory?.bridge.frame(dt);
+    this.hud?.frame(dt);
     this.cross.classList.toggle('hidden', session.rig.mode === 'third' || this.freecam !== null);
     return pose;
   }

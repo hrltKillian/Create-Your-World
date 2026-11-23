@@ -14,9 +14,11 @@ import type {
   StationDef,
   TierDef,
 } from './itemSchema.ts';
+import type { ObjectiveDef } from './objectiveSchema.ts';
 
 export * from './balanceSchema.ts';
 export * from './itemSchema.ts';
+export * from './objectiveSchema.ts';
 
 export type BlockKey = `block:${string}`;
 export type ItemKey = `item:${string}`;
@@ -516,6 +518,8 @@ export interface ContentPack {
   readonly creatures?: readonly CreatureDef[];
   /** Survival rules (balance.ts). */
   readonly balance: BalanceDef;
+  /** The objectives chain, in order (the HUD shows the first one not done yet). */
+  readonly objectives?: readonly ObjectiveDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

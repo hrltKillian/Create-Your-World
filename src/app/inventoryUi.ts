@@ -126,11 +126,17 @@ export class InventoryUi {
 
   /** `relock`: back to the game (the screens' own key), else to the "Click to resume" overlay (Esc). */
   closeScreen(relock: boolean): void {
+    if (!this.screen()) return;
+    this.hideScreen();
+    this.gate.closeScreen(relock);
+  }
+
+  /** Closes the open screen for another that takes its place (the death screen): the gate keeps it. */
+  hideScreen(): void {
     const open = this.openView();
     if (!open) return;
     open.close();
     if (open !== this.bag) this.session.host.send({ type: 'container.close' });
-    this.gate.closeScreen(relock);
   }
 
   private openView(): ScreenView | null {
