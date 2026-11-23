@@ -12,19 +12,24 @@ import { TICK_SECONDS } from './clock.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyCraftCommand, stepCrafting } from './craftQueue.ts';
+import { respawn, stepDeaths } from './death.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
+import { applyEquipCommand } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
 import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
+import { stepObjectives } from './objectives.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
+import { stepSleep } from './sleep.ts';
 import { SpatialHash } from './spatialHash.ts';
 import { stepStations } from './stations.ts';
-import { createTime, stepTime, type TimeState } from './time.ts';
+import { stepSurvival } from './survival.ts';
+import { clockEvents, createTime, stepTime, type TimeState } from './time.ts';
 
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
 export const INTEGRATE_PER_TICK = 2;
@@ -52,7 +57,8 @@ export type Entity = PlayerState | ItemDropState;
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, item drops,
- * inventory, block entities (chests, stations), craft queues and debug commands.
+ * inventory, equipment, block entities (chests, stations, packs), craft queues, survival, deaths,
+ * sleep, objectives and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -107,7 +113,8 @@ export class Simulation implements ColumnSink {
     const player = this.players.get(id);
     if (player) return player;
     const { x, y, z } = this.spawn;
-    return this.join(createPlayer(id, x, y, z, viewRadius, this.nextEntityId++));
+    const balance = this.registry.pack.balance;
+    return this.join(createPlayer(id, x, y, z, viewRadius, balance, this.nextEntityId++));
   }
 
   /** Puts a player record (new, or restored from a save) in the world and streams around it. */
@@ -159,17 +166,24 @@ export class Simulation implements ColumnSink {
     return this.columns.backlog();
   }
 
+  /** Whether a player's column is ready: until then it is frozen (no falling into the void). */
+  isActive(player: PlayerState): boolean {
+    const body = player.body;
+    return this.columnState(blockToColumn(body.x), blockToColumn(body.z)) >= COLUMN_LIT;
+  }
+
   /** One fixed tick (1/30 s), in the order of docs/conception.md « Ordre d'un tick ». */
   step(out: SimEvent[]): void {
+    // This tick's events start here (survival reacts to the edits).
+    const first = out.length;
     this.tick++;
     this.applyCommands(out);
+    // The clock's messages cover this tick's time, a night slept through included.
+    const clock = this.time.ticks;
     stepTime(this.time);
     for (const player of this.players.values()) {
-      const body = player.body;
-      // Frozen while its column is not ready (no falling into the void).
-      const active = this.columnState(blockToColumn(body.x), blockToColumn(body.z)) >= COLUMN_LIT;
-      if (!stepPlayer(player, active, this.world, this.registry.tables, TICK_SECONDS, out))
-        continue;
+      const active = this.isActive(player);
+      if (!stepPlayer(player, active, this.world, this.registry, TICK_SECONDS, out)) continue;
       this.track(player);
       stepInteraction(this, player, out);
     }
@@ -179,11 +193,16 @@ export class Simulation implements ColumnSink {
       stepCrafting(this, player, out);
     }
     stepStations(this, out);
+    stepSurvival(this, out, first);
     stepItemDrops(this, out);
+    stepDeaths(this, out);
+    stepSleep(this, out);
+    clockEvents(clock, this.time.ticks, out);
     this.columns.integrate(INTEGRATE_PER_TICK);
     stepLight(this.light, SEAM_NODES_PER_TICK, out);
     this.columns.promote(out);
     this.columns.stream(out);
+    stepObjectives(this, out);
   }
 
   /** Integrates and requests outside play (loading screen, tests). */
@@ -264,14 +283,26 @@ export class Simulation implements ColumnSink {
         if (player) applyBlockEntityCommand(this, player, command, out);
         break;
       }
+      case 'equip.move': {
+        const player = this.players.get(playerId);
+        if (player) applyEquipCommand(this.registry, player, command, out);
+        break;
+      }
       case 'craft.enqueue':
       case 'craft.cancel': {
         const player = this.players.get(playerId);
         if (player) applyCraftCommand(this, player, command, out);
         break;
       }
+      case 'player.respawn': {
+        const player = this.players.get(playerId);
+        if (player) respawn(this, player, out);
+        break;
+      }
       case 'debug.teleport':
       case 'debug.setStat':
+      case 'debug.kill':
+      case 'debug.god':
       case 'debug.fill':
       case 'debug.give':
       case 'debug.setTime':

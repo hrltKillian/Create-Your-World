@@ -42,6 +42,7 @@ import {
   noErrorsCase,
   PLAY_SCENES,
   playerSession,
+  SEARCH_RADIUS,
   SETTLE_MS,
   type SelftestCase,
   stateKey,
@@ -58,11 +59,6 @@ import {
  * wait for the next tick: waits are wall time.
  */
 
-/**
- * « Reasonable » search radius from the spawn: probing 170 seeds, every biome and a structure lie
- * within 700 blocks (the spawn rule puts the dangerous biomes within 1 000).
- */
-const SEARCH_RADIUS = 1500;
 /** Longest wait for a teleport to land and the loading radius around it to be meshed. */
 const VISIT_MS = 30_000;
 /** Longest wait for the shown sections to be meshed again after a view switch. */

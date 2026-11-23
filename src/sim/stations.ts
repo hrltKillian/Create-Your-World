@@ -7,7 +7,7 @@ import { COLUMN_LIT } from './ColumnPipeline.ts';
 import { ticksOf } from './clock.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
-import { addToRange, countMatching, roomFor, takeMatching } from './inventory.ts';
+import { addToRange, countMatching, type Inventory, roomFor, takeMatching } from './inventory.ts';
 import type { Simulation } from './Simulation.ts';
 
 /**
@@ -89,7 +89,10 @@ export function stepStation(station: StationEntity, def: StationDef, registry: R
   return true;
 }
 
-/** Takes a process's inputs and puts its output in the station's outputs (room was checked). */
+/**
+ * Takes a process's inputs and puts its output in the station's outputs (room was checked). An
+ * input with uses left passes them on: boiled water keeps the raw water's charges.
+ */
 function complete(
   station: StationEntity,
   def: StationDef,
@@ -97,13 +100,17 @@ function complete(
   process: ProcessDef,
 ): void {
   station.progressTicks = 0;
-  const inputs = process.inputs;
+  const { inputs } = process;
+  const slots = station.slots;
+  const taken: Inventory = [];
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i]!;
-    takeMatching(station.slots, 0, def.inputSlots, registry.crafting, input.item, input.count);
+    takeMatching(slots, 0, def.inputSlots, registry.crafting, input.item, input.count, taken);
   }
+  const durability = taken.find((stack) => stack?.durability !== undefined)?.durability;
+  const output = durability === undefined ? process.output : { ...process.output, durability };
   const out = outputSlotOf(def);
-  addToRange(station.slots, registry, out, out + def.outputSlots, process.output);
+  addToRange(slots, registry, out, out + def.outputSlots, output);
 }
 
 /** `ticks` ticks of a station, stopping once a tick changes nothing (stepStation). */

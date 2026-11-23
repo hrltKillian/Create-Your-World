@@ -26,35 +26,38 @@ Then open http://localhost:5173 in Google Chrome.
 
 ## Try this milestone
 
-**M8 — Items, Logbook and stations.** `npm run dev`, then open
-`http://localhost:5173/?worldType=arena&skipMenu=1`: the arena's workshop row stands just north of
-the spawn (Workbench, Clay Kiln, Campfire and Chest, left to right).
+**M9 — Survival and hazards.** `npm run dev`, then open `http://localhost:5173/?skipMenu=1`
+(or `?worldType=arena&skipMenu=1` for the cabin, pond and workshop close by).
 
-- E or Tab opens the Bag: the silhouette with its 5 equipment slots (worn items arrive in M9), the
-  6×4 bag and the hotbar, and the Logbook: tabs, craftable recipes first, owned/required pips, the
-  station badge (« Requires: Workbench nearby » when it is not), ×1/×5/Max and a queue of 5 (click
-  an entry to cancel it: its ingredients come back). Recipes show once one of their ingredients has
-  been seen, except the few known from the start (cord, planks, sticks, flint tools, torches…).
-- Right-click a chest (« Take all », « Store all ») or a station: inputs, fuel under its flame,
-  progress, output and the processes it knows. Drag and drop, right-drag for half a stack,
-  Shift+click to send a stack across, 1–8 over a slot to swap it with the hotbar. The kiln and the
-  bloomery burn only while they work, the campfire as long as it has fuel; a full output pauses
-  them; the bloomery burns charcoal only.
-- Every tier up to iron can be made: flint tools by hand, copper ingots in the kiln, bronze (3
-  copper and 1 cassiterite make 3), iron in the bloomery. Camp and cairn chests hold loot (cairns a
-  Prowler Sinew, for bronze tools). Stations keep working out of sight (caught up when you come
-  back, up to a game day); chests and stations are saved with their column.
-- From the dev console: `__game.player.give('item:copper_ore', 4)`,
-  `__game.craft.enqueue('recipe:flint_hatchet')`, `__game.craft.queue()`,
-  `__game.container.contents(-1, 65, -3)` (the arena's kiln), `__game.ui.open(-1, 65, -3)`
-  (no cell: the bag), `__game.ui.screen()`, `__game.ui.click(selector)`, `__game.ui.drag(from, to)` (slot numbers as in `data-slot`: 0–31
-  the inventory, 32+ the open chest or station) and `__game.ui.close()`.
-- `?worldType=arena&fixedStep=1&selftest=m0,m8` runs the in-browser M8 checks: the Logbook crafts
-  the Flint Hatchet by clicks, and it breaks a log at least 1.9× faster than the hand; the kiln,
-  fed by drag and drop, smelts copper ore into an ingot; the cabin door opens, lets you in and
-  closes; a chest keeps its contents across `save.reload()` and empties with « Take all » (that
-  case needs IndexedDB, the default storage: it is skipped with `?storage=memory`). `npm run e2e`
-  runs them too.
+- The HUD: health, hunger and thirst vials at the bottom left (with the thermometer and its trend,
+  toxicity once it rises, breath under water), the stamina arc beside the crosshair, the compass
+  with N/E/S/W, the sun or moon, your objective's direction and a marker per Abandoned Pack, the
+  clock (« 07:30 · Day 1 »), the aimed block's name (and the tool tier it needs), the objectives up
+  to the first iron ingot at the top right, the effects on the right, and vignettes for low
+  health, cold, heat, toxins and water. « The sun is setting… » at 18:30, « Night N survived » at
+  06:00.
+- Water first: hold the right button on fresh water with an empty hand to sip (+8 thirst);
+  right-click it with a Clay Flask to fill it (Raw Water, 3 charges), boil it at a campfire, and
+  hold the right button to drink a charge. Food and drinks are held to be eaten.
+- The cold of the tundra, the heat of the desert and the toxic air of the marsh: a closed shelter
+  softens the climate (a campfire warms it), worn gear helps (the Bag's 5 equipment slots: fur
+  against the cold, hat and veil against the heat, the filter mask against the marsh).
+- Sleep on a bedroll between 19:30 and 05:00 in a closed shelter: the night passes, and you wake
+  there after a death. Dying leaves everything in an Abandoned Pack (right-click it to take it
+  back); the death screen tells why; you come back Weakened for 2 minutes.
+- From the dev console: `__game.player.stats()`, `player.setStat('thirst', 10)` (any gauge),
+  `player.kill('cold')`, `player.god()`, `player.equip(slot)`, `world.shelter()`,
+  `world.findBiome('biome:tundra')` then `player.teleport(x, 'surface', z)`, `time.set(23)`,
+  `ui.text('#hud-clock')`.
+- `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` runs the in-browser M9 checks in the generated world:
+  Cold in the tundra night, a cabin with a campfire enclosed and warm, sleep until 06:00, the
+  marsh's toxicity with and without the mask, a sip, a filled flask, boiled water, a death and its
+  respawn, and the pack's compass marker after `save.reload()` (that case needs IndexedDB, the
+  default storage: it is skipped with `?storage=memory`). `npm run e2e` runs them too.
+- From M8: the Bag with its Logbook (tabs, ×1/×5/Max, a queue of 5), chests and stations (drag and
+  drop, Shift+click, « Take all »), every tier up to iron; `__game.craft.enqueue(recipe)`,
+  `container.contents(x, y, z)`, `ui.open(x?, y?, z?)` (no cell: the bag), `ui.click(selector)`,
+  `ui.drag(from, to)`; `?worldType=arena&fixedStep=1&selftest=m0,m8`.
 - From M7: the main menu (Play or Continue, Worlds with Play/Export/Delete and Import…, New world),
   Esc to pause (Resume, Settings, Save & quit; if that last save fails, the world stays open with
   Retry and Quit without saving), saves in IndexedDB every 30 s and on pause, quit or hide;

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 4;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -25,6 +25,30 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     world: (record) => record,
     player: (record) => ({ ...record, craft: [], seen: [] }),
     column: (record) => ({ ...record, blockEntities: [] }),
+  },
+  // 2 → 3 (M9): players wear equipment, may have a bedroll to respawn at, graves and objectives;
+  // their survival state is left out, which reads as full gauges.
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, equipment: [], respawn: null, graves: [], objectives: [] }),
+    column: (record) => record,
+  },
+  // 3 → 4 (M9 review): players remember having drunk (objectives) and whether their last death
+  // left a pack (`survival.packLeft`, read as false when absent); an Abandoned Pack keeps the worn
+  // items apart, so an older one's are all among its slots and none is worn.
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, drank: false }),
+    column: (record) => ({
+      ...record,
+      blockEntities: Array.isArray(record.blockEntities)
+        ? record.blockEntities.map((entity: unknown) =>
+            (entity as { kind?: unknown } | null)?.kind === 'grave'
+              ? { ...(entity as object), worn: [] }
+              : entity,
+          )
+        : record.blockEntities,
+    }),
   },
 ];
 

@@ -269,11 +269,11 @@ body {
   font-size: 0.9rem;
 }
 
-/* Transient HUD hint (top centre): a dark tag with an amber edge, fading in. */
+/* Transient HUD hint (top centre, under the compass, clock and target): a dark tag with an amber edge, fading in. */
 .hud-hint {
   position: absolute;
   left: 50%;
-  top: 56px;
+  top: 112px;
   max-width: calc(100% - 32px);
   margin: 0;
   padding: 5px 14px 5px 11px;

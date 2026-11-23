@@ -1,4 +1,5 @@
 import { i18nMissing } from '../../i18n/i18n.ts';
+import type { Inventory } from '../../sim/inventory.ts';
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
 import type { App } from '../App.ts';
 import {
@@ -92,6 +93,12 @@ export function needsGeneratedPlayer(app: App): string | null {
   return null;
 }
 
+/**
+ * « Reasonable » search radius from the spawn (m6, m9): probing 170 seeds, every biome and a
+ * structure lie within 700 blocks (the spawn rule puts the dangerous biomes within 1 000).
+ */
+export const SEARCH_RADIUS = 1500;
+
 /** Wall time for the camera and the frame loop to settle after a teleport or a view switch. */
 export const SETTLE_MS = 300;
 
@@ -110,11 +117,83 @@ export async function chunksMeshed(app: App, radius: number, timeoutMs: number):
   await frameOrFail();
 }
 
-/** Puts the player on the flat surface of a column, at rest, and renders a frame (eye, aim, ear). */
-export async function standAt(app: App, spot: { x: number; z: number }): Promise<void> {
-  teleport(app, spot.x + 0.5, FLAT_SURFACE + 1, spot.z + 0.5);
+/**
+ * Puts the player's feet in the middle of a column at `y` (by default on the flat surface), at
+ * rest, and renders a frame (eye, aim, ear).
+ */
+export async function standAt(
+  app: App,
+  spot: { x: number; z: number },
+  y = FLAT_SURFACE + 1,
+): Promise<void> {
+  teleport(app, spot.x + 0.5, y, spot.z + 0.5);
   app.session!.step(5);
   await frameOrFail();
+}
+
+export interface Cell {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+/** The pack's arena description (the arena world is built from it; other suites use its blocks). */
+export function arenaOf(app: App) {
+  const arena = app.registry!.pack.arena;
+  assert(arena, 'the content pack has no arena');
+  return arena;
+}
+
+/** The slots of a cell's block entity (a chest, a station; empty when it has none). */
+export function slotsAt(app: App, cell: Cell): Inventory {
+  return app.session!.host.view.blockEntity(cell.x, cell.y, cell.z)?.slots ?? [];
+}
+
+/** Turns the view (yaw, pitch) from the rig's eye towards a point. */
+function turnTo(app: App, x: number, y: number, z: number): void {
+  const eye = app.session!.rig.eye;
+  const dx = x - eye.x;
+  const dy = y - eye.y;
+  const dz = z - eye.z;
+  // lookVector: yaw 0 looks along −z, positive yaw turns towards −x.
+  look(app, Math.atan2(-dx, -dz), Math.atan2(dy, Math.hypot(dx, dz)));
+}
+
+/**
+ * Turns the view towards a point once the next frame has placed the eye (it follows the body on
+ * frames: after a teleport or a walk). The simulation's own rays (a liquid to sip) read the view
+ * on the next tick.
+ */
+export async function lookAt(app: App, x: number, y: number, z: number): Promise<void> {
+  await frameOrFail();
+  turnTo(app, x, y, z);
+}
+
+/**
+ * Turns the view to the middle of the side of a block that faces the eye (along the larger
+ * horizontal offset), so the aim ray meets that block first, and checks the aim on the next frame.
+ * With `height` (a fraction of a block) it aims at the middle of the cell at that height instead:
+ * the top of a low block (a bedroll, a campfire) seen from above.
+ */
+export async function aimAt(app: App, { x, y, z }: Cell, height?: number): Promise<void> {
+  const session = app.session!;
+  await frameOrFail();
+  if (height === undefined) {
+    const eye = session.rig.eye;
+    const ox = x + 0.5 - eye.x;
+    const oz = z + 0.5 - eye.z;
+    // Just inside the face towards the eye.
+    const inset = 0.49;
+    const tx = Math.abs(ox) >= Math.abs(oz) ? x + 0.5 - Math.sign(ox) * inset : x + 0.5;
+    const tz = Math.abs(ox) >= Math.abs(oz) ? z + 0.5 : z + 0.5 - Math.sign(oz) * inset;
+    turnTo(app, tx, y + 0.5, tz);
+  } else turnTo(app, x + 0.5, y + height, z + 0.5);
+  await frameOrFail();
+  const hit = session.aim.hit;
+  assert(
+    hit.hit && hit.x === x && hit.y === y && hit.z === z,
+    `aiming at (${x}, ${y}, ${z}) hits ${hit.hit ? `(${hit.x}, ${hit.y}, ${hit.z})` : 'nothing'}`,
+  );
 }
 
 /** Text key of a block state (`#id` for an unknown id), for fills and messages. */

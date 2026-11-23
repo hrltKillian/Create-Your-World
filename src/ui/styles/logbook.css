@@ -62,6 +62,13 @@
   text-transform: uppercase;
 }
 
+/* What the worn items protect from, under the silhouette. */
+.wear-stats {
+  margin: 10px 0 0;
+  color: var(--c-ink-muted);
+  font-size: 0.7rem;
+}
+
 /* Logbook: a field notebook of recipes, not a grid. */
 
 .logbook {

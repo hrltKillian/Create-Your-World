@@ -100,12 +100,48 @@ They never override the rules above (determinism, zero allocations in hot loops,
     share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
-    `freshStack`, `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
+    `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
+    filled container's charges), `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
     (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
-    `structureLootAt` loot, `removeBlockEntity` spills, `withinReach`); their screens
+    `structureLootAt` loot, `removeBlockEntity` spills (and drops a pack's grave markers),
+    `withinReach`; kinds container, station, grave; a bedroll is `blockEntity: 'bed'` with no
+    record); their screens
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
     `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
     (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
+  - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
+    typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
+    heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
+    stamina limits, timed effects (`addEffect`) and tick step 11 `stepSurvival` in
+    `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
+    the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
+    `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
+    any gauge, `debug.kill` takes all health for a cause, `debug.god` stops damage (`survival.god`,
+    kept across a respawn); balance tests compute their expectations from the balance
+    (`tests/unit/sim/survival.test.ts`); gauge changes of food, drinks and sleep `adjustGauges`
+    (survival.ts);
+  - secondary held (docs « Priorité des actions »): interactive blocks in `sim/interaction.ts`
+    (`usesAimedBlock`, `useAimed`), then `holdUse` in `sim/consume.ts` (eat or drink the held item,
+    `interaction.useItem`/`useTicks`: the action the press started), sips and fills in
+    `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
+    (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`equip.move`: slots
+    32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
+    Abandoned Pack (`registry.grave`), `player.respawn` and `recoverPack` in `sim/death.ts` (tick
+    step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
+    `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
+    `sim/time.ts`;
+  - objectives (docs « Objectifs jusqu'au fer »): the chain in data `content/packs/base/
+    objectives.ts` (`ObjectiveDef`, `content/objectiveSchema.ts`: items seen, stations within
+    crafting reach, an enclosed shelter, nights survived; a `compass` point), checked once a second
+    at tick step 16 (`stepObjectives`, `conditionHolds` in `sim/objectives.ts`; event
+    `objectiveDone`, the keys in `player.objectives`);
+  - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
+    `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
+    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners) and the
+    death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them (compass every frame, the
+    rest at 10 Hz) and hands the gate over to the death screen; what needs the sim's rules
+    (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass `sunBearing`/
+    `aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
@@ -126,10 +162,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `ui/logbook.ts` (`logbookRows`, `batchCount`); item and tag names and icons `ui/itemSlot.ts`
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
-  - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
+  - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
+    `kill`, `god`, `equip`, `shelterHere`, `playerStats`): `app/survivalAutomation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
-    with player 1's `send`/`give`/`put`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
+    with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
     `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
@@ -169,15 +206,31 @@ They never override the rules above (determinism, zero allocations in hot loops,
   block; the Bag with its Logbook stays `'bag'`); Logbook rows carry `data-recipe`, tabs `data-tab`,
   its buttons `data-action` (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click
   cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31
-  the inventory, 32+ the open chest or station: inputs, fuel, outputs).
+  the inventory, 32+ the open chest or station: inputs, fuel, outputs; in the Bag 32–36 the worn
+  items, head to feet, moved with `equip.move`).
 - M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
   `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
   a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;
-  null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
+  an Abandoned Pack adds `worn`, head to feet; null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
   cell: its chest or station through `debug.open`, like secondary on it within 5 blocks but without
   aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
   `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
   `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
+- M9 screens: `ui.screen()` also names `'death'` (`#screen-death`, `data-action="respawn"`; it
+  follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
+  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-effects`
+  (rows carry `data-effect`), `#hud-banner`, `#hud-sleep`.
+- M9 hook entries (version 9): `player.setStat(stat, value)` (any gauge, now; `setStamina` is gone),
+  `player.stats()` (gauges, the effects as the HUD lists them, shelter, felt °C and target, death and
+  cause, `god`, bedroll, packs, objectives, worn items), `player.kill(cause = 'fall')` (the death
+  at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
+  wearable on, a worn item 32–36 off), `world.shelter()` (the test at the player's head, now);
+  `ui.text(selector)` reads the HUD (`#hud-clock`, `#hud-effects`…).
+- Survival checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` (`selftest/m9.ts`, its scenes in
+  `selftest/survivalScenes.ts`; `e2e/survival.spec.ts`): the generated world with fixed steps; the
+  tundra and the marsh are the coldest biome by night and the most toxic one by day, the cabin, pads
+  and pool are debug fills of the arena cabin's wall and pond water; its reload case needs IndexedDB
+  (skipped with `?storage=memory`).
 - Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
   saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
   row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its
@@ -196,9 +249,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
   `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
-  `needsGeneratedPlayer`, `needsIdb`, `standAt`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
-  `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
-  (`selftest/m4.ts` … `m8.ts`), and every suite ends with `noErrorsCase()`.
+  `needsGeneratedPlayer`, `needsIdb`, `standAt` (flat surface by default), `aimAt` (a block's side,
+  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
+  `SEARCH_RADIUS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large
+  suite (`selftest/m4.ts` … `m9.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 

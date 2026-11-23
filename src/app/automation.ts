@@ -12,7 +12,8 @@ import { queueView, stationStatus } from './UiBridge.ts';
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
  * keys and light, the world clock, what the hotbar shows, crafting, block entities (opening one
- * without aiming), clicks and drags on the screens, and saving or reloading the open world.
+ * without aiming), clicks and drags on the screens, and saving or reloading the open world (the
+ * survival ones: survivalAutomation.ts).
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -69,7 +70,6 @@ export interface WaitOptions {
 /** No frame for this long means the animation loop is stalled (hidden or throttled pane). */
 const STALL_MS = 50;
 
-/** Polls `done` until it holds; throws once `timeoutMs` has passed. */
 /** Multiplies every waitUntil timeout (the selftest runner stretches waits on slow CI renderers). */
 let waitScale = 1;
 
@@ -77,6 +77,7 @@ export function scaleWaits(factor: number): void {
   waitScale = factor;
 }
 
+/** Polls `done` until it holds; throws once `timeoutMs` (times the wait scale) has passed. */
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
   const limit = options.timeoutMs * waitScale;
@@ -127,7 +128,7 @@ export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 
 }
 
 /** Sends a command; fixed-step sessions apply it now (one tick). */
-function sendAndStep(app: App, command: Command): void {
+export function sendAndStep(app: App, command: Command): void {
   const session = app.session;
   if (!session) return;
   session.host.send(command);
@@ -153,8 +154,8 @@ export function fill(
   sendAndStep(app, { type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
 }
 
-/** Sends a command and applies it now, without a tick (the clock commands). */
-function sendNow(app: App, command: Command): void {
+/** Sends a command and applies it now, without a tick (the clock and gauge commands). */
+export function sendNow(app: App, command: Command): void {
   const session = app.session;
   if (!session) return;
   session.host.send(command);
@@ -256,16 +257,18 @@ export function craftQueue(app: App): QueueView[] | null {
 }
 
 /**
- * What the block entity of a cell holds: a chest's slots, or a station's (inputs, fuel, outputs)
- * with its flame, progress and process. Null when the cell has none (a generated chest gets one
- * when it is first opened).
+ * What the block entity of a cell holds: a chest's slots, an Abandoned Pack's slots and worn items
+ * (`worn`, head to feet), or a station's (inputs, fuel, outputs) with its flame, progress and
+ * process. Null when the cell has none (a generated chest gets one when it is first opened).
  */
 export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const view = app.session?.host.view;
   const entity = view?.blockEntity(Math.floor(x), Math.floor(y), Math.floor(z));
   if (!view || !entity) return null;
   const slots = serializeInventory(entity.slots);
-  if (entity.kind === 'container') return { kind: entity.kind, slots };
+  if (entity.kind === 'grave')
+    return { kind: entity.kind, slots, worn: serializeInventory(entity.worn) };
+  if (entity.kind !== 'station') return { kind: entity.kind, slots };
   return {
     kind: entity.kind,
     station: entity.station,
@@ -293,7 +296,8 @@ function middleOf(element: Element): { clientX: number; clientY: number } {
  * Drags the stack of one slot onto another on the open slot screen (Bag, Container, Station) as
  * the mouse does: pointer down on the source, moved and released over the target, which the
  * screen finds under the pointer. Slots are numbered as in `[data-slot]` (0–31 the inventory, 32+
- * the open chest or station). Returns false (the drag cancelled) when a slot is missing or covered.
+ * the open chest or station, or the Bag's worn items). Returns false (the drag cancelled) when a
+ * slot is missing or covered.
  */
 export function dragSlot(from: number, to: number): boolean {
   const screen = document.querySelector<HTMLElement>('.screen-slots:not([hidden])');

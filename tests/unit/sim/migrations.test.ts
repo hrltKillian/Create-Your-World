@@ -1,11 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { openErrorKey } from '../../../src/app/worlds.ts';
-import type { ContainerEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
+import type {
+  ContainerEntity,
+  GraveEntity,
+  StationEntity,
+} from '../../../src/sim/blockEntities.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import type { ColumnRecord, StoredWorld } from '../../../src/sim/storage.ts';
+import { createSurvival } from '../../../src/sim/survival.ts';
 import { HOUR_TICKS } from '../../../src/sim/time.ts';
 import {
   CorruptRecordError,
@@ -127,9 +132,76 @@ describe('save versions', () => {
       },
     ]);
     expect(player.seen['item:copper_ore']).toBe(true);
+    // Version 3 adds full gauges, no gear, no bedroll, no graves and no objectives done.
+    expect(player.survival).toEqual(createSurvival(sim.registry.pack.balance));
+    expect(player.equipment).toEqual([null, null, null, null, null]);
+    expect(player).toMatchObject({ respawn: null, graves: [], objectives: [] });
     settle(sim);
     step(160);
     expect(kiln.slots[3]).toEqual({ item: 'item:copper_ingot', count: 2 });
     expect(countItem(player.inventory, 'item:cord')).toBe(2);
+  });
+
+  it('loads the v3 fixture: gauges, an effect, worn fur, a bedroll, a grave and objectives', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(3), removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const player = sim.players.get(1)!;
+    expect(player.survival).toMatchObject({
+      health: 72.5,
+      thirst: 41.25,
+      temperature: -45,
+      toxicity: 12,
+      cause: 'fall',
+      effects: [{ key: 'weakened', ticks: 1800 }],
+    });
+    expect(player.equipment[0]).toEqual({ item: 'item:fur_hood', count: 1, durability: 280 });
+    expect(player.equipment[2]).toEqual({ item: 'item:fur_coat', count: 1, durability: 395 });
+    expect(player.respawn).toEqual({ x: 3, y: 65, z: 3 });
+    expect(player.graves).toEqual([{ x: -6, y: 65, z: 4 }]);
+    expect(player.objectives).toEqual(['objective:gather', 'objective:tools']);
+    // Version 4 adds the drink: not had yet.
+    expect(player.drank).toBe(false);
+    settle(sim);
+    step(30);
+    // The game runs on: thirst drains, the effect counts down, the temperature drifts back.
+    expect(player.survival.thirst).toBeLessThan(41.25);
+    expect(player.survival.effects).toEqual([{ key: 'weakened', ticks: 1770 }]);
+    expect(player.survival.temperature).toBeGreaterThan(-45);
+  });
+
+  it('loads the v4 fixture: a drink had, and a pack keeping its worn boots apart', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(4), removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = sim.players.get(1)!;
+    expect(player.drank).toBe(true);
+    expect(player.graves).toEqual([{ x: 6, y: 65, z: 4 }]);
+    const pack = sim.blockEntities.get(cellKey(6, 65, 4)) as GraveEntity;
+    expect(pack.slots).toEqual([
+      { item: 'item:dirt', count: 5 },
+      { item: 'item:leather_tunic', count: 1, durability: 90 },
+    ]);
+    expect(pack.worn).toEqual([
+      null,
+      null,
+      null,
+      null,
+      { item: 'item:waxed_boots', count: 1, durability: 210 },
+    ]);
+  });
+
+  it('upgrades a version 3 pack and player: nothing worn apart, no drink had', () => {
+    const grave = {
+      kind: 'grave',
+      x: 1,
+      y: 65,
+      z: 1,
+      slots: [{ item: 'item:fur_hood', count: 1 }],
+    };
+    const chest = { kind: 'container', x: 2, y: 65, z: 1, slots: [] };
+    const column = migrate('column', { blockEntities: [grave, chest] }, 3);
+    expect(column.blockEntities).toEqual([{ ...grave, worn: [] }, chest]);
+    expect(migrate('player', { playerId: 1 }, 3)).toEqual({ playerId: 1, drank: false });
   });
 });

@@ -90,6 +90,9 @@ export interface RawTables {
   readonly collisionBoxes: readonly (readonly Box16[])[];
   /** State → ground acceleration factor × 100 (ice 20). */
   readonly friction: Uint8Array;
+  /** State → heat source: °C at the block, warming up to `heatRadius` blocks (environment.ts). */
+  readonly heat: Int8Array;
+  readonly heatRadius: Uint8Array;
 }
 
 export const COLLISION_NONE = 0;
@@ -126,6 +129,8 @@ export class Registry {
   readonly unknownBlock: number;
   /** Key of the item that stands for saved items the pack no longer has. */
   readonly unknownItem: string;
+  /** The block a death leaves the items in (`blockEntity: 'grave'`), −1 if the pack has none. */
+  readonly grave: number;
   /** Items by numeric id: the implicit block items, then the pack's items. */
   readonly items: readonly ItemDef[];
   readonly itemTables: ItemTables;
@@ -156,6 +161,8 @@ export class Registry {
     this.air = this.defaultState(pack.manifest.bindings.air);
     this.unknownBlock = this.defaultState(pack.manifest.bindings.unknownBlock);
     this.unknownItem = pack.manifest.bindings.unknownItem;
+    const grave = pack.blocks.find((block) => block.blockEntity === 'grave');
+    this.grave = grave ? this.defaultState(grave.key) : -1;
     this.items = packItems(pack);
     this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
     this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));
@@ -282,6 +289,8 @@ export function buildRegistry(pack: ContentPack): Registry {
     collision: new Uint16Array(n),
     collisionBoxes: [] as Box16[][],
     friction: new Uint8Array(n),
+    heat: new Int8Array(n),
+    heatRadius: new Uint8Array(n),
   };
   const collisionIndex = new Map<string, number>();
   const boxShapeIndex = new Map<string, number>();
@@ -315,6 +324,8 @@ export function buildRegistry(pack: ContentPack): Registry {
       tables.cullGroup[s] = cullGroups.get(block.cullGroup)!;
     }
     tables.friction[s] = Math.round((block.friction ?? 1) * 100);
+    tables.heat[s] = eff.heat?.celsius ?? 0;
+    tables.heatRadius[s] = eff.heat?.radius ?? 0;
     if (eff.collision === 'full') tables.collision[s] = COLLISION_FULL;
     else if (eff.collision === 'liquid') tables.collision[s] = COLLISION_LIQUID;
     else if (typeof eff.collision === 'object') {

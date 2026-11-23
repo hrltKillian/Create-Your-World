@@ -1,10 +1,19 @@
-import type { RawTables } from '../content/registry.ts';
+import type { Registry } from '../content/registry.ts';
+import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
+import {
+  createSurvival,
+  fallDamage,
+  hurt,
+  type SurvivalState,
+  staminaCap,
+  staminaRegen,
+} from './survival.ts';
 
 /** Stamina rules (docs/conception.md « Survie »). */
 export const STAMINA = {
@@ -33,7 +42,14 @@ export interface InteractionState {
   useCooldown: number;
   /** Secondary was down last tick (gates toggle on the press only). */
   useHeld: boolean;
+  /** The action the held secondary started (consume.ts): NO_USE, −1 a sip, else the item id. */
+  useItem: number;
+  /** Ticks it has been held for (an item eaten or drunk, a sip). */
+  useTicks: number;
 }
+
+/** `InteractionState.useItem` when secondary holds no action. */
+export const NO_USE = -2;
 
 export function createInteraction(): InteractionState {
   return {
@@ -44,6 +60,8 @@ export function createInteraction(): InteractionState {
     mineStage: -1,
     useCooldown: 0,
     useHeld: false,
+    useItem: NO_USE,
+    useTicks: 0,
   };
 }
 
@@ -65,6 +83,8 @@ export interface PlayerState {
   exhausted: boolean;
   /** Ticks since stamina was last spent. */
   restTicks: number;
+  /** Sprinted this tick (hunger and thirst drain faster); set by stepPlayer, not saved. */
+  sprinting: boolean;
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
@@ -80,6 +100,23 @@ export interface PlayerState {
   seen: Record<string, true>;
   /** Cell of the block entity whose screen the player has open (not saved). */
   opened: BlockCell | null;
+  /** Gauges, timed effects and the last environment sample (survival.ts). */
+  survival: SurvivalState;
+  /** Worn items, one slot per `WEAR_SLOTS` entry (head to feet). */
+  equipment: Inventory;
+  /** Where the player comes back after a death: the last bedroll slept on, else the spawn. */
+  respawn: BlockCell | null;
+  /** Abandoned Packs left by the player's deaths (compass markers), oldest first. */
+  graves: BlockCell[];
+  /** Keys of the objectives done, in the order they were done. */
+  objectives: string[];
+  /** Has drunk at least once: a sip, or a consumable that quenches thirst (objectives). */
+  drank: boolean;
+  /**
+   * The bedroll the player lies on while the others are still awake (sleep.ts; not saved): the
+   * night passes once every living player sleeps.
+   */
+  sleeping: Sleeper | null;
 }
 
 export interface BlockCell {
@@ -88,12 +125,18 @@ export interface BlockCell {
   readonly z: number;
 }
 
+/** A player lying on the bedroll at a cell, with the health they had at the last check. */
+export interface Sleeper extends BlockCell {
+  health: number;
+}
+
 export function createPlayer(
   playerId: number,
   x: number,
   y: number,
   z: number,
   viewRadius: number,
+  balance: BalanceDef,
   entityId = playerId,
 ): PlayerState {
   return {
@@ -109,6 +152,7 @@ export function createPlayer(
     stamina: STAMINA.max,
     exhausted: false,
     restTicks: STAMINA.regenDelayTicks,
+    sprinting: false,
     input: NEUTRAL_INPUT,
     viewRadius,
     inventory: createInventory(),
@@ -116,22 +160,32 @@ export function createPlayer(
     craft: [],
     seen: {},
     opened: null,
+    survival: createSurvival(balance),
+    equipment: new Array<null>(WEAR_SLOTS.length).fill(null),
+    respawn: null,
+    graves: [],
+    objectives: [],
+    drank: false,
+    sleeping: null,
   };
 }
 
-/** Spends stamina; running dry locks sprinting until `recoverAt`. */
+/** Spends stamina (it costs hunger: survival.ts); running dry locks sprinting until `recoverAt`. */
 export function spendStamina(player: PlayerState, amount: number): void {
   if (amount <= 0) return;
-  player.stamina = Math.max(0, player.stamina - amount);
+  const spent = Math.min(player.stamina, amount);
+  player.stamina -= spent;
+  player.survival.staminaSpent += spent;
   player.restTicks = 0;
   if (player.stamina === 0) player.exhausted = true;
 }
 
-/** Regenerates stamina after a rest delay. */
-export function restStamina(player: PlayerState, dt: number): void {
+/** Regenerates stamina after a rest delay (slower while parched, capped while starving). */
+export function restStamina(player: PlayerState, dt: number, balance: BalanceDef): void {
   player.restTicks++;
   if (player.restTicks >= STAMINA.regenDelayTicks) {
-    player.stamina = Math.min(STAMINA.max, player.stamina + STAMINA.regenPerSecond * dt);
+    const rate = STAMINA.regenPerSecond * staminaRegen(player.survival, balance);
+    player.stamina = Math.min(STAMINA.max, player.stamina + rate * dt);
   }
   if (player.exhausted && player.stamina >= STAMINA.recoverAt) player.exhausted = false;
 }
@@ -151,13 +205,14 @@ const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false 
 /**
  * One tick of player control. The previous position (render interpolation) and the view angles
  * always update; physics and stamina only run when `active` (its column is LIT: a frozen player
- * cannot fall into the void). Returns whether the body was stepped.
+ * cannot fall into the void) and alive. A landing takes its fall damage. Returns whether the body
+ * was stepped.
  */
 export function stepPlayer(
   player: PlayerState,
   active: boolean,
   world: VoxelWorld,
-  tables: RawTables,
+  registry: Registry,
   dt: number,
   out: SimEvent[],
 ): boolean {
@@ -168,7 +223,10 @@ export function stepPlayer(
   const input = player.input;
   player.yaw = input.yaw;
   player.pitch = input.pitch;
-  if (!active) return false;
+  player.sprinting = false;
+  // A dead player lies still until the respawn (death.ts).
+  if (!active || player.survival.health <= 0) return false;
+  const balance = registry.pack.balance;
   const canSprint = !player.exhausted && player.stamina > 0;
   move.forward = input.forward;
   move.strafe = input.strafe;
@@ -177,12 +235,16 @@ export function stepPlayer(
   move.sprint = input.sprint && canSprint;
   move.crouch = input.crouch;
   move.yaw = input.yaw;
-  const result = stepBody(body, move, world, tables, dt, stepResult);
+  const result = stepBody(body, move, world, registry.tables, dt, stepResult);
   if (result.jumped) spendStamina(player, STAMINA.jump);
   const moving = Math.abs(body.vx) + Math.abs(body.vz) > 0.1;
-  if (result.sprinting && moving) spendStamina(player, STAMINA.sprintPerSecond * dt);
-  else restStamina(player, dt);
-  if (result.landedFrom > 0)
+  player.sprinting = result.sprinting && moving;
+  if (player.sprinting) spendStamina(player, STAMINA.sprintPerSecond * dt);
+  else restStamina(player, dt, balance);
+  player.stamina = Math.min(player.stamina, staminaCap(player.survival, balance, STAMINA.max));
+  if (result.landedFrom > 0) {
     out.push({ type: 'playerLanded', playerId: player.playerId, fall: result.landedFrom });
+    hurt(player.survival, fallDamage(result.landedFrom, balance), 'fall');
+  }
   return true;
 }

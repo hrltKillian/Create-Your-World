@@ -2,6 +2,7 @@
 
 exports[`base pack textures > generates every texture deterministically 1`] = `
 {
+  "tex:abandoned_pack": "59e615f1",
   "tex:avatar_goggles": "b0c3bfa0",
   "tex:avatar_hood": "717bca87",
   "tex:avatar_jacket": "92e730d2",

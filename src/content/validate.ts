@@ -6,8 +6,10 @@ import {
   type TextureAlpha,
   type TextureSlot,
 } from './schema.ts';
+import { validateBalance } from './validateBalance.ts';
 import { validateCrafting } from './validateCrafting.ts';
 import { validateItems } from './validateItems.ts';
+import { validateObjectives } from './validateObjectives.ts';
 import { validateSounds } from './validateSounds.ts';
 import { validateWorld } from './validateWorld.ts';
 
@@ -55,8 +57,11 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateModels(pack, textures.keys, add);
   validateDevScene(pack, blockKeys, add);
   validateArena(pack, blockKeys, add);
-  validateCrafting(pack, validateItems(pack, blockKeys, textures.keys, add), add);
+  const items = validateItems(pack, blockKeys, textures.keys, add);
+  validateCrafting(pack, items, add);
+  validateObjectives(pack, items, add);
   validateSounds(pack, add);
+  validateBalance(pack, add);
   checkTints(pack.tints, 'tints', add);
   (pack.biomes ?? []).forEach((b, i) => {
     checkTints(b.tints, `biomes[${i}].tints`, add);
@@ -130,6 +135,8 @@ function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue)
     }
   });
   if (stateTotal > MAX_STATES) add('blocks', `${stateTotal} block states exceed ${MAX_STATES}`);
+  if (pack.blocks.filter((block) => block.blockEntity === 'grave').length > 1)
+    add('blocks', 'at most one block may be a grave (the one a death leaves)');
   return blockKeys;
 }
 

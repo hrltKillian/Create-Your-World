@@ -24,5 +24,9 @@ describe('long bot runs', () => {
     expect(a.hashes).toHaveLength(TWO_DAYS / 6000);
     expect(b.hashes).toEqual(a.hashes);
     expect(b.result).toEqual(a.result);
+    // Two days without drinking kill the bot: it must come back, not lie dead for the rest.
+    expect(a.result.alive || a.result.respawns > 0).toBe(true);
+    // Each death is followed by a respawn on the next tick.
+    expect(a.result.respawns).toBe(a.result.deaths - (a.result.alive ? 0 : 1));
   });
 });

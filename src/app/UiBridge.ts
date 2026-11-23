@@ -3,6 +3,7 @@ import type { InputManager } from '../input/InputManager.ts';
 import type { StationEntity } from '../sim/blockEntities.ts';
 import { ticksOf } from '../sim/clock.ts';
 import type { CraftEntry } from '../sim/craftQueue.ts';
+import { type Gear, wornGear } from '../sim/environment.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import { countMatching, INVENTORY_SLOTS } from '../sim/inventory.ts';
@@ -42,6 +43,13 @@ export class UiBridge {
   private elapsed = 0;
   private dirty = true;
   private shown: OpenScreen = null;
+  private readonly gear: Gear = {
+    armor: 0,
+    warmth: 0,
+    cooling: 0,
+    airFilter: 1,
+    waterproof: false,
+  };
 
   constructor(view: SimView, input: InputManager, views: InventoryViews) {
     this.view = view;
@@ -82,7 +90,7 @@ export class UiBridge {
     this.shown = open;
     const inventory = this.player.inventory;
     hotbar.update(inventory, this.input.slot);
-    if (open === 'bag') this.views.bag.update(inventory, this.logbook());
+    if (open === 'bag') this.bagScreen();
     else if (open) this.blockScreen(open);
   }
 
@@ -108,6 +116,13 @@ export class UiBridge {
       },
       queue: player.craft.map((entry) => queueView(view.registry, entry)),
     };
+  }
+
+  /** The Bag: the inventory then the worn items, their protection, and the Logbook. */
+  private bagScreen(): void {
+    const { inventory, equipment } = this.player;
+    const gear = wornGear(this.view.registry, equipment, this.gear);
+    this.views.bag.update([...inventory, ...equipment], this.logbook(), gear);
   }
 
   /** The open chest or station: the inventory then its slots (and a station's fire). */

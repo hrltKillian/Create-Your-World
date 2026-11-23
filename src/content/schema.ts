@@ -3,6 +3,7 @@
  * described by these types, so the game can be re-themed without touching engine code.
  */
 
+import type { BalanceDef } from './balanceSchema.ts';
 import type {
   CreatureDef,
   ImplicitItemTraits,
@@ -13,8 +14,11 @@ import type {
   StationDef,
   TierDef,
 } from './itemSchema.ts';
+import type { ObjectiveDef } from './objectiveSchema.ts';
 
+export * from './balanceSchema.ts';
 export * from './itemSchema.ts';
+export * from './objectiveSchema.ts';
 
 export type BlockKey = `block:${string}`;
 export type ItemKey = `item:${string}`;
@@ -121,7 +125,11 @@ export interface BlockDef {
   readonly states?: readonly StateProp[];
   readonly whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>;
   readonly heat?: { readonly celsius: number; readonly radius: number };
-  /** Per-block state the simulation keeps (chest contents, a kiln's slots and fire…). */
+  /**
+   * What secondary does on the block, with the state the simulation keeps for it: a chest's
+   * contents, a station's slots and fire, an Abandoned Pack's items (`grave`, left by a death:
+   * sim/death.ts), or nothing for a bedroll (`bed`: sleeping, sim/sleep.ts).
+   */
   readonly blockEntity?: 'container' | 'station' | 'grave' | 'bed';
   /** The station this block is: recipes and processes of that station need it nearby. */
   readonly station?: StationKey;
@@ -508,6 +516,10 @@ export interface ContentPack {
   readonly processes?: readonly ProcessDef[];
   readonly stations?: readonly StationDef[];
   readonly creatures?: readonly CreatureDef[];
+  /** Survival rules (balance.ts). */
+  readonly balance: BalanceDef;
+  /** The objectives chain, in order (the HUD shows the first one not done yet). */
+  readonly objectives?: readonly ObjectiveDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

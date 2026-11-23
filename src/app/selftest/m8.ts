@@ -4,7 +4,7 @@ import type { BlockDef, ProcessDef, RecipeDef } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { ticksOf } from '../../sim/clock.ts';
 import { OPEN_SLOTS_BASE } from '../../sim/commands.ts';
-import { countItem, type Inventory } from '../../sim/inventory.ts';
+import { countItem } from '../../sim/inventory.ts';
 import { canonicalJson } from '../../sim/stateHash.ts';
 import { ingredientName } from '../../ui/itemSlot.ts';
 import { ARENA_DOOR, ARENA_WORKSHOP } from '../../world/gen/arena.ts';
@@ -15,7 +15,6 @@ import {
   blockKey,
   click,
   dragSlot,
-  frameOrFail,
   give,
   look,
   press,
@@ -24,13 +23,17 @@ import {
   withinFrames,
 } from '../automation.ts';
 import {
+  aimAt,
+  arenaOf,
   assert,
+  type Cell,
   needsArenaPlayer,
   needsIdb,
   noErrorsCase,
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
+  slotsAt,
   standAt,
   stateKey,
 } from './support.ts';
@@ -62,19 +65,6 @@ const SMELT_SLACK = 30;
 const UI_FRAMES = 30;
 /** Items stored in the chest before the reload. */
 const STORED = 7;
-
-/** The pack's arena description (the arena world is built from it). */
-function arenaOf(app: App) {
-  const arena = app.registry!.pack.arena;
-  assert(arena, 'the content pack has no arena');
-  return arena;
-}
-
-interface Cell {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
 
 /** The first block of the arena's workshop row that `matches`: its cell and definition. */
 function workshopBlock(
@@ -125,11 +115,6 @@ function smelter(app: App): { cell: Cell; process: ProcessDef } {
   return { cell, process: smelts(def.station)! };
 }
 
-/** The slots of a cell's block entity (a chest, a station; empty when it has none). */
-function slotsAt(app: App, cell: Cell): Inventory {
-  return app.session!.host.view.blockEntity(cell.x, cell.y, cell.z)?.slots ?? [];
-}
-
 /** Whether a slot of the open screen shows an item (the UI bridge refreshed it). */
 function slotShown(screen: string, slot: number): boolean {
   return document.querySelector(`#screen-${screen} [data-slot="${slot}"].filled`) !== null;
@@ -139,34 +124,6 @@ function slotShown(screen: string, slot: number): boolean {
 async function waitForSlot(screen: string, slot: number): Promise<void> {
   const shown = await withinFrames(UI_FRAMES, () => slotShown(screen, slot));
   assert(shown, `slot ${slot} of the ${screen} screen shows nothing`);
-}
-
-/**
- * Turns the view to the middle of the side of a block that faces the eye (along the larger
- * horizontal offset), so the aim ray meets that block first, and checks the aim on the next frame.
- */
-async function aimAt(app: App, { x, y, z }: Cell): Promise<void> {
-  const session = app.session!;
-  // The eye follows the body on frames (after a teleport or a walk).
-  await frameOrFail();
-  const eye = session.rig.eye;
-  const ox = x + 0.5 - eye.x;
-  const oz = z + 0.5 - eye.z;
-  // Just inside the face towards the eye.
-  const inset = 0.49;
-  const tx = Math.abs(ox) >= Math.abs(oz) ? x + 0.5 - Math.sign(ox) * inset : x + 0.5;
-  const tz = Math.abs(ox) >= Math.abs(oz) ? z + 0.5 : z + 0.5 - Math.sign(oz) * inset;
-  const dx = tx - eye.x;
-  const dy = y + 0.5 - eye.y;
-  const dz = tz - eye.z;
-  // lookVector: yaw 0 looks along −z, positive yaw turns towards −x.
-  look(app, Math.atan2(-dx, -dz), Math.atan2(dy, Math.hypot(dx, dz)));
-  await frameOrFail();
-  const hit = session.aim.hit;
-  assert(
-    hit.hit && hit.x === x && hit.y === y && hit.z === z,
-    `aiming at (${x}, ${y}, ${z}) hits ${hit.hit ? `(${hit.x}, ${hit.y}, ${hit.z})` : 'nothing'}`,
-  );
 }
 
 /** Sets a log in LOG_CELL and mines it with a hotbar slot; returns the ticks it took. */

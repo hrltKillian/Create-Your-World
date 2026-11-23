@@ -1,3 +1,5 @@
+import type { DeathCause } from './survival.ts';
+
 /** Events emitted by the simulation for the client (rendering, UI, audio, saves). */
 export type SimEvent =
   /** All 8 neighbours are available: the column's sections can be meshed. */
@@ -93,6 +95,39 @@ export type SimEvent =
       readonly y: number;
       readonly z: number;
     }
+  /** A player ate or drank the held item (`item`), or sipped a liquid (`item`: its block key). */
+  | { readonly type: 'consumed'; readonly playerId: number; readonly item: string }
+  /** A player slept on a bedroll: the clock stands at the morning of `day`. */
+  | { readonly type: 'slept'; readonly playerId: number; readonly day: number }
+  /**
+   * A player died of `cause` (the death screen shows `death.cause.<cause>`; '' when nothing hurt
+   * them). With `pack`, what they carried lies in the Abandoned Pack at the cell (x, y, z), now one
+   * of their `graves`; without, they carried nothing, or it lies on the ground there (no pack could
+   * be left).
+   */
+  | {
+      readonly type: 'died';
+      readonly playerId: number;
+      readonly cause: DeathCause | '';
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+      readonly pack: boolean;
+    }
+  /** A dead player came back (feet position): at the bedroll slept on last, else the spawn. */
+  | {
+      readonly type: 'respawned';
+      readonly playerId: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+    }
+  /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
+  | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
+  /** The clock passed 18:30 of `day`: « The sun is setting… » and a sound (docs « Jour/nuit »). */
+  | { readonly type: 'sunset'; readonly day: number }
+  /** The clock passed 06:00: night `night` is over (« Night N survived »). */
+  | { readonly type: 'nightSurvived'; readonly night: number }
   | {
       readonly type: 'rejected';
       readonly playerId: number;

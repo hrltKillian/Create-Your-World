@@ -1,5 +1,6 @@
 import { stationSlotCount } from '../content/crafting.ts';
 import type { Registry } from '../content/registry.ts';
+import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { SAVE_VERSION } from '../world/codec/migrations.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
@@ -17,8 +18,20 @@ import {
   serializeInventory,
 } from './inventory.ts';
 import type { DropBody, ItemDropState } from './itemDrops.ts';
-import { createPlayer, type PlayerState } from './player.ts';
+import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
+import { SHELTERS, type Shelter } from './shelter.ts';
 import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
+import {
+  clampGauge,
+  createSurvival,
+  DEATH_CAUSES,
+  type DeathCause,
+  EFFECT_KEYS,
+  type EffectKey,
+  GAUGES,
+  type SurvivalState,
+  type TimedEffect,
+} from './survival.ts';
 
 /**
  * Save records of entities (docs « Sauvegarde »): players, item drops and block entities, with text
@@ -26,14 +39,20 @@ import type { BlockEntityRecord, DropRecord, PlayerRecord } from './storage.ts';
  * the spawn), a malformed drop or block entity is dropped.
  */
 
-/** Copies the fields of `saved` that have the type of `target`'s (finite numbers, booleans). */
+/**
+ * Copies the number and boolean fields of `saved` onto those of `target` when they have the same
+ * type (a finite number on a number, a boolean on a boolean); fields of other types (text, lists)
+ * are left for the caller to read.
+ */
 function assignFields<T extends object>(target: T, saved: unknown): T {
   if (!saved || typeof saved !== 'object') return target;
   const from = saved as Record<string, unknown>;
   const to = target as Record<string, unknown>;
   for (const key of Object.keys(to)) {
     const value = from[key];
-    const fits = typeof to[key] === 'boolean' ? typeof value === 'boolean' : isFiniteNumber(value);
+    const kind = typeof to[key];
+    const fits =
+      kind === 'boolean' ? typeof value === 'boolean' : kind === 'number' && isFiniteNumber(value);
     if (fits) to[key] = value;
   }
   return target;
@@ -56,6 +75,12 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     interaction: { ...player.interaction },
     craft: player.craft.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) })),
     seen: Object.keys(player.seen).sort(),
+    survival: { ...player.survival, effects: player.survival.effects.map((e) => ({ ...e })) },
+    equipment: serializeInventory(player.equipment),
+    respawn: player.respawn ? { ...player.respawn } : null,
+    graves: player.graves.map((cell) => ({ ...cell })),
+    objectives: [...player.objectives],
+    drank: player.drank,
   };
 }
 
@@ -90,11 +115,42 @@ function readCraft(data: unknown, registry: Registry): CraftEntry[] {
   return queue;
 }
 
-/** A saved seen set (keys of other packs are kept: they cost nothing). */
+/** The strings of a saved list (keys of other packs are kept: they cost nothing). */
+function readKeys(data: unknown): string[] {
+  return Array.isArray(data) ? data.filter((key): key is string => typeof key === 'string') : [];
+}
+
+/** A saved seen set. */
 function readSeen(data: unknown): Record<string, true> {
   const seen: Record<string, true> = {};
-  if (Array.isArray(data)) for (const key of data) if (typeof key === 'string') seen[key] = true;
+  for (const key of readKeys(data)) seen[key] = true;
   return seen;
+}
+
+/** A saved block cell, or null unless its coordinates are whole and inside the world's height. */
+function readCell(data: unknown): BlockCell | null {
+  const { x, y, z } = (data ?? {}) as Partial<Record<keyof BlockCell, unknown>>;
+  if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
+    return null;
+  return { x, y, z };
+}
+
+/**
+ * A saved survival state: full gauges for what is missing or malformed, the gauges kept within
+ * their ranges.
+ */
+function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
+  const survival = assignFields(createSurvival(balance), data);
+  for (const gauge of GAUGES) survival[gauge] = clampGauge(gauge, survival[gauge], balance);
+  const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
+  if (SHELTERS.includes(saved.shelter as Shelter)) survival.shelter = saved.shelter as Shelter;
+  if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
+  for (const effect of Array.isArray(saved.effects) ? saved.effects : []) {
+    const { key, ticks } = (effect ?? {}) as Partial<TimedEffect>;
+    if (EFFECT_KEYS.includes(key as EffectKey) && isWhole(ticks, 1))
+      survival.effects.push({ key: key as EffectKey, ticks });
+  }
+  return survival;
 }
 
 /**
@@ -108,7 +164,8 @@ export function readPlayer(
 ): PlayerState | null {
   const saved = (data ?? {}) as Partial<PlayerRecord>;
   if (!isWhole(saved.playerId, 0) || !isWhole(saved.id, 1)) return null;
-  const player = createPlayer(saved.playerId, spawn.x, spawn.y, spawn.z, 6, saved.id);
+  const { x, y, z } = spawn;
+  const player = createPlayer(saved.playerId, x, y, z, 6, registry.pack.balance, saved.id);
   assignFields(player.body, saved.body);
   const { yaw, pitch, stamina, exhausted, restTicks, viewRadius } = saved;
   assignFields(player, { yaw, pitch, stamina, exhausted, restTicks, viewRadius });
@@ -120,6 +177,13 @@ export function readPlayer(
   assignFields(player.interaction, saved.interaction);
   player.craft = readCraft(saved.craft, registry);
   player.seen = readSeen(saved.seen);
+  player.survival = readSurvival(saved.survival, registry.pack.balance);
+  player.equipment = deserializeSlots(saved.equipment, WEAR_SLOTS.length, registry);
+  player.respawn = readCell(saved.respawn);
+  const graves = Array.isArray(saved.graves) ? saved.graves.map(readCell) : [];
+  player.graves = graves.filter((cell) => cell !== null);
+  player.objectives = readKeys(saved.objectives);
+  player.drank = saved.drank === true;
   return player;
 }
 
@@ -164,17 +228,24 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
   return drop;
 }
 
+/** The slots of a block entity as saved (text item keys). */
+const savedSlots = (slots: Inventory): Inventory =>
+  slots.map((stack) => (stack ? savedStack(stack) : null));
+
 export function blockEntityRecord(entity: Readonly<BlockEntity>): BlockEntityRecord {
-  return { ...entity, slots: entity.slots.map((stack) => (stack ? savedStack(stack) : null)) };
+  if (entity.kind === 'grave')
+    return { ...entity, slots: savedSlots(entity.slots), worn: savedSlots(entity.worn) };
+  return { ...entity, slots: savedSlots(entity.slots) };
 }
 
-/** Most slots a saved block entity may have. */
-const MAX_SLOTS = 64;
+/** Most slots a saved block entity may have (a pack holds as many as a dead player's stacks). */
+const MAX_SLOTS = 256;
 
 /**
  * The block entity of a (migrated) record, or null if it is malformed. Unknown items keep their
- * key; a station of a station the pack lacks keeps its slots (it no longer runs, but spills them
- * when broken). `lastTick` is the column record's, for stations saved without their own tick.
+ * key; a station of a station the pack lacks, and a pack, keep their slots (the former no longer
+ * runs, but spills them when broken). `lastTick` is the column record's, for stations saved
+ * without their own tick.
  */
 export function readBlockEntity(
   data: unknown,
@@ -182,9 +253,9 @@ export function readBlockEntity(
   lastTick: number,
 ): BlockEntity | null {
   const saved = (data ?? {}) as Partial<Record<keyof StationEntity, unknown>>;
-  const { x, y, z } = saved;
-  if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
-    return null;
+  const cell = readCell(saved);
+  if (!cell) return null;
+  const { x, y, z } = cell;
   const slots = Array.isArray(saved.slots) ? saved.slots : [];
   if (saved.kind === 'container')
     return {
@@ -194,6 +265,19 @@ export function readBlockEntity(
       z,
       slots: deserializeSlots(slots, CONTAINER_SLOTS, registry),
     };
+  if (saved.kind === 'grave') {
+    const size = Math.min(slots.length, MAX_SLOTS);
+    // A pack saved before the worn items were kept apart holds them among its slots.
+    const worn = (saved as { worn?: unknown }).worn;
+    return {
+      kind: 'grave',
+      x,
+      y,
+      z,
+      slots: deserializeSlots(slots, size, registry),
+      worn: deserializeSlots(Array.isArray(worn) ? worn : [], WEAR_SLOTS.length, registry),
+    };
+  }
   if (saved.kind !== 'station' || typeof saved.station !== 'string') return null;
   const def = registry.crafting.station(saved.station);
   const size = def ? stationSlotCount(def) : Math.min(slots.length, MAX_SLOTS);

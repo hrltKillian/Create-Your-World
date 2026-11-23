@@ -6,6 +6,7 @@ import type {
   Command,
   InputCommand,
   InventoryCommand,
+  SlotMove,
 } from './commands.ts';
 import type { SimEvent } from './events.ts';
 import { INVENTORY_SLOTS } from './inventory.ts';
@@ -79,11 +80,7 @@ export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
       return true;
     case 'container.move':
     case 'station.move':
-      return (
-        whole(c.from, 0, MAX_SLOT) &&
-        (c.to === undefined || whole(c.to, 0, MAX_SLOT)) &&
-        (c.count === undefined || whole(c.count, 1, Infinity))
-      );
+      return validSlotMove(c);
   }
 }
 
@@ -94,6 +91,15 @@ export function validCell(c: { readonly x: number; readonly y: number; readonly 
     whole(c.y, 0, WORLD_HEIGHT - 1) &&
     whole(c.z, -Infinity, Infinity) &&
     insideBorder(c.x, c.z)
+  );
+}
+
+/** Slot numbers that may name slots past the inventory (checked when applied), counts of ≥ 1. */
+export function validSlotMove(c: SlotMove<'container.move' | 'station.move' | 'equip.move'>) {
+  return (
+    whole(c.from, 0, MAX_SLOT) &&
+    (c.to === undefined || whole(c.to, 0, MAX_SLOT)) &&
+    (c.count === undefined || whole(c.count, 1, Infinity))
   );
 }
 

@@ -1,0 +1,87 @@
+import type { BalanceDef } from '../../schema.ts';
+
+/**
+ * Survival numbers of the base pack (docs « Survie », « Joueur », « Eau potable »). An idle player
+ * empties hunger in 25 min and thirst in 16 min, then dies of thirst after about 21.6 min.
+ */
+export const balance: BalanceDef = {
+  health: {
+    max: 100,
+    regenPerSec: 0.4,
+    regenFedAt: 50,
+    regenDelaySec: 6,
+    hungerPerPoint: 0.5,
+    lowAt: 25,
+  },
+  hunger: {
+    max: 100,
+    perMin: 4,
+    sprintFactor: 2,
+    coldFactor: 1.5,
+    staminaPerPoint: 50,
+    lowAt: 15,
+    lowStaminaMax: 50,
+    emptyDamagePerMin: 12,
+  },
+  thirst: {
+    max: 100,
+    perMin: 6.25,
+    hotFactor: 2,
+    sprintFactor: 1.5,
+    lowAt: 20,
+    lowStaminaRegen: 0.5,
+    emptyDamagePerMin: 18,
+  },
+  temperature: {
+    limit: 100,
+    awayPerMin: 16,
+    backPerMin: 30,
+    mildAt: 40,
+    severeAt: 70,
+    severeDamagePerMin: 20,
+  },
+  toxicity: {
+    max: 100,
+    decayPerMin: 3,
+    nauseousAt: 35,
+    harmAt: 65,
+    harmPerMin: 10,
+    severeAt: 90,
+    severePerMin: 30,
+  },
+  breath: { seconds: 15, refillPerSec: 5, drowningPerSec: 5 },
+  fall: { safeBlocks: 3.5, damagePerBlock: 6 },
+  climate: {
+    altitudeFrom: 100,
+    altitudePerBlock: 0.15,
+    caveC: 12,
+    caveDepth: 8,
+    enclosedC: 18,
+    enclosedBlend: 0.6,
+    shadeAboveC: 28,
+    shadeC: 8,
+    heatSources: 2,
+    waterC: 8,
+    comfortMinC: 10,
+    comfortMaxC: 28,
+    targetPerDegree: 5,
+  },
+  shelter: {
+    checkSec: 1,
+    maxCells: 384,
+    maxDistance: 10,
+    editRadius: 10,
+    enclosedToxicity: 0.2,
+    coveredToxicity: 0.7,
+  },
+  water: { sipSec: 0.8 },
+  sleep: { fromHour: 19.5, toHour: 5, wakeHour: 6, hunger: 10, thirst: 15, hostileRadius: 16 },
+  respawn: {
+    health: 60,
+    hunger: 50,
+    thirst: 50,
+    weakenedSec: 120,
+    weakenedDamage: 0.8,
+    untargetedSec: 5,
+  },
+};

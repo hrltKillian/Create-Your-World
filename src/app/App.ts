@@ -29,10 +29,11 @@ import { debugLines } from './debugLines.ts';
 import { FreeCam } from './FreeCam.ts';
 import { Game } from './Game.ts';
 import type { GameSession } from './GameSession.ts';
+import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 8;
+export const MILESTONE = 9;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
@@ -101,6 +102,10 @@ export class App {
   /** Hotbar and bag of the open world (none with the free camera). */
   get inventory(): InventoryUi | null {
     return this.game?.open?.inventory ?? null;
+  }
+
+  get hud(): HudBridge | null {
+    return this.game?.open?.hud ?? null;
   }
 
   get freecam(): FreeCam | null {

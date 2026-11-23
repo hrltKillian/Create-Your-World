@@ -88,6 +88,20 @@ export function moonDirection(hour: number, out: Vector3): Vector3 {
 }
 
 /**
+ * Where the HUD compass shows the sun: its bearing (radians clockwise from north, −z; east is +x)
+ * from the same turn as `sunDirection`. The moon is always opposite.
+ */
+export function sunBearing(hour: number): number {
+  return Math.atan2(Math.cos(skyAngle(hour)), -SUN_TILT);
+}
+
+/** Whether the sun (`moon` false) or the moon is above the horizon at an hour. */
+export function aboveHorizon(hour: number, moon: boolean): boolean {
+  const height = Math.sin(skyAngle(hour));
+  return (moon ? -height : height) + SUN_LIFT > 0;
+}
+
+/**
  * Sky dome following the camera: palette gradient, a round sun and a round moon, and stars that
  * turn with them. All in one draw (the discs and stars are computed per pixel).
  */

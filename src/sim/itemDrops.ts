@@ -123,8 +123,9 @@ function dormant(sim: Simulation, drop: ItemDropState): boolean {
 }
 
 /**
- * Item drops for one tick: ageing and despawn, falling and sliding, pickups by nearby players, and
- * merging of close stacks every 10 ticks. Drops of unloaded columns are left alone (dormant).
+ * Item drops for one tick: ageing and despawn, falling and sliding, pickups by nearby living
+ * players, and merging of close stacks every 10 ticks. Drops of unloaded columns are left alone
+ * (dormant).
  */
 export function stepItemDrops(sim: Simulation, out: SimEvent[]): void {
   const tables = sim.registry.tables;
@@ -144,7 +145,8 @@ export function stepItemDrops(sim: Simulation, out: SimEvent[]): void {
     sim.spatial.update(entity.id, b.x, b.z);
     if (entity.thrower >= 0) releaseFromThrower(sim, entity);
   }
-  for (const player of sim.players.values()) pickUp(sim, player, out);
+  for (const player of sim.players.values())
+    if (player.survival.health > 0) pickUp(sim, player, out);
   if (sim.tick % DROPS.mergeEveryTicks === 0) mergeDrops(sim);
 }
 

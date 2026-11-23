@@ -4,7 +4,9 @@ import type { Settings } from '../platform/settings.ts';
 import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
+import type { DebugStat } from '../sim/commands.ts';
 import { serializeInventory } from '../sim/inventory.ts';
+import type { DeathCause } from '../sim/survival.ts';
 import { Column } from '../world/Column.ts';
 import { findBiome, findStructure } from '../world/gen/find.ts';
 import { columnHash, generateColumn } from '../world/gen/generateColumn.ts';
@@ -35,6 +37,7 @@ import {
   waitForChunks,
   yieldTask,
 } from './automation.ts';
+import { equip, god, kill, playerStats, setStat, shelterHere } from './survivalAutomation.ts';
 import { byLastPlayed, deleteClosedWorld } from './worlds.ts';
 
 /**
@@ -54,7 +57,7 @@ export function installDebugHook(app: App): void {
     return storage;
   };
   const api = {
-    version: 8,
+    version: 9,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -159,8 +162,16 @@ export function installDebugHook(app: App): void {
         };
       },
       teleport: (x: number, y: number | 'surface', z: number) => teleport(app, x, y, z),
-      setStamina: (value: number) =>
-        app.session?.host.send({ type: 'debug.setStat', stat: 'stamina', value }),
+      /** Sets a gauge now, clamped: health, hunger, thirst, stamina, temperature, toxicity, breath. */
+      setStat: (stat: DebugStat, value: number) => setStat(app, stat, value),
+      /** Gauges, HUD effects, shelter, felt °C, death, bedroll, packs, objectives, worn items. */
+      stats: () => playerStats(app),
+      /** Takes all health for a cause (the death screen shows `death.cause.<cause>`). */
+      kill: (cause: DeathCause = 'fall') => kill(app, cause),
+      /** No damage while on (the gauges still move); kept across a respawn and saved. */
+      god: (on = true) => god(app, on),
+      /** Shift+click of a slot in the Bag: puts a wearable on, takes a worn one (32–36) off. */
+      equip: (slot: number) => equip(app, slot),
       /** A copy of the 32 slots (0–7 hotbar, 8–31 bag): null or { item, count, durability? }. */
       inventory: () => {
         const p = app.session?.player;
@@ -186,6 +197,8 @@ export function installDebugHook(app: App): void {
       setBlock: (x: number, y: number, z: number, state: string) => setBlock(app, x, y, z, state),
       /** Sky and block light (0–15 each) at a position; unloaded cells are dark. */
       light: (x: number, y: number, z: number) => lightAt(app, x, y, z),
+      /** The shelter at the player's head now: 'enclosed', 'covered' or 'exposed'. */
+      shelter: () => shelterHere(app),
       voxelBytes: () => app.world?.voxelBytes() ?? 0,
       seed: () => app.session?.seed ?? null,
       spawn: () => app.session?.spawn ?? null,
@@ -329,6 +342,7 @@ export function installDebugHook(app: App): void {
     },
     ui: {
       i18nMissing,
+      /** Text of the first match of a selector, e.g. `#hud-clock`, `#hud-effects`, `#screen-death`. */
       text: (selector: string) => document.querySelector(selector)?.textContent ?? null,
       toggleDebug: () => app.overlay?.toggle(),
       /** Opens or closes the bag like its key does (no argument: toggles); returns whether it is open. */
@@ -362,10 +376,14 @@ export function installDebugHook(app: App): void {
         return app.inventory?.screen() ?? null;
       },
       /**
-       * The open screen: 'bag' (with the Logbook), 'container' or 'station' over the world, a menu
-       * ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
+       * The open screen: 'death', 'bag' (with the Logbook), 'container' or 'station' over the world,
+       * a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
        */
-      screen: () => app.inventory?.screen() ?? app.game?.menus.screen() ?? null,
+      screen: () =>
+        (app.hud?.deathOpen() ? 'death' : null) ??
+        app.inventory?.screen() ??
+        app.game?.menus.screen() ??
+        null,
       /** Clicks the first element a selector matches (false: none, or a disabled button). */
       click,
       /** Drags a stack between two `[data-slot]` numbers of the open screen, like the mouse. */

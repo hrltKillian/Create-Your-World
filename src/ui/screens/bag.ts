@@ -1,25 +1,36 @@
+import type { Registry } from '../../content/registry.ts';
 import { WEAR_SLOTS } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { Gear } from '../../sim/environment.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
 import { type ScreenDeps, SlotBoard } from '../slotBoard.ts';
 import type { LogbookPanel, LogbookState } from './logbook.ts';
 
 /**
- * The Bag (E or Tab, docs « Écrans »): on the left the silhouette and its 5 equipment slots (worn
- * items arrive with M9), in the middle the 6×4 bag and the hotbar, on the right the Logbook.
+ * The Bag (E or Tab, docs « Écrans »): on the left the silhouette, its 5 equipment slots (slots
+ * 32–36, moved with `equip.move`) and what the worn items protect from, in the middle the 6×4 bag
+ * and the hotbar, on the right the Logbook.
  */
 export class BagScreen {
   readonly element: HTMLElement;
   readonly logbook: LogbookPanel;
   private readonly board: SlotBoard;
+  private readonly protection: HTMLElement;
+  private readonly registry: Registry;
+  private readonly base: number;
 
   constructor(deps: ScreenDeps, logbook: LogbookPanel) {
     this.logbook = logbook;
-    const board = new SlotBoard(deps, null, 'screen-bag');
+    // A split dropped back on its slot never looks for a worn slot that would refuse it.
+    const board = new SlotBoard(deps, 'equip.move', 'screen-bag', this.accepts);
     this.board = board;
+    this.registry = deps.art.registry;
+    this.base = deps.slotCount;
     this.element = board.element;
+    this.protection = h('p', { class: 'wear-stats' });
+    const worn = board.slotViews(deps.slotCount, deps.slotCount + WEAR_SLOTS.length);
     this.element.append(
       h(
         'div',
@@ -28,7 +39,7 @@ export class BagScreen {
         h(
           'div',
           { class: 'bag-columns' },
-          wearColumn(),
+          wearColumn(worn, this.protection),
           h('div', { class: 'bag-inventory' }, ...board.inventory(), board.caption),
           logbook.element,
         ),
@@ -36,6 +47,13 @@ export class BagScreen {
       ),
     );
   }
+
+  /**
+   * Whether an equipment slot (from `slotCount`) takes an item, as the simulation's equip.move
+   * does: a wearable in its own box only.
+   */
+  readonly accepts = (slot: number, item: string): boolean =>
+    this.registry.item(item)?.wear?.slot === WEAR_SLOTS[slot - this.base];
 
   isOpen(): boolean {
     return this.board.isOpen();
@@ -49,9 +67,14 @@ export class BagScreen {
     this.board.close();
   }
 
-  /** Shows the inventory and the Logbook (call when they change and regularly). */
-  update(inventory: Slots, logbook: LogbookState): void {
-    this.board.update(inventory);
+  /**
+   * Shows the inventory then the worn items, their protection and the Logbook (call when they
+   * change and regularly).
+   */
+  update(slots: Slots, logbook: LogbookState, gear: Readonly<Gear>): void {
+    this.board.update(slots);
+    const text = t('wear.stats', { armor: gear.armor, warmth: gear.warmth, cooling: gear.cooling });
+    if (this.protection.textContent !== text) this.protection.textContent = text;
     this.logbook.update(logbook);
   }
 
@@ -61,8 +84,8 @@ export class BagScreen {
   }
 }
 
-/** The silhouette, head to feet, with an empty box per equipment slot. */
-function wearColumn(): HTMLElement {
+/** The silhouette, head to feet, with the slot view of each equipment slot, then the protection. */
+function wearColumn(worn: readonly HTMLElement[], protection: HTMLElement): HTMLElement {
   return h(
     'div',
     { class: 'wear' },
@@ -73,14 +96,15 @@ function wearColumn(): HTMLElement {
       h('span', { class: 'figure-head' }),
       h('span', { class: 'figure-torso' }),
       h('span', { class: 'figure-legs' }),
-      ...WEAR_SLOTS.map((slot) =>
+      ...WEAR_SLOTS.map((slot, i) =>
         h(
           'div',
           { class: 'wear-slot', attrs: { 'data-wear': slot } },
-          h('span', { class: 'slot' }),
+          worn[i]!,
           h('span', { class: 'wear-label' }, t(`wear.${slot}`)),
         ),
       ),
     ),
+    protection,
   );
 }

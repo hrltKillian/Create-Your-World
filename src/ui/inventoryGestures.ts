@@ -1,19 +1,22 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
-import type { BlockEntityCommand, InventoryCommand } from '../sim/commands.ts';
+import type { BlockEntityCommand, EquipCommand, InventoryCommand } from '../sim/commands.ts';
 import type { Slots } from './itemSlot.ts';
 
-/** What a gesture on a slot screen sends: an inventory edit, or a move with the open block entity. */
-export type SlotCommand = InventoryCommand | BlockEntityCommand;
+/**
+ * What a gesture on a slot screen sends: an inventory edit, or a move with the open block entity or
+ * the worn items.
+ */
+export type SlotCommand = InventoryCommand | BlockEntityCommand | EquipCommand;
 
 /**
  * Slot numbers of a screen: the inventory (hotbar 0–7, then the bag) below `base`, then the slots
- * of the open block entity (a chest or a station), moved with `move` (null: the bag alone).
+ * of the open block entity (a chest or a station) or the worn items (the Bag), moved with `move`.
  */
 export interface SlotContext {
   readonly base: number;
-  readonly move: 'container.move' | 'station.move' | null;
+  readonly move: 'container.move' | 'station.move' | 'equip.move';
   /**
-   * Whether a slot of the open block entity (`base` and up) takes an item: a station's layout
+   * Whether a slot past the inventory (`base` and up) takes an item: a station's layout
    * (content/crafting.ts `stationAccepts`). Absent: every slot takes anything (a chest).
    */
   readonly accepts?: (slot: number, item: string) => boolean;
@@ -24,7 +27,7 @@ export function splitCount(count: number): number {
   return Math.ceil(count / 2);
 }
 
-/** Part of a slot number: 0 the hotbar, 1 the bag, 2 the open block entity. */
+/** Part of a slot number: 0 the hotbar, 1 the bag, 2 the open block entity or the worn items. */
 function partOf(context: SlotContext, slot: number): number {
   if (slot < HOTBAR_SLOTS) return 0;
   return slot < context.base ? 1 : 2;
@@ -63,25 +66,25 @@ export function emptySlotNear(
 
 /**
  * Moves `count` items (undefined: the whole stack) between two slots: an inventory move, or the
- * open block entity's move when either slot is one of its own (null in the bag alone).
+ * screen's own move when either slot is past the inventory.
  */
 export function moveCommand(
   context: SlotContext,
   from: number,
   to: number,
   count?: number,
-): SlotCommand | null {
+): SlotCommand {
   const counted = count === undefined ? {} : { count };
   if (from < context.base && to < context.base) return { type: 'inv.move', from, to, ...counted };
-  return context.move ? { type: context.move, from, to, ...counted } : null;
+  return { type: context.move, from, to, ...counted };
 }
 
 /**
- * Shift+click: sends a whole stack across, hotbar ⇄ bag in the bag alone, else inventory ⇄ the open
- * block entity.
+ * Shift+click: sends a whole stack across, inventory ⇄ the open block entity; in the Bag a
+ * wearable is put on, a worn item taken off, anything else moved hotbar ⇄ bag (equip.move).
  */
 export function quickMoveCommand(context: SlotContext, slot: number): SlotCommand {
-  return context.move ? { type: context.move, from: slot } : { type: 'inv.quickMove', slot };
+  return { type: context.move, from: slot };
 }
 
 /**

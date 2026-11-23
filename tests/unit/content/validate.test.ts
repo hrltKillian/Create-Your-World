@@ -45,6 +45,17 @@ describe('content validation', () => {
     expect(issues.some((i) => i.message.includes('emissive but the block is tinted'))).toBe(true);
   });
 
+  it('keeps one grave block (the one a death leaves), which the registry finds', () => {
+    const registry = buildRegistry(basePack);
+    expect(registry.blockDef(registry.grave).blockEntity).toBe('grave');
+    const pack = broken((p) => {
+      p.blocks.find((b) => b.key === 'block:bedroll')!.blockEntity = 'grave';
+    });
+    expect(validatePack(pack)).toEqual([
+      { path: 'blocks', message: 'at most one block may be a grave (the one a death leaves)' },
+    ]);
+  });
+
   it('refuses to build a registry from an invalid pack', () => {
     const pack = broken((p) => {
       p.blocks[5]!.states = ['wobble'];
@@ -164,5 +175,88 @@ describe('content validation of world generation', () => {
       ]),
     );
     expect(validatePack(basePack)).toEqual([]);
+  });
+});
+
+describe('content validation of the balance', () => {
+  it('checks the survival numbers and the heat of the blocks', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    pack.balance.hunger.perMin = -4;
+    pack.balance.sleep.wakeHour = 24;
+    pack.balance.shelter.maxDistance = 16;
+    pack.balance.shelter.coveredToxicity = 1.5;
+    pack.balance.climate.heatSources = 0;
+    const torch = pack.blocks.find((b: { key: string }) => b.key === 'block:torch');
+    torch.heat = { celsius: 3.5, radius: 9 };
+    const paths = validatePack(pack).map((i) => i.path);
+    expect(paths.sort()).toEqual(
+      [
+        'balance.hunger.perMin',
+        'balance.sleep.wakeHour',
+        'balance.shelter.maxDistance',
+        'balance.shelter.coveredToxicity',
+        'balance.climate.heatSources',
+        `blocks[${pack.blocks.indexOf(torch)}].heat.celsius`,
+        `blocks[${pack.blocks.indexOf(torch)}].heat.radius`,
+      ].sort(),
+    );
+  });
+
+  it('takes heat sources only: no cold or zero heat, which the thermal model would ignore', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    const torch = pack.blocks.find((b: { key: string }) => b.key === 'block:torch');
+    const magma = pack.blocks.find((b: { key: string }) => b.key === 'block:magma');
+    torch.heat = { celsius: -5, radius: 2 };
+    magma.heat = { celsius: 0, radius: 2 };
+    expect(
+      validatePack(pack)
+        .map((i) => i.path)
+        .sort(),
+    ).toEqual(
+      [
+        `blocks[${pack.blocks.indexOf(torch)}].heat.celsius`,
+        `blocks[${pack.blocks.indexOf(magma)}].heat.celsius`,
+      ].sort(),
+    );
+    torch.heat = { celsius: 1, radius: 2 };
+    magma.heat = { celsius: 127, radius: 2 };
+    expect(validatePack(pack)).toEqual([]);
+  });
+
+  it('gives each block state its heat, lit stations only while lit', () => {
+    const registry = buildRegistry(basePack);
+    const heat = (key: string) => registry.tables.heat[registry.stateId(key)];
+    expect(heat('block:campfire[lit=1]')).toBeGreaterThan(0);
+    expect(heat('block:campfire[lit=0]')).toBe(0);
+    expect(heat('block:magma')).toBeGreaterThan(0);
+    const kiln = registry.stateId('block:kiln[facing4=n,lit=1]');
+    const lit = registry.blockDef(kiln).whenState!.lit!.heat!;
+    expect([heat('block:kiln[facing4=n,lit=1]'), registry.tables.heatRadius[kiln]]).toEqual([
+      lit.celsius,
+      lit.radius,
+    ]);
+  });
+});
+
+describe('content validation of the objectives', () => {
+  it('checks keys, strings, compass points and what each condition asks for', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    const [first, second, third, fourth] = pack.objectives;
+    first.key = second.key;
+    second.textKey = 'objective.nope';
+    second.compass = 'up';
+    third.condition = { items: ['item:nope', 'tag:nope'], stations: ['station:nope'], nights: 1.5 };
+    fourth.condition = { enclosed: false, drank: false };
+    const issues = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(issues).toEqual([
+      'objectives[1].key',
+      'objectives[1].textKey',
+      'objectives[1].compass',
+      'objectives[2].condition.items[0]',
+      'objectives[2].condition.items[1]',
+      'objectives[2].condition.stations[0]',
+      'objectives[2].condition.nights',
+      'objectives[3].condition',
+    ]);
   });
 });

@@ -69,10 +69,11 @@ export function breakSeconds(
   return seconds;
 }
 
-/** Durability the held item loses for breaking a block (0 for items that do not wear). */
+/** Durability the held tool loses for breaking a block (0 for anything else). */
 export function toolWear(registry: Registry, state: number, itemId: number): number {
-  if (itemId < 0 || registry.itemTables.durability[itemId] === 0) return 0;
+  const tool = heldTool(registry, itemId);
+  if (tool === undefined) return 0;
   const block = registry.blockDef(state);
   if (block.hardness === 0) return 0;
-  return fitsTool(block, heldTool(registry, itemId)) ? MINING.wear : MINING.wrongToolWear;
+  return fitsTool(block, tool) ? MINING.wear : MINING.wrongToolWear;
 }

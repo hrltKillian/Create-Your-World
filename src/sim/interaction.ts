@@ -5,11 +5,14 @@ import { WORLD_HEIGHT } from '../world/coords.ts';
 import { createRayHit } from '../world/raycast.ts';
 import { blockEntityAt, createBlockEntity, removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
+import { forgetCell } from './blockRemoval.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject } from './commandRules.ts';
+import { holdUse } from './consume.ts';
+import { recoverPack } from './death.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
-import { takeFromSlot } from './inventory.ts';
+import { spendUses, takeFromSlot } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
 import {
@@ -27,8 +30,9 @@ import {
   planPlacement,
   playerInCell,
 } from './placement.ts';
-import { type PlayerState, STAMINA, spendStamina } from './player.ts';
+import { NO_USE, type PlayerState, STAMINA, spendStamina } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { sleepOn } from './sleep.ts';
 import { AIM_HIT, AIM_OUT_OF_REACH, aim } from './targeting.ts';
 
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
@@ -40,10 +44,10 @@ const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 
 /**
  * One tick of a player's interaction with the world (docs/conception.md « Priorité des actions »).
- * Primary mines the aimed block while held (creatures come first from M10). Secondary toggles an
- * interactive block (gates) or opens a chest or station on the press, else places the held block,
- * again every 6 ticks while held; crouching forces the placement. Consuming, drinking and filling
- * arrive in M9.
+ * Primary mines the aimed block while held (creatures come first from M10). Secondary uses an
+ * interactive block on the press (toggles a gate, opens a chest or station, sleeps on a bedroll,
+ * takes back an Abandoned Pack), else eats, drinks or fills while held (consume.ts), else places
+ * the held block, again every 6 ticks while held; crouching forces the placement.
  */
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const status = aim(sim.world, sim.registry.tables, player, hit);
@@ -110,7 +114,8 @@ function reportStage(player: PlayerState, stage: number, out: SimEvent[]): void 
   });
 }
 
-function stopMining(player: PlayerState, out: SimEvent[]): void {
+/** Stops mining (its crack goes). */
+export function stopMining(player: PlayerState, out: SimEvent[]): void {
   if (player.interaction.mineStage >= 0) reportStage(player, -1, out);
   player.interaction.mineProgress = 0;
 }
@@ -120,11 +125,8 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
   const { x, y, z, state } = hit;
   let top = breakWhole(sim, player, x, y, z, canHarvest(sim.registry, state, itemId), out);
   const wear = toolWear(sim.registry, state, itemId);
-  const slot = player.input.slot;
-  const stack = player.inventory[slot];
-  if (wear > 0 && stack) {
-    stack.durability = (stack.durability ?? sim.registry.itemTables.durability[itemId]!) - wear;
-    if (stack.durability <= 0) player.inventory[slot] = null;
+  if (wear > 0 && player.inventory[player.input.slot]) {
+    spendUses(sim.registry, player.inventory, player.input.slot, wear);
     out.push({ type: 'inventoryChanged', playerId: player.playerId });
   }
   while (top + 1 < WORLD_HEIGHT) {
@@ -172,6 +174,7 @@ function breakBlock(
   const kept = blockEntityAt(sim, x, y, z) !== undefined;
   if (!editBlock(sim.world, sim.light, x, y, z, registry.air, out)) return;
   if (kept) removeBlockEntity(sim, x, y, z);
+  forgetCell(sim, x, y, z, state);
   out.push({ type: 'blockBroken', playerId: player.playerId, x, y, z, state });
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
@@ -186,7 +189,10 @@ function breakBlock(
   }
 }
 
-/** Secondary button: acts on the press, then every PLACE_REPEAT_TICKS while held. */
+/**
+ * Secondary button: an aimed interactive block on the press; else what the hand eats, drinks or
+ * fills while held; else a placement on the press, then every PLACE_REPEAT_TICKS while held.
+ */
 function useButton(sim: Simulation, player: PlayerState, status: number, out: SimEvent[]): void {
   const st = player.interaction;
   const input = player.input;
@@ -194,41 +200,46 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
   st.useHeld = input.secondary;
   if (!input.secondary) {
     st.useCooldown = 0;
+    st.useItem = NO_USE;
     return;
   }
-  if (!pressed && --st.useCooldown > 0) return;
-  st.useCooldown = PLACE_REPEAT_TICKS;
-  if (status === AIM_OUT_OF_REACH) {
-    reject(out, player.playerId, 'input', 'reach');
-    return;
-  }
-  if (status !== AIM_HIT) return;
-  if (usesAimedBlock(sim.registry, hit.state, input.crouch)) {
+  if (status === AIM_HIT && usesAimedBlock(sim.registry, hit.state, input.crouch)) {
     if (pressed) useAimed(sim, player, out);
     return;
   }
-  place(sim, player, out);
+  if (holdUse(sim, player, pressed, out)) return;
+  st.useItem = NO_USE;
+  if (!pressed && --st.useCooldown > 0) return;
+  st.useCooldown = PLACE_REPEAT_TICKS;
+  if (status === AIM_OUT_OF_REACH) reject(out, player.playerId, 'input', 'reach');
+  else if (status === AIM_HIT) place(sim, player, out);
 }
 
 /**
- * Whether secondary acts on the aimed block (opens a gate, a chest or a station) instead of
- * placing: crouching forces the placement.
+ * Whether secondary acts on the aimed block (a gate, a chest, a station, a bedroll, an Abandoned
+ * Pack) instead of placing: crouching forces the placement.
  */
 export function usesAimedBlock(registry: Registry, state: number, crouch: boolean): boolean {
   if (crouch) return false;
-  const kind = registry.blockDef(state).blockEntity;
-  return registry.prop(state, 'open') !== undefined || kind === 'container' || kind === 'station';
+  return (
+    registry.prop(state, 'open') !== undefined || registry.blockDef(state).blockEntity !== undefined
+  );
 }
 
-/** Opens the screen of an aimed chest or station, or toggles an aimed gate. */
+/**
+ * Opens the screen of an aimed chest or station, sleeps on a bedroll, takes back a pack, or
+ * toggles a gate.
+ */
 function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
+  const { x, y, z } = hit;
   const kind = sim.registry.blockDef(hit.state).blockEntity;
-  if (kind !== 'container' && kind !== 'station') {
-    toggleOpen(sim, player, out);
-    return;
-  }
+  let refusal: string | null = null;
   // The aim has confirmed the line of sight (a client target, or the simulation's own ray).
-  const refusal = openBlockEntity(sim, player, hit.x, hit.y, hit.z, out, true);
+  if (kind === 'container' || kind === 'station')
+    refusal = openBlockEntity(sim, player, x, y, z, out, true);
+  else if (kind === 'bed') sleepOn(sim, player, x, y, z, out);
+  else if (kind === 'grave') refusal = recoverPack(sim, player, x, y, z, out);
+  else toggleOpen(sim, player, out);
   if (refusal) reject(out, player.playerId, 'input', refusal);
 }
 

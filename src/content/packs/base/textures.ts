@@ -465,6 +465,13 @@ export const textures = [
     palette: ['#5b2f2a', '#7a3f36', '#a35a3c', '#c98a4b'],
     seed: 147,
   },
+  {
+    // Worn olive canvas (the Abandoned Pack).
+    key: 'tex:abandoned_pack',
+    pattern: 'speckle',
+    palette: ['#3d3a24', '#565033', '#6e6744', '#877e58'],
+    seed: 149,
+  },
 ] as const satisfies readonly TextureDef[];
 
 /**
