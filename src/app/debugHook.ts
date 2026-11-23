@@ -25,6 +25,7 @@ import {
   lightAt,
   look,
   nextFrame,
+  openBlock,
   press,
   reloadWorld,
   saveNow,
@@ -336,6 +337,21 @@ export function installDebugHook(app: App): void {
         if (!inventory) return false;
         if (open === undefined || open !== inventory.bag.isOpen()) inventory.toggleBag();
         return inventory.bag.isOpen();
+      },
+      /**
+       * Opens a screen; returns `screen()` after. No cell: the bag, like its key. A cell: its chest
+       * or station, like secondary on it (`debug.open`: within 5 blocks, no aim needed; applied at
+       * once in fixed steps, else on the next tick).
+       */
+      open: (x?: number, y?: number, z?: number) => {
+        const inventory = app.inventory;
+        if (x !== undefined && y !== undefined && z !== undefined) openBlock(app, x, y, z);
+        else if (inventory && inventory.screen() !== 'bag') {
+          // The bag's key closes a chest or station screen first.
+          if (inventory.screen()) inventory.closeScreen(true);
+          inventory.toggleBag();
+        }
+        return inventory?.screen() ?? null;
       },
       /** Closes the open bag, chest or station screen like its key does; returns what is open after. */
       close: () => {

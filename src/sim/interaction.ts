@@ -227,7 +227,8 @@ function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
     toggleOpen(sim, player, out);
     return;
   }
-  const refusal = openBlockEntity(sim, player, hit.x, hit.y, hit.z, out);
+  // The aim has confirmed the line of sight (a client target, or the simulation's own ray).
+  const refusal = openBlockEntity(sim, player, hit.x, hit.y, hit.z, out, true);
   if (refusal) reject(out, player.playerId, 'input', refusal);
 }
 

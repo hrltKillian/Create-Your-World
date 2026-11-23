@@ -128,11 +128,15 @@ export function queueView(registry: Registry, entry: Readonly<CraftEntry>): Queu
   return { recipe: entry.recipe, count: entry.count, progress: Math.min(1, progress) };
 }
 
-/** A station's flame (fuel left burning) and progress, 0…1. */
+/**
+ * A station's fire as its block shows it (`lit`: an idle kiln keeps its fuel item's time left but
+ * does not burn), its flame (that time left) and progress, 0…1.
+ */
 export function stationStatus(registry: Registry, station: Readonly<StationEntity>): StationStatus {
   const process = registry.crafting.process(station.process);
   const progress = process ? station.progressTicks / ticksOf(process.seconds) : 0;
   return {
+    lit: station.lit,
     flame: station.burnTicks > 0 ? station.burnTicksLeft / station.burnTicks : 0,
     progress: Math.min(1, progress),
     process: station.process,

@@ -46,8 +46,8 @@ the spawn (Workbench, Clay Kiln, Campfire and Chest, left to right).
   back, up to a game day); chests and stations are saved with their column.
 - From the dev console: `__game.player.give('item:copper_ore', 4)`,
   `__game.craft.enqueue('recipe:flint_hatchet')`, `__game.craft.queue()`,
-  `__game.container.contents(-1, 65, -3)` (the arena's kiln), `__game.ui.screen()`,
-  `__game.ui.click(selector)`, `__game.ui.drag(from, to)` (slot numbers as in `data-slot`: 0–31
+  `__game.container.contents(-1, 65, -3)` (the arena's kiln), `__game.ui.open(-1, 65, -3)`
+  (no cell: the bag), `__game.ui.screen()`, `__game.ui.click(selector)`, `__game.ui.drag(from, to)` (slot numbers as in `data-slot`: 0–31
   the inventory, 32+ the open chest or station) and `__game.ui.close()`.
 - `?worldType=arena&fixedStep=1&selftest=m0,m8` runs the in-browser M8 checks: the Logbook crafts
   the Flint Hatchet by clicks, and it breaks a log at least 1.9× faster than the hand; the kiln,

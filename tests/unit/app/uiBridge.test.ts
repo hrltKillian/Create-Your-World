@@ -142,7 +142,12 @@ describe('UiBridge', () => {
     b.bridge.frame(FRAME);
     const [slots, status] = b.station.updates[0]!;
     expect(slots[b.player.inventory.length + 2]).toEqual({ item: 'item:charcoal', count: 2 });
-    expect(status).toEqual({ flame: 0.25, progress: 0.5, process: 'process:copper_ingot' });
+    expect(status).toEqual({
+      lit: true,
+      flame: 0.25,
+      progress: 0.5,
+      process: 'process:copper_ingot',
+    });
   });
 
   it("shows its player's hints, translated, and keeps the hint line's clock running", () => {
@@ -165,7 +170,23 @@ describe('UiBridge', () => {
       count: 3,
       progress: 15 / ticksOf(2),
     });
-    const idle = { ...kiln(), burnTicks: 0, burnTicksLeft: 0, process: '', progressTicks: 0 };
-    expect(stationStatus(registry, idle)).toEqual({ flame: 0, progress: 0, process: '' });
+    const cold = { ...kiln(), burnTicks: 0, burnTicksLeft: 0, process: '', progressTicks: 0 };
+    expect(stationStatus(registry, { ...cold, lit: false })).toEqual({
+      lit: false,
+      flame: 0,
+      progress: 0,
+      process: '',
+    });
+  });
+
+  it('shows an idle kiln with fuel time left as banked (not lit), its flame size kept', () => {
+    // Its ore taken out mid-burn: the fire stops (`lit` false) with 600 of 2400 ticks left.
+    const banked = { ...kiln(), process: '', progressTicks: 0, lit: false };
+    expect(stationStatus(registry, banked)).toEqual({
+      lit: false,
+      flame: 0.25,
+      progress: 0,
+      process: '',
+    });
   });
 });

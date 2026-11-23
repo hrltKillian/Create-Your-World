@@ -4,7 +4,6 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry, type Registry } from '../../../src/content/registry.ts';
 import type { RecipeDef } from '../../../src/content/schema.ts';
 import type { ContainerEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
-import type { Command } from '../../../src/sim/commands.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, snapshotSim } from '../../../src/sim/persistence.ts';
@@ -16,59 +15,44 @@ import {
   readPlayer,
 } from '../../../src/sim/saveRecords.ts';
 import type { SaveBatch } from '../../../src/sim/storage.ts';
-import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
 import { cellKey } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD } from '../../helpers/save.ts';
-import { withTicks } from '../../helpers/simHarness.ts';
+import { playerTestSim, withPlayer } from '../../helpers/simHarness.ts';
 
-type TestSim = ReturnType<typeof withTicks>;
+type TestSim = ReturnType<typeof playerTestSim>;
 
-/** A flat world (grass at y 64) with player 1 loaded around (0.5, 65, 0.5). */
-function flatSim(seed: string, reg: Registry = registry): TestSim {
-  const s = withTicks(
-    createInlineSim({ registry: reg, seed, worldType: 'flat', allowDebug: true }),
-  );
-  s.sim.addPlayer(1, 2);
-  settle(s.sim);
-  return s;
-}
+/** A flat world (grass at y 64) with player 1 at (0.5, 65, 0.5). */
+const flatSim = (seed: string, reg: Registry = registry) => playerTestSim({ seed, registry: reg });
 
-function send(s: TestSim, ...commands: Command[]): void {
-  for (const command of commands) s.host.send(command);
-  s.step();
-}
-
-const put = (s: TestSim, x: number, y: number, z: number, state: string) =>
-  send(s, { type: 'debug.fill', x0: x, y0: y, z0: z, x1: x, y1: y, z1: z, state });
+/** The test world restored from a storage, with player 1's command helpers. */
+const reopen = async (storage: MemoryStorage) => withPlayer(await restoreFrom(storage));
 
 const records = (sim: Simulation) =>
   [...sim.blockEntities.values()].map(blockEntityRecord).sort((a, b) => a.x - b.x);
 
 /** A chest with dirt and flint, a kiln smelting copper ore, and two cords queued. */
 function furnish(s: TestSim): void {
-  put(s, 2, 65, 2, 'block:chest[facing4=n]');
-  put(s, -2, 65, 2, 'block:kiln[facing4=n,lit=0]');
-  send(s, { type: 'debug.give', item: 'item:dirt', count: 12 });
-  send(s, { type: 'debug.give', item: 'item:flint', count: 3 });
-  send(
-    s,
+  s.put(2, 65, 2, 'block:chest[facing4=n]');
+  s.put(-2, 65, 2, 'block:kiln[facing4=n,lit=0]');
+  s.give('item:dirt', 12);
+  s.give('item:flint', 3);
+  s.send(
     { type: 'container.open', x: 2, y: 65, z: 2 },
     { type: 'container.move', from: 0 },
     { type: 'container.move', from: 1, to: 40 },
   );
-  send(s, { type: 'debug.give', item: 'item:copper_ore', count: 3 });
-  send(s, { type: 'debug.give', item: 'item:charcoal', count: 1 });
+  s.give('item:copper_ore', 3);
+  s.give('item:charcoal', 1);
   const fuel = 32 + fuelSlotOf(registry.crafting.station('station:kiln')!);
-  send(
-    s,
+  s.send(
     { type: 'container.open', x: -2, y: 65, z: 2 },
     { type: 'station.move', from: 0 },
     { type: 'station.move', from: 1, to: fuel },
   );
   s.step(400);
-  send(s, { type: 'debug.give', item: 'item:plant_fiber', count: 7 });
-  send(s, { type: 'craft.enqueue', recipe: 'recipe:cord', count: 2 });
+  s.give('item:plant_fiber', 7);
+  s.send({ type: 'craft.enqueue', recipe: 'recipe:cord', count: 2 });
   s.step(40);
 }
 
@@ -86,7 +70,7 @@ describe('saving block entities and craft queues', () => {
       [-1, ['station']],
       [0, ['container']],
     ]);
-    const r = await restoreFrom(storage);
+    const r = await reopen(storage);
     expect(records(r.sim)).toEqual(records(s.sim));
     expect(playerRecord('w', r.sim.players.get(1)!)).toEqual(
       playerRecord('w', s.sim.players.get(1)!),
@@ -105,24 +89,24 @@ describe('saving block entities and craft queues', () => {
 
   it('writes a column again when its block entities change, not while they are as stored', async () => {
     const s = flatSim('chest-digest');
-    put(s, 2, 65, 2, 'block:chest[facing4=n]'); // column (0, 0)
-    put(s, -2, 65, 2, 'block:chest[facing4=n]'); // column (-1, 0)
+    s.put(2, 65, 2, 'block:chest[facing4=n]'); // column (0, 0)
+    s.put(-2, 65, 2, 'block:chest[facing4=n]'); // column (-1, 0)
     // Opened once, each chest gets its (empty) block entity, saved with its column.
-    send(s, { type: 'container.open', x: 2, y: 65, z: 2 });
-    send(s, { type: 'container.open', x: -2, y: 65, z: 2 });
+    s.send({ type: 'container.open', x: 2, y: 65, z: 2 });
+    s.send({ type: 'container.open', x: -2, y: 65, z: 2 });
     expect(s.sim.blockEntities.size).toBe(2);
     const storage = new MemoryStorage();
     await saveTo(storage, s.sim);
-    const r = await restoreFrom(storage);
+    const r = await reopen(storage);
     settle(r.sim);
     const written = (batch: SaveBatch) => batch.columns.map((c) => [c.cx, c.cz]);
     const autosave = () => snapshotSim(r.sim, TEST_WORLD, r.restored.stored, new Set());
     // Nothing edited, the chests as stored: no column record to write.
     expect(written(autosave())).toEqual([]);
-    send(r, { type: 'debug.give', item: 'item:dirt', count: 5 });
+    r.give('item:dirt', 5);
     expect(written(autosave())).toEqual([]);
     // Items moved into a chest change no block, but its column record must be written again.
-    send(r, { type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
+    r.send({ type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
     expect(written(autosave())).toEqual([[0, 0]]);
     const chest = autosave().columns[0]!.blockEntities[0] as ContainerEntity;
     expect(chest.slots[0]).toEqual({ item: 'item:dirt', count: 5 });
@@ -145,16 +129,16 @@ describe('saving block entities and craft queues', () => {
       recipes: [...(basePack.recipes ?? []), relicRecipe],
     });
     const s = flatSim('relics', extended);
-    put(s, 2, 65, 2, 'block:chest[facing4=n]');
-    send(s, { type: 'debug.give', item: 'item:relic', count: 4 });
-    send(s, { type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
-    send(s, { type: 'debug.give', item: 'item:plant_fiber', count: 2 });
-    send(s, { type: 'craft.enqueue', recipe: 'recipe:relic_cord', count: 1 });
+    s.put(2, 65, 2, 'block:chest[facing4=n]');
+    s.give('item:relic', 4);
+    s.send({ type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
+    s.give('item:plant_fiber', 2);
+    s.send({ type: 'craft.enqueue', recipe: 'recipe:relic_cord', count: 1 });
     expect(countItem(s.sim.players.get(1)!.inventory, 'item:plant_fiber')).toBe(0);
     const storage = new MemoryStorage();
     await saveTo(storage, s.sim);
 
-    const r = await restoreFrom(storage);
+    const r = await reopen(storage);
     const chest = r.sim.blockEntities.get(cellKey(2, 65, 2)) as ContainerEntity;
     expect(chest.slots[0]).toEqual({
       item: registry.unknownItem,

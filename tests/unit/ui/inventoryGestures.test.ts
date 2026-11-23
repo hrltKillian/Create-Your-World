@@ -16,6 +16,8 @@ const BAG: SlotContext = { base: INVENTORY_SLOTS, move: null };
 const CHEST: SlotContext = { base: OPEN_SLOTS_BASE, move: 'container.move' };
 const STATION: SlotContext = { base: OPEN_SLOTS_BASE, move: 'station.move' };
 const CHEST_SLOTS = 18;
+const DIRT = 'item:dirt';
+const stationMove = (from: number, to: number) => ({ type: 'station.move', from, to });
 
 /** The inventory (and `extra` block entity slots after it) with dirt stacks of these counts. */
 function slots(stacks: Record<number, number>, extra = 0): Inventory {
@@ -50,12 +52,42 @@ describe('inventory gestures', () => {
 
   it('finds an empty slot in the same part first, else in another one', () => {
     const full = slots(Object.fromEntries(Array.from({ length: HOTBAR_SLOTS }, (_, i) => [i, 1])));
-    expect(emptySlotNear(BAG, full, 3)).toBe(HOTBAR_SLOTS);
-    expect(emptySlotNear(BAG, slots({}), 20)).toBe(HOTBAR_SLOTS);
-    expect(emptySlotNear(BAG, slots({}), 2)).toBe(0);
+    expect(emptySlotNear(BAG, full, 3, DIRT)).toBe(HOTBAR_SLOTS);
+    expect(emptySlotNear(BAG, slots({}), 20, DIRT)).toBe(HOTBAR_SLOTS);
+    expect(emptySlotNear(BAG, slots({}), 2, DIRT)).toBe(0);
     // A chest slot's split stays in the chest.
     const chest = slots({ [OPEN_SLOTS_BASE]: 6 }, CHEST_SLOTS);
-    expect(emptySlotNear(CHEST, chest, OPEN_SLOTS_BASE)).toBe(OPEN_SLOTS_BASE + 1);
+    expect(emptySlotNear(CHEST, chest, OPEN_SLOTS_BASE, DIRT)).toBe(OPEN_SLOTS_BASE + 1);
+  });
+
+  it('releases a station split on its own slot only where the station takes it', () => {
+    // A kiln's layout: inputs 0–1, fuel 2 (logs), output 3.
+    const c = OPEN_SLOTS_BASE;
+    const kiln: SlotContext = {
+      ...STATION,
+      accepts: (slot, item) => slot < c + 2 || (slot === c + 2 && item === 'item:log'),
+    };
+    const all = Object.fromEntries(Array.from({ length: INVENTORY_SLOTS }, (_, i) => [i, 1]));
+    // Ore split in the first input: the other input, never the fuel or output slot.
+    const ore = slots({ [c]: 4 }, 4);
+    ore[c] = { item: 'item:ore', count: 4 };
+    expect(dropCommand(kiln, ore, c, c, 2)).toEqual({ ...stationMove(c, c + 1), count: 2 });
+    ore[c + 1] = { item: 'item:ore', count: 1 };
+    // Both inputs taken: the fuel slot refuses ore, so the split goes to the inventory.
+    expect(emptySlotNear(kiln, ore, c, 'item:ore')).toBe(0);
+    // An output's split never goes back into the inputs: the inventory, else nowhere.
+    const out = slots({}, 4);
+    out[c + 3] = { item: 'item:ingot', count: 6 };
+    expect(dropCommand(kiln, out, c + 3, c + 3, 3)).toEqual({ ...stationMove(c + 3, 0), count: 3 });
+    const packed = slots(all, 4);
+    packed[c + 3] = { item: 'item:ingot', count: 6 };
+    expect(dropCommand(kiln, packed, c + 3, c + 3, 3)).toBeNull();
+    // From a full inventory, a split goes to an input that takes it, never to the output.
+    const bag = slots(all, 4);
+    bag[c] = { item: 'item:ore', count: 1 };
+    bag[c + 1] = { item: 'item:ore', count: 1 };
+    expect(emptySlotNear(kiln, bag, 3, DIRT)).toBe(-1);
+    expect(emptySlotNear(kiln, bag, 3, 'item:log')).toBe(c + 2);
   });
 
   it('swaps the hovered slot with a hotbar slot on a number key', () => {

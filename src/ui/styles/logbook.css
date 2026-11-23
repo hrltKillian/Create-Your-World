@@ -66,9 +66,9 @@
 
 .logbook {
   display: flex;
+  flex: 0 0 330px;
   flex-direction: column;
   gap: 6px;
-  width: 330px;
 }
 
 .logbook-tabs {

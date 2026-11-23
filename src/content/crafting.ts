@@ -77,6 +77,22 @@ export class Crafting {
     if (def === undefined || fuel === 'none' || (fuel === 'charcoal' && !def.charcoal)) return 0;
     return def.seconds;
   }
+
+  /**
+   * Whether a station's fire can burn an item: a campfire any fuel, a kiln or bloomery only fuel
+   * one of its processes burns (a bloomery's charcoal; logs would block its fuel slot).
+   */
+  burnsIn(station: StationDef, item: string): boolean {
+    if (station.burns === 'whileFuel' && this.burnSeconds(item, 'any') > 0) return true;
+    return this.processesOf(station.key).some((p) => this.burnSeconds(item, p.fuel) > 0);
+  }
+
+  /** Whether an item is an ingredient of one of a station's processes (an item or its tag). */
+  feeds(station: StationDef, item: string): boolean {
+    return this.processesOf(station.key).some((p) =>
+      p.inputs.some((input) => this.matches(item, input.item)),
+    );
+  }
 }
 
 /**
@@ -93,4 +109,18 @@ export function outputSlotOf(station: StationDef): number {
 
 export function stationSlotCount(station: StationDef): number {
   return outputSlotOf(station) + station.outputSlots;
+}
+
+/**
+ * Whether a slot of a station block entity takes an item (the simulation and the Station screen
+ * share it): its inputs anything, its fuel slot what its fire burns, its outputs nothing.
+ */
+export function stationAccepts(
+  crafting: Crafting,
+  station: StationDef,
+  slot: number,
+  item: string,
+): boolean {
+  if (slot < station.inputSlots) return true;
+  return slot === fuelSlotOf(station) && crafting.burnsIn(station, item);
 }

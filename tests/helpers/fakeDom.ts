@@ -1,7 +1,8 @@
 /**
  * Minimal DOM stand-in for UI tests under Node: what `h()` and the HUD and screen views touch
- * (elements, attributes, classes, text, `hidden`, `disabled`, `remove()`), with `.class`
- * selectors for `querySelector`. Listeners are kept; `dispatch` calls them (a stand-in for a click).
+ * (elements, attributes, classes, text, `hidden`, `disabled`, `remove()`, custom style properties),
+ * with `.class` selectors for `querySelector`. Listeners are kept; `dispatch` calls them (a
+ * stand-in for a click).
  */
 export class FakeNode {}
 
@@ -12,7 +13,14 @@ export class FakeElement extends FakeNode {
   hidden = false;
   disabled = false;
   parent: FakeElement | null = null;
-  readonly style = { transform: '', setProperty: (_name: string, _value: string) => {} };
+  private readonly properties = new Map<string, string>();
+  readonly style = {
+    transform: '',
+    setProperty: (name: string, value: string) => {
+      this.properties.set(name, value);
+    },
+    getPropertyValue: (name: string) => this.properties.get(name) ?? '',
+  };
   readonly childNodes: (FakeElement | string)[] = [];
   private readonly attributes = new Map<string, string>();
   readonly classList = {

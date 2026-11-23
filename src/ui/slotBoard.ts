@@ -61,10 +61,18 @@ export class SlotBoard {
   private hovered = -1;
   private drag: Drag | null = null;
 
-  constructor(deps: ScreenDeps, move: SlotContext['move'], id: string) {
+  /** `accepts`: which items the open block entity's slots take (a station), as in SlotContext. */
+  constructor(
+    deps: ScreenDeps,
+    move: SlotContext['move'],
+    id: string,
+    accepts?: SlotContext['accepts'],
+  ) {
     this.art = deps.art;
     this.actions = deps.actions;
-    this.context = { base: deps.slotCount, move };
+    this.context = accepts
+      ? { base: deps.slotCount, move, accepts }
+      : { base: deps.slotCount, move };
     this.closeKey = deps.closeKey;
     this.caption = h('p', { class: 'bag-caption' });
     this.closeHint = h('p', { class: 'bag-close' });

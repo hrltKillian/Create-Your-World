@@ -1,4 +1,9 @@
-import { fuelSlotOf, outputSlotOf, stationSlotCount } from '../../content/crafting.ts';
+import {
+  fuelSlotOf,
+  outputSlotOf,
+  stationAccepts,
+  stationSlotCount,
+} from '../../content/crafting.ts';
 import type { Ingredient, ItemCount, ProcessDef, StationDef } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -8,7 +13,9 @@ import { type ScreenDeps, SlotBoard } from '../slotBoard.ts';
 
 /** What a station shows besides its slots. */
 export interface StationStatus {
-  /** 0…1 left of the fuel item burning now (the flame). */
+  /** The fire burned during the last tick (a banked fire with fuel left shows dim). */
+  readonly lit: boolean;
+  /** 0…1 left of the fuel item lit last (the flame's size). */
   readonly flame: number;
   /** 0…1 of the process under way. */
   readonly progress: number;
@@ -19,8 +26,9 @@ export interface StationStatus {
 /**
  * The Station screen (campfire, kiln, bloomery; docs « Écrans »): the inputs, the fuel slot under
  * its flame, the progress arrow, the output, and the processes the station runs (the one under way
- * lit), beside the bag and the hotbar. Slots take the bag's gestures; Shift+click sends fuel to the
- * fuel slot and anything else to the inputs.
+ * lit), beside the bag and the hotbar. Slots take the bag's gestures; Shift+click sends fuel the
+ * fire burns to the fuel slot and the ingredients of its processes to the inputs (the simulation
+ * decides).
  */
 export class StationScreen {
   readonly element: HTMLElement;
@@ -38,7 +46,8 @@ export class StationScreen {
   private shownIcons: readonly string[] = [];
 
   constructor(deps: ScreenDeps) {
-    const board = new SlotBoard(deps, 'station.move', 'screen-station');
+    // A split dropped back on its slot looks for a slot that takes it.
+    const board = new SlotBoard(deps, 'station.move', 'screen-station', this.accepts);
     this.board = board;
     this.art = deps.art;
     this.base = deps.slotCount;
@@ -80,6 +89,18 @@ export class StationScreen {
     return this.board.isOpen();
   }
 
+  /**
+   * Whether a slot of the screen (the station's from `slotCount`) takes an item, as the
+   * simulation's station layout does: inputs anything, the fuel slot what the fire burns.
+   */
+  readonly accepts = (slot: number, item: string): boolean => {
+    const station = this.station;
+    return (
+      station !== null &&
+      stationAccepts(this.art.registry.crafting, station, slot - this.base, item)
+    );
+  };
+
   /** Shows a station named `title`, laid out from its definition. */
   open(station: StationDef, title: string): void {
     this.station = station;
@@ -115,7 +136,7 @@ export class StationScreen {
   update(slots: Slots, status: StationStatus): void {
     this.board.update(slots);
     this.flame.style.setProperty('--flame', String(status.flame));
-    this.flame.classList.toggle('lit', status.flame > 0);
+    this.flame.classList.toggle('lit', status.lit);
     this.bar.style.setProperty('--progress', String(status.progress));
     if (status.process !== this.shownProcess || this.art.icons !== this.shownIcons)
       this.drawProcesses(status.process);

@@ -128,7 +128,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
-  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`, `FakeTarget`,
+  - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
+    with player 1's `send`/`give`/`put`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
     `test:perf` runs on native Node imports (Vite's module runner slows hot loops several times);
     only `*.test.ts` files run, and `tsconfig.node.json` type-checks the helpers.
@@ -171,9 +172,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
   the inventory, 32+ the open chest or station: inputs, fuel, outputs).
 - M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
   `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
-  a station adds `station`, `flame`, `progress`, `process`; null until a generated chest is first
-  opened), `ui.click(selector)`, `ui.drag(from, to)` (pointer events like the mouse, on `data-slot`
-  numbers) and `ui.close()`.
+  a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;
+  null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
+  cell: its chest or station through `debug.open`, like secondary on it within 5 blocks but without
+  aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
+  `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
+  `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
 - Item checks: `?worldType=arena&fixedStep=1&selftest=m0,m8` (`selftest/m8.ts`); its chest case
   saves and reloads, so it needs IndexedDB (skipped with `?storage=memory`). The arena's workshop
   row (the pack's `arena.workshop`: workbench, kiln, campfire, chest, from `ARENA_WORKSHOP`) and its

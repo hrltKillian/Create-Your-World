@@ -74,12 +74,7 @@ const MAX_SLOT = 255;
 export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
   switch (c.type) {
     case 'container.open':
-      return (
-        whole(c.x, -Infinity, Infinity) &&
-        whole(c.y, 0, WORLD_HEIGHT - 1) &&
-        whole(c.z, -Infinity, Infinity) &&
-        insideBorder(c.x, c.z)
-      );
+      return validCell(c);
     case 'container.close':
       return true;
     case 'container.move':
@@ -90,6 +85,16 @@ export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
         (c.count === undefined || whole(c.count, 1, Infinity))
       );
   }
+}
+
+/** A whole block cell inside the world (container.open, debug.open). */
+export function validCell(c: { readonly x: number; readonly y: number; readonly z: number }) {
+  return (
+    whole(c.x, -Infinity, Infinity) &&
+    whole(c.y, 0, WORLD_HEIGHT - 1) &&
+    whole(c.z, -Infinity, Infinity) &&
+    insideBorder(c.x, c.z)
+  );
 }
 
 /** A view centre must be finite and inside the world border. */

@@ -1,6 +1,6 @@
-import { harvests, toolCode } from '../content/items.ts';
+import { fitsTool, harvests } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
-import { type BlockDef, CRACK_STAGES } from '../content/schema.ts';
+import { CRACK_STAGES, type ToolDef } from '../content/schema.ts';
 
 /** Mining rules (docs/conception.md « Casser »). */
 export const MINING = {
@@ -22,18 +22,14 @@ export const MINING = {
 /** Engine i18n key of the hint « Tool too weak: {tier} {tool} required » (SimEvent `hint`). */
 export const TOOL_TOO_WEAK_HINT = 'hint.toolTooWeak';
 
-/** Whether the held item (−1: empty hand) is the kind of tool the block wants. */
-function rightTool(registry: Registry, block: BlockDef, itemId: number): boolean {
-  return (
-    itemId >= 0 &&
-    block.tool !== undefined &&
-    registry.itemTables.toolKind[itemId] === toolCode(block.tool)
-  );
+/** The tool traits of the held item (−1: the hand; undefined for the hand and non-tools). */
+function heldTool(registry: Registry, itemId: number): ToolDef | undefined {
+  return itemId < 0 ? undefined : registry.items[itemId]!.tool;
 }
 
 /** Whether breaking the block with the held item yields its drops (tier ≥ the block's minTier). */
 export function canHarvest(registry: Registry, state: number, itemId: number): boolean {
-  return harvests(registry.blockDef(state), itemId < 0 ? undefined : registry.items[itemId]!.tool);
+  return harvests(registry.blockDef(state), heldTool(registry, itemId));
 }
 
 /**
@@ -65,7 +61,8 @@ export function breakSeconds(
 ): number {
   const block = registry.blockDef(state);
   if (block.hardness < 0) return Number.POSITIVE_INFINITY;
-  const speed = rightTool(registry, block, itemId) ? registry.itemTables.toolSpeed[itemId]! : 1;
+  const fits = fitsTool(block, heldTool(registry, itemId));
+  const speed = fits ? registry.itemTables.toolSpeed[itemId]! : 1;
   let seconds = (block.hardness * MINING.secondsPerHardness) / speed;
   if (!canHarvest(registry, state, itemId)) seconds *= MINING.weakToolFactor;
   if (exhausted) seconds /= MINING.exhaustedSpeed;
@@ -77,5 +74,5 @@ export function toolWear(registry: Registry, state: number, itemId: number): num
   if (itemId < 0 || registry.itemTables.durability[itemId] === 0) return 0;
   const block = registry.blockDef(state);
   if (block.hardness === 0) return 0;
-  return rightTool(registry, block, itemId) ? MINING.wear : MINING.wrongToolWear;
+  return fitsTool(block, heldTool(registry, itemId)) ? MINING.wear : MINING.wrongToolWear;
 }

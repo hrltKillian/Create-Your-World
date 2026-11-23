@@ -200,11 +200,33 @@ describe('StationScreen', () => {
     );
     expect(rows).toHaveLength(registry.crafting.processesOf('station:kiln').length);
     const slots: Inventory = new Array(base + 4).fill(null);
-    station.update(slots, { flame: 0.5, progress: 0.25, process: 'process:copper_ingot' });
-    expect(fake(station.element).querySelector('.flame')?.className).toBe('flame lit');
+    const flame = () => fake(station.element).querySelector('.flame')!;
+    const burning = { lit: true, flame: 0.5, progress: 0.25, process: 'process:copper_ingot' };
+    station.update(slots, burning);
+    expect(flame().className).toBe('flame lit');
     const active = fake(station.element).findAll((e) => e.className === 'station-process active');
     expect(active).toHaveLength(1);
-    station.update(slots, { flame: 0, progress: 0, process: '' });
-    expect(fake(station.element).querySelector('.flame')?.className).toBe('flame');
+    // A banked fire (idle, fuel time left) is dim: its size stays, it is not lit.
+    station.update(slots, { lit: false, flame: 0.5, progress: 0, process: '' });
+    expect(flame().className).toBe('flame');
+    expect(flame().style.getPropertyValue('--flame')).toBe('0.5');
+    station.update(slots, { lit: false, flame: 0, progress: 0, process: '' });
+    expect(flame().className).toBe('flame');
+  });
+
+  it('tells which items its slots take, from the station layout (right-drag splits)', () => {
+    const { screen } = deps();
+    const station = new StationScreen(screen);
+    const base = INVENTORY_SLOTS;
+    expect(station.accepts(base, 'item:copper_ore')).toBe(false); // nothing open yet
+    station.open(registry.crafting.station('station:bloomery')!, 'Bloomery');
+    // The bloomery: its input, its fuel slot (charcoal only), its output.
+    expect(station.accepts(base, 'item:broadleaf_log')).toBe(true);
+    expect(station.accepts(base + 1, 'item:charcoal')).toBe(true);
+    expect(station.accepts(base + 1, 'item:broadleaf_log')).toBe(false);
+    expect(station.accepts(base + 2, 'item:charcoal')).toBe(false);
+    station.open(registry.crafting.station('station:kiln')!, 'Clay Kiln');
+    expect(station.accepts(base + 2, 'item:broadleaf_log')).toBe(true);
+    expect(station.accepts(base + 2, 'item:copper_ore')).toBe(false);
   });
 });

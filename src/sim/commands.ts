@@ -108,6 +108,11 @@ export type DebugCommand =
   | { readonly type: 'debug.setTime'; readonly hours: number }
   /** Stops or restarts the clock (the world keeps ticking). */
   | { readonly type: 'debug.freezeTime'; readonly frozen: boolean }
+  /**
+   * Opens the chest or station of a cell as secondary on it does (within 5 blocks, one player at a
+   * time), whether or not the player aims at it: the hook's `ui.open(x, y, z)`.
+   */
+  | { readonly type: 'debug.open'; readonly x: number; readonly y: number; readonly z: number }
   | {
       /** Fills a box (inclusive corners) of loaded blocks with a block state given by its text key. */
       readonly type: 'debug.fill';

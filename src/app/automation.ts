@@ -11,8 +11,8 @@ import { queueView, stationStatus } from './UiBridge.ts';
 /**
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
- * keys and light, the world clock, what the hotbar shows, crafting, block entities, clicks and
- * drags on the screens, and saving or reloading the open world.
+ * keys and light, the world clock, what the hotbar shows, crafting, block entities (opening one
+ * without aiming), clicks and drags on the screens, and saving or reloading the open world.
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -225,6 +225,15 @@ export function press(app: App, action: Action, ticks: number): void {
 /** Gives the player items (what does not fit drops at their feet); fixed-step sessions apply it now. */
 export function give(app: App, item: string, count: number): void {
   sendAndStep(app, { type: 'debug.give', item, count });
+}
+
+/**
+ * Opens the chest or station of a cell as secondary on it does, without aiming (`debug.open`:
+ * within 5 blocks, refused unless the world allows debugging); fixed-step sessions apply it now
+ * and its screen shows at once.
+ */
+export function openBlock(app: App, x: number, y: number, z: number): void {
+  sendAndStep(app, { type: 'debug.open', x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
 }
 
 /** Queues `count` crafts of a recipe, as the Logbook's buttons do; fixed-step sessions apply it now. */

@@ -1,4 +1,4 @@
-import { fuelSlotOf } from '../content/crafting.ts';
+import { fuelSlotOf, stationAccepts } from '../content/crafting.ts';
 import { cellKey } from '../world/coords.ts';
 import {
   type BlockEntity,
@@ -13,11 +13,13 @@ import type { SimEvent } from './events.ts';
 import { INVENTORY_SLOTS, type Inventory, moveInto, moveStack, sameStack } from './inventory.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { cellInSight } from './targeting.ts';
 
 /**
  * The Container and Station screens on the simulation side: opening (one player at a time, within
- * 5 blocks), closing, and atomic moves between the inventory and the open block entity. A station
- * takes anything in its inputs, only fuel in its fuel slot, and nothing in its outputs.
+ * 5 blocks and in sight), closing, and atomic moves between the inventory and the open block
+ * entity. A station takes anything in its inputs, only fuel its fire burns in its fuel slot, and
+ * nothing in its outputs.
  */
 
 export function applyBlockEntityCommand(
@@ -51,7 +53,12 @@ export function applyBlockEntityCommand(
   }
 }
 
-/** Opens the block entity of a cell for a player (closing theirs); returns the refusal, if any. */
+/**
+ * Opens the block entity of a cell for a player (closing theirs); returns the refusal, if any. The
+ * cell must be within reach and in sight of the simulation's eye (`cellInSight`, the ray that
+ * confirms a client target); `aimed`: secondary on the block, whose aim (targeting.ts `aim`) has
+ * already confirmed that ray.
+ */
 export function openBlockEntity(
   sim: Simulation,
   player: PlayerState,
@@ -59,8 +66,10 @@ export function openBlockEntity(
   y: number,
   z: number,
   out: SimEvent[],
+  aimed = false,
 ): string | null {
   if (!withinReach(player, x, y, z, OPEN_REACH)) return 'reach';
+  if (!aimed && !cellInSight(sim.world, sim.registry.tables, player, x, y, z)) return 'sight';
   const entity = blockEntityAt(sim, x, y, z);
   if (!entity) return 'nothing to open';
   for (const other of sim.players.values()) {
@@ -92,12 +101,11 @@ export function checkOpened(sim: Simulation, player: PlayerState, out: SimEvent[
     closeBlockEntity(player, out);
 }
 
-/** Whether a station slot takes an item: inputs anything, the fuel slot fuel, outputs nothing. */
+/** Whether a station slot takes an item (content/crafting.ts `stationAccepts`). */
 function accepts(sim: Simulation, station: StationEntity, slot: number, item: string): boolean {
-  const def = sim.registry.crafting.station(station.station);
-  if (!def) return false;
-  if (slot < def.inputSlots) return true;
-  return slot === fuelSlotOf(def) && sim.registry.crafting.burnSeconds(item, 'any') > 0;
+  const crafting = sim.registry.crafting;
+  const def = crafting.station(station.station);
+  return def !== undefined && stationAccepts(crafting, def, slot, item);
 }
 
 /** Slots and index of a slot number of a move (null past the open block entity's slots). */
@@ -121,8 +129,7 @@ function moveWithOpened(
   const [source, index] = from;
   const stack = source[index];
   if (!stack) return 'nothing to move';
-  if (command.to === undefined)
-    return quickMoveOpened(sim, player, entity, source, index) ? null : 'nothing to move';
+  if (command.to === undefined) return quickMoveOpened(sim, player, entity, source, index);
   const to = side(player, entity, command.to);
   if (!to) return 'invalid';
   const [target, slot] = to;
@@ -139,7 +146,7 @@ function moveWithOpened(
 
 /**
  * Sends a whole stack to the other side: into the inventory (hotbar first), or into the open block
- * entity (a station: fuel into its fuel slot first, then its inputs).
+ * entity (a station: intoStation). Returns the refusal, if any.
  */
 function quickMoveOpened(
   sim: Simulation,
@@ -147,20 +154,37 @@ function quickMoveOpened(
   entity: BlockEntity,
   source: Inventory,
   index: number,
-): boolean {
+): string | null {
   const registry = sim.registry;
+  let moved: boolean;
   if (source === entity.slots)
-    return moveInto(registry, source, index, player.inventory, 0, INVENTORY_SLOTS);
-  if (entity.kind === 'container')
-    return moveInto(registry, source, index, entity.slots, 0, entity.slots.length);
-  const def = registry.crafting.station(entity.station);
-  if (!def) return false;
+    moved = moveInto(registry, source, index, player.inventory, 0, INVENTORY_SLOTS);
+  else if (entity.kind === 'container')
+    moved = moveInto(registry, source, index, entity.slots, 0, entity.slots.length);
+  else return intoStation(sim, entity, source, index);
+  return moved ? null : 'nothing to move';
+}
+
+/**
+ * Shift+click into a station: its fuel slot first when its fire burns the item, then its inputs
+ * when one of its processes uses it. Anything else stays in the inventory ('slot').
+ */
+function intoStation(
+  sim: Simulation,
+  station: StationEntity,
+  source: Inventory,
+  index: number,
+): string | null {
+  const registry = sim.registry;
+  const def = registry.crafting.station(station.station);
+  if (!def) return 'slot';
+  const item = source[index]!.item;
   const fuel = fuelSlotOf(def);
-  const stack = source[index]!;
-  let moved = false;
-  if (fuel >= 0 && accepts(sim, entity, fuel, stack.item))
-    moved = moveInto(registry, source, index, entity.slots, fuel, fuel + 1);
-  if (source[index])
-    moved = moveInto(registry, source, index, entity.slots, 0, def.inputSlots) || moved;
-  return moved;
+  const burns = fuel >= 0 && stationAccepts(registry.crafting, def, fuel, item);
+  const feeds = registry.crafting.feeds(def, item);
+  if (!burns && !feeds) return 'slot';
+  let moved = burns && moveInto(registry, source, index, station.slots, fuel, fuel + 1);
+  if (feeds && source[index])
+    moved = moveInto(registry, source, index, station.slots, 0, def.inputSlots) || moved;
+  return moved ? null : 'nothing to move';
 }

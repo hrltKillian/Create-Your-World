@@ -276,6 +276,7 @@ export class Simulation implements ColumnSink {
       case 'debug.give':
       case 'debug.setTime':
       case 'debug.freezeTime':
+      case 'debug.open':
         if (this.allowDebug) applyDebugCommand(this, playerId, command, out);
         else reject(out, playerId, command.type, 'debug disabled');
         break;

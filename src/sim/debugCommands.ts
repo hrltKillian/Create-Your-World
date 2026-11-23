@@ -12,7 +12,8 @@ import {
 import { surfaceY } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
 import { removeBlockEntity } from './blockEntities.ts';
-import { finite, reject } from './commandRules.ts';
+import { openBlockEntity } from './blockEntityCommands.ts';
+import { finite, reject, validCell } from './commandRules.ts';
 import type { DebugCommand } from './commands.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
@@ -50,6 +51,13 @@ export function applyDebugCommand(
   if (!player) return;
   if (command.type === 'debug.give') {
     give(sim, player, command, out);
+  } else if (command.type === 'debug.open') {
+    // The aimed path: reach and the other player's screen still refuse, the sight does not.
+    const { x, y, z } = command;
+    const refusal = validCell(command)
+      ? openBlockEntity(sim, player, x, y, z, out, true)
+      : 'invalid';
+    if (refusal) reject(out, playerId, command.type, refusal);
   } else if (command.type === 'debug.teleport') {
     const y = command.y === 'surface' ? 0 : command.y;
     if (!finite(command.x, y, command.z) || !insideBorder(command.x, command.z)) {

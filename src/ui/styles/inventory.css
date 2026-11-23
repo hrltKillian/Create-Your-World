@@ -192,11 +192,22 @@
   overflow: auto;
 }
 
+/*
+ * Narrow windows (the Bag below ~970 px): the columns keep their width and wrap, the Logbook going
+ * under the inventory; the panel scrolls vertically.
+ */
 .bag-columns {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
+  justify-content: center;
   gap: 22px;
   text-align: left;
+}
+
+/* No specificity: a column's own width wins (`.logbook`'s flex basis). */
+:where(.bag-columns > *) {
+  flex: none;
 }
 
 .bag-inventory {

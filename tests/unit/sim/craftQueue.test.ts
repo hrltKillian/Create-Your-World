@@ -1,37 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { Command } from '../../../src/sim/commands.ts';
 import { CRAFT_QUEUE, noteSeen, STATION_REACH } from '../../../src/sim/craftQueue.ts';
-import type { SimEvent } from '../../../src/sim/events.ts';
 import { addItem, countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { registry } from '../../helpers/registry.ts';
-import { createTestSim } from '../../helpers/simHarness.ts';
+import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
 /** A flat world (grass at y 64) with the player at (0.5, 65, 0.5); commands go through JSON. */
 function setup() {
-  const harness = createTestSim({
-    seed: 'craft',
-    worldType: 'flat',
-    allowDebug: true,
-    serialize: true,
-  });
-  const player = harness.sim.addPlayer(1, 2);
-  harness.step(60);
-  const send = (...commands: Command[]) => {
-    harness.events.length = 0;
-    for (const command of commands) harness.host.send(command);
-    harness.step(1);
-    return [...harness.events];
-  };
-  const give = (item: string, count = 1) => send({ type: 'debug.give', item, count });
+  const s = playerTestSim({ seed: 'craft', serialize: true });
   const enqueue = (recipe: string, count = 1) =>
-    send({ type: 'craft.enqueue', recipe: `recipe:${recipe}`, count });
-  return { ...harness, player, send, give, enqueue };
+    s.send({ type: 'craft.enqueue', recipe: `recipe:${recipe}`, count });
+  return { ...s, enqueue };
 }
-
-const of = <T extends SimEvent['type']>(events: SimEvent[], type: T) =>
-  events.filter((e): e is Extract<SimEvent, { type: T }> => e.type === type);
-const reasons = (events: SimEvent[]) => of(events, 'rejected').map((e) => e.reason);
 
 describe('craft queue', () => {
   it('reserves the ingredients when queued and makes the Flint Hatchet in 2 s', () => {
@@ -39,7 +19,7 @@ describe('craft queue', () => {
     s.give('item:flint', 2);
     s.give('item:stick', 2);
     s.give('item:cord', 1);
-    expect(reasons(s.enqueue('flint_hatchet'))).toEqual([]);
+    expect(rejections(s.enqueue('flint_hatchet'))).toEqual([]);
     const inv = s.player.inventory;
     expect([countItem(inv, 'item:flint'), countItem(inv, 'item:stick')]).toEqual([1, 0]);
     expect(s.player.craft[0]).toMatchObject({ recipe: 'recipe:flint_hatchet', count: 1 });
@@ -47,7 +27,7 @@ describe('craft queue', () => {
     s.step(58);
     expect(countItem(inv, 'item:flint_hatchet')).toBe(0);
     s.step(1);
-    expect(of(s.events, 'crafted')).toEqual([
+    expect(eventsOf(s.events, 'crafted')).toEqual([
       {
         type: 'crafted',
         playerId: 1,
@@ -68,7 +48,7 @@ describe('craft queue', () => {
     const s = setup();
     s.give('item:stick', 3);
     s.give('item:plant_fiber', 6);
-    expect(reasons(s.enqueue('torch', 3))).toEqual([]);
+    expect(rejections(s.enqueue('torch', 3))).toEqual([]);
     expect(countItem(s.player.inventory, 'item:plant_fiber')).toBe(0);
     s.step(30);
     expect(countItem(s.player.inventory, 'item:torch')).toBe(2);
@@ -77,18 +57,18 @@ describe('craft queue', () => {
     expect(s.player.craft).toEqual([]);
     expect(countItem(s.player.inventory, 'item:stick')).toBe(2);
     expect(countItem(s.player.inventory, 'item:plant_fiber')).toBe(4);
-    expect(reasons(s.send({ type: 'craft.cancel', index: 0 }))).toEqual(['no such entry']);
+    expect(rejections(s.send({ type: 'craft.cancel', index: 0 }))).toEqual(['no such entry']);
   });
 
   it('refuses missing ingredients, a full queue and malformed commands', () => {
     const s = setup();
     s.give('item:plant_fiber', 20);
-    expect(reasons(s.enqueue('cord', 7))).toEqual(['ingredients']);
+    expect(rejections(s.enqueue('cord', 7))).toEqual(['ingredients']);
     expect(countItem(s.player.inventory, 'item:plant_fiber')).toBe(20);
-    for (let i = 0; i < CRAFT_QUEUE; i++) expect(reasons(s.enqueue('cord'))).toEqual([]);
-    expect(reasons(s.enqueue('cord'))).toEqual(['queue full']);
+    for (let i = 0; i < CRAFT_QUEUE; i++) expect(rejections(s.enqueue('cord'))).toEqual([]);
+    expect(rejections(s.enqueue('cord'))).toEqual(['queue full']);
     expect(
-      reasons(
+      rejections(
         s.send(
           { type: 'craft.enqueue', recipe: 'recipe:cord', count: 0 },
           { type: 'craft.enqueue', recipe: 'recipe:cord', count: 1.5 },
@@ -103,15 +83,15 @@ describe('craft queue', () => {
     const s = setup();
     s.give('item:planks', 16);
     s.give('item:cord', 2);
-    expect(reasons(s.enqueue('chest'))).toEqual(['station']);
+    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
     const at = (x: number, z: number, state: string) =>
       s.send({ type: 'debug.fill', x0: x, y0: 65, z0: z, x1: x, y1: 65, z1: z, state });
     at(STATION_REACH + 2, 0, 'block:workbench');
     expect(s.host.view.stationNear('station:workbench')).toBe(false);
-    expect(reasons(s.enqueue('chest'))).toEqual(['station']);
+    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
     at(3, 0, 'block:workbench');
     expect(s.host.view.stationNear('station:workbench')).toBe(true);
-    expect(reasons(s.enqueue('chest'))).toEqual([]);
+    expect(rejections(s.enqueue('chest'))).toEqual([]);
     // Taking the workbench away does not stop what is queued.
     at(3, 0, 'block:air');
     s.step(90);
@@ -120,10 +100,10 @@ describe('craft queue', () => {
 
   it('reveals a recipe once one of its ingredients has been seen (tags included)', () => {
     const s = setup();
-    expect(reasons(s.enqueue('stone_shard'))).toEqual(['not revealed']);
+    expect(rejections(s.enqueue('stone_shard'))).toEqual(['not revealed']);
     s.give('item:stone', 1);
     expect(s.player.seen['item:stone']).toBe(true);
-    expect(reasons(s.enqueue('stone_shard'))).toEqual([]);
+    expect(rejections(s.enqueue('stone_shard'))).toEqual([]);
     const crafting = registry.crafting;
     const planksUnknown = { ...crafting.recipe('recipe:planks')!, known: undefined };
     const seen: Record<string, true> = {};

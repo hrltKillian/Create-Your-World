@@ -1,22 +1,14 @@
-import type {
-  BlockDef,
-  BlockKey,
-  ContentPack,
-  ItemDef,
-  ItemKey,
-  ToolDef,
-  ToolKind,
-} from './schema.ts';
+import type { BlockDef, BlockKey, ContentPack, ItemDef, ItemKey, ToolDef } from './schema.ts';
 
 /** Stack size of the implicit item of a block. */
 export const BLOCK_STACK = 50;
 
-/** Tool kinds as small integers (`ItemTables.toolKind`): 0 is no tool. */
-export const TOOL_NONE = 0;
-const TOOL_CODES: Readonly<Record<ToolKind, number>> = { pick: 1, axe: 2 };
-
-export function toolCode(kind: ToolKind | undefined): number {
-  return kind === undefined ? TOOL_NONE : TOOL_CODES[kind];
+/**
+ * Whether a tool (none: the hand) is the kind the block wants (docs « Casser »): only then do its
+ * speed and tier count, and it wears normally.
+ */
+export function fitsTool(block: BlockDef, tool: ToolDef | undefined): boolean {
+  return tool !== undefined && block.tool !== undefined && tool.kind === block.tool;
 }
 
 /**
@@ -25,7 +17,7 @@ export function toolCode(kind: ToolKind | undefined): number {
  * reach the block's `minTier`.
  */
 export function harvests(block: BlockDef, tool: ToolDef | undefined): boolean {
-  const tier = tool !== undefined && tool.kind === block.tool ? tool.tier : 0;
+  const tier = tool !== undefined && fitsTool(block, tool) ? tool.tier : 0;
   return tier >= (block.minTier ?? 0);
 }
 
@@ -76,9 +68,6 @@ export function packItems(pack: ContentPack): ItemDef[] {
 export interface ItemTables {
   readonly count: number;
   readonly maxStack: Uint16Array;
-  /** TOOL_NONE or the code of the tool kind (`toolCode`). */
-  readonly toolKind: Uint8Array;
-  readonly toolTier: Uint8Array;
   /** Mining speed of a matching tool (1 for items that are not tools). */
   readonly toolSpeed: Float64Array;
   /** Uses of a fresh tool; 0 for items that do not wear. */
@@ -97,16 +86,12 @@ export function buildItemTables(
   const tables = {
     count: n,
     maxStack: new Uint16Array(n),
-    toolKind: new Uint8Array(n),
-    toolTier: new Uint8Array(n),
     toolSpeed: new Float64Array(n),
     durability: new Uint16Array(n),
     places: new Int32Array(n).fill(-1),
   };
   items.forEach((item, i) => {
     tables.maxStack[i] = item.maxStack;
-    tables.toolKind[i] = toolCode(item.tool?.kind);
-    tables.toolTier[i] = item.tool?.tier ?? 0;
     tables.toolSpeed[i] = item.tool?.speed ?? 1;
     tables.durability[i] = item.tool?.durability ?? 0;
     const block = placed.get(item.key);
