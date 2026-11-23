@@ -275,7 +275,8 @@ export const M7_SUITE: readonly SelftestCase[] = [
       const edits = [
         { x: SPOT.x + 2, y: FLAT_SURFACE + 1, z: SPOT.z, state: block },
         { x: SPOT.x + 2, y: FLAT_SURFACE - 30, z: SPOT.z, state: stateKey(app, registry.air) },
-        { x: SPOT.x + 20, y: FLAT_SURFACE + 1, z: SPOT.z, state: block },
+        // x 34: across the border at 32, in column (1, 0).
+        { x: SPOT.x + 30, y: FLAT_SURFACE + 1, z: SPOT.z, state: block },
       ];
       for (const e of edits) setBlock(app, e.x, e.y, e.z, e.state);
       for (const e of edits)
