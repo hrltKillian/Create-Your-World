@@ -95,11 +95,20 @@ export class AudioEngine {
     for (const def of this.recipes) this.buffers.set(def.key, await renderSfx(def));
   }
 
-  /** Creates or resumes the AudioContext. Call it from a user gesture (a click). */
+  /**
+   * Creates or resumes the AudioContext. Call it from a user gesture (a click) to create it; once
+   * it exists, also when the tab shows again. Resuming a running context changes nothing and
+   * cancels a `suspend()` still under way.
+   */
   resume(): void {
     if (this.muted) return;
     this.graph ??= createGraph();
-    if (this.graph.ctx.state === 'suspended') void this.graph.ctx.resume();
+    void this.graph.ctx.resume();
+  }
+
+  /** Hidden tab: suspends the context (if any) until `resume()`. Plays are still logged meanwhile. */
+  suspend(): void {
+    if (this.graph) void this.graph.ctx.suspend();
   }
 
   /** 'muted', 'idle' (no gesture yet) or the AudioContext state. */

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   AUDIO,
   AudioEngine,
@@ -11,6 +11,46 @@ const voice = (startedAt: number, endsAt: number, audibility: number): VoiceSlot
   startedAt,
   endsAt,
   audibility,
+});
+
+/** Just enough of the Web Audio graph for the engine to build its buses and voices under Node. */
+class FakeNode {
+  readonly gain = { value: 1 };
+  connect(): void {}
+  disconnect(): void {}
+}
+
+class FakeContext {
+  static made = 0;
+  state: AudioContextState = 'suspended';
+  readonly destination = new FakeNode();
+  readonly listener = {};
+  constructor() {
+    FakeContext.made++;
+  }
+  createDynamicsCompressor = () => new FakeNode();
+  createGain = () => new FakeNode();
+  resume(): Promise<void> {
+    this.state = 'running';
+    return Promise.resolve();
+  }
+  suspend(): Promise<void> {
+    this.state = 'suspended';
+    return Promise.resolve();
+  }
+}
+
+const audioGlobals = globalThis as { AudioContext?: unknown; PannerNode?: unknown };
+
+function installFakeAudio(): void {
+  FakeContext.made = 0;
+  audioGlobals.AudioContext = FakeContext;
+  audioGlobals.PannerNode = FakeNode;
+}
+
+afterEach(() => {
+  delete audioGlobals.AudioContext;
+  delete audioGlobals.PannerNode;
 });
 
 describe('AudioEngine', () => {
@@ -28,6 +68,27 @@ describe('AudioEngine', () => {
     expect(engine.play('sfx:break_soil', 11, 64, 10)).toBe(true);
     expect(engine.log()).toEqual(['sfx:break_soil', 'sfx:click', 'sfx:break_soil']);
     expect(new AudioEngine([], { muted: false }).state()).toBe('idle');
+  });
+
+  it('suspends while the tab is hidden and resumes after, never making a context itself', () => {
+    installFakeAudio();
+    const engine = new AudioEngine([], { muted: false });
+    // Before the first click there is no context: hiding the tab creates none.
+    engine.suspend();
+    expect(engine.state()).toBe('idle');
+    expect(FakeContext.made).toBe(0);
+    engine.resume();
+    expect(engine.state()).toBe('running');
+    engine.suspend();
+    expect(engine.state()).toBe('suspended');
+    engine.resume();
+    expect(engine.state()).toBe('running');
+    expect(FakeContext.made).toBe(1);
+    const muted = new AudioEngine([], { muted: true });
+    muted.resume();
+    muted.suspend();
+    expect(muted.state()).toBe('muted');
+    expect(FakeContext.made).toBe(1);
   });
 
   it('does not play sounds farther than 32 m from the listener', () => {

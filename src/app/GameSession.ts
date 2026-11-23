@@ -1,4 +1,5 @@
 import type { Registry } from '../content/registry.ts';
+import { clampPitch } from '../core/angles.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { WorkerColumnSource } from '../platform/WorkerColumnSource.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
@@ -9,6 +10,7 @@ import { type PlayFrame, PlayView } from '../render/PlayView.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import { TICK_SECONDS } from '../sim/clock.ts';
+import { NEUTRAL_INPUT } from '../sim/commands.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import { createLocalServer } from '../sim/localServer.ts';
@@ -70,7 +72,7 @@ export class GameSession {
   private sentCz = Number.NaN;
   private sentRadius = Number.NaN;
   /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
-  paused = false;
+  private paused = false;
   /** Client systems that react to the simulation's events besides rendering (UI, audio). */
   readonly listeners: ((event: SimEvent) => void)[] = [];
 
@@ -125,6 +127,24 @@ export class GameSession {
     if (this.freecam)
       this.freecam.set({ x: spawn.x, y: spawn.y + 18, z: spawn.z, yaw: 0, pitch: -0.35 });
     this.sendView();
+  }
+
+  /**
+   * Stops or restarts the ticks. Pausing also sends a neutral input (same view and slot): the
+   * simulation applies commands without ticking, so nothing it holds (primary for the strike poses,
+   * secondary) stays pressed while paused.
+   */
+  setPaused(paused: boolean): void {
+    if (paused && !this.paused) {
+      const rig = this.rig;
+      this.host.send({
+        ...NEUTRAL_INPUT,
+        yaw: rig.yaw,
+        pitch: clampPitch(rig.pitch),
+        slot: this.input.slot,
+      });
+    }
+    this.paused = paused;
   }
 
   get spawn(): { readonly x: number; readonly y: number; readonly z: number } {

@@ -268,3 +268,29 @@ body {
   color: var(--c-ink-muted);
   font-size: 0.9rem;
 }
+
+/* Transient HUD hint (top centre): a dark tag with an amber edge, fading in. */
+.hud-hint {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 5px 14px 5px 11px;
+  border-left: 3px solid var(--c-accent);
+  border-radius: 4px var(--radius) var(--radius) 4px;
+  background: var(--c-panel);
+  color: var(--c-ink);
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: hud-hint-in 0.18s ease-out;
+}
+
+@keyframes hud-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}

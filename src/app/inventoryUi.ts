@@ -6,6 +6,7 @@ import { HOTBAR_CODES } from '../input/bindings.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { INVENTORY_SLOTS } from '../sim/inventory.ts';
 import { Hotbar } from '../ui/hud/hotbar.ts';
+import { HudHint } from '../ui/hud/hudHint.ts';
 import type { ItemArt } from '../ui/itemSlot.ts';
 import { BagScreen } from '../ui/screens/bag.ts';
 import type { GameSession } from './GameSession.ts';
@@ -15,11 +16,12 @@ import { UiBridge } from './UiBridge.ts';
 const log = createLogger('ui');
 
 /**
- * The hotbar and the bag of a play session: item icons, refresh, commands, sounds and keys
- * (E or Tab opens and closes the bag, Esc closes it, a hotbar key over a slot swaps).
+ * The hotbar, the hint line and the bag of a play session: item icons, refresh, commands, sounds
+ * and keys (E or Tab opens and closes the bag, Esc closes it, a hotbar key over a slot swaps).
  */
 export class InventoryUi {
   readonly hotbar: Hotbar;
+  readonly hint = new HudHint();
   readonly bag: BagScreen;
   readonly bridge: UiBridge;
   private readonly input: InputManager;
@@ -53,11 +55,11 @@ export class InventoryUi {
         },
       },
       INVENTORY_SLOTS,
-      input.keyLabel('inventory'),
+      () => input.keyLabel('inventory'),
     );
-    this.bridge = new UiBridge(session.player, input, this.hotbar, this.bag);
+    this.bridge = new UiBridge(session.player, input, this.hotbar, this.bag, this.hint);
     session.listeners.push((event) => this.bridge.onEvent(event));
-    root.append(this.hotbar.element, this.bag.element);
+    root.append(this.hotbar.element, this.hint.element, this.bag.element);
     window.addEventListener('keydown', this.onKeyDown);
   }
 

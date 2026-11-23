@@ -342,8 +342,8 @@ export class MeshScheduler {
     this.inFlight.delete(key);
     const { cx, sy, cz } = sectionKeyParts(key, at);
     const section = this.view.world.getSection(cx, sy, cz);
-    if (!section) {
-      // Unloaded meanwhile.
+    // Unloaded or hidden meanwhile: columnMeshable queues it again if it comes back into view.
+    if (!section || !this.shown.has(columnKey(cx, cz))) {
       this.leaveBatch(key);
       return false;
     }

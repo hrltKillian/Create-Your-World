@@ -26,7 +26,8 @@ import {
 
 /**
  * M4 « Fait quand » browser checks on the flat world (?worldType=flat&fixedStep=1): digging,
- * placing, edit-to-mesh latency, the strike pose and the break sound. The cases stand on columns
+ * placing, edit-to-mesh latency, the strike pose, the break sound and the shader precompilation
+ * (the program count of the first case must not grow by the last one). The cases stand on columns
  * east of the spawn (feet on the surface, y FLAT_SURFACE + 1), away from where m3 walks and
  * builds, and can run again on the same page (the dig lays its ground back first, the other
  * edits are undone).
@@ -51,6 +52,13 @@ const GROUND_AHEAD_PITCH = -1;
 const HOLD_TICKS = 1e6;
 
 const PLAY_SCENES: readonly App['state'][] = ['loading', 'world'];
+
+/** Shader programs once loaded, before the cases dig, place, strike and open the bag (−1: unknown). */
+let programsBeforePlay = -1;
+
+function shaderPrograms(app: App): number {
+  return app.renderer?.webgl.info.programs?.length ?? 0;
+}
 
 function stateKey(app: App, state: number): string {
   return app.registry!.states[state]?.key ?? `#${state}`;
@@ -81,6 +89,17 @@ async function frameInterval(n: number): Promise<number> {
 }
 
 export const M4_SUITE: readonly SelftestCase[] = [
+  {
+    name: 'shader programs are compiled while loading (counted before the cases play)',
+    scenes: PLAY_SCENES,
+    timeoutMs: 30_000,
+    skip: needsFlatPlayer,
+    run: async (app) => {
+      await playerSession(app);
+      programsBeforePlay = shaderPrograms(app);
+      assert(programsBeforePlay > 0, 'no shader program after loading');
+    },
+  },
   {
     name: 'looking down, primary held for 60 ticks digs the grass: air below, 1 dirt, HUD "1"',
     scenes: PLAY_SCENES,
@@ -229,6 +248,34 @@ export const M4_SUITE: readonly SelftestCase[] = [
       await play(500);
       const rest = rig().strike;
       assert(rest < 0.1, `strike blend ${rest.toFixed(2)} after release`);
+    },
+  },
+  {
+    name: 'digging, placing, striking, the third person and the bag compiled no new shader program',
+    scenes: PLAY_SCENES,
+    skip: needsFlatPlayer,
+    run: async (app) => {
+      const session = await playerSession(app);
+      assert(programsBeforePlay > 0, 'the first m4 case did not count the programs');
+      const inventory = app.inventory;
+      assert(inventory, 'no bag');
+      const mode = session.rig.mode;
+      try {
+        session.rig.mode = 'third';
+        await framesFor(200);
+        inventory.toggleBag();
+        assert(inventory.bag.isOpen(), 'the bag did not open');
+        await framesFor(200);
+      } finally {
+        inventory.closeBag(true);
+        session.rig.mode = mode;
+      }
+      await frameOrFail();
+      const programs = shaderPrograms(app);
+      assert(
+        programs === programsBeforePlay,
+        `${programs - programsBeforePlay} shader program(s) compiled during play (${programsBeforePlay} → ${programs})`,
+      );
     },
   },
   noErrorsCase('no errors and no missing strings after the m4 checks'),

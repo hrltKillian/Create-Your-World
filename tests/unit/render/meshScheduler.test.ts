@@ -114,6 +114,18 @@ describe('mesh scheduler', () => {
     expect(s.scheduler.sectionVersionLag()).toBe(0);
   });
 
+  it('drops the meshes of a column hidden while they were in flight, without meshing again', async () => {
+    const s = setup();
+    s.frame();
+    s.scheduler.onEvent({ type: 'columnHidden', cx: 1, cz: 0 });
+    await s.answer();
+    const jobs = s.jobs.length;
+    s.frame();
+    expect(s.shown).toEqual([sectionKey(0, 1, 0)]);
+    expect(s.jobs).toHaveLength(jobs);
+    expect(s.scheduler.idle()).toBe(true);
+  });
+
   it('forgets the batch sections of a column that goes away', async () => {
     const s = await loaded();
     breakBorderBlock(s);

@@ -77,7 +77,7 @@ export class PlayGate {
   }
 
   private setPlaying(playing: boolean): void {
-    this.session.paused = !playing;
+    this.session.setPaused(!playing);
     this.input.enabled = playing;
     if (!playing) this.input.releaseAll();
     if (this.click) this.click.hidden = playing;

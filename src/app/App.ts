@@ -32,7 +32,7 @@ import { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 import { PlayGate } from './playGate.ts';
 
-export const MILESTONE = 3;
+export const MILESTONE = 4;
 
 export type AppState =
   | 'boot'
@@ -170,6 +170,11 @@ export class App {
     this.audio = audio;
     audio.prerender().catch((error: unknown) => this.recordError(`[audio] ${String(error)}`));
     window.addEventListener('pointerdown', () => audio.resume());
+    // « Onglet caché »: silent while hidden; shown again, a context made by a click resumes.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) audio.suspend();
+      else if (audio.state() !== 'idle') audio.resume();
+    });
     return audio;
   }
 
@@ -206,6 +211,8 @@ export class App {
     );
     this.session = session;
     this.world = session.host.view.world;
+    // The session's play objects (overlays, hand view) are in place: compile while loading.
+    view.precompile().catch((error: unknown) => this.recordError(`[render] ${String(error)}`));
     const audio = this.createAudio(pack);
     // The ear starts at the spawn eye (then follows the camera every frame).
     const eye = session.rig.pose;

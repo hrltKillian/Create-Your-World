@@ -36,26 +36,28 @@ export class BagScreen {
   private readonly actions: BagActions;
   private readonly slots: SlotView[] = [];
   private readonly caption: HTMLElement;
+  private readonly closeHint: HTMLElement;
+  private readonly closeKey: () => string;
   private inventory: Slots = [];
   private hovered = -1;
   private drag: Drag | null = null;
 
-  /** `closeKey`: label of the key that opens and closes the bag. */
-  constructor(art: ItemArt, actions: BagActions, slotCount: number, closeKey: string) {
+  /**
+   * `closeKey`: label of the key that opens and closes the bag, read at each opening (labels
+   * improve once the keyboard layout map has loaded).
+   */
+  constructor(art: ItemArt, actions: BagActions, slotCount: number, closeKey: () => string) {
     this.art = art;
     this.actions = actions;
+    this.closeKey = closeKey;
     for (let i = 0; i < slotCount; i++) this.slots.push(new SlotView(i, art));
     const views = (from: number, to: number) => this.slots.slice(from, to).map((s) => s.element);
     this.caption = h('p', { class: 'bag-caption' });
+    this.closeHint = h('p', { class: 'bag-close' });
     const panel = h(
       'div',
       { class: 'bag-panel' },
-      h(
-        'header',
-        { class: 'bag-header' },
-        h('h2', null, t('bag.title')),
-        h('p', { class: 'bag-close' }, t('bag.close', { key: closeKey })),
-      ),
+      h('header', { class: 'bag-header' }, h('h2', null, t('bag.title')), this.closeHint),
       h(
         'div',
         { class: 'bag-grid', attrs: { style: `--columns: ${BAG_COLUMNS}` } },
@@ -95,6 +97,7 @@ export class BagScreen {
 
   open(): void {
     if (this.isOpen()) return;
+    this.closeHint.textContent = t('bag.close', { key: this.closeKey() });
     this.element.hidden = false;
     this.actions.click();
   }

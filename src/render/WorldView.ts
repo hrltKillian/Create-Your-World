@@ -1,8 +1,10 @@
 import {
+  BufferGeometry,
   Color,
   type DataArrayTexture,
   Fog,
   Group,
+  Mesh,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
@@ -77,6 +79,28 @@ export class WorldView {
     this.hand = hand;
     hand.camera.aspect = this.camera.aspect;
     hand.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Compiles every shader program of play while loading (docs/conception.md « Précompilation »),
+   * so nothing stalls a frame on first use: one probe mesh per chunk material joins the scene
+   * for the call, then the world and hand scenes are compiled. three compiles every object of a
+   * scene, shown or not, so the hidden overlays (outline, crack, ghost) and the empty box batches
+   * need no probe. `compileAsync` compiles synchronously, then waits for the driver.
+   */
+  async precompile(): Promise<void> {
+    const webgl = this.renderer.webgl;
+    const m = this.materials;
+    const geometry = new BufferGeometry();
+    const probes = [m.opaque, m.cutout, m.translucent].map(
+      (material) => new Mesh(geometry, material),
+    );
+    this.chunkRoot.add(...probes);
+    const world = webgl.compileAsync(this.scene, this.camera);
+    this.chunkRoot.remove(...probes);
+    geometry.dispose();
+    const hand = this.hand ? webgl.compileAsync(this.hand.scene, this.hand.camera) : null;
+    await Promise.all([world, hand]);
   }
 
   /** Fog and far plane follow the render distance (in columns). */

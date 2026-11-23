@@ -31,7 +31,8 @@ digging: blocks break, drop as small spinning items that fly to you, and stack i
 
 - Hold the left button to mine the block under the crosshair (outline, then 8 crack stages); the
   right arm strikes in third person and the hand chops in first person. Harder blocks take longer,
-  the right tool is faster, and stone mined by hand gives nothing.
+  the right tool is faster, and stone mined by hand gives nothing (a hint at the top says which
+  tool it needs).
 - The right button places the selected block where the ghost shows it (hold to keep placing);
   it opens and closes gates (two blocks tall: placed, opened and broken whole), and crouch (C) +
   right button places against them instead. Every placeable block has an item, even glass.
@@ -46,7 +47,8 @@ digging: blocks break, drop as small spinning items that fly to you, and stack i
 - Flint tools have no recipe yet: in dev, `__game.player.give('item:flint_pickaxe')` (also
   `flint_hatchet`, `flint_knife`, `flint_spear`); `__game.player.inventory()` lists the slots.
 - `?selftest=m4&worldType=flat&fixedStep=1` runs the in-browser M4 checks (dig, place, edit to
-  mesh in 3 frames, strike pose, break sound); `?selftest=all` runs every suite.
+  mesh in 3 frames, strike pose, break sound, no shader compiled during play); `?selftest=all`
+  runs every suite.
 - From M3: WASD/ZQSD to move, Space jump, Shift sprint, V first/third person, F3 debug panel,
   `?seed=42`, `?rd=4`, `?freecam=1`, `?kb=azerty`; `npm run headless -- --seed=42 --ticks=3000
   --bot=wander` runs the simulation in plain Node (`--world=arena` for the arena).
