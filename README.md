@@ -48,9 +48,10 @@ Then open http://localhost:5173 in Google Chrome.
 - `?view=xray` (or `__game.render.debugView('xray')`, back with `'none'`) turns the terrain into
   faint ghosts, so caves, ores, crystals and magma show through the ground.
 - `?seed=7&selftest=m6` runs the in-browser M6 checks (the spawn stands on solid ground of a spawn
-  biome; every biome is found within 1 500 blocks and generated as found; a glowing ore or magma
-  lights the cave next to it; the xray view changes the picture; ≤ 400 draws; the nearest camp or
-  cairn is generated as its template); `?selftest=all` runs every suite.
+  biome, with no trunk, boulder or canopy in its feet and head cells; every biome is found within
+  1 500 blocks and generated as found; a glowing ore or magma lights the cave next to it; the xray
+  view changes the picture; ≤ 400 draws; the nearest camp or cairn is generated as its template);
+  `?selftest=all` runs every suite.
 - From M5: a day lasts 20 minutes, light is real (sky light, torches 14 with
   `__game.player.give('item:torch', 16)`), `?time=21`, `?freezeTime=1`, `__game.time.set(0)`,
   `__game.world.light(x, y, z)` and `?view=light`.

@@ -10,6 +10,7 @@ import { registry } from '../../helpers/registry.ts';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => String(i + 1));
 const GRAVEL = registry.defaultState('block:gravel');
+const isSolid = (state: number) => (registry.tables.flags[state]! & FLAG_SOLID) !== 0;
 
 function contexts(): [string, GenContext][] {
   return SEEDS.map((seed) => [seed, createGenContext(seed, registry)]);
@@ -56,7 +57,26 @@ describe('spawn point', () => {
     }
   });
 
-  it('is free to stand on, with gravel and water really generated nearby', () => {
+  it('is free to stand on: solid ground, no trunk, boulder or canopy at the feet or head', () => {
+    // Seeds 1–300 and three more whose spawn stood in a feature before the search checked it.
+    const seeds = [
+      ...Array.from({ length: 300 }, (_, i) => String(i + 1)),
+      ...['667', '852', 'bfmhs8'],
+    ];
+    const blocked: string[] = [];
+    for (const seed of seeds) {
+      const ctx = createGenContext(seed, registry);
+      const spawn = findSpawn(ctx);
+      const x = Math.floor(spawn.x);
+      const z = Math.floor(spawn.z);
+      const column = generate(ctx, x >> 5, z >> 5);
+      const solid = (y: number) => isSolid(blockIn(column, x & 31, y, z & 31));
+      if (!solid(spawn.y - 1) || solid(spawn.y) || solid(spawn.y + 1)) blocked.push(seed);
+    }
+    expect(blocked).toEqual([]);
+  }, 60_000);
+
+  it('has gravel and water really generated nearby', () => {
     for (const seed of ['1', '7', '42']) {
       const ctx = createGenContext(seed, registry);
       const spawn = findSpawn(ctx);
@@ -73,9 +93,6 @@ describe('spawn point', () => {
         }
         return blockIn(column, bx & 31, y, bz & 31);
       };
-      const solid = (state: number) => (registry.tables.flags[state]! & FLAG_SOLID) !== 0;
-      expect(solid(at(x, spawn.y - 1, z)), seed).toBe(true);
-      expect(solid(at(x, spawn.y, z)) || solid(at(x, spawn.y + 1, z)), seed).toBe(false);
       let water = false;
       let gravel = false;
       for (let dz = -40; dz <= 40 && !(water && gravel); dz++) {

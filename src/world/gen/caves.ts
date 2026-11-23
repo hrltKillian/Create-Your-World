@@ -26,6 +26,11 @@ const CAVERN_TAPER_STEP = 0.06;
 /** Row length of the padded heights `carveCaves` reads (one block of margin on each side). */
 export const PADDED = SECTION_SIZE + 2;
 
+/** Index in the padded heights of a column's cell (lx, lz) (0–31, or −1 and 32 for the margin). */
+export function heightIndex(lx: number, lz: number): number {
+  return (lz + 1) * PADDED + lx + 1;
+}
+
 export interface CaveNoise {
   readonly def: CaveDef;
   readonly tunnelA: Noise3;
@@ -144,7 +149,7 @@ export function carveCaves(ctx: GenContext, column: Column, heights: Int16Array)
   let maxRoof = 0;
   for (let lz = 0; lz < SECTION_SIZE; lz++) {
     for (let lx = 0; lx < SECTION_SIZE; lx++) {
-      const i = (lz + 1) * PADDED + lx + 1;
+      const i = heightIndex(lx, lz);
       const h = heights[i]!;
       const hMin = Math.min(
         h,

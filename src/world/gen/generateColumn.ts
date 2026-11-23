@@ -124,6 +124,7 @@ export function createGenContext(
       size1: ore.veinSize[1],
       replaces: new Set(ore.replaces.map(state)),
       caveWall: ore.caveWall === true,
+      underLiquid: ore.underLiquid === true,
     }),
   );
   const spawnKeys = new Set<string>(pack.manifest.bindings.spawnBiomes ?? []);
@@ -199,7 +200,7 @@ export function generateColumn(ctx: GenContext, column: Column): void {
     }
   }
   carveCaves(ctx, column, heights);
-  placeOres(ctx, column);
+  placeOres(ctx, column, heights);
   const site = columnSite(ctx, cache, column);
   placePlants(ctx, column, heights);
   placeFeatures(ctx, column, heights, cache, site);

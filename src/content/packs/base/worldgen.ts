@@ -300,6 +300,7 @@ export const ores = [
     veinsPerSection: 24,
     veinSize: [3, 6],
     replaces: ['block:silt'],
+    underLiquid: true,
   },
   {
     key: 'ore:fireclay',

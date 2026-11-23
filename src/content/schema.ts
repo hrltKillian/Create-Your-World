@@ -421,6 +421,8 @@ export interface OreDef {
   readonly replaces: readonly BlockKey[];
   /** Only blocks touching a cave (an air face neighbour) turn to ore. */
   readonly caveWall?: boolean;
+  /** Veins start only under the liquid, where the vein centre's column lies below the sea level. */
+  readonly underLiquid?: boolean;
 }
 
 export interface BiomeDef {

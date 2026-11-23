@@ -101,6 +101,9 @@ export function validateWorld(
     // A vein is a walk inside the 3×3×3 cube around its centre.
     if (ore.veinSize[0] < 1 || ore.veinSize[1] > 27)
       add(`${path}.veinSize`, 'must lie within 1–27');
+    // Under the liquid, the ground lies below the sea level: so must some vein centres.
+    if (ore.underLiquid && w && ore.yRange[0] >= w.seaLevel)
+      add(`${path}.underLiquid`, `needs a yRange starting below the sea level (${w.seaLevel})`);
   });
   const biome = (path: string, key: string) => {
     if (!seen.has(key)) add(path, `unknown biome "${key}"`);

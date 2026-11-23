@@ -2,6 +2,7 @@ import { Rng, seedState } from '../../core/rng.ts';
 import type { Column } from '../Column.ts';
 import { columnIndex, localIndex, SECTION_SIZE } from '../coords.ts';
 import type { Section } from '../Section.ts';
+import { heightIndex } from './caves.ts';
 import type { GenContext } from './generateColumn.ts';
 
 /** An ore of the pack with block states and biome indices resolved. */
@@ -16,6 +17,7 @@ export interface ResolvedOre {
   readonly size1: number;
   readonly replaces: ReadonlySet<number>;
   readonly caveWall: boolean;
+  readonly underLiquid: boolean;
 }
 
 /** Vein centres stay at least this far inside the section; veins reach one block further out. */
@@ -25,9 +27,10 @@ const INSET = 3;
  * Ore veins (docs « Génération » step 6). Each section has its own random stream, so a section's
  * ores depend on nothing else. A vein walks up to `size` blocks inside the 3×3×3 cube around its
  * centre, so every ore block lies at least 2 blocks from the section faces, and only blocks of
- * `replaces` (touching a cave for `caveWall` ores) turn to ore.
+ * `replaces` (touching a cave for `caveWall` ores) turn to ore. `underLiquid` veins start only
+ * where the centre's column (its surface in the padded `heights`) lies below the sea level.
  */
-export function placeOres(ctx: GenContext, column: Column): void {
+export function placeOres(ctx: GenContext, column: Column, heights: Int16Array): void {
   if (ctx.ores.length === 0) return;
   const air = ctx.registry.air;
   for (let sy = 0; sy < column.sections.length; sy++) {
@@ -45,6 +48,7 @@ export function placeOres(ctx: GenContext, column: Column): void {
         const cy = rng.intRange(lo, hi) - base;
         const size = rng.intRange(ore.size0, ore.size1);
         if (ore.biomes[column.biomes[columnIndex(cx, cz)]!] === 0) continue;
+        if (ore.underLiquid && heights[heightIndex(cx, cz)]! >= ctx.def.seaLevel) continue;
         let x = cx;
         let y = cy;
         let z = cz;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FLAG_LIQUID } from '../../../src/content/registry.ts';
 import { columnKey } from '../../../src/world/coords.ts';
 import { caveAt } from '../../../src/world/gen/caves.ts';
+import { spiral } from '../../../src/world/gen/find.ts';
 import { createGenContext, type GenContext } from '../../../src/world/gen/generateColumn.ts';
 import { heightAt, LatticeCache, pointInfo } from '../../../src/world/gen/sample.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
@@ -193,5 +194,44 @@ describe('ores', () => {
     // Every ore of the table shows up in its biome.
     for (const ore of ctx.ores)
       expect(counts.get(ore.block) ?? 0, registry.states[ore.block]!.key).toBeGreaterThan(0);
+  });
+
+  it('forms bog iron only under the marsh ponds, not under dry land', () => {
+    const marsh = biomeIndex(ctx, 'biome:fungal_marsh');
+    const bog = ctx.ores.find((o) => o.block === registry.defaultState('block:bog_iron'))!;
+    expect(bog.underLiquid).toBe(true);
+    const sea = ctx.def.seaLevel;
+    const cache = new LatticeCache();
+    // The marsh columns nearest the origin, dry and flooded alike.
+    const columns: { cx: number; cz: number }[] = [];
+    spiral(60, (cx, cz) => {
+      const info = pointInfo(ctx, cx * 32 + 16, cz * 32 + 16, cache);
+      if (info.biome === marsh) columns.push({ cx, cz });
+      return columns.length === 12;
+    });
+    let dryLand = 0;
+    let blocks = 0;
+    for (const { cx, cz } of columns) {
+      const column = generate(ctx, cx, cz);
+      for (let cell = 0; cell < 1024; cell++) {
+        const lx = cell & 31;
+        const lz = cell >> 5;
+        const x = cx * 32 + lx;
+        const z = cz * 32 + lz;
+        if (heightAt(ctx, cache, x, z) >= sea) dryLand++;
+        for (let y = bog.y0 - 1; y <= bog.y1 + 1; y++) {
+          if (blockIn(column, lx, y, lz) !== bog.block) continue;
+          blocks++;
+          // The vein centre is within one block: its column (or a neighbour) lies under the liquid.
+          let flooded = false;
+          for (let dz = -1; dz <= 1; dz++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (heightAt(ctx, cache, x + dx, z + dz) < sea) flooded = true;
+          expect(flooded, `bog iron at ${x} ${y} ${z}`).toBe(true);
+        }
+      }
+    }
+    expect(dryLand).toBeGreaterThan(columns.length * 100);
+    expect(blocks).toBeGreaterThan(0);
   });
 });

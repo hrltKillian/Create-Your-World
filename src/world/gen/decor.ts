@@ -4,7 +4,7 @@ import { hash32, hashUnit } from '../../core/hash.ts';
 import type { Column } from '../Column.ts';
 import { columnIndex, localIndex, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
 import { bankAt } from './banks.ts';
-import { caveAt, PADDED } from './caves.ts';
+import { caveAt, heightIndex } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext, ResolvedBiome } from './generateColumn.ts';
 import { biomeOf, heightAt, type LatticeCache } from './sample.ts';
@@ -32,10 +32,6 @@ export interface ResolvedFeature {
 /** Side of a candidate cell, and how far a feature reaches from its centre. */
 const CELL = 8;
 const REACH = 7;
-
-function heightIndex(lx: number, lz: number): number {
-  return (lz + 1) * PADDED + lx + 1;
-}
 
 function getLocal(column: Column, lx: number, y: number, lz: number): number {
   return column.sections[y >> 5]!.getBlock(localIndex(lx, y & 31, lz));

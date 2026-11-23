@@ -3,7 +3,7 @@ import type { BiomeDef, StructureDef, StructureKey } from '../../content/schema.
 import { hash32, hashUnit } from '../../core/hash.ts';
 import type { Column } from '../Column.ts';
 import { columnIndex, localIndex, SECTION_BITS, SECTION_SIZE, WORLD_HEIGHT } from '../coords.ts';
-import { caveAt, PADDED } from './caves.ts';
+import { caveAt, heightIndex } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
 import { biomeOf, heightAt, type LatticeCache } from './sample.ts';
@@ -183,7 +183,7 @@ export function placeStructure(
   const layerSize = s.width * s.depth;
   for (let lz = lz0; lz < lz1; lz++) {
     for (let lx = lx0; lx < lx1; lx++) {
-      const ground = heights[(lz + 1) * PADDED + lx + 1]!;
+      const ground = heights[heightIndex(lx, lz)]!;
       const biome = ctx.biomes[column.biomes[columnIndex(lx, lz)]!]!;
       const cell = x0 + lx - site.x0 + (z0 + lz - site.z0) * s.width;
       for (let y = site.y - 1; y >= site.y - FOUNDATION && !solid(ctx, column, lx, y, lz); y--)

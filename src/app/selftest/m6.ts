@@ -49,12 +49,13 @@ import {
 
 /**
  * M6 « Fait quand » browser checks in the generated world (any seed; skipped in the flat and arena
- * worlds): the spawn stands on solid ground of a spawn biome, findBiome finds every biome near the
- * spawn where generation agrees, an underground glowing block (magma, dawn crystal) lights the
- * open cell next to it, the 'xray' view renders and changes the picture, the surface view keeps
- * to the draw budget, and findStructure leads to a camp or cairn generated as its template. The
- * first case teleports back to the spawn and the last one leaves it, so the suite can run again
- * on the same page. Without ?fixedStep=1 commands wait for the next tick: waits are wall time.
+ * worlds): the spawn stands on solid ground of a spawn biome with its feet and head free,
+ * findBiome finds every biome near the spawn where generation agrees, an underground glowing
+ * block (magma, dawn crystal) lights the open cell next to it, the 'xray' view renders and
+ * changes the picture, the surface view keeps to the draw budget, and findStructure leads to a
+ * camp or cairn generated as its template. The first case teleports back to the spawn and the
+ * last one leaves it, so the suite can run again on the same page. Without ?fixedStep=1 commands
+ * wait for the next tick: waits are wall time.
  */
 
 /**
@@ -186,7 +187,7 @@ function glowIn(app: App, column: Column, cache: LatticeCache): Glow | null {
 
 export const M6_SUITE: readonly SelftestCase[] = [
   {
-    name: 'the spawn stands on solid ground of a spawn biome',
+    name: 'the spawn stands on solid ground of a spawn biome, its feet and head cells free',
     scenes: PLAY_SCENES,
     timeoutMs: 40_000,
     skip: needsGeneratedPlayer,
@@ -202,11 +203,23 @@ export const M6_SUITE: readonly SelftestCase[] = [
         ctx.spawnBiomes.has(biome),
         `the spawn (${x}, ${z}) lies in ${biomeKey(ctx, biome)}, not in a spawn biome (${homes})`,
       );
+      const solid = (state: number) => (app.registry!.tables.flags[state]! & FLAG_SOLID) !== 0;
       const ground = app.world!.getBlock(x, spawn.y - 1, z);
       assert(
-        (app.registry!.tables.flags[ground]! & FLAG_SOLID) !== 0,
+        solid(ground),
         `the block under the spawn feet (${x}, ${spawn.y - 1}, ${z}) is ${stateKey(app, ground)}, not solid`,
       );
+      // No trunk, boulder or canopy where the player stands.
+      for (const [part, y] of [
+        ['feet', spawn.y],
+        ['head', spawn.y + 1],
+      ] as const) {
+        const state = app.world!.getBlock(x, y, z);
+        assert(
+          !solid(state),
+          `the spawn ${part} cell (${x}, ${y}, ${z}) holds ${stateKey(app, state)}, which is solid`,
+        );
+      }
     },
   },
   {

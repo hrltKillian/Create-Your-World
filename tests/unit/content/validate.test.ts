@@ -119,6 +119,7 @@ describe('content validation of world generation', () => {
     pack.ores[0].block = 'block:nope';
     pack.ores[1].biomes = ['biome:nope'];
     pack.ores[2].veinSize = [6, 3];
+    pack.ores[2].yRange = [64, 70]; // bog iron forms under the liquid, below the sea level (62)
     pack.biomes[0].features = [
       { feature: 'feature:boulder', chance: 0.7 },
       { feature: 'feature:boulder', chance: 0.6 },
@@ -131,6 +132,7 @@ describe('content validation of world generation', () => {
         'ores[0].block',
         'ores[1].biomes[0]',
         'ores[2].veinSize',
+        'ores[2].underLiquid',
         'biomes[0].features',
       ]),
     );
