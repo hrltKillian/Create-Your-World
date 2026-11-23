@@ -27,8 +27,9 @@ export class InventoryUi {
   private readonly input: InputManager;
   private readonly gate: PlayGate;
 
+  /** `layer`: the play layer of the world (its elements go with it). */
   constructor(
-    root: HTMLElement,
+    layer: HTMLElement,
     registry: Registry,
     layers: readonly Uint8Array[],
     session: GameSession,
@@ -59,8 +60,13 @@ export class InventoryUi {
     );
     this.bridge = new UiBridge(session.player, input, this.hotbar, this.bag, this.hint);
     session.listeners.push((event) => this.bridge.onEvent(event));
-    root.append(this.hotbar.element, this.hint.element, this.bag.element);
+    layer.append(this.hotbar.element, this.hint.element, this.bag.element);
     window.addEventListener('keydown', this.onKeyDown);
+  }
+
+  /** The world closes (its play layer goes with the elements). */
+  dispose(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
   }
 
   /** Opens the bag while playing, or closes it (capturing the mouse again). */
@@ -84,8 +90,11 @@ export class InventoryUi {
     const bindings = this.input.bindings;
     if (bindings.inventory.includes(event.code)) this.toggleBag();
     else if (!this.bag.isOpen()) return;
-    else if (bindings.pause.includes(event.code)) this.closeBag(false);
-    else {
+    else if (bindings.pause.includes(event.code)) {
+      // Consumed: the same Esc must not also open the pause menu.
+      event.preventDefault();
+      this.closeBag(false);
+    } else {
       const slot = HOTBAR_CODES.indexOf(event.code);
       if (slot >= 0) this.bag.hotkey(slot);
     }

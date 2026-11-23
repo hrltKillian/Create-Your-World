@@ -1,5 +1,6 @@
 import { i18nMissing } from '../i18n/i18n.ts';
 import type { Action } from '../input/bindings.ts';
+import type { Settings } from '../platform/settings.ts';
 import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
@@ -38,7 +39,7 @@ export function installDebugHook(app: App): void {
     return pose ? { x: Math.floor(pose.x), z: Math.floor(pose.z) } : null;
   };
   const api = {
-    version: 6,
+    version: 7,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -312,10 +313,24 @@ export function installDebugHook(app: App): void {
         if (open === undefined || open !== inventory.bag.isOpen()) inventory.toggleBag();
         return inventory.bag.isOpen();
       },
-      /** The open screen ('bag'), null while playing. */
-      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : null),
+      /**
+       * The open screen: 'bag', a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null
+       * while playing.
+       */
+      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : (app.game?.menus.screen() ?? null)),
       /** What the hotbar shows: the selected slot and each slot's count text. */
       hotbar: () => hotbarView(app),
+    },
+    settings: {
+      /** The settings in use (as stored under `cyw.settings.v1`); null in developer scenes. */
+      get: () => app.game?.settings ?? null,
+      /** Changes settings like the Settings screen does (applied at once and stored). */
+      set: (patch: Partial<Settings>) => {
+        const game = app.game;
+        if (!game) return null;
+        game.changeSettings({ ...game.settings, ...patch });
+        return game.settings;
+      },
     },
     audio: {
       /** Keys of the sounds played (oldest first), logged even when muted or not yet resumed. */

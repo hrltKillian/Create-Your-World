@@ -90,10 +90,17 @@ export class WorldView {
   }
 
   /** The first-person hand view, drawn after the world on a cleared depth buffer when visible. */
-  attachHand(hand: HandView): void {
+  attachHand(hand: HandView | null): void {
     this.hand = hand;
+    if (!hand) return;
     hand.camera.aspect = this.camera.aspect;
     hand.camera.updateProjectionMatrix();
+  }
+
+  /** Vertical field of view of the world camera, in degrees (Settings). */
+  setFov(degrees: number): void {
+    this.camera.fov = degrees;
+    this.camera.updateProjectionMatrix();
   }
 
   /**

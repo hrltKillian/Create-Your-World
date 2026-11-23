@@ -1,7 +1,6 @@
 import type { Registry } from '../content/registry.ts';
 import { clampPitch } from '../core/angles.ts';
 import type { InputManager } from '../input/InputManager.ts';
-import { WorkerColumnSource } from '../platform/WorkerColumnSource.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
 import { CameraRig } from '../render/CameraRig.ts';
 import type { EntityView } from '../render/EntityView.ts';
@@ -14,12 +13,10 @@ import { isLiquid } from '../sim/collision.ts';
 import { NEUTRAL_INPUT } from '../sim/commands.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
-import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
 import { daylightAt, hourOf } from '../sim/time.ts';
 import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
-import type { WorldType } from '../world/gen/generateColumn.ts';
 import { ClientAim } from './ClientAim.ts';
 import type { FreeCam } from './FreeCam.ts';
 
@@ -28,22 +25,19 @@ const MAX_STEPS = 4;
 const AVATAR_MIN_DISTANCE = 0.6;
 /** Radius (columns) that must be meshed before the loading screen goes away. */
 export const LOADING_RADIUS = 3;
-const PLAYER_ID = 1;
 
 export interface SessionOptions {
-  readonly seed: string;
-  readonly worldType: WorldType;
   readonly renderDistance: number;
   /** Developer free camera instead of a player body. */
   readonly freecam: FreeCam | null;
   /** Ticks only advance through `step()` (automation). */
   readonly fixedStep: boolean;
-  /** Route commands and events through JSON (proves the protocol is network-safe). */
-  readonly serialize: boolean;
-  readonly allowDebug: boolean;
 }
 
-/** One open world: simulation host, player control, streaming, meshing and the fixed-step loop. */
+/**
+ * One open world as the client plays it: the simulation host (whose local player it drives),
+ * player control, streaming, meshing and the fixed-step loop.
+ */
 export class GameSession {
   readonly seed: string;
   readonly host: SimHost;
@@ -80,30 +74,21 @@ export class GameSession {
 
   constructor(
     options: SessionOptions,
-    registry: Registry,
+    host: SimHost,
     pool: WorkerPool,
     view: WorldView,
     input: InputManager,
   ) {
-    this.seed = options.seed;
+    const registry = host.view.registry;
+    this.host = host;
+    this.seed = host.view.seed;
     this.registry = registry;
     this.view = view;
     this.input = input;
     this.freecam = options.freecam;
     this.fixedStep = options.fixedStep;
     this.renderDistance = options.renderDistance;
-    this.host = createLocalServer({
-      seed: options.seed,
-      worldType: options.worldType,
-      registry,
-      source: new WorkerColumnSource(pool),
-      maxInFlight: pool.size * 2,
-      allowDebug: options.allowDebug,
-      playerId: PLAYER_ID,
-      viewRadius: options.renderDistance,
-      serialize: options.serialize,
-    });
-    this.player = this.host.view.player()!;
+    this.player = host.view.player()!;
     this.scheduler = new MeshScheduler(this.host.view, pool, view.chunks, {
       belowBlock: registry.unknownBlock,
       missingBlock: registry.unknownBlock,
@@ -222,6 +207,12 @@ export class GameSession {
     this.renderDistance = renderDistance;
     this.view.setRenderDistance(renderDistance);
     this.sendView();
+  }
+
+  /** The world is closed: its meshes and play objects leave the (shared) world view. */
+  dispose(): void {
+    this.play.dispose();
+    this.view.chunks.clear();
   }
 
   /** The player's column is lit, so the player is simulated (not frozen). */

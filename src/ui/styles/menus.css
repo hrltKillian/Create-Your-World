@@ -1,0 +1,411 @@
+/* Menus (main, Worlds, New world, Settings, pause), the saving banner and menu controls. */
+
+.menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  padding: 24px 16px;
+  overflow: auto;
+  /* Dusk over green hills: an amber glow up right, meadow light from below. */
+  background:
+    radial-gradient(120% 55% at 50% 112%, rgba(104, 163, 94, 0.3), transparent 62%),
+    radial-gradient(70% 45% at 88% -6%, rgba(232, 176, 74, 0.18), transparent 70%),
+    linear-gradient(180deg, #152630 0%, var(--c-bg) 72%);
+}
+
+/* Over a paused world: the world stays visible behind a veil. */
+.menu-layer.over-world {
+  background: rgba(13, 20, 24, 0.64);
+}
+
+/* These are display: flex, which would otherwise beat the hidden attribute. */
+.menu-layer[hidden],
+.menu-screen[hidden],
+.world-actions[hidden],
+.world-confirm[hidden] {
+  display: none;
+}
+
+/* Centred by its margins: a screen taller than the window still scrolls from its top. */
+.menu-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: min(560px, 100%);
+  margin: auto;
+}
+
+.menu-panel {
+  width: 100%;
+  padding: 22px 26px 24px;
+  border: 1px solid rgba(232, 176, 74, 0.22);
+  border-radius: 14px 14px 14px 5px;
+  background: var(--c-panel);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+
+.menu-heading {
+  margin: 0 0 16px;
+  color: var(--c-accent);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.menu-small {
+  margin: 10px 0 0;
+  color: var(--c-ink-muted);
+  font-size: 0.82rem;
+}
+
+.menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(280px, 100%);
+}
+
+.menu-panel .menu-buttons {
+  width: 100%;
+}
+
+/* Main menu: the mark, the name and the tagline above the buttons. */
+.menu-main {
+  text-align: center;
+}
+
+.menu-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* A hexagonal voxel: green sides, an amber top (the favicon, bigger). */
+.menu-mark {
+  width: 64px;
+  height: 72px;
+  margin-bottom: 6px;
+  clip-path: polygon(50% 0, 100% 24%, 100% 76%, 50% 100%, 0 76%, 0 24%);
+  background:
+    linear-gradient(152deg, transparent 49.5%, rgba(0, 0, 0, 0.18) 50%),
+    linear-gradient(180deg, var(--c-accent) 0 48%, #68a35e 48% 100%);
+}
+
+.menu-title {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  letter-spacing: 0.04em;
+}
+
+.menu-tagline {
+  margin: 0;
+  color: var(--c-ink-muted);
+  font-size: 1.05rem;
+}
+
+.menu-play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.menu-sub {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.menu-notice-touch {
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--c-panel);
+  color: var(--c-accent);
+  font-size: 0.85rem;
+}
+
+/* What went wrong (a world open in another tab, a bad file…), above the screen. */
+.menu-notice {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 16px 8px 13px;
+  border-left: 3px solid var(--c-danger);
+  border-radius: 4px var(--radius) var(--radius) 4px;
+  background: var(--c-panel);
+  font-size: 0.88rem;
+  transform: translateX(-50%);
+}
+
+/* Buttons: the accent `.button` from main.css, and these variants. */
+.button.secondary {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--c-ink);
+}
+
+.button.ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: var(--c-ink);
+}
+
+.button.danger {
+  background: var(--c-danger);
+  color: #fff;
+}
+
+.button.ghost.danger {
+  background: transparent;
+  color: var(--c-danger);
+}
+
+.button.small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+
+/* Worlds */
+.world-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(52vh, 460px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.world-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  border-radius: 10px 10px 10px 4px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.world-info {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.world-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-meta {
+  margin: 3px 0 0;
+  color: var(--c-ink-muted);
+  font-size: 0.8rem;
+}
+
+.world-actions,
+.world-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.world-confirm p {
+  flex: 1 1 100%;
+  margin: 0 0 2px;
+  color: var(--c-danger);
+  font-size: 0.85rem;
+}
+
+.world-empty {
+  padding: 18px 0;
+  color: var(--c-ink-muted);
+  text-align: center;
+}
+
+/* Forms and settings */
+.menu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.setting-group {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.setting-group legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.setting {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0;
+}
+
+.setting-range {
+  grid-template-columns: 150px 1fr 52px;
+}
+
+.setting-check {
+  grid-template-columns: auto 1fr;
+  cursor: pointer;
+}
+
+.setting-label {
+  font-size: 0.9rem;
+}
+
+.setting-value {
+  color: var(--c-ink-muted);
+  font: 0.82rem var(--font-mono);
+  text-align: right;
+}
+
+.menu-layer input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c-ink);
+  font: 0.95rem var(--font);
+}
+
+.menu-layer input[type="text"]:focus {
+  border-color: var(--c-accent);
+  outline: none;
+}
+
+.menu-layer input[type="range"],
+.menu-layer input[type="checkbox"] {
+  accent-color: var(--c-accent);
+}
+
+.menu-layer input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+/* Render distance presets: one segmented control of radios. */
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.segment {
+  position: relative;
+  flex: 1;
+  cursor: pointer;
+}
+
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segment span {
+  display: block;
+  padding: 6px 4px;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.segment input:checked + span {
+  background: var(--c-accent);
+  color: #1b1408;
+  font-weight: 600;
+}
+
+.segment input:focus-visible + span {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* The world's HUD and screens sit in #app as before; the layer only groups them. */
+.play-layer {
+  display: contents;
+}
+
+/* « Saving unavailable »: always on top, never in the way of a click. */
+.banner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 30;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: #5c3a12;
+  color: #ffe3b3;
+  font-size: 0.82rem;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (max-width: 520px) {
+  .setting,
+  .setting-range {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .setting-value {
+    text-align: left;
+  }
+}

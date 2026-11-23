@@ -41,9 +41,11 @@ export class PlayView {
   readonly overlay: BlockOverlay;
   readonly hand: HandView;
   private readonly sim: SimView;
+  private readonly view: WorldView;
 
   constructor(view: WorldView, sim: SimView) {
     this.sim = sim;
+    this.view = view;
     const registry = sim.registry;
     const shared = view.materials.uniforms;
     const textures: DataArrayTexture = shared.uTextures.value;
@@ -93,7 +95,10 @@ export class PlayView {
     );
   }
 
+  /** Leaves the world view (which outlives a world) and frees the GPU objects. */
   dispose(): void {
+    this.view.scene.remove(this.batch.mesh, this.overlay.group);
+    this.view.attachHand(null);
     this.batch.dispose();
     this.overlay.dispose();
     this.hand.dispose();
