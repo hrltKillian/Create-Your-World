@@ -59,6 +59,10 @@ export class GameSession {
   private readonly registry: Registry;
   private readonly events: SimEvent[] = [];
   private acc = 0;
+  /** Column and radius of the last view sent to the host. */
+  private sentCx = Number.NaN;
+  private sentCz = Number.NaN;
+  private sentRadius = Number.NaN;
   /** No ticks while paused (Pointer Lock lost); the world still loads and renders. */
   paused = false;
 
@@ -135,9 +139,11 @@ export class GameSession {
     if (!this.loading && !this.freecam && !this.playerColumnLit()) this.loading = true;
     if (this.loading)
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
-    // Fixed-step sessions only tick on request; keep the world streaming meanwhile.
-    else if (this.fixedStep || this.paused)
+    // Fixed-step and paused sessions do not tick here; keep the world streaming meanwhile.
+    else if (this.fixedStep || this.paused) {
+      this.sendViewIfMoved();
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
+    }
     this.afterTicks(this.loading ? LOADING_BUDGETS : PLAY_BUDGETS, true);
     return this.render(dt);
   }
@@ -149,11 +155,13 @@ export class GameSession {
   }
 
   /**
-   * Steps the world without rendering (hidden pane, automation). Fixed-step sessions only stream:
-   * their ticks are advanced explicitly, so the tick count stays deterministic.
+   * Streams and meshes without rendering (automation while frames stall). With `tick` (pass it
+   * only for a hidden page, where frames no longer tick) it also advances one tick; fixed-step and
+   * paused sessions never tick here, so their tick count stays deterministic.
    */
-  pumpOnce(): void {
-    if (!this.fixedStep && !this.paused) this.tick();
+  pumpOnce(tick: boolean): void {
+    if (tick && !this.fixedStep && !this.paused) this.tick();
+    else this.sendViewIfMoved();
     this.host.pumpWorld({ columns: INTEGRATE_PER_TICK * LOADING_FACTOR }, this.events);
     this.afterTicks(LOADING_BUDGETS, true);
   }
@@ -222,8 +230,20 @@ export class GameSession {
     return pose;
   }
 
+  /** Sends the view only when the focus changed column or the radius changed (no queue growth). */
+  private sendViewIfMoved(): void {
+    const focus = this.focus();
+    const cx = blockToColumn(focus.x);
+    const cz = blockToColumn(focus.z);
+    if (cx !== this.sentCx || cz !== this.sentCz || this.renderDistance !== this.sentRadius)
+      this.sendView();
+  }
+
   private sendView(): void {
     const focus = this.focus();
+    this.sentCx = blockToColumn(focus.x);
+    this.sentCz = blockToColumn(focus.z);
+    this.sentRadius = this.renderDistance;
     this.host.send({
       type: 'client.view',
       x: focus.x,

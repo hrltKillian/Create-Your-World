@@ -1595,7 +1595,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - `connect(sink)` entre dans le port `ColumnSource` et est appelé par le constructeur de `Simulation` (plus de câblage manuel dans `GameSession`, `runBot` et les tests) ;
   - `generateResult()` dans `world/` est partagé par `InlineColumnSource` et `workers/worldJobs.ts` ;
   - `SerializingSimHost` reçoit un helper `relay()` ; `canPause`, jamais lu, est retiré ;
-  - `createLocalServer()` construit source + `Simulation` + joueur + hôte. Le client ne lit plus que `host.view` (avec `spawn`), jamais `sim` directement (préparation coop).
+  - `createLocalServer()` construit `Simulation` + joueur + hôte autour d'une source de colonnes injectée (la couche `sim` ne peut pas importer `platform`, où vit `WorkerColumnSource`). Le client ne lit plus que `host.view` (avec `spawn`), jamais `sim` directement (préparation coop).
 - **App** :
   - un seul `app/automation.ts` (`nextFrame`, `yieldTask`, `waitUntil(cond, {timeout, label})`, `waitForChunks`, `teleport`, `fill`) partagé par `debugHook.ts` et les autotests ;
   - une fabrique `noErrorsCase()` remplace les 4 cas copiés ;

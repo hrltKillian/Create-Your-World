@@ -164,7 +164,7 @@ export function installDebugHook(app: App): void {
         if (!session) return;
         const end = performance.now() + ms;
         while (performance.now() < end) {
-          session.pumpOnce();
+          session.pumpOnce(document.hidden);
           await yieldTask();
         }
       },

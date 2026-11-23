@@ -65,7 +65,8 @@ export async function waitForChunks(app: App, radius: number, timeoutMs: number)
         frames = app.frames.frameTotal();
         lastFrameAt = now;
       } else if (document.hidden || now - lastFrameAt > STALL_MS) {
-        session.pumpOnce();
+        // Tick only when the page is hidden; a slow visible page keeps its own 30 Hz clock.
+        session.pumpOnce(document.hidden);
       }
     },
   });
