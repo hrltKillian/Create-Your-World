@@ -6,6 +6,7 @@ import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
 import type { Entity, Simulation } from './Simulation.ts';
 import { stateHash } from './stateHash.ts';
+import type { TimeState } from './time.ts';
 
 /** Read-only view of the simulation for rendering, UI and audio. */
 export interface SimView {
@@ -19,6 +20,8 @@ export interface SimView {
   /** Every entity (players, item drops) by id, in a deterministic order. */
   readonly entities: ReadonlyMap<number, Readonly<Entity>>;
   tick(): number;
+  /** The world clock (time of day, day count, frozen). */
+  time(): Readonly<TimeState>;
   /** Canonical state hash (determinism checks and tests). */
   hash(): number;
   columnState(cx: number, cz: number): number;
@@ -45,6 +48,7 @@ function makeView(sim: Simulation, playerId: number): SimView {
     playerId,
     entities: sim.entities,
     tick: () => sim.tick,
+    time: () => sim.time,
     hash: () => stateHash(sim),
     columnState: (cx, cz) => sim.columnState(cx, cz),
     player: (id = playerId) => sim.players.get(id),

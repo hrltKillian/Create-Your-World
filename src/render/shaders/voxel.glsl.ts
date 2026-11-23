@@ -75,6 +75,7 @@ uniform sampler2DArray uTextures;
 uniform float uDaylight;
 uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
+uniform float uFlicker;
 uniform float uMinLight;
 uniform float uOpacity;
 uniform int uDebugView;
@@ -111,7 +112,11 @@ void main() {
   base *= mix(vec3(1.0), vTint, mask);
   #endif
 
-  vec3 light = max(lightCurve(vSky * uDaylight) * uSkyTint, lightCurve(vBlock) * uTorchTint);
+  // Effective light: max(sky × daylight, block), each through the curve with its tint.
+  vec3 light = max(
+    lightCurve(vSky * uDaylight) * uSkyTint,
+    lightCurve(vBlock) * uTorchTint * uFlicker
+  );
   light = max(light, vec3(uMinLight));
   vec3 color = base * light * vAo * FACE_SHADE[vFace];
   if ((vFlags & 2u) != 0u) color = mix(color, base, mask);

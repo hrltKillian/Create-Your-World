@@ -4,6 +4,7 @@ import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { serializeInventory } from '../sim/inventory.ts';
+import { daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
 import { Column } from '../world/Column.ts';
 import { columnHash, generateColumn, pointInfo } from '../world/gen/generateColumn.ts';
 import type { App } from './App.ts';
@@ -15,6 +16,7 @@ import {
   look,
   nextFrame,
   press,
+  sendNow,
   setBlock,
   teleport,
   waitForChunks,
@@ -87,6 +89,24 @@ export function installDebugHook(app: App): void {
       step: (n = 1) => app.session?.step(n),
       tick: () => app.session?.host.view.tick() ?? 0,
       hash: () => app.session?.host.view.hash() ?? null,
+      /** The world clock: ticks, hour (0–24), day number, phase, daylight and the freeze flag. */
+      time: () => {
+        const time = app.session?.host.view.time();
+        if (!time) return null;
+        const hour = hourOf(time.ticks);
+        return {
+          ticks: time.ticks,
+          hour,
+          day: dayOf(time.ticks),
+          phase: phaseOf(hour),
+          daylight: daylightAt(hour),
+          frozen: time.frozen,
+        };
+      },
+      /** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now (debug.setTime). */
+      setTime: (hours: number) => sendNow(app, { type: 'debug.setTime', hours }),
+      /** Stops (or restarts) the clock, now (debug.freezeTime). */
+      freezeTime: (frozen = true) => sendNow(app, { type: 'debug.freezeTime', frozen }),
     },
     input: {
       /** Sets the view angles (radians). */

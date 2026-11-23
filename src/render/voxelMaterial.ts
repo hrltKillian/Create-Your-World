@@ -21,6 +21,8 @@ export interface VoxelUniforms {
   readonly uDaylight: IUniform<number>;
   readonly uSkyTint: IUniform<Color>;
   readonly uTorchTint: IUniform<Color>;
+  /** Torch flicker factor on block light (`torchFlicker`). */
+  readonly uFlicker: IUniform<number>;
   readonly uMinLight: IUniform<number>;
   readonly uOpacity: IUniform<number>;
   readonly uDebugView: IUniform<number>;
@@ -33,6 +35,19 @@ export interface VoxelMaterials {
   readonly uniforms: VoxelUniforms;
   setDebugView(view: DebugView): void;
   dispose(): void;
+}
+
+/**
+ * Torch flicker at a time (s): block light × 0.93…1.07, three waves of unrelated periods, so it
+ * never looks like a regular pulse.
+ */
+export function torchFlicker(seconds: number): number {
+  return (
+    1 +
+    0.035 * Math.sin(seconds * 7.3) +
+    0.025 * Math.sin(seconds * 12.9 + 1.3) +
+    0.01 * Math.sin(seconds * 23.1 + 0.4)
+  );
 }
 
 /** `tintColors[i]` is the colour of tint index i (0 = no tint, white). sRGB hex strings. */
@@ -48,6 +63,7 @@ export function createVoxelMaterials(
     uDaylight: { value: 1 },
     uSkyTint: { value: new Color(1, 1, 1) },
     uTorchTint: { value: new Color(1, 0.78, 0.55) },
+    uFlicker: { value: 1 },
     uMinLight: { value: 0.025 },
     uOpacity: { value: 0.78 },
     uDebugView: { value: 0 },

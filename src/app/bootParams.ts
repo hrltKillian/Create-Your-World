@@ -25,6 +25,10 @@ export interface BootParams {
   readonly kb: 'qwerty' | 'azerty' | 'qwertz' | null;
   /** 'serialize' routes commands and events through JSON. */
   readonly host: string | null;
+  /** Hour of the day (0 ≤ hours < 24) the world clock is set to at boot. */
+  readonly time: number | null;
+  /** The world clock stands still. */
+  readonly freezeTime: boolean;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -46,11 +50,20 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   worldType: 'default',
   kb: null,
   host: null,
+  time: null,
+  freezeTime: false,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
   const value = params.get(name);
   return value === '1' || value === 'true' || value === '';
+}
+
+/** An hour of the day (0 ≤ h < 24), or null when absent or out of range. */
+function hours(value: string | null): number | null {
+  if (value === null || value.trim() === '') return null;
+  const h = Number(value);
+  return Number.isFinite(h) && h >= 0 && h < 24 ? h : null;
 }
 
 /** Parses `location.search`. When `allowDebug` is false (production), every parameter is ignored. */
@@ -77,5 +90,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     worldType: (['flat', 'arena'] as const).find((w) => w === params.get('worldType')) ?? 'default',
     kb: (['qwerty', 'azerty', 'qwertz'] as const).find((k) => k === params.get('kb')) ?? null,
     host: params.get('host'),
+    time: hours(params.get('time')),
+    freezeTime: flag(params, 'freezeTime'),
   };
 }

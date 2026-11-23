@@ -64,6 +64,7 @@ uniform sampler2DArray uTextures;
 uniform float uDaylight;
 uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
+uniform float uFlicker;
 uniform float uMinLight;
 in vec2 vUv;
 flat in float vLayer;
@@ -84,7 +85,10 @@ void main() {
   bool cutout = vCutout > 0.5;
   if (cutout && texel.a < ${CUTOUT_ALPHA}) discard;
   vec3 base = texel.rgb * mix(vec3(1.0), vTint, cutout ? 1.0 : texel.a);
-  vec3 light = max(lightCurve(vLight.x * uDaylight) * uSkyTint, lightCurve(vLight.y) * uTorchTint);
+  vec3 light = max(
+    lightCurve(vLight.x * uDaylight) * uSkyTint,
+    lightCurve(vLight.y) * uTorchTint * uFlicker
+  );
   light = max(light, vec3(uMinLight));
   // Simple directional shading so the boxes read as volumes.
   float shade = 0.72 + 0.28 * max(dot(vNormal, normalize(vec3(0.3, 1.0, 0.45))), 0.0);

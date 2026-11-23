@@ -17,6 +17,7 @@ export function sceneMaterials(root: Object3D): Set<Material> {
 /**
  * A WorldView on the base pack's textures over a stand-in renderer (no WebGL under Node), which
  * records each `compileAsync` call: its camera and the materials of its scene at that moment.
+ * `frame` runs (its `render` draws nothing).
  */
 export function createTestWorldView(renderDistance = 2) {
   const compiled: { camera: Camera; materials: Set<Material> }[] = [];
@@ -27,6 +28,8 @@ export function createTestWorldView(renderDistance = 2) {
         compiled.push({ camera, materials: sceneMaterials(scene) });
         return Promise.resolve(scene);
       },
+      info: { reset: () => {} },
+      render: () => {},
     },
   };
   const textures = createTextureArray(layers, TEXTURE_SIZE);

@@ -14,7 +14,12 @@ import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
 import type { Renderer } from './Renderer.ts';
 import { Sky } from './Sky.ts';
-import { createVoxelMaterials, type DebugView, type VoxelMaterials } from './voxelMaterial.ts';
+import {
+  createVoxelMaterials,
+  type DebugView,
+  torchFlicker,
+  type VoxelMaterials,
+} from './voxelMaterial.ts';
 
 export interface CameraPose {
   x: number;
@@ -33,8 +38,10 @@ export interface CaptureStats {
   readonly uniqueColors: number;
 }
 
-const HORIZON = '#a9c8e2';
-const ZENITH = '#4f86c6';
+/** Underwater fog (docs « Ciel et brouillard »): blue, from 1 to 20 blocks. */
+const WATER_FOG = new Color('#1f4f78');
+const WATER_FOG_NEAR = 1;
+const WATER_FOG_FAR = 20;
 
 /** Scene, camera and chunk meshes of the voxel world. */
 export class WorldView {
@@ -44,8 +51,16 @@ export class WorldView {
   readonly materials: VoxelMaterials;
   private readonly renderer: Renderer;
   private readonly chunkRoot = new Group();
-  private readonly sky = new Sky(ZENITH, HORIZON);
-  private readonly fog: Fog;
+  private readonly sky = new Sky();
+  /** Clear colour: the fog colour, so the far edge of the world melts into it. */
+  private readonly background = new Color();
+  private readonly fog = new Fog(0, 0, 1);
+  /** Fog range of the render distance (above water). */
+  private fogNear = 0;
+  private fogFar = 1;
+  /** Hour of the day shown: noon until a world clock sets it (`setTime`). */
+  private hour = 12;
+  private underwater = false;
   private hand: HandView | null = null;
   private elapsed = 0;
 
@@ -59,10 +74,10 @@ export class WorldView {
     this.materials = createVoxelMaterials(textures, tintColors);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
     this.scene.add(this.chunkRoot, this.sky.mesh);
-    this.scene.background = new Color(HORIZON);
-    this.fog = new Fog(HORIZON, 0, 1);
+    this.scene.background = this.background;
     this.scene.fog = this.fog;
     this.setRenderDistance(renderDistance);
+    this.updateSky();
     this.camera.rotation.order = 'YXZ';
     renderer.setResizeHandler((width, height) => {
       this.camera.aspect = width / height;
@@ -106,8 +121,8 @@ export class WorldView {
   /** Fog and far plane follow the render distance (in columns). */
   setRenderDistance(renderDistance: number): void {
     const reach = renderDistance * 32;
-    this.fog.near = reach * 0.55;
-    this.fog.far = reach - 8;
+    this.fogNear = reach * 0.55;
+    this.fogFar = reach - 8;
     this.camera.far = reach + 48;
     this.camera.updateProjectionMatrix();
   }
@@ -121,9 +136,26 @@ export class WorldView {
     this.materials.setDebugView(view);
   }
 
+  /**
+   * Time of day: the sky palette, sun, moon and stars follow `hour` (0 ≤ hour < 24), and sky light
+   * is scaled by `daylight` in the shaders (the world is never re-lit).
+   */
+  setTime(hour: number, daylight: number): void {
+    this.hour = hour;
+    this.materials.uniforms.uDaylight.value = daylight;
+  }
+
+  /** The camera is inside a liquid: short blue fog and no sky. */
+  setUnderwater(underwater: boolean): void {
+    this.underwater = underwater;
+  }
+
   frame(dt: number): void {
     this.elapsed += dt;
-    this.materials.uniforms.uTime.value = this.elapsed % 3600;
+    const uniforms = this.materials.uniforms;
+    uniforms.uTime.value = this.elapsed % 3600;
+    uniforms.uFlicker.value = torchFlicker(this.elapsed);
+    this.updateSky();
     this.sky.follow(this.camera.position.x, this.camera.position.y, this.camera.position.z);
     const webgl = this.renderer.webgl;
     webgl.info.reset();
@@ -135,6 +167,27 @@ export class WorldView {
       webgl.render(hand.scene, hand.camera);
       webgl.autoClear = true;
     }
+  }
+
+  /** Sky, sky light tint, fog and clear colour for the hour, or the underwater fog. */
+  private updateSky(): void {
+    const sky = this.sky;
+    const uniforms = this.materials.uniforms;
+    sky.update(this.hour);
+    uniforms.uSkyTint.value.copy(sky.colors.light);
+    const fog = this.fog;
+    if (this.underwater) {
+      // Darker water at night, never black.
+      fog.color.copy(WATER_FOG).multiplyScalar(0.2 + 0.8 * uniforms.uDaylight.value);
+      fog.near = WATER_FOG_NEAR;
+      fog.far = WATER_FOG_FAR;
+    } else {
+      fog.color.copy(sky.colors.horizon);
+      fog.near = this.fogNear;
+      fog.far = this.fogFar;
+    }
+    sky.mesh.visible = !this.underwater;
+    this.background.copy(fog.color);
   }
 
   /** Renders the current view into a small target and returns colour statistics. */

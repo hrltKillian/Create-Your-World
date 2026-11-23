@@ -19,6 +19,7 @@ import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
 import { SpatialHash } from './spatialHash.ts';
+import { createTime, stepTime, type TimeState } from './time.ts';
 
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
 export const INTEGRATE_PER_TICK = 2;
@@ -64,6 +65,8 @@ export class Simulation implements ColumnSink {
   /** Next entity id; ids are never reused. */
   nextEntityId = 1;
   tick = 0;
+  /** The world clock (time of day, day count). */
+  readonly time: TimeState = createTime();
   private readonly columns: ColumnPipeline;
   private readonly commands: StampedCommand[] = [];
 
@@ -144,6 +147,7 @@ export class Simulation implements ColumnSink {
   step(out: SimEvent[]): void {
     this.tick++;
     this.applyCommands(out);
+    stepTime(this.time);
     for (const player of this.players.values()) {
       const body = player.body;
       // Frozen while its column is not ready (no falling into the void).
@@ -234,6 +238,8 @@ export class Simulation implements ColumnSink {
       case 'debug.setStat':
       case 'debug.fill':
       case 'debug.give':
+      case 'debug.setTime':
+      case 'debug.freezeTime':
         if (this.allowDebug) applyDebugCommand(this, playerId, command, out);
         else reject(out, playerId, command.type, 'debug disabled');
         break;

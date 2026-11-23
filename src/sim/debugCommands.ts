@@ -9,6 +9,7 @@ import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { setHour } from './time.ts';
 
 /** Largest box a debug fill may touch. */
 const FILL_LIMIT = 65_536;
@@ -22,6 +23,15 @@ export function applyDebugCommand(
 ): void {
   if (command.type === 'debug.fill') {
     fill(sim, playerId, command, out);
+    return;
+  }
+  if (command.type === 'debug.setTime') {
+    if (!setHour(sim.time, command.hours)) reject(out, playerId, command.type, 'invalid');
+    return;
+  }
+  if (command.type === 'debug.freezeTime') {
+    if (typeof command.frozen === 'boolean') sim.time.frozen = command.frozen;
+    else reject(out, playerId, command.type, 'invalid');
     return;
   }
   const player = sim.players.get(playerId);

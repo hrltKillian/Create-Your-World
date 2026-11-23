@@ -77,6 +77,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
     `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
   - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
+  - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
+    sun and moon: `render/Sky.ts`;
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
@@ -93,13 +95,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
   dynamic import: it must never appear in `dist/**/*.js` of a production build.
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
   `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute` (sounds are
-  still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`
-  — more arrive with later milestones.
+  still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`,
+  `time` (hour 0–24 of the world clock), `freezeTime` — more arrive with later milestones.
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 - M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,
   `render.target()`/`crack()`/`hand()`/`sectionVersionLag()`, `perf.editToMeshMs()`, `audio.log()`,
   `ui.screen()`/`bag(open?)`/`hotbar()`.
+- M5 hook entries: `sim.time()` (ticks, hour, day, phase, daylight, frozen), `sim.setTime(hours)` and
+  `sim.freezeTime(frozen?)` (the `debug.setTime`/`debug.freezeTime` commands, applied without a tick).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`) and `press`, `look`, `blockKey`, `hotbarView`, shared by `debugHook.ts` and the

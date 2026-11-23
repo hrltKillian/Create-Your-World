@@ -10,12 +10,14 @@ import { type PlayFrame, PlayView } from '../render/PlayView.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import { TICK_SECONDS } from '../sim/clock.ts';
+import { isLiquid } from '../sim/collision.ts';
 import { NEUTRAL_INPUT } from '../sim/commands.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import { createLocalServer } from '../sim/localServer.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
+import { daylightAt, hourOf } from '../sim/time.ts';
 import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 import { ClientAim } from './ClientAim.ts';
@@ -188,7 +190,9 @@ export class GameSession {
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
     }
     this.afterTicks(this.loading ? LOADING_BUDGETS : PLAY_BUDGETS, true);
-    return this.render(dt);
+    const pose = this.render(dt);
+    this.updateEnvironment(pose);
+    return pose;
   }
 
   /** Advances `n` ticks right now (fixed-step automation). The loading flag is left to frames. */
@@ -275,6 +279,14 @@ export class GameSession {
     frame.avatarVisible = rig.mode === 'third' && rig.distance >= AVATAR_MIN_DISTANCE;
     this.play.draw(frame);
     return pose;
+  }
+
+  /** Time of day (sky, fog, daylight) and the medium around the camera (underwater fog). */
+  private updateEnvironment(pose: CameraPose): void {
+    const sim = this.host.view;
+    const hour = hourOf(sim.time().ticks);
+    this.view.setTime(hour, daylightAt(hour));
+    this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
   }
 
   /** The block under the crosshair from the interpolated eye, and the placement ghost. */

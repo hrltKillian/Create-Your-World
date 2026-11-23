@@ -1,5 +1,6 @@
 import { clampPitch } from '../core/angles.ts';
 import type { Action } from '../input/bindings.ts';
+import type { Command } from '../sim/commands.ts';
 import type { App } from './App.ts';
 
 /**
@@ -134,6 +135,14 @@ export function fill(
   if (!session) return;
   session.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
   if (app.params.fixedStep) session.step(1);
+}
+
+/** Sends a command and applies it now, without a tick (the clock commands). */
+export function sendNow(app: App, command: Command): void {
+  const session = app.session;
+  if (!session) return;
+  session.host.send(command);
+  session.pumpOnce(false);
 }
 
 /** Sets one block from a state key (a one-block `fill`). */

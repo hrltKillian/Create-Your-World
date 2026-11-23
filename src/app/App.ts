@@ -209,6 +209,10 @@ export class App {
     );
     this.session = session;
     this.world = session.host.view.world;
+    // `?time=` and `?freezeTime=1` set the clock through its debug commands (dev builds only).
+    if (this.params.time !== null)
+      session.host.send({ type: 'debug.setTime', hours: this.params.time });
+    if (this.params.freezeTime) session.host.send({ type: 'debug.freezeTime', frozen: true });
     // The session's play objects (overlays, hand view) are in place: compile while loading.
     view.precompile().catch((error: unknown) => this.recordError(`[render] ${String(error)}`));
     const audio = this.createAudio(pack);
