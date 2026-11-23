@@ -1,33 +1,14 @@
-import { i18nMissing } from '../../i18n/i18n.ts';
 import { blockToColumn } from '../../world/coords.ts';
-import type { App } from '../App.ts';
-import { fill, framesFor, nextFrame, teleport, waitForChunks, waitUntil } from '../automation.ts';
-
-export interface SelftestCase {
-  readonly name: string;
-  /** Only meaningful in these app states (others report the case as skipped). */
-  readonly scenes?: readonly App['state'][];
-  /** Overrides the runner's default per-case timeout (ms). */
-  readonly timeoutMs?: number;
-  /** Returns a reason to skip the case in this setup (for example "needs ?fixedStep=1"). */
-  skip?(app: App): string | null;
-  run(app: App): Promise<void> | void;
-}
-
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(message);
-}
-
-/** The closing case of every suite: no captured error and no missing UI string. */
-function noErrorsCase(name: string): SelftestCase {
-  return {
-    name,
-    run: (app) => {
-      assert(app.errors.length === 0, `errors: ${app.errors.join(' | ')}`);
-      assert(i18nMissing().length === 0, `missing strings: ${i18nMissing().join(', ')}`);
-    },
-  };
-}
+import { blockKey, fill, framesFor, nextFrame, press, teleport, waitUntil } from '../automation.ts';
+import { M4_SUITE } from './m4.ts';
+import {
+  assert,
+  chunksMeshed,
+  needsFlatPlayer,
+  noErrorsCase,
+  playerSession,
+  type SelftestCase,
+} from './support.ts';
 
 /** In-browser acceptance checks, one suite per milestone. Earlier suites must stay green. */
 export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
@@ -231,8 +212,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const b = session.player.body;
         const x0 = b.x;
         const z0 = b.z;
-        app.input!.force('forward', 60);
-        session.step(60);
+        press(app, 'forward', 60);
         const d = Math.hypot(b.x - x0, b.z - z0);
         assert(Math.abs(d - 8.6) <= 0.9, `walked ${d.toFixed(2)} m`);
       },
@@ -310,7 +290,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         const settle = () => framesFor(700);
         await settle();
         assert(session.rig.distance > 3, `open-field distance ${session.rig.distance.toFixed(2)}`);
-        const ground = registry.states[session.host.view.world.getBlock(0, 64, 0)]!.key;
+        const ground = blockKey(app, 0, 64, 0)!;
         const air = registry.states[registry.air]!.key;
         // A wall 2 m behind the player (the camera looks along −z, so behind is +z).
         fill(app, -2, 65, 2, 2, 68, 2, ground);
@@ -344,29 +324,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
     },
     noErrorsCase('no errors after the m3 checks'),
   ],
+  m4: M4_SUITE,
 };
-
-/**
- * The m3 movement checks need a player (no free camera), fixed steps (teleport and fill then apply
- * at once) and the flat world.
- */
-function needsFlatPlayer(app: App): string | null {
-  if (app.params.freecam) return 'needs a player (no ?freecam)';
-  if (!app.params.fixedStep) return 'needs ?fixedStep=1';
-  if (app.params.worldType !== 'flat') return 'needs ?worldType=flat';
-  return null;
-}
-
-async function playerSession(app: App) {
-  await app.ready();
-  const session = app.session;
-  assert(session && app.input, 'no player session');
-  await chunksMeshed(app, session.loadingRadius(), 25_000);
-  return session;
-}
-
-/** Waits until `radius` is meshed around the player, then for one more frame. */
-async function chunksMeshed(app: App, radius: number, timeoutMs: number): Promise<void> {
-  await waitForChunks(app, radius, timeoutMs);
-  await nextFrame();
-}

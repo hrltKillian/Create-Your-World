@@ -1,5 +1,6 @@
 import type { App } from '../App.ts';
-import { type SelftestCase, SUITES } from './suites.ts';
+import { SUITES } from './suites.ts';
+import type { SelftestCase } from './support.ts';
 
 export interface SelftestResult {
   readonly name: string;

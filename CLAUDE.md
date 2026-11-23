@@ -89,13 +89,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - `window.__game` exists only when `__DEBUG_HOOK__` is true (dev, bench, tests) and is loaded by a
   dynamic import: it must never appear in `dist/**/*.js` of a production build.
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
-  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute`, `skipMenu`,
-  `worldType=flat`, `rd`, `view`, `kb`, `host=serialize`, `bench` — more arrive with later milestones.
-- Player checks: `?worldType=flat&fixedStep=1&selftest=m3`; `__game.input.press(action, ticks)`
+  `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock`), `mute` (sounds are
+  still logged), `skipMenu`, `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`
+  — more arrive with later milestones.
+- Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
-- `src/app/automation.ts` holds the waits (`nextFrame`, `yieldTask`, `waitUntil`, `waitForChunks`,
-  `framesFor`) and the `teleport`/`fill` debug commands shared by `debugHook.ts` and the selftests;
-  selftest suites end with `noErrorsCase()`.
+- M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,
+  `render.target()`/`crack()`/`hand()`/`sectionVersionLag()`, `perf.editToMeshMs()`, `audio.log()`,
+  `ui.screen()`/`bag(open?)`/`hotbar()`.
+- `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
+  `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
+  `give`) and `press`, `look`, `blockKey`, `hotbarView`, shared by `debugHook.ts` and the
+  selftests; `selftest/support.ts` has the case type and `playerSession`/`needsFlatPlayer`, one
+  file per large suite (`selftest/m4.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 

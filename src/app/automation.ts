@@ -1,13 +1,43 @@
+import { clampPitch } from '../core/angles.ts';
+import type { Action } from '../input/bindings.ts';
 import type { App } from './App.ts';
 
 /**
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
- * frame and task waits, condition polling, chunk readiness, and the debug commands.
+ * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
+ * keys and what the hotbar shows.
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
 export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+/** Longest wait for one animation frame before a frame wait gives up. */
+const FRAME_TIMEOUT_MS = 3000;
+
+/** The next animation frame; rejects (instead of hanging) when frames stop, as in a hidden pane. */
+export function frameOrFail(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(new Error(`no animation frame for ${FRAME_TIMEOUT_MS} ms (is the page hidden?)`)),
+      FRAME_TIMEOUT_MS,
+    );
+    requestAnimationFrame(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+/** Renders up to `frames` frames until `done` holds; returns whether it held. */
+export async function withinFrames(frames: number, done: () => boolean): Promise<boolean> {
+  for (let i = 0; i < frames; i++) {
+    if (done()) return true;
+    await frameOrFail();
+  }
+  return done();
 }
 
 /** Yields to the event loop without timer throttling (works in hidden or background panes). */
@@ -72,12 +102,12 @@ export async function waitForChunks(app: App, radius: number, timeoutMs: number)
   });
 }
 
-/** Renders frames for `ms` of wall time, calling `eachFrame` before each one. */
+/** Renders frames for `ms` of wall time, calling `eachFrame` before each one; fails if frames stop. */
 export async function framesFor(ms: number, eachFrame?: () => void): Promise<void> {
   const t0 = performance.now();
   while (performance.now() - t0 < ms) {
     eachFrame?.();
-    await nextFrame();
+    await frameOrFail();
   }
 }
 
@@ -104,4 +134,48 @@ export function fill(
   if (!session) return;
   session.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
   if (app.params.fixedStep) session.step(1);
+}
+
+/** Sets one block from a state key (a one-block `fill`). */
+export function setBlock(app: App, x: number, y: number, z: number, state: string): void {
+  fill(app, x, y, z, x, y, z, state);
+}
+
+/** Text key of the block state at a position (null without a world). */
+export function blockKey(app: App, x: number, y: number, z: number): string | null {
+  if (!app.world || !app.registry) return null;
+  return app.registry.states[app.world.getBlock(x, y, z)]?.key ?? null;
+}
+
+/** Holds an action for `ticks` ticks; fixed-step sessions also advance those ticks now. */
+export function press(app: App, action: Action, ticks: number): void {
+  if (!app.input || !app.session) return;
+  app.input.force(action, ticks);
+  if (app.params.fixedStep) app.session.step(ticks);
+}
+
+/** Gives the player items (what does not fit drops at their feet); fixed-step sessions apply it now. */
+export function give(app: App, item: string, count: number): void {
+  const session = app.session;
+  if (!session) return;
+  session.host.send({ type: 'debug.give', item, count });
+  if (app.params.fixedStep) session.step(1);
+}
+
+/** Sets the view angles (radians; the pitch is clamped like the mouse look). */
+export function look(app: App, yaw: number, pitch: number): void {
+  const rig = app.session?.rig;
+  if (!rig) return;
+  rig.yaw = yaw;
+  rig.pitch = clampPitch(pitch);
+}
+
+/** What the hotbar shows: the selected slot and each slot's count text ('' when none). */
+export function hotbarView(app: App): { selected: number; counts: string[] } | null {
+  const hotbar = app.inventory?.hotbar;
+  if (!hotbar) return null;
+  const counts = [...hotbar.element.querySelectorAll('.slot-count')].map(
+    (e) => e.textContent ?? '',
+  );
+  return { selected: hotbar.selected, counts };
 }

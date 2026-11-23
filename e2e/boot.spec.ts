@@ -32,3 +32,11 @@ test('the player walks, animates and switches cameras on the flat world', async 
   const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&rd=3&selftest=m0,m3';
   expect(await selftest(page, query)).toMatch(/^SELFTEST PASS/);
 });
+
+test('the player digs, builds, strikes and hears it on the flat world', async ({ page }) => {
+  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&mute=1&selftest=m0,m4';
+  const text = await selftest(page, query);
+  expect(text).toMatch(/^SELFTEST PASS/);
+  // Every m4 case applies to this setup: none may be skipped.
+  expect(text).not.toContain('skipped');
+});
