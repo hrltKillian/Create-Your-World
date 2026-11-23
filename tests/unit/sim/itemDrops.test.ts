@@ -113,6 +113,23 @@ describe('item drops', () => {
     ]);
   });
 
+  it('merge unknown items only under the same saved key', () => {
+    const s = setup();
+    const unknown = (original: string) => ({
+      item: s.sim.registry.unknownItem,
+      count: 2,
+      original,
+    });
+    spawnDrop(s.sim, unknown('item:relic'), 10.5, 65, 10.5);
+    spawnDrop(s.sim, unknown('item:charm'), 10.6, 65, 10.5);
+    spawnDrop(s.sim, unknown('item:relic'), 10.7, 65, 10.5);
+    s.step(10);
+    expect(s.drops().map((d) => [d.original, d.count])).toEqual([
+      ['item:relic', 4],
+      ['item:charm', 2],
+    ]);
+  });
+
   it('despawn after 5 minutes and stay under the cap of 200', () => {
     const s = setup();
     const old = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 10.5, 65, 10.5);

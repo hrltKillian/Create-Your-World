@@ -123,6 +123,8 @@ export class Registry {
   readonly textureKeys: readonly TexKey[];
   readonly air: number;
   readonly unknownBlock: number;
+  /** Key of the item that stands for saved items the pack no longer has. */
+  readonly unknownItem: string;
   /** Items by numeric id: the implicit block items, then the pack's items. */
   readonly items: readonly ItemDef[];
   readonly itemTables: ItemTables;
@@ -150,6 +152,7 @@ export class Registry {
     this.defaults = defaults;
     this.air = this.defaultState(pack.manifest.bindings.air);
     this.unknownBlock = this.defaultState(pack.manifest.bindings.unknownBlock);
+    this.unknownItem = pack.manifest.bindings.unknownItem;
     this.items = packItems(pack);
     this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
     this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));

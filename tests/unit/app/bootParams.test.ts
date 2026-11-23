@@ -12,6 +12,13 @@ describe('boot params', () => {
     expect(p.skipMenu).toBe(false);
   });
 
+  it('boots into a world without the menus for selftests, or into a saved world', () => {
+    expect(parseBootParams('?skipMenu=1', true).skipMenu).toBe(true);
+    expect(parseBootParams('?selftest=m0', true)).toMatchObject({ skipMenu: true, noLock: true });
+    expect(parseBootParams('?world=abc', true)).toMatchObject({ world: 'abc', skipMenu: false });
+    expect(parseBootParams('', true).world).toBeNull();
+  });
+
   it('knows the test world types', () => {
     expect(parseBootParams('?worldType=arena', true).worldType).toBe('arena');
     expect(parseBootParams('?worldType=flat', true).worldType).toBe('flat');

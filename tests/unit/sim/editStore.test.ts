@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COLUMN_LIT } from '../../../src/sim/ColumnPipeline.ts';
-import { deserializeEditStore, EditStore, serializeEditStore } from '../../../src/sim/editStore.ts';
+import { EditStore } from '../../../src/sim/editStore.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 import { WorldJobs } from '../../../src/workers/worldJobs.ts';
 import { Column } from '../../../src/world/Column.ts';
@@ -34,43 +34,6 @@ describe('edit store', () => {
     expect(kept[0]!.blocks![5]).toBe(STONE);
     store.forget(columnKey(3, -2));
     expect(store.size).toBe(0);
-  });
-
-  it('round-trips through a structured clone and repairs malformed saves', () => {
-    const column = new Column(-7, 11, AIR);
-    column.sections[0]!.setBlock(100, STONE);
-    column.sections[7]!.fill(TORCH);
-    column.persisted = 1 | (1 << 7);
-    const store = new EditStore();
-    store.keep(columnKey(-7, 11), column);
-    const record = structuredClone(serializeEditStore(store));
-    expect(serializeEditStore(deserializeEditStore(record))).toEqual(record);
-    expect(deserializeEditStore(undefined).size).toBe(0);
-    expect(deserializeEditStore({ columns: 'none' }).size).toBe(0);
-    const repaired = deserializeEditStore({
-      columns: [
-        { cx: 1.5, cz: 0, sections: [{ sy: 1, uniformBlock: STONE, blocks: null }] },
-        { cx: 5e6, cz: 0, sections: [{ sy: 1, uniformBlock: STONE, blocks: null }] },
-        { cx: 0, cz: 0, sections: [{ sy: 1, uniformBlock: STONE, blocks: new Uint16Array(3) }] },
-        null,
-        {
-          cx: 2,
-          cz: 3,
-          sections: [
-            { sy: 4, uniformBlock: STONE, blocks: new Uint16Array(SECTION_VOLUME) },
-            { sy: 8, uniformBlock: STONE, blocks: null },
-            { sy: 1, uniformBlock: -1, blocks: null },
-            { sy: 1, uniformBlock: STONE, blocks: null },
-            { sy: 1, uniformBlock: AIR, blocks: null },
-          ],
-        },
-      ],
-    });
-    expect([...repaired.keys()]).toEqual([columnKey(2, 3)]);
-    expect(repaired.get(columnKey(2, 3))!.map((s) => [s.sy, s.uniformBlock])).toEqual([
-      [1, STONE],
-      [4, STONE],
-    ]);
   });
 
   it('is laid over the generated column before its light (worker job)', () => {

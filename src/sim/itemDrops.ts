@@ -4,7 +4,7 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { aabb, isLiquid, moveAxis, overlapsSolid } from './collision.ts';
 import type { SimEvent } from './events.ts';
-import { addItem, type ItemStack } from './inventory.ts';
+import { addItem, type ItemStack, sameStack } from './inventory.ts';
 import { bodyHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
@@ -51,6 +51,8 @@ export interface ItemDropState {
   item: string;
   count: number;
   durability?: number;
+  /** Saved key of an item the pack no longer has (`item` is then the pack's unknown item). */
+  original?: string;
   body: DropBody;
   /** Position at the previous tick (render interpolation). */
   prevX: number;
@@ -104,6 +106,7 @@ export function spawnDrop(
     thrower: -1,
   };
   if (stack.durability !== undefined) drop.durability = stack.durability;
+  if (stack.original !== undefined) drop.original = stack.original;
   sim.entities.set(drop.id, drop);
   sim.spatial.update(drop.id, x, z);
   return drop;
@@ -114,21 +117,22 @@ function removeDrop(sim: Simulation, id: number): void {
   sim.spatial.remove(id);
 }
 
+/** A drop whose column is not loaded waits, frozen, until it is (it is saved with that column). */
+function dormant(sim: Simulation, drop: ItemDropState): boolean {
+  return !sim.world.getColumn(blockToColumn(drop.body.x), blockToColumn(drop.body.z));
+}
+
 /**
  * Item drops for one tick: ageing and despawn, falling and sliding, pickups by nearby players, and
- * merging of close stacks every 10 ticks. Drops whose column is not loaded are removed (from M7 they
- * are saved with their column instead).
+ * merging of close stacks every 10 ticks. Drops of unloaded columns are left alone (dormant).
  */
 export function stepItemDrops(sim: Simulation, out: SimEvent[]): void {
   const tables = sim.registry.tables;
   for (const entity of sim.entities.values()) {
-    if (entity.kind !== 'itemDrop') continue;
+    if (entity.kind !== 'itemDrop' || dormant(sim, entity)) continue;
     const b = entity.body;
     entity.age++;
-    if (
-      entity.age >= DROPS.despawnTicks ||
-      !sim.world.getColumn(blockToColumn(b.x), blockToColumn(b.z))
-    ) {
+    if (entity.age >= DROPS.despawnTicks) {
       removeDrop(sim, entity.id);
       continue;
     }
@@ -217,8 +221,8 @@ function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   for (let i = 0; i < near.length; i++) {
     const drop = sim.entities.get(near[i]!);
     if (drop?.kind !== 'itemDrop' || drop.pickupDelay > 0 || drop.thrower === player.id) continue;
-    if (distanceToPlayer(drop.body, player) > DROPS.magnet) continue;
-    const left = addItem(player.inventory, sim.registry, drop.item, drop.count, drop.durability);
+    if (dormant(sim, drop) || distanceToPlayer(drop.body, player) > DROPS.magnet) continue;
+    const left = addItem(player.inventory, sim.registry, drop);
     const taken = drop.count - left;
     if (taken === 0) continue;
     changed = true;
@@ -238,19 +242,22 @@ function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 }
 
 /**
- * Older drops absorb newer ones of the same item close by (never tools, which carry wear, nor
- * drops held back for different throwers, so a throw cannot merge into what its thrower may take).
+ * Older drops absorb newer ones close by that would stack with them (`sameStack`: never tools,
+ * which carry wear), unless they are held back for different throwers, so a throw cannot merge
+ * into what its thrower may take.
  */
 function mergeDrops(sim: Simulation): void {
   const r2 = DROPS.mergeRadius * DROPS.mergeRadius;
   for (const a of sim.entities.values()) {
-    if (a.kind !== 'itemDrop' || a.durability !== undefined) continue;
+    // Only a drop with room left can absorb its neighbours (tools never stack).
+    if (a.kind !== 'itemDrop' || a.durability !== undefined || dormant(sim, a)) continue;
     const max = sim.registry.maxStack(a.item);
+    if (a.count >= max) continue;
     sim.spatial.query(a.body.x, a.body.z, DROPS.mergeRadius, near);
     for (let i = 0; i < near.length && a.count < max; i++) {
       const b = sim.entities.get(near[i]!);
-      if (b?.kind !== 'itemDrop' || b.id <= a.id || b.item !== a.item) continue;
-      if (b.durability !== undefined || b.thrower !== a.thrower) continue;
+      if (b?.kind !== 'itemDrop' || b.id <= a.id || !sameStack(a, b)) continue;
+      if (b.thrower !== a.thrower || dormant(sim, b)) continue;
       const dx = b.body.x - a.body.x;
       const dy = b.body.y - a.body.y;
       const dz = b.body.z - a.body.z;

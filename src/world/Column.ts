@@ -1,5 +1,5 @@
 import { localIndex, SECTION_BITS, SECTION_MASK, SECTIONS_PER_COLUMN } from './coords.ts';
-import type { GenResult, SectionPayload } from './protocol.ts';
+import type { GenResult, SavedSection, SectionPayload } from './protocol.ts';
 import { Section } from './Section.ts';
 
 /** A vertical stack of 8 sections plus per-column 2D data. */
@@ -44,6 +44,17 @@ export function sectionPayloads(column: Column): SectionPayload[] {
     uniformLight: s.uniformLight,
     light: s.light,
   }));
+}
+
+/** The persisted sections of a column, as saved sections (arrays are shared, not copied). */
+export function persistedSections(column: Column): SavedSection[] {
+  const out: SavedSection[] = [];
+  for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) {
+    if ((column.persisted & (1 << sy)) === 0) continue;
+    const section = column.sections[sy]!;
+    out.push({ sy, uniformBlock: section.uniformBlock, blocks: section.blocks });
+  }
+  return out;
 }
 
 /** Rebuilds a column from a generation result (takes ownership of its arrays). */

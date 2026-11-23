@@ -4,6 +4,8 @@ import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { LookTarget } from '../../../src/input/LookTarget.ts';
 import type { WorkerPool } from '../../../src/platform/WorkerPool.ts';
 import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
+import { createLocalServer } from '../../../src/sim/localServer.ts';
+import type { ColumnSource } from '../../../src/sim/ports.ts';
 import { registry } from '../../helpers/registry.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
 
@@ -25,21 +27,23 @@ const input = {
 };
 /** Columns never arrive: the session keeps loading, which is enough to apply commands. */
 const pool = { size: 1, run: () => new Promise(() => {}) };
+const source: ColumnSource = { connect: () => {}, request: () => {} };
 
-function createSession(): GameSession {
-  return new GameSession(
-    {
-      seed: 'pause',
-      worldType: 'flat',
-      renderDistance: 2,
-      freecam: null,
-      fixedStep: false,
-      serialize: false,
-      allowDebug: false,
-    },
+function createSession(view = createTestWorldView().view): GameSession {
+  const host = createLocalServer({
+    seed: 'pause',
+    worldType: 'flat',
     registry,
+    source,
+    maxInFlight: 2,
+    playerId: 1,
+    viewRadius: 2,
+  });
+  return new GameSession(
+    { renderDistance: 2, freecam: null, fixedStep: false },
+    host,
     pool as unknown as WorkerPool,
-    createTestWorldView().view,
+    view,
     input as unknown as InputManager,
   );
 }
@@ -58,5 +62,14 @@ describe('GameSession', () => {
     expect(held.primary).toBe(false);
     expect([held.yaw, held.pitch, held.slot]).toEqual([1.25, -0.4, 2]);
     expect(session.host.view.tick()).toBe(tick);
+  });
+
+  it('leaves the shared world view when the world closes', () => {
+    const { view } = createTestWorldView();
+    const before = view.scene.children.length;
+    const session = createSession(view);
+    expect(view.scene.children.length).toBeGreaterThan(before);
+    session.dispose();
+    expect(view.scene.children.length).toBe(before);
   });
 });

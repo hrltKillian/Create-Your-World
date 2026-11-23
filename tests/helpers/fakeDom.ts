@@ -1,7 +1,7 @@
 /**
  * Minimal DOM stand-in for UI tests under Node: what `h()` and the HUD and screen views touch
- * (elements, attributes, classes, text, `hidden`), with `.class` selectors for `querySelector`.
- * Listeners are accepted and never called.
+ * (elements, attributes, classes, text, `hidden`, `disabled`, `remove()`), with `.class`
+ * selectors for `querySelector`. Listeners are accepted and never called.
  */
 export class FakeNode {}
 
@@ -10,6 +10,8 @@ export class FakeElement extends FakeNode {
   className = '';
   id = '';
   hidden = false;
+  disabled = false;
+  parent: FakeElement | null = null;
   readonly style = { transform: '', setProperty: (_name: string, _value: string) => {} };
   readonly childNodes: (FakeElement | string)[] = [];
   private readonly attributes = new Map<string, string>();
@@ -49,7 +51,25 @@ export class FakeElement extends FakeNode {
   addEventListener(): void {}
 
   append(...nodes: (FakeElement | string)[]): void {
+    for (const node of nodes) if (typeof node !== 'string') node.parent = this;
     this.childNodes.push(...nodes);
+  }
+
+  remove(): void {
+    const siblings = this.parent?.childNodes;
+    if (siblings) siblings.splice(siblings.indexOf(this), 1);
+    this.parent = null;
+  }
+
+  /** The first descendant whose `data-action` is `action` (menu buttons). */
+  findAction(action: string): FakeElement | null {
+    for (const child of this.childNodes) {
+      if (typeof child === 'string') continue;
+      if (child.getAttribute('data-action') === action) return child;
+      const found = child.findAction(action);
+      if (found) return found;
+    }
+    return null;
   }
 
   /** The first descendant matching a `.class` selector. */
@@ -77,10 +97,15 @@ export class FakeElement extends FakeNode {
 
 const dom = globalThis as { document?: unknown; Node?: unknown };
 
-/** Installs the stand-ins as the global `document` and `Node`. */
+/** Installs the stand-ins as the global `document` (always visible) and `Node`. */
 export function installFakeDom(): void {
   dom.Node = FakeNode;
-  dom.document = { createElement: (tag: string) => new FakeElement(tag) };
+  dom.document = {
+    createElement: (tag: string) => new FakeElement(tag),
+    visibilityState: 'visible',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
 }
 
 export function removeFakeDom(): void {

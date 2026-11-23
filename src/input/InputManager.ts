@@ -10,6 +10,8 @@ import { KeyLabels } from './keyLabels.ts';
 import { clampPitch, type LookTarget } from './LookTarget.ts';
 import { PointerLock } from './pointerLock.ts';
 
+/** View turn (radians) per pixel of mouse movement at sensitivity 1 (Settings scale it). */
+export const BASE_SENSITIVITY = 0.0025;
 /** Wheel distance (pixels) that moves the hotbar by one slot, so trackpad inertia does not spin it. */
 const WHEEL_STEP = 60;
 const PREVENT_DEFAULT: ReadonlySet<string> = new Set([
@@ -34,7 +36,8 @@ export class InputManager {
   readonly labels: KeyLabels;
   readonly pointer: PointerLock | null;
   bindings: Readonly<Record<Action, readonly string[]>> = DEFAULT_BINDINGS;
-  sensitivity = 0.0025;
+  /** Radians per pixel. */
+  sensitivity = BASE_SENSITIVITY;
   invertY = false;
   /** False while a menu or screen owns the keyboard. */
   enabled = true;
@@ -175,7 +178,8 @@ export class InputManager {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     this.labels.learn(event.code, event.key);
-    if (PREVENT_DEFAULT.has(event.code)) event.preventDefault();
+    // Menus keep the browser's keys: Space and Tab type, press and move between their controls.
+    if (PREVENT_DEFAULT.has(event.code) && !isFormControl(event.target)) event.preventDefault();
     const slot = HOTBAR_CODES.indexOf(event.code);
     if (slot >= 0 && this.enabled) this.slot = slot;
     if (!event.repeat) this.press(event.code);
@@ -219,4 +223,13 @@ export class InputManager {
   private readonly onContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
   };
+}
+
+/** A menu control (field, button…) has the key: the browser's own handling must happen. */
+function isFormControl(target: EventTarget | null | undefined): boolean {
+  return (
+    typeof Element !== 'undefined' &&
+    target instanceof Element &&
+    target.closest('input, select, textarea, button') !== null
+  );
 }

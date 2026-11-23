@@ -1,5 +1,6 @@
 import { i18nMissing } from '../i18n/i18n.ts';
 import type { Action } from '../input/bindings.ts';
+import type { Settings } from '../platform/settings.ts';
 import { rigDegrees } from '../render/rigs.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import type { CameraPose } from '../render/WorldView.ts';
@@ -20,12 +21,15 @@ import {
   look,
   nextFrame,
   press,
+  reloadWorld,
+  saveNow,
   setBlock,
   setTime,
   teleport,
   waitForChunks,
   yieldTask,
 } from './automation.ts';
+import { byLastPlayed, deleteClosedWorld } from './worlds.ts';
 
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
@@ -37,8 +41,14 @@ export function installDebugHook(app: App): void {
     const pose = app.freecam?.pose ?? app.session?.player.body;
     return pose ? { x: Math.floor(pose.x), z: Math.floor(pose.z) } : null;
   };
+  /** The game's save storage (IndexedDB, or memory); throws in the developer scenes. */
+  const saves = () => {
+    const storage = app.game?.backend.storage;
+    if (!storage) throw new Error('No save storage (developer scene)');
+    return storage;
+  };
   const api = {
-    version: 6,
+    version: 7,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -312,10 +322,54 @@ export function installDebugHook(app: App): void {
         if (open === undefined || open !== inventory.bag.isOpen()) inventory.toggleBag();
         return inventory.bag.isOpen();
       },
-      /** The open screen ('bag'), null while playing. */
-      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : null),
+      /**
+       * The open screen: 'bag', a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null
+       * while playing.
+       */
+      screen: () => (app.inventory?.bag.isOpen() ? 'bag' : (app.game?.menus.screen() ?? null)),
       /** What the hotbar shows: the selected slot and each slot's count text. */
       hotbar: () => hotbarView(app),
+    },
+    settings: {
+      /** The settings in use (as stored under `cyw.settings.v1`); null in developer scenes. */
+      get: () => app.game?.settings ?? null,
+      /** Changes settings like the Settings screen does (applied at once and stored). */
+      set: (patch: Partial<Settings>) => {
+        const game = app.game;
+        if (!game) return null;
+        game.changeSettings({ ...game.settings, ...patch });
+        return game.settings;
+      },
+    },
+    save: {
+      /** Saves the open world now (deflated, one transaction); resolves with the save's success. */
+      now: () => saveNow(app),
+      /** Save & quit, then the same world opened again; resolves once its loading radius is meshed. */
+      reload: () => reloadWorld(app),
+      /** The stored worlds, most recently played first. */
+      worlds: async () =>
+        byLastPlayed(await saves().listWorlds()).map(({ id, name, seed, savedAt }) => ({
+          id,
+          name,
+          seed,
+          savedAt,
+        })),
+      /** Records of a world (default: the open one) in each store: { worlds, players, columns }. */
+      inspect: async (id = app.game?.open?.info.id) => {
+        if (!id) throw new Error('No open world: pass a world id');
+        return saves().inspect(id);
+      },
+      /** Deletes every stored world no tab has open (this tab's open world is kept). */
+      wipeAll: async () => {
+        const storage = saves();
+        let deleted = 0;
+        let kept = 0;
+        for (const { id } of await storage.listWorlds()) {
+          if (await deleteClosedWorld(storage, id)) deleted++;
+          else kept++;
+        }
+        return { deleted, kept };
+      },
     },
     audio: {
       /** Keys of the sounds played (oldest first), logged even when muted or not yet resumed. */

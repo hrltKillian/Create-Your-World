@@ -1,6 +1,5 @@
 import { generatePackTexture } from '../assets/procedural/patterns.ts';
 import { AudioEngine } from '../audio/AudioEngine.ts';
-import { AudioCues } from '../audio/cues.ts';
 import { basePack } from '../content/packs/base/index.ts';
 import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/registry.ts';
 import type { ContentPack } from '../content/schema.ts';
@@ -9,6 +8,8 @@ import { addStrings } from '../i18n/i18n.ts';
 import { DEFAULT_BINDINGS } from '../input/bindings.ts';
 import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
+import { openSaveBackend } from '../platform/IdbStorage.ts';
+import { DEFAULT_SETTINGS } from '../platform/settings.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
@@ -16,45 +17,37 @@ import { createTextureArray } from '../render/textureArray.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
-import { crosshair } from '../ui/hud/crosshair.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
 import { hintBar } from '../ui/screens/hint.ts';
-import { loadingScreen } from '../ui/screens/loading.ts';
 import { titleOverlay } from '../ui/screens/title.ts';
 import { unsupportedScreen } from '../ui/screens/unsupported.ts';
 import { buildTestScene, meshTestScene, TEST_SCENE_SURFACE } from '../world/gen/testScene.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
+import type { AppState } from './appState.ts';
 import { type BootParams, parseBootParams } from './bootParams.ts';
 import { debugLines } from './debugLines.ts';
 import { FreeCam } from './FreeCam.ts';
-import { GameSession } from './GameSession.ts';
-import { InventoryUi } from './inventoryUi.ts';
+import { Game } from './Game.ts';
+import type { GameSession } from './GameSession.ts';
+import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
-import { PlayGate } from './playGate.ts';
 
-export const MILESTONE = 6;
-
-export type AppState =
-  | 'boot'
-  | 'unsupported'
-  | 'fatal'
-  | 'title'
-  | 'testchunk'
-  | 'loading'
-  | 'world';
+export const MILESTONE = 7;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
 const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
 /** Seconds between two refreshes of the debug overlay. */
 const OVERLAY_REFRESH = 0.25;
-const RENDER_DISTANCE = 6;
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
 const BENCH_BUFFER = [2160, 1350] as const;
 
-/** Composition root: capability gate, content, renderer, workers, screens and the frame loop. */
+/**
+ * Composition root: capability gate, content, renderer, workers, the shared world view, input and
+ * audio, the debug overlay and the frame loop; then the Game (menus, saves, the open world), or a
+ * developer scene (`?scene=title`, `?scene=testchunk`).
+ */
 export class App {
-  state: AppState = 'boot';
   readonly params: BootParams;
   readonly frames = new FrameStats();
   readonly errors: string[] = [];
@@ -63,21 +56,24 @@ export class App {
   renderer: Renderer | null = null;
   workers: WorkerPool | null = null;
   registry: Registry | null = null;
-  world: VoxelWorld | null = null;
   view: WorldView | null = null;
-  freecam: FreeCam | null = null;
   overlay: DebugOverlay | null = null;
-  session: GameSession | null = null;
   input: InputManager | null = null;
   audio: AudioEngine | null = null;
-  /** Hotbar and bag of the play session (none with the free camera). */
-  inventory: InventoryUi | null = null;
+  /** Menus, saves and the world open in this tab (null in the developer scenes). */
+  game: Game | null = null;
   debugView: DebugView = 'none';
 
   private readonly root: HTMLElement;
   private readonly readyPromise: Promise<void>;
   private resolveReady: () => void = () => {};
   private rejectReady: (error: unknown) => void = () => {};
+  /** State of the boot and of the developer scenes (the Game has its own). */
+  private bootState: AppState = 'boot';
+  /** The developer test scene's world and camera (`?scene=testchunk`). */
+  private testScene: { readonly world: VoxelWorld; readonly freecam: FreeCam } | null = null;
+  /** Time of the last animation frame (−1: the next frame starts the clock again). */
+  private lastFrame = -1;
 
   constructor(root: HTMLElement, search: string) {
     this.root = root;
@@ -91,7 +87,31 @@ export class App {
     this.installErrorCapture();
   }
 
-  /** Resolves once the first frame has been rendered (or rejects on a boot failure). */
+  /** Where the app is (`appState.ts`): boot and scene states, then the Game's. */
+  get state(): AppState {
+    if (this.bootState === 'fatal') return 'fatal';
+    return this.game?.state ?? this.bootState;
+  }
+
+  /** The play session of the open world. */
+  get session(): GameSession | null {
+    return this.game?.open?.session ?? null;
+  }
+
+  /** Hotbar and bag of the open world (none with the free camera). */
+  get inventory(): InventoryUi | null {
+    return this.game?.open?.inventory ?? null;
+  }
+
+  get freecam(): FreeCam | null {
+    return this.game?.open?.freecam ?? this.testScene?.freecam ?? null;
+  }
+
+  get world(): VoxelWorld | null {
+    return this.session?.host.view.world ?? this.testScene?.world ?? null;
+  }
+
+  /** Resolves once the first frame is drawn or the menu shows (rejects on a boot failure). */
   ready(): Promise<void> {
     return this.readyPromise;
   }
@@ -101,7 +121,7 @@ export class App {
       const report = detectCapabilities({ forceNoWebGL: this.params.forceNoWebGL });
       this.capabilities = report;
       if (!report.ok) {
-        this.state = 'unsupported';
+        this.bootState = 'unsupported';
         this.root.replaceChildren(unsupportedScreen(report.missing));
         this.resolveReady();
         return;
@@ -115,20 +135,24 @@ export class App {
         // The bench build always renders at a fixed size so fill cost does not depend on the pane.
         fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
       });
+      document.addEventListener('visibilitychange', () => {
+        this.lastFrame = -1;
+        this.frames.resetClock();
+      });
       if (this.params.scene === 'title') this.startTitle(report);
       else if (this.params.scene === 'testchunk') this.startTestScene(this.registry);
-      else this.startWorld(this.registry);
+      else await this.startGame(this.registry, report);
     } catch (error) {
       this.fail(error);
     }
   }
 
   fail(error: unknown): void {
-    if (this.state === 'fatal') return;
+    if (this.bootState === 'fatal') return;
     const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
     this.recordError(detail);
-    this.state = 'fatal';
-    this.renderer?.webgl.setAnimationLoop(null);
+    this.bootState = 'fatal';
+    this.stopLoop();
     this.root.replaceChildren(fatalScreen(detail));
     this.rejectReady(error);
   }
@@ -148,8 +172,47 @@ export class App {
     const renderer = this.renderer!;
     const title = new TitleScene(renderer);
     this.root.append(titleOverlay(MILESTONE, report.touchOnly));
-    this.state = 'title';
+    this.bootState = 'title';
     this.runLoop((dt) => title.frame(dt));
+  }
+
+  /** The shared world view, input, audio and debug overlay, the save backend, then the Game. */
+  private async startGame(registry: Registry, report: CapabilityReport): Promise<void> {
+    const pack = registry.pack;
+    const layers = packLayers(pack);
+    const view = this.createWorldView(pack, layers, biomeTints(pack));
+    this.view = view;
+    const input = this.createInput();
+    input.enabled = false;
+    const layoutLoaded = input.labels.loadLayoutMap(
+      (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard,
+    );
+    const audio = this.createAudio(pack);
+    this.root.append(this.mountDebug().element);
+    const backend = await openSaveBackend(this.params);
+    this.game = new Game(
+      {
+        root: this.root,
+        params: this.params,
+        registry,
+        workers: this.workers!,
+        view,
+        input,
+        audio,
+        layers,
+        layoutLoaded,
+        frames: this.frames,
+        touchOnly: report.touchOnly,
+        xray: () => this.debugView === 'xray',
+        runLoop: (frame) => this.runSceneLoop(frame),
+        stopLoop: () => this.stopLoop(),
+        shown: () => this.resolveReady(),
+        fail: (error) => this.fail(error),
+        recordError: (message) => this.recordError(message),
+      },
+      backend,
+    );
+    await this.game.start();
   }
 
   /** `layers`: the pack's textures (RGBA bytes, see `packLayers`). */
@@ -157,10 +220,9 @@ export class App {
     pack: ContentPack,
     layers: readonly Uint8Array[],
     tints: readonly string[],
-    renderDistance: number,
   ): WorldView {
     const textures = createTextureArray(layers, pack.manifest.textureSize);
-    return new WorldView(this.renderer!, textures, tints, renderDistance);
+    return new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
   }
 
   /** The sound engine: recipes pre-rendered now, the AudioContext made or resumed on a click. */
@@ -177,89 +239,12 @@ export class App {
     return audio;
   }
 
-  /** Default mode: an endless generated world, explored on foot (or with ?freecam=1). */
-  private startWorld(registry: Registry): void {
-    const pack = registry.pack;
-    const renderDistance = this.params.rd ?? RENDER_DISTANCE;
-    const layers = packLayers(pack);
-    const view = this.createWorldView(pack, layers, biomeTints(pack), renderDistance);
-    this.view = view;
-    const input = this.createInput();
-    const layoutLoaded = input.labels.loadLayoutMap(
-      (navigator as Navigator & { keyboard?: KeyboardLayoutSource }).keyboard,
-    );
-    const freecam = this.params.freecam
-      ? new FreeCam(input, { x: 0, y: 100, z: 0, yaw: 0, pitch: 0 })
-      : null;
-    this.freecam = freecam;
-    const seed = this.params.seed ?? Math.floor(Math.random() * 1e9).toString(36);
-    const session = new GameSession(
-      {
-        seed,
-        worldType: this.params.worldType,
-        renderDistance,
-        freecam,
-        fixedStep: this.params.fixedStep,
-        serialize: this.params.host === 'serialize',
-        allowDebug: __DEBUG_HOOK__,
-      },
-      registry,
-      this.workers!,
-      view,
-      input,
-    );
-    this.session = session;
-    this.world = session.host.view.world;
-    // `?time=` and `?freezeTime=1` set the clock through its debug commands (dev builds only).
-    if (this.params.time !== null)
-      session.host.send({ type: 'debug.setTime', hours: this.params.time });
-    if (this.params.freezeTime) session.host.send({ type: 'debug.freezeTime', frozen: true });
-    // The session's play objects (overlays, hand view) are in place: compile while loading.
-    view.precompile().catch((error: unknown) => this.recordError(`[render] ${String(error)}`));
-    const audio = this.createAudio(pack);
-    // The ear starts at the spawn eye (then follows the camera every frame).
-    const eye = session.rig.pose;
-    audio.setListener(eye.x, eye.y, eye.z, eye.yaw, eye.pitch);
-    const cues = new AudioCues(audio, pack.sounds?.pickup);
-    session.listeners.push((event) => cues.onEvent(event));
-    const overlay = this.mountDebug();
-    const loading = loadingScreen();
-    const cross = crosshair();
-    this.root.append(cross, overlay.element, loading);
-    if (freecam) this.root.append(hintBar('hint.freecam'));
-    else {
-      // The free camera flies without the click-to-play pause, the hotbar or the bag.
-      const gate = new PlayGate(this.root, input, session, layoutLoaded);
-      this.inventory = new InventoryUi(this.root, registry, layers, session, input, gate, audio);
-    }
-    const inventory = this.inventory;
-    this.state = 'loading';
-
-    this.runSceneLoop((dt) => {
-      const t0 = performance.now();
-      const pose = session.frame(dt);
-      const t1 = performance.now();
-      view.setPose(pose);
-      view.frame(dt);
-      inventory?.bridge.frame(dt);
-      audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
-      cross.classList.toggle('hidden', session.rig.mode === 'third' || freecam !== null);
-      this.frames.span('world', t1 - t0);
-      this.frames.span('render', performance.now() - t1);
-      if (session.loading !== (this.state === 'loading')) {
-        this.state = session.loading ? 'loading' : 'world';
-        loading.hidden = !session.loading;
-      }
-    });
-  }
-
   /** Developer test scene (M1): a fixed hand-built area, meshed once, seen from a free camera. */
   private startTestScene(registry: Registry): void {
     const pack = registry.pack;
-    const view = this.createWorldView(pack, packLayers(pack), packTints(pack), RENDER_DISTANCE);
+    const view = this.createWorldView(pack, packLayers(pack), packTints(pack));
     this.view = view;
     const world = new VoxelWorld(registry.air, registry.unknownBlock);
-    this.world = world;
     buildTestScene(world, registry);
     meshTestScene(world, registry, view.chunks);
     const freecam = new FreeCam(this.createInput(), {
@@ -269,10 +254,10 @@ export class App {
       yaw: 0,
       pitch: -0.42,
     });
-    this.freecam = freecam;
+    this.testScene = { world, freecam };
     const overlay = this.mountDebug();
     this.root.append(overlay.element, hintBar('hint.freecam'));
-    this.state = 'testchunk';
+    this.bootState = 'testchunk';
 
     this.runSceneLoop((dt) => {
       freecam.update(dt);
@@ -281,7 +266,7 @@ export class App {
     });
   }
 
-  /** The one InputManager of a scene, on the canvas (Pointer Lock unless `?noLock=1`). */
+  /** The one InputManager of the app, on the canvas (Pointer Lock unless `?noLock=1`). */
   private createInput(): InputManager {
     const input = new InputManager(this.renderer!.webgl.domElement, {
       pointerLock: !this.params.noLock,
@@ -293,14 +278,14 @@ export class App {
   }
 
   /**
-   * The debug overlay of a scene (the caller places its element), toggled with the debug keys,
-   * and the `?view=` debug render view.
+   * The debug overlay (the caller places its element), toggled with the debug keys (not while
+   * typing in a menu field: IntlBackslash is @ on a Mac AZERTY), and the `?view=` debug view.
    */
   private mountDebug(): DebugOverlay {
     const overlay = new DebugOverlay(this.params.debug);
     this.overlay = overlay;
     window.addEventListener('keydown', (event) => {
-      if (DEBUG_KEYS.has(event.code)) {
+      if (DEBUG_KEYS.has(event.code) && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         overlay.toggle();
       }
@@ -329,30 +314,26 @@ export class App {
     if (lines) this.overlay.setLines(lines);
   }
 
+  /** Runs `frame` on every animation frame, instead of the previous loop. */
   private runLoop(frame: (dt: number) => void): void {
-    const renderer = this.renderer!;
-    let firstFrame = true;
-    let last = -1;
-    renderer.webgl.setAnimationLoop((now: number) => {
+    this.lastFrame = -1;
+    this.renderer!.webgl.setAnimationLoop((now: number) => {
       try {
         this.frames.frameStart(now);
-        const dt = last < 0 ? 0 : Math.min(now - last, 250) / 1000;
-        last = now;
+        const dt = this.lastFrame < 0 ? 0 : Math.min(now - this.lastFrame, 250) / 1000;
+        this.lastFrame = now;
         frame(dt);
         this.frames.frameEnd();
-        if (firstFrame) {
-          firstFrame = false;
-          this.resolveReady();
-        }
+        this.resolveReady();
       } catch (error) {
         // three schedules the next frame before calling us: stop the loop and show the error once.
         this.fail(error);
       }
     });
-    document.addEventListener('visibilitychange', () => {
-      last = -1;
-      this.frames.resetClock();
-    });
+  }
+
+  private stopLoop(): void {
+    this.renderer?.webgl.setAnimationLoop(null);
   }
 
   private installErrorCapture(): void {

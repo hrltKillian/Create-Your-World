@@ -1,6 +1,7 @@
 import { renderSfx } from '../assets/procedural/sfxSynth.ts';
 import type { SfxDef } from '../content/schema.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
+import { DEFAULT_SETTINGS, type Volumes } from '../platform/settings.ts';
 
 /** Playback rules (docs/conception.md « Audio »). */
 export const AUDIO = {
@@ -53,7 +54,10 @@ interface Voice extends VoiceSlot {
 
 interface Graph {
   readonly ctx: AudioContext;
+  readonly master: GainNode;
   readonly sfx: GainNode;
+  /** Ambient loops (none play yet: the bus and its volume are ready for them). */
+  readonly ambience: GainNode;
   readonly ui: GainNode;
   readonly voices: Voice[];
 }
@@ -68,8 +72,8 @@ export interface AudioOptions {
 /**
  * The game's sound player: one AudioContext (created on the first user gesture), recipes
  * pre-rendered once, 24 voices with stealing, a linear equal-power panner per voice and the
- * sfx / ui buses into a master gain and a compressor. Every accepted play is logged for tests,
- * even before the context runs or when muted.
+ * sfx / ambience / ui buses into a master gain and a compressor (their volumes from Settings).
+ * Every accepted play is logged for tests, even before the context runs or when muted.
  */
 export class AudioEngine {
   private readonly recipes: readonly SfxDef[];
@@ -79,6 +83,7 @@ export class AudioEngine {
   private readonly lastStart = new Map<string, number>();
   private readonly played: string[] = [];
   private graph: Graph | null = null;
+  private volumes: Volumes = DEFAULT_SETTINGS.volumes;
   private readonly ear: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly forward: Vec3 = { x: 0, y: 0, z: -1 };
 
@@ -102,8 +107,22 @@ export class AudioEngine {
    */
   resume(): void {
     if (this.muted) return;
-    this.graph ??= createGraph();
+    if (!this.graph) {
+      this.graph = createGraph();
+      this.setVolumes(this.volumes);
+    }
     void this.graph.ctx.resume();
+  }
+
+  /** Bus volumes (Settings), applied now or when the context is made. */
+  setVolumes(volumes: Volumes): void {
+    this.volumes = volumes;
+    const graph = this.graph;
+    if (!graph) return;
+    graph.master.gain.value = volumes.master;
+    graph.sfx.gain.value = volumes.effects;
+    graph.ambience.gain.value = volumes.ambience;
+    graph.ui.gain.value = volumes.ui;
   }
 
   /** Hidden tab: suspends the context (if any) until `resume()`. Plays are still logged meanwhile. */
@@ -206,7 +225,7 @@ export class AudioEngine {
   }
 }
 
-/** The context, its buses (sfx and ui → master → compressor) and the voices' nodes. */
+/** The context, its buses (sfx, ambience and ui → master → compressor) and the voices' nodes. */
 function createGraph(): Graph {
   const ctx = new AudioContext();
   const compressor = ctx.createDynamicsCompressor();
@@ -214,8 +233,10 @@ function createGraph(): Graph {
   const master = ctx.createGain();
   master.connect(compressor);
   const sfx = ctx.createGain();
+  const ambience = ctx.createGain();
   const ui = ctx.createGain();
   sfx.connect(master);
+  ambience.connect(master);
   ui.connect(master);
   const voices: Voice[] = [];
   for (let i = 0; i < AUDIO.voices; i++) {
@@ -235,5 +256,5 @@ function createGraph(): Graph {
       audibility: 0,
     });
   }
-  return { ctx, sfx, ui, voices };
+  return { ctx, master, sfx, ambience, ui, voices };
 }

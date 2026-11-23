@@ -47,6 +47,7 @@ export const strings = {
   'item.flint_hatchet': 'Flint Hatchet',
   'item.flint_pickaxe': 'Flint Pickaxe',
   'item.flint_spear': 'Flint Spear',
+  'item.unknown': 'Unknown Item',
   'tier.hand': 'Hand',
   'tier.flint': 'Flint',
   'tier.copper': 'Copper',

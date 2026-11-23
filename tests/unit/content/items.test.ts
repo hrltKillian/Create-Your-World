@@ -25,7 +25,8 @@ describe('items', () => {
         block.shape === 'liquid' ||
         block.hardness < 0;
       if (unplaceable) {
-        expect(item, block.key).toBe(-1);
+        // No item places it (`item:unknown` is the pack's unknown item, not the unknown block's).
+        expect(item < 0 ? -1 : items.places[item], block.key).toBe(-1);
         continue;
       }
       expect(registry.items[item]!.icon).toEqual({ block: block.key });
@@ -37,8 +38,10 @@ describe('items', () => {
     // Glass drops nothing and grass drops dirt (loot), yet both can be placed from their item.
     expect(items.places[id('item:glass')]).toBe(registry.defaultState('block:glass'));
     expect(items.places[id('item:grass')]).toBe(registry.defaultState('block:grass'));
-    for (const key of ['item:air', 'item:unknown', 'item:worldrock', 'item:fresh_water'])
+    for (const key of ['item:air', 'item:worldrock', 'item:fresh_water'])
       expect(id(key), key).toBe(-1);
+    expect(id(registry.unknownItem)).toBeGreaterThanOrEqual(0);
+    expect(items.maxStack[id(registry.unknownItem)]).toBe(BLOCK_STACK);
     // Self-dropping blocks keep their item.
     for (const key of ['item:dirt', 'item:stone', 'item:torch', 'item:gate'])
       expect(id(key), key).toBeGreaterThanOrEqual(0);
@@ -101,6 +104,14 @@ describe('item validation', () => {
     expect(paths).toContain('toolNames.pick');
     expect(paths).toContain(`textures[${spear}].mask[0]`);
     expect(paths).toContain(`textures[${spear}].mask[1]`);
+  });
+
+  it('checks the unknown item binding', () => {
+    const pack = broken((p) => {
+      (p.manifest as unknown as { bindings: { unknownItem: string } }).bindings.unknownItem =
+        'item:nope';
+    });
+    expect(validatePack(pack).map((i) => i.path)).toEqual(['manifest.bindings.unknownItem']);
   });
 
   it('checks the arena blocks', () => {

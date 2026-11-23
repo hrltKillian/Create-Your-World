@@ -3,7 +3,10 @@ import type { WorldType } from '../world/gen/generateColumn.ts';
 /** URL parameters that drive deterministic boots for tests and debugging (dev and bench only). */
 export interface BootParams {
   readonly seed: string | null;
+  /** Boot straight into a new world (implied by `selftest`). */
   readonly skipMenu: boolean;
+  /** Id of a saved world to open at boot. */
+  readonly world: string | null;
   readonly noLock: boolean;
   readonly debug: boolean;
   readonly storage: 'memory' | 'idb';
@@ -36,6 +39,7 @@ export interface BootParams {
 export const DEFAULT_BOOT_PARAMS: BootParams = {
   seed: null,
   skipMenu: false,
+  world: null,
   noLock: false,
   debug: false,
   storage: 'idb',
@@ -75,7 +79,9 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
   const params = new URLSearchParams(search);
   return {
     seed: params.get('seed'),
-    skipMenu: flag(params, 'skipMenu'),
+    // Selftests run in a world: they cannot click through the menus either.
+    skipMenu: flag(params, 'skipMenu') || params.has('selftest'),
+    world: params.get('world'),
     // Automated selftests cannot click to capture the mouse.
     noLock: flag(params, 'noLock') || params.has('selftest'),
     debug: flag(params, 'debug'),

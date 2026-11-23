@@ -122,4 +122,12 @@ export const items = [
     icon: 'tex:icon_flint_spear',
     maxStack: 1,
   },
+  // A saved item whose key the pack no longer has: it keeps that key, and stacks only with the
+  // unknown items of the same key (`sameStack`).
+  {
+    key: 'item:unknown',
+    nameKey: 'item.unknown',
+    icon: 'tex:unknown',
+    maxStack: 50,
+  },
 ] as const satisfies readonly PackItem[];

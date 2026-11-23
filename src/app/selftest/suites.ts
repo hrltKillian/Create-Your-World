@@ -3,6 +3,7 @@ import { blockKey, fill, framesFor, nextFrame, press, teleport, waitUntil } from
 import { M4_SUITE } from './m4.ts';
 import { M5_SUITE } from './m5.ts';
 import { M6_SUITE } from './m6.ts';
+import { M7_SUITE } from './m7.ts';
 import {
   assert,
   assertTiming,
@@ -337,4 +338,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m4: M4_SUITE,
   m5: M5_SUITE,
   m6: M6_SUITE,
+  m7: M7_SUITE,
 };

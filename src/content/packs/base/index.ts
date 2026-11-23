@@ -23,6 +23,7 @@ export const basePack: ContentPack = {
     bindings: {
       air: 'block:air',
       unknownBlock: 'block:unknown',
+      unknownItem: 'item:unknown',
       spawnBiomes: ['biome:meadow', 'biome:forest'],
       avatarModel: 'model:explorer',
     },
