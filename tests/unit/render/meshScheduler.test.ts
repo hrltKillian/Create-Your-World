@@ -136,4 +136,26 @@ describe('mesh scheduler', () => {
     expect(s.shown).toEqual([sectionKey(0, 1, 0)]);
     expect(s.scheduler.idle()).toBe(true);
   });
+
+  it('meshes every shown section again for the xray view, dropping the other mode', async () => {
+    const s = setup();
+    s.frame();
+    s.scheduler.setXray(true);
+    await s.answer();
+    s.frame();
+    // The meshes in flight were built without xray: none is shown.
+    expect(s.shown).toEqual([]);
+    const sections = [sectionKey(0, 1, 0), sectionKey(1, 1, 0)].sort();
+    const xray = s.jobs.flatMap((j, i) => (j.job.xray ? [i] : []));
+    expect(xray.map((i) => s.jobs[i]!.job.key).sort()).toEqual(sections);
+    await s.answer(xray);
+    s.frame();
+    expect(s.shown.sort()).toEqual(sections);
+    expect(s.scheduler.idle()).toBe(true);
+    // Asking again for the same view meshes nothing.
+    const jobs = s.jobs.length;
+    s.scheduler.setXray(true);
+    s.frame();
+    expect(s.jobs).toHaveLength(jobs);
+  });
 });

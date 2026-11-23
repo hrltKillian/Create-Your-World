@@ -129,10 +129,13 @@ void main() {
     color = vec3(vAo);
   } else if (uDebugView == 3) {
     color = vec3(max(vSky * uDaylight, vBlock));
+  } else if (uDebugView == 4) {
+    // X-ray: unlit (ores deep in the ground have no light), terrain ghosts nearly transparent.
+    color = base * FACE_SHADE[vFace];
   }
 
   #ifdef TRANSLUCENT
-  gl_FragColor = vec4(color, uOpacity);
+  gl_FragColor = vec4(color, uDebugView == 4 ? 0.12 : uOpacity);
   #else
   gl_FragColor = vec4(color, 1.0);
   #endif

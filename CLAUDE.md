@@ -81,8 +81,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     sun and moon: `render/Sky.ts`;
   - world generation queries without generating (always the same arithmetic as the bulk pass):
     `world/gen/sample.ts` (`LatticeCache`, `heightAt`, `biomeOf`, `pointInfo`), `caveAt`
-    (`world/gen/caves.ts`), `bankAt` (`world/gen/banks.ts`); a generation step reads the padded
-    `heights` (`PADDED` rows) and writes only its own column (decoration: `world/gen/decor.ts`);
+    (`world/gen/caves.ts`), `bankAt`/`topBlockAt` (`world/gen/banks.ts`), structure sites
+    (`world/gen/structures.ts`: `siteIn`, `regionOf`, `nearSite`); searches `world/gen/find.ts`
+    (`spiral`, `findBiome`, `findStructure`, `biomesWithin`) and the spawn `world/gen/spawn.ts`; a
+    generation step reads the padded `heights` (`PADDED` rows) and writes only its own column
+    (decoration: `world/gen/decor.ts`);
   - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
     `HOTBAR_SLOTS`): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
@@ -111,6 +114,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `time.set(hours)` and `time.freeze(frozen?)` (`debug.setTime`/`debug.freezeTime`, applied without
   a tick; both return the clock), `world.light(x, y, z)` (`{ sky, block }`, 0–15).
   `render.capture()` gives `avgLuma` and `uniqueColors`.
+- M6 hook entries (version 6): `world.findBiome(key, maxRadius?, from?)` (`{ x, z, distance }`,
+  sampled every 16 blocks) and `world.findStructure(key, maxRadius?, from?)` (`{ x, y, z,
+  distance }`), both from the player by default; `render.debugView('xray')` (or `?view=xray`)
+  meshes terrain blocks as faint ghosts so ores and caves show (`MeshScheduler.setXray`).
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
   `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`) and `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,

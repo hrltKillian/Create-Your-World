@@ -1,8 +1,9 @@
 import { basePack } from '../content/packs/base/index.ts';
-import { buildRegistry, type Registry } from '../content/registry.ts';
+import { buildRegistry, type RawTables, type Registry } from '../content/registry.ts';
 import { createGenContext, type GenContext, type WorldType } from '../world/gen/generateColumn.ts';
 import { generateResult } from '../world/gen/generateResult.ts';
 import { meshSection } from '../world/mesh/greedyMesher.ts';
+import { xrayTables } from '../world/mesh/xray.ts';
 import type { GenJob, GenResult, Job, JobResult, MeshJob, MeshResult } from '../world/protocol.ts';
 
 /**
@@ -13,6 +14,8 @@ export class WorldJobs {
   readonly registry: Registry;
   private readonly contexts = new Map<string, GenContext>();
   private readonly now: () => number;
+  /** Tables of the xray debug view, built on its first mesh job. */
+  private xray: RawTables | null = null;
 
   constructor(registry: Registry = buildRegistry(basePack), now: () => number = () => 0) {
     this.registry = registry;
@@ -49,10 +52,12 @@ export class WorldJobs {
 
   mesh(job: MeshJob): MeshResult {
     const start = this.now();
-    const mesh = meshSection(
-      { ids: job.ids, light: job.light, biomes: job.biomes },
-      this.registry.tables,
-    );
+    let tables = this.registry.tables;
+    if (job.xray) {
+      this.xray ??= xrayTables(this.registry);
+      tables = this.xray;
+    }
+    const mesh = meshSection({ ids: job.ids, light: job.light, biomes: job.biomes }, tables);
     return {
       kind: 'mesh',
       key: job.key,

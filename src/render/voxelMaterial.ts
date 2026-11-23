@@ -10,7 +10,11 @@ import {
 } from 'three';
 import { voxelFragment, voxelVertex } from './shaders/voxel.glsl.ts';
 
-export const DEBUG_VIEWS = ['none', 'quads', 'ao', 'light'] as const;
+/**
+ * Debug render views. `xray` also needs xray meshes (the mesh scheduler's `setXray`): terrain is
+ * drawn as faint ghosts without depth writes, everything else unlit at full brightness.
+ */
+export const DEBUG_VIEWS = ['none', 'quads', 'ao', 'light', 'xray'] as const;
 export type DebugView = (typeof DEBUG_VIEWS)[number];
 
 /** Uniforms shared by reference between the three chunk materials (never cloned). */
@@ -94,6 +98,8 @@ export function createVoxelMaterials(
     uniforms,
     setDebugView: (view) => {
       uniforms.uDebugView.value = DEBUG_VIEWS.indexOf(view);
+      // Ghost faces must not hide the ghosts and ores behind them.
+      translucent.depthWrite = view !== 'xray';
     },
     dispose: () => {
       opaque.dispose();

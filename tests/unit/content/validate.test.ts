@@ -135,4 +135,32 @@ describe('content validation of world generation', () => {
       ]),
     );
   });
+
+  it('checks the spawn rules and the structure templates', () => {
+    const pack = JSON.parse(JSON.stringify(basePack));
+    pack.worldgen.spawn.near = ['block:nope'];
+    pack.worldgen.spawn.far = ['biome:nope'];
+    const [camp, cairn] = pack.structures;
+    camp.biomes = ['biome:nope'];
+    camp.legend.Q = 'block:nope[axis=x]';
+    camp.layers[1][2] = '.C.......';
+    camp.layers[2][0] = '...........x';
+    cairn.layers = new Array(11).fill(cairn.layers[0]);
+    cairn.chance = 0.95;
+    pack.structures.push({ ...cairn, key: 'structure:twin', chance: 0.5, layers: [['..']] });
+    const paths = validatePack(pack as ContentPack).map((i) => i.path);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'worldgen.spawn.near[0]',
+        'worldgen.spawn.far[0]',
+        'structures[0].biomes[0]',
+        'structures[0].legend.Q',
+        'structures[0].layers[1][2]',
+        'structures[0].layers[2][0]',
+        'structures[1].layers',
+        'structures',
+      ]),
+    );
+    expect(validatePack(basePack)).toEqual([]);
+  });
 });

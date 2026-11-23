@@ -328,6 +328,20 @@ export interface WorldgenDef {
   readonly magma: BlockKey;
   readonly caves: CaveDef;
   readonly banks: BankDef;
+  /** Spawn rules; without them the spawn is the nearest dry column of a spawn biome. */
+  readonly spawn?: SpawnDef;
+}
+
+/**
+ * Spawn point (docs « Point d'apparition »): a dry column of a spawn biome (pack bindings) with
+ * water and the `near` surface blocks within `nearRadius` blocks, and the `far` biomes within
+ * `farRadius` blocks. The water is the spawn biome's liquid.
+ */
+export interface SpawnDef {
+  readonly near: readonly BlockKey[];
+  readonly nearRadius: number;
+  readonly far: readonly BiomeKey[];
+  readonly farRadius: number;
 }
 
 /**
@@ -365,6 +379,27 @@ export interface BankDef {
     readonly min?: number;
     readonly max?: number;
   }[];
+}
+
+export type StructureKey = `structure:${string}`;
+
+/**
+ * A structure (docs « Génération » step 8). Each 128×128 region has one candidate point; where
+ * the biome there lists structures, one may stand on the ground at that point.
+ */
+export interface StructureDef {
+  readonly key: StructureKey;
+  readonly biomes: readonly BiomeKey[];
+  /** Chance per region whose candidate lies in one of `biomes` (the chances of a biome add up). */
+  readonly chance: number;
+  /**
+   * Layers from the ground up (at most 24 wide, 10 high and 24 deep), each a list of rows from
+   * north to south with one character per block from west to east. `.` is the biome's surface on
+   * the bottom layer and air above it; any other character is a block state of `legend`.
+   */
+  readonly layers: readonly (readonly string[])[];
+  /** Character → block state key, e.g. `block:planks` or `block:broadleaf_log[axis=x]`. */
+  readonly legend: Readonly<Record<string, string>>;
 }
 
 export type OreKey = `ore:${string}`;
@@ -488,5 +523,6 @@ export interface ContentPack {
   readonly biomes?: readonly BiomeDef[];
   readonly features?: readonly FeatureDef[];
   readonly ores?: readonly OreDef[];
+  readonly structures?: readonly StructureDef[];
   readonly models?: readonly ModelDef[];
 }

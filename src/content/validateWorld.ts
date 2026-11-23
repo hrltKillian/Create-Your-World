@@ -12,7 +12,7 @@ const FEATURE_MAX_SIZE: Readonly<Record<FeatureKind, number>> = {
   patch: 7,
 };
 
-/** World generation: worldgen blocks and splines, features, ores and biomes. */
+/** World generation: worldgen blocks and splines, features, ores, biomes, spawn and structures. */
 export function validateWorld(
   pack: ContentPack,
   blockKeys: ReadonlySet<string>,
@@ -102,4 +102,62 @@ export function validateWorld(
     if (ore.veinSize[0] < 1 || ore.veinSize[1] > 27)
       add(`${path}.veinSize`, 'must lie within 1–27');
   });
+  const biome = (path: string, key: string) => {
+    if (!seen.has(key)) add(path, `unknown biome "${key}"`);
+  };
+  const spawn = w?.spawn;
+  if (spawn) {
+    spawn.near.forEach((key, i) => {
+      block(`worldgen.spawn.near[${i}]`, key);
+    });
+    spawn.far.forEach((key, i) => {
+      biome(`worldgen.spawn.far[${i}]`, key);
+    });
+  }
+  validateStructures(pack, blockKeys, biome, add);
+}
+
+/** Largest template of a structure: width (x), height (layers) and depth (z). */
+const STRUCTURE_MAX = { width: 24, height: 10, depth: 24 } as const;
+
+function validateStructures(
+  pack: ContentPack,
+  blockKeys: ReadonlySet<string>,
+  biome: (path: string, key: string) => void,
+  add: AddIssue,
+): void {
+  const chances = new Map<string, number>();
+  (pack.structures ?? []).forEach((s, i) => {
+    const path = `structures[${i}]`;
+    s.biomes.forEach((key, b) => {
+      biome(`${path}.biomes[${b}]`, key);
+      chances.set(key, (chances.get(key) ?? 0) + s.chance);
+    });
+    if (!(s.chance >= 0 && s.chance <= 1)) add(`${path}.chance`, 'must lie within 0–1');
+    for (const [char, key] of Object.entries(s.legend)) {
+      if (char.length !== 1 || char === '.') add(`${path}.legend`, `bad character "${char}"`);
+      // The block part of a state key (its properties are checked when generation resolves it).
+      const blockKey = key.split('[')[0]!;
+      if (!blockKeys.has(blockKey)) add(`${path}.legend.${char}`, `unknown block "${blockKey}"`);
+    }
+    const depth = s.layers[0]?.length ?? 0;
+    const width = s.layers[0]?.[0]?.length ?? 0;
+    if (s.layers.length < 1 || s.layers.length > STRUCTURE_MAX.height)
+      add(`${path}.layers`, `needs 1–${STRUCTURE_MAX.height} layers`);
+    if (width < 1 || width > STRUCTURE_MAX.width || depth < 1 || depth > STRUCTURE_MAX.depth)
+      add(`${path}.layers`, `must be 1–${STRUCTURE_MAX.width} × 1–${STRUCTURE_MAX.depth} blocks`);
+    s.layers.forEach((rows, y) => {
+      if (rows.length !== depth) add(`${path}.layers[${y}]`, `needs ${depth} rows`);
+      rows.forEach((row, z) => {
+        if (row.length !== width) add(`${path}.layers[${y}][${z}]`, `needs ${width} characters`);
+        for (const char of row) {
+          if (char !== '.' && s.legend[char] === undefined)
+            add(`${path}.layers[${y}][${z}]`, `"${char}" is not in the legend`);
+        }
+      });
+    });
+  });
+  for (const [key, total] of chances) {
+    if (total > 1) add('structures', `chances of ${key} add up to ${total} (more than 1)`);
+  }
 }

@@ -1,6 +1,6 @@
 import type { BankDef, BlockKey } from '../../content/schema.ts';
 import { type Noise2, noise2 } from '../../core/noise.ts';
-import type { GenContext } from './generateColumn.ts';
+import type { GenContext, ResolvedBiome } from './generateColumn.ts';
 
 /** Shore banks of the pack, with block states resolved. */
 export interface ResolvedBanks {
@@ -40,4 +40,20 @@ export function bankAt(ctx: GenContext, x: number, z: number, h: number): number
   const n = banks.noise(x / banks.def.scale, z / banks.def.scale);
   for (const patch of banks.patches) if (n >= patch.min && n < patch.max) return patch.state;
   return -1;
+}
+
+/**
+ * Top terrain block of a column whose surface is at `h` (before caves and decoration): its bank,
+ * else the biome's seabed under the liquid level or its surface. Analytic, like `bankAt`.
+ */
+export function topBlockAt(
+  ctx: GenContext,
+  x: number,
+  z: number,
+  h: number,
+  biome: ResolvedBiome,
+): number {
+  const bank = bankAt(ctx, x, z, h);
+  if (bank >= 0) return bank;
+  return h < ctx.def.seaLevel ? biome.seabed : biome.surface;
 }

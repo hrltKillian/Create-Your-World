@@ -2,6 +2,8 @@ import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import {
   columnKey,
+  columnKeyX,
+  columnKeyZ,
   SECTION_SIZE,
   SECTIONS_PER_COLUMN,
   type SectionCoords,
@@ -90,6 +92,8 @@ export class MeshScheduler {
   private stale = 0;
   /** Milliseconds from the first blocksChanged of the last batch to the upload of its meshes. */
   editToMeshMs = 0;
+  /** Meshes are built for the `xray` debug view. */
+  private xray = false;
 
   private readonly dispatchUrgent = (s: PendingSection, key: number): void => {
     // In flight: its result is outdated and dropped; the section goes again once it is back.
@@ -187,6 +191,20 @@ export class MeshScheduler {
     const key = sectionKey(cx, sy, cz);
     if (this.batch.has(key)) this.edited(cx, sy, cz);
     else this.pending.set(key, { cx, sy, cz });
+  }
+
+  /**
+   * Switches the `xray` debug view on or off: every shown section is meshed again (results of the
+   * other mode still in flight are outdated by the queued job and dropped).
+   */
+  setXray(on: boolean): void {
+    if (on === this.xray) return;
+    this.xray = on;
+    for (const key of this.shown) {
+      const cx = columnKeyX(key);
+      const cz = columnKeyZ(key);
+      for (let sy = 0; sy < SECTIONS_PER_COLUMN; sy++) this.queue(cx, sy, cz);
+    }
   }
 
   /** Dispatches jobs (edits first, then the nearest to the camera) and uploads finished meshes. */
@@ -295,7 +313,15 @@ export class MeshScheduler {
     this.inFlight.set(key, version);
     this.runner
       .run(
-        { kind: 'mesh', key, version, ids: padded.ids, light: padded.light, biomes: padded.biomes },
+        {
+          kind: 'mesh',
+          key,
+          version,
+          ids: padded.ids,
+          light: padded.light,
+          biomes: padded.biomes,
+          xray: this.xray,
+        },
         priority,
       )
       .then(

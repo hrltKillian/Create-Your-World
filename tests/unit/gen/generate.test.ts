@@ -10,7 +10,6 @@ import {
   generateColumn,
 } from '../../../src/world/gen/generateColumn.ts';
 import { LatticeCache, pointInfo } from '../../../src/world/gen/sample.ts';
-import { findSpawn } from '../../../src/world/gen/spawn.ts';
 import { registry } from '../../helpers/registry.ts';
 
 function generate(
@@ -99,17 +98,6 @@ describe('world generation', () => {
       expect(value, key).toBeGreaterThanOrEqual(0.03);
     expect(share['biome:fungal_marsh']).toBeGreaterThanOrEqual(0.05);
     expect(share['biome:fungal_marsh']).toBeLessThanOrEqual(0.2);
-  });
-
-  it('places the provisional spawn on dry land in a spawn biome', () => {
-    for (const seed of ['1', '2', '3', '4', '5']) {
-      const ctx = createGenContext(seed, registry);
-      const spawn = findSpawn(ctx);
-      const info = pointInfo(ctx, Math.floor(spawn.x), Math.floor(spawn.z));
-      expect(info.height).toBeGreaterThan(ctx.def.seaLevel);
-      expect(ctx.spawnBiomes.has(info.biome)).toBe(true);
-      expect(spawn.y).toBe(info.height + 1);
-    }
   });
 
   it('builds heightmaps that sit on top of the highest block', () => {

@@ -8,6 +8,7 @@ import { loot } from './loot.ts';
 import { models } from './models.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
+import { structures } from './structures.ts';
 import { crackTextures, textures } from './textures.ts';
 import { tiers, toolNames } from './tiers.ts';
 import { biomes, features, ores, worldgen } from './worldgen.ts';
@@ -60,5 +61,6 @@ export const basePack: ContentPack = {
   biomes,
   features,
   ores,
+  structures,
   models,
 };

@@ -59,6 +59,12 @@ export const worldgen = {
       { block: 'block:clay', max: -0.35 },
     ],
   },
+  spawn: {
+    near: ['block:gravel'],
+    nearRadius: 40,
+    far: ['biome:fungal_marsh', 'biome:tundra', 'biome:ochre_desert'],
+    farRadius: 1000,
+  },
 } as const satisfies WorldgenDef;
 
 type PackBiome = BiomeDef & { readonly nameKey: PackI18nKey };

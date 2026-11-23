@@ -18,6 +18,12 @@ import { placeFeatures, placePlants, type ResolvedFeature } from './decor.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
 import { placeOres, type ResolvedOre } from './ores.ts';
 import { biomeOf, heightAt, LatticeCache, pointInfo } from './sample.ts';
+import {
+  columnSite,
+  placeStructure,
+  type ResolvedStructure,
+  resolveStructure,
+} from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
 export const GEN_VERSION = 2;
@@ -50,6 +56,7 @@ export interface GenContext {
   readonly caves: CaveNoise;
   readonly banks: ResolvedBanks;
   readonly ores: readonly ResolvedOre[];
+  readonly structures: readonly ResolvedStructure[];
   readonly bedrock: number;
   readonly stone: number;
   readonly deepStone: number;
@@ -136,6 +143,7 @@ export function createGenContext(
     caves: createCaveNoise(seed, def.caves),
     banks: resolveBanks(seed, def.banks, state),
     ores,
+    structures: (pack.structures ?? []).map((s) => resolveStructure(s, sorted, registry)),
     bedrock: state(def.bedrock),
     stone: state(def.stone),
     deepStone: state(def.deepStone),
@@ -157,8 +165,8 @@ const tmp = emptySample();
 const heights = new Int16Array(PADDED * PADDED);
 
 /**
- * Generates one column (sections, heightmap, biomes): terrain, caves and magma, ores, plants and
- * features (docs « Génération » steps 4–7). Pure and deterministic.
+ * Generates one column (sections, heightmap, biomes): terrain, caves and magma, ores, plants,
+ * features and structures (docs « Génération » steps 4–8). Pure and deterministic.
  */
 export function generateColumn(ctx: GenContext, column: Column): void {
   if (isFlatWorld(ctx.worldType)) {
@@ -192,8 +200,10 @@ export function generateColumn(ctx: GenContext, column: Column): void {
   }
   carveCaves(ctx, column, heights);
   placeOres(ctx, column);
+  const site = columnSite(ctx, cache, column);
   placePlants(ctx, column, heights);
-  placeFeatures(ctx, column, heights, cache);
+  placeFeatures(ctx, column, heights, cache, site);
+  placeStructure(ctx, column, heights, site);
   fillHeightmap(ctx, column);
   for (const section of column.sections) section.compact();
 }

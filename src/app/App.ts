@@ -141,6 +141,7 @@ export class App {
   setDebugView(view: DebugView): void {
     this.debugView = view;
     this.view?.setDebugView(view);
+    this.session?.scheduler.setXray(view === 'xray');
   }
 
   private startTitle(report: CapabilityReport): void {

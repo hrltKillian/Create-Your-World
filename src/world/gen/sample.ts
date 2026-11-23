@@ -38,15 +38,13 @@ export function sampleAt(
   const lz = Math.floor(z / step);
   const tx = (x - lx * step) / step;
   const tz = (z - lz * step) / step;
-  interpolateSample(
-    cache.get(ctx, lx, lz),
-    cache.get(ctx, lx + 1, lz),
-    cache.get(ctx, lx, lz + 1),
-    cache.get(ctx, lx + 1, lz + 1),
-    tx,
-    tz,
-    out,
-  );
+  // On a lattice line the far corners get a zero weight: reusing the near ones gives exactly the
+  // same values, and sparse queries (biome and structure searches) sample 1 point instead of 4.
+  const s00 = cache.get(ctx, lx, lz);
+  const s10 = tx === 0 ? s00 : cache.get(ctx, lx + 1, lz);
+  const s01 = tz === 0 ? s00 : cache.get(ctx, lx, lz + 1);
+  const s11 = tz === 0 ? s10 : tx === 0 ? s01 : cache.get(ctx, lx + 1, lz + 1);
+  interpolateSample(s00, s10, s01, s11, tx, tz, out);
 }
 
 const scratch = emptySample();

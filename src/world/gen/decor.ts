@@ -8,6 +8,7 @@ import { caveAt, PADDED } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext, ResolvedBiome } from './generateColumn.ts';
 import { biomeOf, heightAt, type LatticeCache } from './sample.ts';
+import { nearSite, type StructureSite } from './structures.ts';
 
 /*
  * Decoration (docs « Génération » step 7): plants per surface block, and features (trees, giant
@@ -101,12 +102,16 @@ function pickFeature(biome: ResolvedBiome, u: number): ResolvedFeature | null {
 
 const sample = emptySample();
 
-/** Features whose candidate lies within reach of the column (its 3×3 neighbourhood). */
+/**
+ * Features whose candidate lies within reach of the column (its 3×3 neighbourhood), except near
+ * the structure of the column's region (`site`): none reaches into its footprint.
+ */
 export function placeFeatures(
   ctx: GenContext,
   column: Column,
   heights: Int16Array,
   cache: LatticeCache,
+  site: StructureSite | null,
 ): void {
   const x0 = column.cx * SECTION_SIZE;
   const z0 = column.cz * SECTION_SIZE;
@@ -121,6 +126,7 @@ export function placeFeatures(
       const pz = cz * CELL + ((roll >>> 3) & 7);
       if (px + REACH < x0 || px - REACH >= x0 + SECTION_SIZE) continue;
       if (pz + REACH < z0 || pz - REACH >= z0 + SECTION_SIZE) continue;
+      if (site && nearSite(site, px, pz, REACH)) continue;
       const h = heightAt(ctx, cache, px, pz, sample);
       if (h < ctx.def.seaLevel || h + 1 >= WORLD_HEIGHT) continue;
       const biome = ctx.biomes[biomeOf(ctx, sample, h, px, pz)]!;
