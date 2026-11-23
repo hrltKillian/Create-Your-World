@@ -1,10 +1,12 @@
 /**
- * Survival rules of a pack (docs « Survie »): every global number of the survival model, in the
- * units of the docs (per minute, per second, seconds, °C, blocks). Numbers that belong to one
- * piece of content stay with it: a biome's climate and air toxicity (`BiomeDef`), a block's heat
- * and contact (`BlockDef`), what an item restores (`ConsumeDef`) and what gear does (`WearDef`).
+ * Survival rules of a pack (docs « Survie », « Créatures et combat »): every global number of the
+ * survival model, in the units of the docs (per minute, per second, seconds, °C, blocks). Numbers
+ * that belong to one piece of content stay with it: a biome's climate and air toxicity
+ * (`BiomeDef`), a block's heat and contact (`BlockDef`), what an item restores (`ConsumeDef`),
+ * what gear does (`WearDef`), a weapon (`WeaponDef`) and a creature (`CreatureDef`).
  * Re-exported by `schema.ts`; balance tests compute their expectations from these numbers.
  */
+import type { WeaponDef } from './itemSchema.ts';
 
 export interface HealthBalance {
   readonly max: number;
@@ -157,6 +159,18 @@ export interface RespawnBalance {
   readonly untargetedSec: number;
 }
 
+/** Creature spawning (docs « Apparition »). */
+export interface CreatureBalance {
+  /** No hostile spawns before this tick of a world: its first 3 real minutes (`?grace=0`). */
+  readonly spawnGraceTicks: number;
+}
+
+/** Melee (docs « Combat »). */
+export interface CombatBalance {
+  /** The empty hand, or a held item without `weapon`: the first row of the weapon table. */
+  readonly hand: WeaponDef;
+}
+
 export interface BalanceDef {
   readonly health: HealthBalance;
   readonly hunger: HungerBalance;
@@ -170,4 +184,6 @@ export interface BalanceDef {
   readonly water: WaterBalance;
   readonly sleep: SleepBalance;
   readonly respawn: RespawnBalance;
+  readonly creatures: CreatureBalance;
+  readonly combat: CombatBalance;
 }

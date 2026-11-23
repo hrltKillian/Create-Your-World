@@ -28,6 +28,19 @@ describe('loot rolls', () => {
     expect(counts.get('item:plant_fiber')! / ROLLS).toBeCloseTo(0.6, 1);
   });
 
+  it('never draws an entry twice in one roll set', () => {
+    const table = registry.loot('loot:camp')!;
+    for (let seed = 0; seed < 200; seed++) {
+      const items: string[] = [];
+      rollLoot(table, hash32(3, seed), (item) => items.push(item));
+      expect(new Set(items).size).toBe(items.length);
+    }
+    // With as many draws as entries, every entry comes out once.
+    const both: string[] = [];
+    rollLoot(registry.loot('loot:trotter')!, 5, (item) => both.push(item));
+    expect(both.sort()).toEqual(['item:raw_hide', 'item:raw_meat']);
+  });
+
   it('stays deterministic per seed, with counts within the entry range', () => {
     const table = registry.loot('loot:camp')!;
     const roll = (seed: number) => {

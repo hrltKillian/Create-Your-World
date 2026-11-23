@@ -8,6 +8,7 @@ export const models = [
   {
     key: 'model:explorer',
     gait: 'biped',
+    stride: 2.2,
     parts: [
       {
         name: 'legL',

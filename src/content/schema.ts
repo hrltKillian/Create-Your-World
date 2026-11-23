@@ -4,8 +4,8 @@
  */
 
 import type { BalanceDef } from './balanceSchema.ts';
+import type { CreatureDef, ModelDef } from './creatureSchema.ts';
 import type {
-  CreatureDef,
   ImplicitItemTraits,
   ItemDef,
   LootTableDef,
@@ -17,6 +17,7 @@ import type {
 import type { ObjectiveDef } from './objectiveSchema.ts';
 
 export * from './balanceSchema.ts';
+export * from './creatureSchema.ts';
 export * from './itemSchema.ts';
 export * from './objectiveSchema.ts';
 
@@ -464,24 +465,6 @@ export interface FeatureDef {
   readonly size: readonly [number, number];
   /** The feature only grows on these surface blocks. */
   readonly soil: readonly BlockKey[];
-}
-
-/** A box of a creature or avatar model, in 1/16 block, relative to the model origin (feet centre). */
-export interface ModelPart {
-  readonly name: string;
-  readonly from: readonly [number, number, number];
-  readonly to: readonly [number, number, number];
-  /** Rotation pivot (same units). */
-  readonly pivot: readonly [number, number, number];
-  readonly texture: TexKey;
-  /** The part follows its parent's rotation. */
-  readonly parent?: string;
-}
-
-export interface ModelDef {
-  readonly key: ModelKey;
-  readonly parts: readonly ModelPart[];
-  readonly gait: 'biped' | 'quadruped' | 'hexapod';
 }
 
 /** Layout of the developer test scene (`?scene=testchunk`), described with the pack's own blocks. */

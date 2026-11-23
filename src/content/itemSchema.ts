@@ -1,10 +1,9 @@
 /**
- * Item, loot, crafting and creature data (docs « Gameplay »): what players carry, find, make and
+ * Item, loot and crafting data (docs « Gameplay »): what players carry, find, make and
  * burn. Re-exported by `schema.ts`.
  */
 import type {
   BlockKey,
-  CreatureKey,
   ItemKey,
   LootKey,
   ProcessKey,
@@ -129,7 +128,10 @@ export interface LootEntry {
 
 export interface LootTableDef {
   readonly key: LootKey;
-  /** Inclusive range of entries drawn. */
+  /**
+   * Inclusive range of draws. Each draw picks an entry not drawn yet (rolls never exceed the
+   * entries), so a creature with two entries and two rolls always drops both.
+   */
   readonly rolls: readonly [number, number];
   readonly entries: readonly LootEntry[];
   /** Weight of drawing nothing on a roll (tall grass gives fibre 60 % of the time). */
@@ -198,15 +200,4 @@ export interface StationDef {
   readonly outputSlots: number;
   /** Fire: burns as long as there is fuel (campfire), or only while processing (kilns). */
   readonly burns?: 'whileFuel' | 'whileProcessing';
-}
-
-export type CreatureCategory = 'passive' | 'defensive' | 'territorial' | 'hostile';
-
-/** A creature: its name, category and loot (M10 adds its model, stats, brain and spawns). */
-export interface CreatureDef {
-  readonly key: CreatureKey;
-  readonly nameKey: string;
-  /** Hostile creatures only exist in worlds whose rules allow hostiles. */
-  readonly category: CreatureCategory;
-  readonly loot: LootKey;
 }

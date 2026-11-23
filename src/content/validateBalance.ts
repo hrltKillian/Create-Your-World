@@ -1,4 +1,5 @@
 import type { BlockDef, ContentPack } from './schema.ts';
+import { checkWeapon } from './validateItems.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -9,7 +10,8 @@ export const MAX_HEAT_RADIUS = 8;
 
 /**
  * The survival rules (docs « Survie »): every balance number finite and ≥ 0, hours within a day,
- * blends and factors within 0–1 where they mix, and the heat of the blocks within the tables.
+ * blends and factors within 0–1 where they mix, whole counts, the bare hand's melee numbers and
+ * the heat of the blocks within the tables.
  */
 export function validateBalance(pack: ContentPack, add: AddIssue): void {
   const walk = (value: unknown, path: string): void => {
@@ -38,6 +40,9 @@ export function validateBalance(pack: ContentPack, add: AddIssue): void {
     add('balance.shelter.maxCells', 'must be a whole number of 1–4096');
   if (!whole(b.climate.heatSources, 1, 8))
     add('balance.climate.heatSources', 'must be a whole number of 1–8');
+  if (!Number.isInteger(b.creatures.spawnGraceTicks))
+    add('balance.creatures.spawnGraceTicks', 'must be a whole number of ticks');
+  checkWeapon(b.combat.hand, 'balance.combat.hand', add);
   pack.blocks.forEach((block, i) => {
     checkHeat(block.heat, `blocks[${i}].heat`, add);
     for (const [prop, override] of Object.entries(block.whenState ?? {}))

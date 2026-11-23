@@ -179,13 +179,15 @@ describe('content validation of world generation', () => {
 });
 
 describe('content validation of the balance', () => {
-  it('checks the survival numbers and the heat of the blocks', () => {
+  it('checks the survival numbers, the bare hand and the heat of the blocks', () => {
     const pack = JSON.parse(JSON.stringify(basePack));
     pack.balance.hunger.perMin = -4;
     pack.balance.sleep.wakeHour = 24;
     pack.balance.shelter.maxDistance = 16;
     pack.balance.shelter.coveredToxicity = 1.5;
     pack.balance.climate.heatSources = 0;
+    pack.balance.creatures.spawnGraceTicks = 5400.5;
+    pack.balance.combat.hand.reach = 0;
     const torch = pack.blocks.find((b: { key: string }) => b.key === 'block:torch');
     torch.heat = { celsius: 3.5, radius: 9 };
     const paths = validatePack(pack).map((i) => i.path);
@@ -196,6 +198,8 @@ describe('content validation of the balance', () => {
         'balance.shelter.maxDistance',
         'balance.shelter.coveredToxicity',
         'balance.climate.heatSources',
+        'balance.creatures.spawnGraceTicks',
+        'balance.combat.hand.reach',
         `blocks[${pack.blocks.indexOf(torch)}].heat.celsius`,
         `blocks[${pack.blocks.indexOf(torch)}].heat.radius`,
       ].sort(),

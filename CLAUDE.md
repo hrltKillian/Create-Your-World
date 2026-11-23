@@ -97,7 +97,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
     processes and stations by key, `matches` for item-or-tag ingredients, `burnSeconds` for the
     fuel rules, `revealed` for the Logbook reveal; station slot layout `fuelSlotOf`,
     `outputSlotOf`, `stationSlotCount`); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty`
-    share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
+    share; a roll set never draws an entry twice); the progression proof `content/reachability.ts`
+    (`reachable(pack, { hostiles })`);
+  - creature content (docs « Créatures et combat »): `content/packs/base/creatures.ts` (`CreatureDef`,
+    `content/creatureSchema.ts`: category, brain, telegraphed attack, senses (`hearing` scales the
+    player's noise radii), the traits that parametrise the brains, spawn entries,
+    `HOSTILE_MAX_LIGHT`); box models and skins `creatureModels.ts` (legs named by `GAIT_LEGS`,
+    `emissive` parts glow, `stride` in rad/block), voices `creatureSfx.ts` (`voicesOf`);
+    `registry.creature(key)`/`registry.model(key)`; the bare hand `balance.combat.hand` (items carry
+    `weapon`), the hostile grace `balance.creatures.spawnGraceTicks`;
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
     `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
