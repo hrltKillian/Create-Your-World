@@ -36,8 +36,10 @@ Then open http://localhost:5173 in Google Chrome.
   world. The line below the list tells how much of the browser's storage the saves use.
 - Esc pauses: Resume, Settings, Save & quit to menu. The world saves itself every 30 s, on pause,
   on quit and as soon as the tab is hidden or closed (IndexedDB, through a worker), and comes back
-  as it was: edits, items on the ground, the player, the bag and the clock. A world already open
-  in another tab cannot be opened (a message says so).
+  as it was: edits, items on the ground, the player, the bag and the clock. If the last save of
+  Save & quit fails, the world stays open behind the pause menu, which offers Retry and Quit
+  without saving (asked again). A world already open in another tab cannot be opened (a message
+  says so).
 - Settings: render distance, field of view, mouse sensitivity, invert Y and the master, effects,
   ambience and interface volumes, applied at once and kept in `localStorage` (`cyw.settings.v1`).
 - `?forceNoIdb=1` plays as a browser without IndexedDB: the « Saving unavailable » banner shows

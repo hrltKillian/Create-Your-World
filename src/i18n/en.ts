@@ -93,6 +93,11 @@ export const en = {
   'pause.title': 'Paused',
   'pause.resume': 'Resume',
   'pause.saveQuit': 'Save & quit to menu',
+  'pause.quitFailed': 'The world could not be saved, so it is still open.',
+  'pause.retry': 'Retry',
+  'pause.quitWithoutSaving': 'Quit without saving',
+  'pause.confirmQuit': 'Quit without saving? Changes since the last save will be lost.',
+  'pause.keep': 'Keep playing',
   'save.status.saving': 'Saving…',
   'save.status.saved': 'All changes saved.',
   'save.status.quota': 'The disk is full: changes stay in memory until there is room.',
@@ -125,7 +130,6 @@ export const en = {
   'error.import': 'This file is not a world export.',
   'error.export': 'The world could not be exported.',
   'error.delete': 'The world could not be deleted.',
-  'error.saveFailed': 'The last save failed: recent changes may be lost.',
 } as const;
 
 export type EngineStringKey = keyof typeof en;

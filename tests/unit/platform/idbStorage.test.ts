@@ -101,7 +101,7 @@ describe('idb storage (io.worker proxy)', () => {
     expect(FakeIoWorker.instances[0]!.options).toEqual({ type: 'module', name: 'io' });
     expect(FakeIoWorker.instances[0]!.url.pathname).toMatch(/\/src\/workers\/io\.worker\.ts$/);
     expect(await storage.available()).toBe(true);
-    const batch = await compressBatch(snapshotSim(sim, TEST_WORLD, new Set()), storage);
+    const batch = await compressBatch(snapshotSim(sim, TEST_WORLD, new Map()), storage);
     // Deflate is kept only when smaller: not for a single block.
     expect(batch.columns.map((c) => c.codec)).toEqual(['deflate-raw', 'raw']);
     await storage.write(batch);
@@ -123,7 +123,7 @@ describe('idb storage (io.worker proxy)', () => {
     FakeIoWorker.deps = { openStore: async () => full as never };
     const { sim } = editedSim();
     const storage = new IdbStorage();
-    const failed = storage.write(snapshotSim(sim, TEST_WORLD, new Set()));
+    const failed = storage.write(snapshotSim(sim, TEST_WORLD, new Map()));
     await expect(failed).rejects.toMatchObject({ name: 'QuotaExceededError', message: 'Quota' });
   });
 

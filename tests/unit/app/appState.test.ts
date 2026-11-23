@@ -9,13 +9,21 @@ function run(from: AppState, events: readonly AppEvent[]): AppState | null {
 }
 
 describe('app state machine', () => {
-  it('goes menu → loading → world ⇄ paused → quitting → menu', () => {
+  it('goes menu → loading → world ⇄ paused ⇄ quitting → menu', () => {
     expect(run('boot', ['menu'])).toBe('menu');
     expect(run('menu', ['open'])).toBe('loading');
     expect(run('menu', ['open', 'loaded'])).toBe('world');
     const play = ['open', 'loaded', 'pause', 'resume', 'pause', 'quit'] as const;
     expect(run('menu', play)).toBe('quitting');
     expect(run('menu', [...play, 'menu'])).toBe('menu');
+  });
+
+  it('goes back to the pause menu when the last save fails, to retry or quit', () => {
+    expect(run('paused', ['quit', 'quitFailed'])).toBe('paused');
+    expect(run('paused', ['quit', 'quitFailed', 'quit', 'menu'])).toBe('menu');
+    expect(run('paused', ['quit', 'quitFailed', 'resume'])).toBe('world');
+    for (const state of ['menu', 'loading', 'world', 'paused'] as const)
+      expect(nextState(state, 'quitFailed')).toBeNull();
   });
 
   it('boots straight into a world, and goes back to the menu when it cannot be opened', () => {
@@ -38,7 +46,15 @@ describe('app state machine', () => {
     expect(nextState('world', 'resume')).toBeNull();
     expect(nextState('loading', 'open')).toBeNull(); // a second click on Play
     expect(nextState('menu', 'loaded')).toBeNull();
-    for (const event of ['menu', 'open', 'loaded', 'pause', 'resume', 'quit'] as const) {
+    for (const event of [
+      'menu',
+      'open',
+      'loaded',
+      'pause',
+      'resume',
+      'quit',
+      'quitFailed',
+    ] as const) {
       expect(nextState('fatal', event)).toBeNull();
       expect(nextState('testchunk', event)).toBeNull();
     }

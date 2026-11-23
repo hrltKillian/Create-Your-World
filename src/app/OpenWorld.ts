@@ -3,7 +3,12 @@ import { AudioCues } from '../audio/cues.ts';
 import type { Registry } from '../content/registry.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { SaveBackend } from '../platform/IdbStorage.ts';
-import { requestPersistence, SaveManager, type SaveStatus } from '../platform/SaveManager.ts';
+import {
+  type PageTargets,
+  requestPersistence,
+  SaveManager,
+  type SaveStatus,
+} from '../platform/SaveManager.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
 import type { WorldLock } from '../platform/worldLock.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
@@ -31,6 +36,8 @@ export interface OpenWorldDeps {
   readonly input: InputManager;
   readonly audio: AudioEngine;
   readonly backend: SaveBackend;
+  /** The page events that save at once (`document` and `window`). */
+  readonly page: PageTargets;
   readonly params: BootParams;
   readonly layoutLoaded: Promise<void>;
   readonly renderDistance: number;
@@ -42,8 +49,8 @@ export interface OpenWorldDeps {
 /**
  * The world open in this tab: its lock, the play session over its simulation, its saves (autosave,
  * page hide, pause, save & quit) and the play layer (crosshair, click to play, hotbar, bag).
- * `close()` saves a last time and lets everything go; the renderer, the world view, the input and
- * the audio belong to the App and serve the next world.
+ * `saveLast()` then `close()` save a last time and let everything go; the renderer, the world view,
+ * the input and the audio belong to the App and serve the next world.
  */
 export class OpenWorld {
   readonly info: WorldInfo;
@@ -94,7 +101,7 @@ export class OpenWorld {
       onStatus: deps.onSaveStatus,
     });
     session.listeners.push((event) => this.saves.onEvent(event));
-    this.saves.watchPage({ doc: document, win: window });
+    this.saves.watchPage(deps.page);
     this.saves.start();
     if (slot.created) {
       void requestPersistence();
@@ -159,11 +166,19 @@ export class OpenWorld {
   }
 
   /**
-   * Save & quit (the frame loop must be stopped first): the last save, then the world's objects
-   * leave the shared view and the page, and the lock goes. Resolves with the save's success.
+   * Save & quit, first step (the frame loop stopped): the last save; resolves with its success.
+   * When it fails, the world stays open and goes on saving (autosave, page hide).
    */
-  async close(): Promise<boolean> {
-    const saved = await this.saves.close();
+  saveLast(): Promise<boolean> {
+    return this.saves.close();
+  }
+
+  /**
+   * Save & quit once saved, or Quit without saving (the frame loop stopped): the saves stop, the
+   * world's objects leave the shared view and the page, and the lock goes.
+   */
+  async close(): Promise<void> {
+    this.saves.stop();
     this.inventory?.dispose();
     this.gate?.dispose();
     this.layer.remove();
@@ -171,6 +186,5 @@ export class OpenWorld {
     this.input.enabled = false;
     this.input.releaseAll();
     await this.lock.release();
-    return saved;
   }
 }

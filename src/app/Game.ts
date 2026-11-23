@@ -108,6 +108,7 @@ export class Game {
       create: (form) => void this.createWorld(form),
       resume: () => this.resume(),
       saveAndQuit: () => void this.saveAndQuit(),
+      quitWithoutSaving: () => void this.quitWithoutSaving(),
       changeSettings: (settings) => this.changeSettings(settings),
     });
     host.root.append(this.menus.element);
@@ -159,26 +160,53 @@ export class Game {
   }
 
   /**
-   * Save & quit (from the pause menu): the last save, the world closed, then the main menu.
-   * Resolves with the save's success (false also when there was no world to quit).
+   * Save & quit (from the pause menu): the last save, the world closed, then the main menu. When
+   * the save fails, the world stays open behind the pause menu, which says so and offers Retry and
+   * Quit without saving. Resolves with the save's success (false also when there was no world to
+   * quit).
    */
   async saveAndQuit(): Promise<boolean> {
     const open = this.open;
     if (!open || !this.go('quit')) return false;
     this.menus.setQuitting(true);
-    // Nothing may draw or tick the world while it closes.
+    // Nothing may draw or tick the world while it is saved for the last time.
     this.host.stopLoop();
     let saved: boolean;
     try {
-      saved = await open.close();
+      saved = await open.saveLast();
     } catch (error) {
       this.host.fail(error);
       return false;
     }
+    if (saved) {
+      await this.closeWorld(open);
+    } else {
+      this.go('quitFailed');
+      this.play(open);
+      this.menus.quitFailed();
+    }
+    return saved;
+  }
+
+  /** Quit without saving (confirmed on the pause menu after a failed Save & quit). */
+  async quitWithoutSaving(): Promise<void> {
+    const open = this.open;
+    if (!open || !this.go('quit')) return;
+    this.host.stopLoop();
+    await this.closeWorld(open);
+  }
+
+  /** The world closes (its last save done or given up), then the main menu shows. */
+  private async closeWorld(open: OpenWorld): Promise<void> {
+    try {
+      await open.close();
+    } catch (error) {
+      this.host.fail(error);
+      return;
+    }
     this.open = null;
     this.menus.setQuitting(false);
-    await this.showMenu(saved ? null : 'error.saveFailed');
-    return saved;
+    await this.showMenu();
   }
 
   /** The main menu (at boot, after a failed opening or save & quit), with a notice key. */
@@ -206,7 +234,7 @@ export class Game {
       return;
     }
     const host = this.host;
-    const { view, audio, frames } = host;
+    const { view, audio } = host;
     const open = new OpenWorld(slot, {
       root: host.root,
       registry: host.registry,
@@ -216,6 +244,7 @@ export class Game {
       input: host.input,
       audio,
       backend: this.backend,
+      page: { doc: document, win: window },
       params: host.params,
       layoutLoaded: host.layoutLoaded,
       renderDistance: this.renderDistance(),
@@ -229,7 +258,13 @@ export class Game {
     // The ear starts at the spawn eye (then follows the camera every frame).
     const eye = open.session.rig.pose;
     audio.setListener(eye.x, eye.y, eye.z, eye.yaw, eye.pitch);
-    host.runLoop((dt) => {
+    this.play(open);
+  }
+
+  /** Runs the open world on every animation frame: play, drawing, sound, the loading screen. */
+  private play(open: OpenWorld): void {
+    const { view, audio, frames } = this.host;
+    this.host.runLoop((dt) => {
       const t0 = performance.now();
       const pose = open.frame(dt);
       const t1 = performance.now();

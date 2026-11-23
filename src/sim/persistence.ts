@@ -1,4 +1,5 @@
 import type { Registry } from '../content/registry.ts';
+import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { fnv1aBytes, fnv1aString } from '../core/hash.ts';
 import { createLogger } from '../core/log.ts';
 import { persistedSections } from '../world/Column.ts';
@@ -26,6 +27,7 @@ import { canonicalJson } from './stateHash.ts';
 import type {
   ColumnRecord,
   DropRecord,
+  PlayerRecord,
   SaveBatch,
   Storage,
   WorldRecord,
@@ -78,6 +80,17 @@ function worldRecord(sim: Simulation, info: WorldInfo): WorldRecord {
   };
 }
 
+/**
+ * The column records in storage: column key → digest of the item drops each one holds
+ * (`dropDigest`). Kept by whoever writes the records, for snapshotSim.
+ */
+export type StoredColumns = ReadonlyMap<number, string>;
+
+/** Digest of a column record's item drops: equal digests, equal drops; '' for none. */
+export function dropDigest(drops: readonly DropRecord[] | undefined): string {
+  return drops && drops.length > 0 ? canonicalJson(drops) : '';
+}
+
 /** Saved item drops by column key, in entity (id) order; dormant drops included. */
 function dropsByColumn(sim: Simulation): Map<number, DropRecord[]> {
   const out = new Map<number, DropRecord[]>();
@@ -100,21 +113,24 @@ function savedSections(sim: Simulation, key: number): readonly SavedSection[] {
 /**
  * Every record of a world, payloads raw (synchronous: usable when the tab hides). Each column with
  * persisted sections or item drops gets a record rebuilt from all of them; the columns of `stored`
- * (keys of the records in storage) left with nothing are removed. With `only` (the changed columns
- * of an autosave), the other columns are left out unless they hold item drops.
+ * left with nothing are removed. With `only` (the columns edited since the last save), the other
+ * columns are left out unless their drops differ from their record's: drops move, age, go and
+ * come while their column is loaded, and stay as they are, frozen, while it is not.
  */
 export function snapshotSim(
   sim: Simulation,
   info: WorldInfo,
-  stored: ReadonlySet<number>,
+  stored: StoredColumns,
   only?: ReadonlySet<number>,
 ): SaveBatch {
   const drops = dropsByColumn(sim);
   const keys = new Set(drops.keys());
   for (const [key, column] of sim.world.columns) if (column.persisted !== 0) keys.add(key);
   for (const key of sim.edits.keys()) keys.add(key);
+  const changed = (key: number) =>
+    only === undefined || only.has(key) || dropDigest(drops.get(key)) !== (stored.get(key) ?? '');
   const columns = [...keys]
-    .filter((key) => only === undefined || only.has(key) || drops.has(key))
+    .filter(changed)
     .sort((a, b) => a - b)
     .map(
       (key): ColumnRecord => ({
@@ -128,7 +144,7 @@ export function snapshotSim(
         lastTick: sim.tick,
       }),
     );
-  const removed = [...stored]
+  const removed = [...stored.keys()]
     .filter((key) => !keys.has(key))
     .map((key) => ({ cx: columnKeyX(key), cz: columnKeyZ(key) }));
   const players = [...sim.players.values()].map((player) => playerRecord(info.id, player));
@@ -153,7 +169,7 @@ export async function compressBatch(batch: SaveBatch, deflater: Deflater): Promi
  */
 export function persistentHash(sim: Simulation): number {
   const info = { id: '', name: '', createdAt: 0, savedAt: 0, rules: { hostiles: true } };
-  const batch = snapshotSim(sim, info, new Set());
+  const batch = snapshotSim(sim, info, new Map());
   const columns = batch.columns.map((c) => ({ ...c, payload: fnv1aBytes(c.payload) }));
   return fnv1aString(canonicalJson({ world: batch.world, players: batch.players, columns }));
 }
@@ -164,20 +180,16 @@ export type RestoreOptions = Omit<SimOptions, 'seed' | 'worldType' | 'spawn'>;
 export interface RestoredWorld {
   readonly sim: Simulation;
   readonly info: WorldInfo;
-  /** Keys of the column records in storage (for snapshotSim). */
-  readonly stored: Set<number>;
+  /** The column records in storage, with the digest of their drops (for snapshotSim). */
+  readonly stored: Map<number, string>;
   /** Saved with another pack: every column record must be written again with this pack's ids. */
   readonly contentChanged: boolean;
 }
 
-const isWhole = (v: unknown, min: number): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v >= min;
-const isPoint = (p: unknown): boolean => {
-  const { x, y, z } = (p ?? {}) as Partial<Record<'x' | 'y' | 'z', unknown>>;
-  return [x, y, z].every((v) => typeof v === 'number' && Number.isFinite(v));
-};
-
-/** A migrated world record; throws when it cannot be a world (SaveVersionError when too new). */
+/**
+ * A migrated world record; throws when it cannot be a world (SaveVersionError when too new,
+ * CorruptRecordError without a version, Error when malformed).
+ */
 function readWorld(data: WorldRecord): WorldRecord {
   const world = migrate('world', data as unknown as PlainRecord, data.saveVersion) as Partial<
     Record<keyof WorldRecord, unknown>
@@ -193,7 +205,7 @@ function readWorld(data: WorldRecord): WorldRecord {
     world.stateKeys.every((key) => typeof key === 'string');
   if (!valid) throw new Error('Corrupt world record');
   const record = world as WorldRecord;
-  const date = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const date = (v: unknown) => (isFiniteNumber(v) ? v : 0);
   return {
     ...record,
     name: typeof record.name === 'string' ? record.name : '',
@@ -207,6 +219,24 @@ function readWorld(data: WorldRecord): WorldRecord {
 function stateRemap(stateKeys: readonly string[], registry: Registry): (id: number) => number {
   const table = stateKeys.map((key) => registry.stateIdOrUnknown(key));
   return (id) => table[id] ?? registry.unknownBlock;
+}
+
+/**
+ * Puts a player record back into `entities`; an unusable record is logged and skipped (left in
+ * storage): the player starts again at the spawn, and the rest of the world still loads.
+ */
+function restorePlayer(sim: Simulation, record: PlayerRecord, entities: Entity[]): void {
+  try {
+    const data = migrate('player', record as unknown as PlainRecord, record.v);
+    const player = readPlayer(data, sim.registry, sim.spawn);
+    if (!player) throw new RangeError('Bad player record');
+    entities.push(player);
+  } catch (error) {
+    log.warn('unreadable player record skipped', {
+      playerId: (record as Partial<PlayerRecord> | null)?.playerId,
+      error: String(error),
+    });
+  }
 }
 
 /**
@@ -268,7 +298,8 @@ function addEntities(sim: Simulation, entities: Entity[], nextEntityId: number):
 
 /**
  * Rebuilds the simulation of a stored world (undefined when there is none), its records migrated
- * first. Throws SaveVersionError for a save newer than the game, Error for a corrupt world record.
+ * first. Throws SaveVersionError for a save newer than the game, another Error for a corrupt world
+ * record; unreadable player and column records are skipped.
  * Nothing is loaded yet: the column source generates the columns around the players, the saved
  * sections laid over them, while the caller pumps the world.
  */
@@ -290,19 +321,15 @@ export async function restoreSim(
   sim.tick = world.tick;
   Object.assign(sim.time, deserializeTime(world.time));
   const entities: Entity[] = [];
-  for (const record of stored.players) {
-    const data = migrate('player', record as unknown as PlainRecord, record.v);
-    const player = readPlayer(data, sim.registry, sim.spawn);
-    if (player) entities.push(player);
-    else log.warn('unreadable player record skipped', { playerId: record.playerId });
-  }
+  for (const record of stored.players) restorePlayer(sim, record, entities);
   const remap = stateRemap(world.stateKeys, sim.registry);
-  const keys = new Set<number>();
+  const keys: number[] = [];
   for (const record of stored.columns) {
     const key = await restoreColumn(sim, record, remap, deflater, entities);
-    if (key !== undefined) keys.add(key);
+    if (key !== undefined) keys.push(key);
   }
   addEntities(sim, entities, world.nextEntityId);
+  const drops = dropsByColumn(sim);
   return {
     sim,
     info: {
@@ -312,7 +339,7 @@ export async function restoreSim(
       savedAt: world.savedAt,
       rules: world.rules,
     },
-    stored: keys,
+    stored: new Map(keys.map((key) => [key, dropDigest(drops.get(key))])),
     contentChanged: world.contentHash !== contentHash(sim.registry),
   };
 }

@@ -9,27 +9,20 @@ import {
   type SaveStatus,
   storageEstimate,
 } from '../../../src/platform/SaveManager.ts';
-import { spawnDrop } from '../../../src/sim/itemDrops.ts';
-import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
+import { countItem } from '../../../src/sim/inventory.ts';
+import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
+import type { Simulation } from '../../../src/sim/Simulation.ts';
 import type { SaveBatch } from '../../../src/sim/storage.ts';
 import type { Deflater } from '../../../src/world/codec/columnRecord.ts';
 import { columnKey } from '../../../src/world/coords.ts';
-import { settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
+import {
+  RecordingStorage,
+  restoreFrom,
+  settle,
+  TEST_WORLD,
+  zlibDeflater,
+} from '../../helpers/save.ts';
 import { createTestSim } from '../../helpers/simHarness.ts';
-
-/** MemoryStorage that records every batch it is given, and can hold or fail the writes. */
-class RecordingStorage extends MemoryStorage {
-  readonly batches: SaveBatch[] = [];
-  failure: Error | null = null;
-  gate: Promise<void> | null = null;
-
-  override async write(batch: SaveBatch): Promise<void> {
-    this.batches.push(batch);
-    if (this.gate) await this.gate;
-    if (this.failure) throw this.failure;
-    return super.write(batch);
-  }
-}
 
 const NOW = 1_800_000_000_000;
 
@@ -43,6 +36,15 @@ async function advance(ms: number): Promise<void> {
 }
 
 const columnsOf = (batch: SaveBatch | undefined) => batch!.columns.map((c) => [c.cx, c.cz]);
+
+const dropsOf = (sim: Simulation) =>
+  [...sim.entities.values()].filter((e): e is ItemDropState => e.kind === 'itemDrop');
+
+/** A fake document and window, for the page watch. */
+function fakePage(visibilityState: DocumentVisibilityState = 'visible') {
+  const doc = Object.assign(new EventTarget(), { visibilityState });
+  return { doc, win: new EventTarget() };
+}
 
 /** A loaded flat world with player 1 and its save manager. */
 function setup(options: Partial<SaveManagerOptions> = {}) {
@@ -198,6 +200,24 @@ describe('save manager', () => {
     expect(storage.batches).toHaveLength(4);
   });
 
+  it('rewrites deflated what a page-hide flush wrote raw, dormant drops included', async () => {
+    const { s, manager, storage, edit } = setup();
+    for (let x = 0; x < 16; x += 2) edit(x, 0, 15);
+    spawnDrop(s.sim, { item: 'item:sand', count: 2 }, 20.5, 66, 20.5);
+    await manager.save();
+    s.host.send({ type: 'debug.teleport', x: 8 * 32 + 16, y: 'surface', z: 16 });
+    s.step(100);
+    const page = fakePage('hidden');
+    manager.watchPage(page);
+    page.win.dispatchEvent(new Event('pagehide'));
+    const codecs = (batch: SaveBatch | undefined) => batch!.columns.map((c) => [c.cx, c.codec]);
+    expect(codecs(storage.batches[1])).toEqual([[0, 'raw']]);
+    await manager.save();
+    expect(codecs(storage.batches[2])).toEqual([[0, 'deflate-raw']]);
+    await manager.save();
+    expect(codecs(storage.batches[3])).toEqual([]);
+  });
+
   it('drops the write of a save overtaken by a page-hide flush', async () => {
     let open = () => {};
     const gate = new Promise<void>((resolve) => {
@@ -222,13 +242,16 @@ describe('save manager', () => {
     expect(manager.dirtyColumns()).toContain(columnKey(0, 0));
   });
 
-  it('rewrites the columns of item drops and removes a column left empty', async () => {
+  it('rewrites the columns whose item drops changed, and removes a column left empty', async () => {
     const { s, manager, storage } = setup();
     const drop = spawnDrop(s.sim, { item: 'item:sand', count: 2 }, 40.5, 66, 3.5);
     await manager.save();
     expect(columnsOf(storage.batches[0])).toEqual([[1, 0]]);
     await manager.save();
-    expect(columnsOf(storage.batches[1])).toEqual([[1, 0]]);
+    expect(columnsOf(storage.batches[1])).toEqual([]);
+    s.step(); // the drop falls and ages
+    await manager.save();
+    expect(columnsOf(storage.batches[2])).toEqual([[1, 0]]);
     s.sim.entities.delete(drop.id);
     storage.failure = new Error('Busy');
     expect(await manager.save()).toBe(false);
@@ -238,12 +261,101 @@ describe('save manager', () => {
     expect(storage.batches.map((b) => b.removed)).toEqual([
       [],
       [],
+      [],
       [{ cx: 1, cz: 0 }],
       [{ cx: 1, cz: 0 }],
     ]);
     expect(await storage.inspect(TEST_WORLD.id)).toMatchObject({ columns: 0 });
     await manager.save();
-    expect(storage.batches[4]!.removed).toEqual([]);
+    expect(storage.batches[5]!.removed).toEqual([]);
+  });
+
+  it('writes a column whose drops went dormant once, then not while it is unloaded', async () => {
+    const { s, manager, storage } = setup();
+    spawnDrop(s.sim, { item: 'item:sand', count: 2 }, 40.5, 66, 3.5);
+    await manager.save();
+    s.host.send({ type: 'debug.teleport', x: 8 * 32 + 16, y: 'surface', z: 16 });
+    s.step(100);
+    expect(s.sim.world.getColumn(1, 0)).toBeUndefined();
+    for (let i = 0; i < 3; i++) {
+      await manager.save();
+      s.step(30);
+    }
+    const writes = storage.batches.filter((b) => b.columns.some((c) => c.cx === 1 && c.cz === 0));
+    // At the first save, then once more with how it was when its column unloaded.
+    expect(writes).toHaveLength(2);
+    expect(storage.batches).toHaveLength(4);
+  });
+
+  it('rewrites a restored column whose drop was taken or moved before the first save', async () => {
+    const { s, manager, storage, edit } = setup();
+    edit(40, 3); // the records of columns (1, 0) and (0, 0) hold sections and a drop each
+    edit(20, 3);
+    spawnDrop(s.sim, { item: 'item:sand', count: 2 }, 44.5, 66, 3.5);
+    spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 24.5, 66, 8.5);
+    s.step(30);
+    await manager.save();
+    const r = await restoreFrom(storage);
+    settle(r.sim);
+    const again = new SaveManager({
+      storage,
+      deflater: zlibDeflater,
+      sim: r.sim,
+      info: TEST_WORLD,
+      stored: r.restored.stored,
+      full: r.restored.contentChanged,
+    });
+    const [dirt] = dropsOf(r.sim).filter((d) => d.item === 'item:dirt');
+    // The dirt slides from column (0, 0) into column (1, 0); the player takes the sand.
+    dirt!.body.x = 33.5;
+    r.sim.spatial.update(dirt!.id, dirt!.body.x, dirt!.body.z);
+    r.host.send({ type: 'debug.teleport', x: 44.5, y: 'surface', z: 3.5 });
+    r.step(5);
+    expect(dropsOf(r.sim).map((d) => d.item)).toEqual(['item:dirt']);
+    await again.save();
+    const stored = (await storage.loadWorld(TEST_WORLD.id))!;
+    expect(stored.columns.map((c) => [c.cx, c.entities.map((e) => e.item)])).toEqual([
+      [0, []],
+      [1, ['item:dirt']],
+    ]);
+    const third = await restoreFrom(storage);
+    expect(dropsOf(third.sim).map((d) => [d.item, d.body.x])).toEqual([['item:dirt', 33.5]]);
+    expect(countItem(third.sim.players.get(1)!.inventory, 'item:sand')).toBe(2);
+  });
+
+  it('stays open when the last save fails, saving on as before; then stops for good', async () => {
+    const { manager, storage, edit } = setup();
+    const page = fakePage('hidden');
+    manager.watchPage(page);
+    manager.start();
+    edit(3, 3);
+    storage.failure = new Error('The disk went away');
+    expect(await manager.close()).toBe(false);
+    expect(storage.batches).toHaveLength(1);
+    // The page watch and the autosave are back.
+    page.win.dispatchEvent(new Event('pagehide'));
+    expect(storage.batches).toHaveLength(2);
+    storage.failure = null;
+    await advance(AUTOSAVE_MS);
+    expect(storage.batches).toHaveLength(3);
+    expect(manager.status).toBe('saved');
+    expect(await manager.close()).toBe(true);
+    page.win.dispatchEvent(new Event('pagehide'));
+    page.doc.dispatchEvent(new Event('visibilitychange'));
+    await advance(3 * AUTOSAVE_MS);
+    expect(storage.batches).toHaveLength(4);
+  });
+
+  it('stops without saving', async () => {
+    const { manager, storage, edit } = setup();
+    const page = fakePage('hidden');
+    manager.watchPage(page);
+    manager.start();
+    edit(3, 3);
+    manager.stop();
+    page.win.dispatchEvent(new Event('pagehide'));
+    await advance(3 * AUTOSAVE_MS);
+    expect(storage.batches).toHaveLength(0);
   });
 
   it('saves when a changed column unloads', async () => {

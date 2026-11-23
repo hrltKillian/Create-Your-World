@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { openErrorKey } from '../../../src/app/worlds.ts';
 import { exportWorld, importWorld } from '../../../src/platform/exportWorld.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
 import { spawnDrop } from '../../../src/sim/itemDrops.ts';
@@ -114,6 +115,13 @@ describe('world export and import', () => {
       JSON.stringify({ ...file, world: { ...file.world, saveVersion: 99 } }),
     );
     await expect(importWorld(storage, newer, 'x')).rejects.toThrow(SaveVersionError);
+    // Without a version, the world is not « from a newer game »: the file is not a world export.
+    const versionless = await gzip(
+      JSON.stringify({ ...file, world: { ...file.world, saveVersion: undefined } }),
+    );
+    const error = await importWorld(storage, versionless, 'x').catch((e: unknown) => e);
+    expect(error).not.toBeInstanceOf(SaveVersionError);
+    expect(openErrorKey(error, 'error.import')).toBe('error.import');
     expect(await storage.listWorlds()).toEqual([]);
   });
 });

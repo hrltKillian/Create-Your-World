@@ -3,6 +3,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry } from '../../../src/content/registry.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
+import { countItem, INVENTORY_SLOTS } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
@@ -12,7 +13,7 @@ import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
 import { unpackSections } from '../../../src/world/codec/columnRecord.ts';
-import { SaveVersionError } from '../../../src/world/codec/migrations.ts';
+import { CorruptRecordError, SaveVersionError } from '../../../src/world/codec/migrations.ts';
 import { columnKey, localIndex } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
@@ -48,7 +49,7 @@ function flatSim(seed: string, reg = registry): TestSim {
 
 describe('memory storage', () => {
   it('writes batches, removes columns, deletes worlds and keeps small values', async () => {
-    const world = snapshotSim(flatSim('mem').sim, TEST_WORLD, new Set()).world;
+    const world = snapshotSim(flatSim('mem').sim, TEST_WORLD, new Map()).world;
     const column = (cx: number): ColumnRecord => ({
       worldId: world.id,
       cx,
@@ -101,7 +102,7 @@ describe('save records', () => {
     const r = await restoreFrom(storage);
     expect(r.restored.info).toEqual(TEST_WORLD);
     expect(r.restored.contentChanged).toBe(false);
-    expect(r.restored.stored).toEqual(new Set([columnKey(0, 0)]));
+    expect([...r.restored.stored.keys()]).toEqual([columnKey(0, 0)]);
     expect(r.sim.tick).toBe(s.sim.tick);
     expect(r.sim.time).toEqual(s.sim.time);
     expect(r.sim.spawn).toEqual(s.sim.spawn);
@@ -152,7 +153,7 @@ describe('restoring a world', () => {
     settle(third.sim);
     expect(stateKey(third.sim, 5, 70, 5)).toBe('block:stone');
     expect(stateKey(third.sim, 6, 170, 6)).toBe('block:torch');
-    expect(stored).toEqual(new Set([columnKey(0, 0)]));
+    expect([...stored.keys()]).toEqual([columnKey(0, 0)]);
   });
 
   it('gives the same persistent state after save, reload and resume (ticks 1500 → 3000)', async () => {
@@ -199,6 +200,39 @@ describe('restoring a world', () => {
     expect(persistentHash(resumed.sim)).toBe(persistentHash(straight.sim));
   });
 
+  it('picks up competing drops in the same order after a reload (same hash)', async () => {
+    /** One free slot, and two drops of other items at the player's feet once their delay ends. */
+    const start = () => {
+      const s = flatSim('compete');
+      send(s, { type: 'debug.give', item: 'item:stone', count: 50 * (INVENTORY_SLOTS - 1) });
+      const p = s.sim.players.get(1)!.body;
+      const dirt = { item: 'item:dirt', count: 1 };
+      const older = spawnDrop(s.sim, dirt, p.x - 9, p.y, p.z, 0, 0, 0, 40);
+      spawnDrop(s.sim, { item: 'item:sand', count: 1 }, p.x + 0.4, p.y, p.z, 0, 0, 0, 40);
+      // The older drop reaches the newer one's cell after it: the spatial hash links it last
+      // there, where a restored world links every entity in id order.
+      older.body.x = p.x - 0.4;
+      s.sim.spatial.update(older.id, older.body.x, older.body.z);
+      s.step(5);
+      return s;
+    };
+    const straight = start();
+    straight.step(60);
+    const first = start();
+    const storage = new MemoryStorage();
+    await saveTo(storage, first.sim);
+    const resumed = await restoreFrom(storage);
+    settle(resumed.sim);
+    resumed.step(60);
+    expect(resumed.sim.tick).toBe(straight.sim.tick);
+    // The older drop (lower id) took the slot in both runs.
+    for (const run of [straight, resumed]) {
+      expect(countItem(run.sim.players.get(1)!.inventory, 'item:dirt')).toBe(1);
+      expect(drops(run.sim).map((d) => d.item)).toEqual(['item:sand']);
+    }
+    expect(persistentHash(resumed.sim)).toBe(persistentHash(straight.sim));
+  });
+
   it('keeps item drops with their column, frozen while it is unloaded', async () => {
     const s = flatSim('drops');
     const drop = spawnDrop(s.sim, { item: 'item:sand', count: 3 }, 20.5, 66, 20.5);
@@ -212,7 +246,7 @@ describe('restoring a world', () => {
     expect(s.sim.entities.get(drop.id)).toBe(drop);
     expect(drop.age).toBe(age);
     const storage = new MemoryStorage();
-    expect(await saveTo(storage, s.sim)).toEqual(new Set([columnKey(0, 0)]));
+    expect([...(await saveTo(storage, s.sim)).keys()]).toEqual([columnKey(0, 0)]);
     const r = await restoreFrom(storage);
     expect(drops(r.sim)).toEqual([drop]);
     send(r, { type: 'debug.teleport', x: 20.5, y: 'surface', z: 21.5 });
@@ -267,7 +301,7 @@ describe('restoring a world', () => {
     expect(r.sim.players.get(1)!.inventory[0]).toEqual({ ...unknown, count: 3 });
     expect(drops(r.sim)[0]).toMatchObject({ ...unknown, count: 2 });
     // Saved again, the items go back to their own key; the block stays unknown.
-    const again = snapshotSim(r.sim, TEST_WORLD, new Set());
+    const again = snapshotSim(r.sim, TEST_WORLD, new Map());
     expect(again.players[0]!.inventory[0]).toEqual({ item: 'item:relic', count: 3 });
     expect(again.columns[0]!.entities[0]!.item).toBe('item:relic');
     const [section] = unpackSections(again.columns[0]!.payload, (id) => id);
@@ -278,7 +312,7 @@ describe('restoring a world', () => {
     const s = flatSim('versions');
     fill(s, 1, 70, 1, 'block:stone');
     fill(s, 40, 70, 1, 'block:stone');
-    const batch = snapshotSim(s.sim, TEST_WORLD, new Set());
+    const batch = snapshotSim(s.sim, TEST_WORLD, new Map());
     const newer = new MemoryStorage();
     await newer.write({ ...batch, world: { ...batch.world, saveVersion: 2 } });
     await expect(restoreFrom(newer)).rejects.toThrow(SaveVersionError);
@@ -291,9 +325,24 @@ describe('restoring a world', () => {
     } as const;
     await damaged.write({ ...batch, columns: [good!, garbage] });
     const r = await restoreFrom(damaged);
-    expect(r.restored.stored).toEqual(new Set([columnKey(0, 0)]));
+    expect([...r.restored.stored.keys()]).toEqual([columnKey(0, 0)]);
     expect([...r.sim.edits.keys()]).toEqual([columnKey(0, 0)]);
     const options = { registry, source: new InlineColumnSource(registry), maxInFlight: 1 };
     expect(await restoreSim(damaged, 'missing', options, zlibDeflater)).toBeUndefined();
+  });
+
+  it('skips a damaged player record, and calls a versionless world damaged', async () => {
+    const s = flatSim('players');
+    s.sim.addPlayer(2, 2);
+    const batch = snapshotSim(s.sim, TEST_WORLD, new Map());
+    const [one, two] = batch.players;
+    const storage = new MemoryStorage();
+    await storage.write({ ...batch, players: [{ ...one!, v: undefined as never }, two!] });
+    const r = await restoreFrom(storage);
+    expect([...r.sim.players.keys()]).toEqual([2]);
+    expect(r.sim.players.get(2)!.id).toBe(two!.id);
+    const damaged = new MemoryStorage();
+    await damaged.write({ ...batch, world: { ...batch.world, saveVersion: undefined as never } });
+    await expect(restoreFrom(damaged)).rejects.toThrow(CorruptRecordError);
   });
 });

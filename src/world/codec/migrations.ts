@@ -1,3 +1,5 @@
+import { isWhole } from '../../core/guards.ts';
+
 /**
  * Save versions (docs « Sauvegarde », « Versions »). Every stored record carries the version that
  * wrote it (`saveVersion` for worlds, `v` for players and columns). Bump SAVE_VERSION whenever the
@@ -19,7 +21,7 @@ export type MigrationStep = Readonly<Record<RecordKind, (record: PlainRecord) =>
 /** `MIGRATIONS[i]` upgrades a version i + 1 record to version i + 2 (none yet: 1 is the first). */
 export const MIGRATIONS: readonly MigrationStep[] = [];
 
-/** A save this game cannot read: made by a newer version, or without a valid version. */
+/** A save made by a newer version of the game, which this one cannot read. */
 export class SaveVersionError extends Error {
   constructor(message: string) {
     super(message);
@@ -27,9 +29,18 @@ export class SaveVersionError extends Error {
   }
 }
 
+/** A stored record that cannot be a save at all (no valid version): damaged, or not ours. */
+export class CorruptRecordError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CorruptRecordError';
+  }
+}
+
 /**
  * Brings a record of `version` up to the last version of `steps` (SAVE_VERSION for the game's own
- * table), one step at a time.
+ * table), one step at a time. Throws SaveVersionError for a newer record, CorruptRecordError for a
+ * record without a valid version.
  */
 export function migrate(
   kind: RecordKind,
@@ -38,8 +49,8 @@ export function migrate(
   steps: readonly MigrationStep[] = MIGRATIONS,
 ): PlainRecord {
   const latest = steps.length + 1;
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1)
-    throw new SaveVersionError(`The ${kind} record has no valid save version`);
+  if (!isWhole(version, 1))
+    throw new CorruptRecordError(`The ${kind} record has no valid save version`);
   if (version > latest)
     throw new SaveVersionError(`The ${kind} record was saved by a newer version (${version})`);
   let out = record;

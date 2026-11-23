@@ -67,6 +67,16 @@ describe('SpatialHash', () => {
     expect(hash.query(4, 4, 3, out)).toEqual([1000]);
   });
 
+  it('returns ids in ascending order, whatever order they were linked in', () => {
+    const hash = new SpatialHash(8);
+    const out: number[] = [];
+    for (const id of [5, 3, 9, 1]) hash.update(id, 2, 2);
+    hash.update(3, 20, 20);
+    hash.update(3, 4, 4); // linked again, last
+    hash.update(7, -3, 2); // a neighbour cell, queried first
+    expect(hash.query(2, 2, 6, out)).toEqual([1, 3, 5, 7, 9]);
+  });
+
   it('reuses the output array', () => {
     const hash = new SpatialHash();
     hash.update(1, 0, 0);

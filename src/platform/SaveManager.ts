@@ -1,6 +1,12 @@
 import { createLogger } from '../core/log.ts';
 import type { SimEvent } from '../sim/events.ts';
-import { compressBatch, snapshotSim, type WorldInfo } from '../sim/persistence.ts';
+import {
+  compressBatch,
+  dropDigest,
+  type StoredColumns,
+  snapshotSim,
+  type WorldInfo,
+} from '../sim/persistence.ts';
 import type { Simulation } from '../sim/Simulation.ts';
 import type { SaveBatch, Storage } from '../sim/storage.ts';
 import type { Deflater } from '../world/codec/columnRecord.ts';
@@ -23,8 +29,8 @@ export interface SaveManagerOptions {
   readonly sim: Simulation;
   /** The world's name, dates and rules (each save sets `savedAt`). */
   readonly info: WorldInfo;
-  /** Keys of the column records already in storage (a restored world's `stored`). */
-  readonly stored?: ReadonlySet<number>;
+  /** The column records already in storage (a restored world's `stored`). */
+  readonly stored?: StoredColumns;
   /**
    * The first save writes every column (default): a new world, or a world saved with another pack
    * (`RestoredWorld.contentChanged`). False for a world restored as it was saved.
@@ -45,11 +51,11 @@ export interface PageTargets {
  * Saves one world (docs « Sauvegarde automatique »): every 30 s, on demand (pause, quit, a modified
  * column unloaded), and right away, raw, when the page hides or goes away.
  *
- * Changed columns carry versioned dirty flags, set from the simulation's events; a save snapshots
- * the dirty columns (plus those with item drops: drops move and age), encodes everything, then
- * writes one transaction, and clears only the flags whose version did not change meanwhile. A full
- * disk keeps the flags (the world stays in memory) until the next autosave; another error retries
- * after a doubling delay. Saves run one at a time.
+ * Edited columns carry versioned dirty flags, set from the simulation's events; a save snapshots
+ * the dirty columns (plus those whose item drops differ from their stored record's), encodes
+ * everything, then writes one transaction, and clears only the flags whose version did not change
+ * meanwhile. A full disk keeps the flags (the world stays in memory) until the next autosave;
+ * another error retries after a doubling delay. Saves run one at a time.
  */
 export class SaveManager {
   status: SaveStatus = 'idle';
@@ -60,10 +66,11 @@ export class SaveManager {
   private readonly now: () => number;
   private readonly onStatus: (status: SaveStatus) => void;
   /**
-   * A superset of the column keys in storage: added when a write is sent, deleted when a write
-   * that removes them is sent (and put back if it fails). Extra keys only cost a useless delete.
+   * The column records in storage, with the digest of their drops, as of the writes sent. A write
+   * that fails marks its columns dirty and keeps the ones it was to remove (an extra key only costs
+   * a useless delete).
    */
-  private readonly stored: Set<number>;
+  private readonly stored: Map<number, string>;
   /** Column key → version of its last change. */
   private readonly dirty = new Map<number, number>();
   private version = 0;
@@ -77,6 +84,8 @@ export class SaveManager {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private retryMs = RETRY_MS;
   private closed = false;
+  /** The page events followed (`watchPage`), and how to stop following them. */
+  private page: PageTargets | null = null;
   private unwatch: (() => void) | null = null;
 
   constructor(options: SaveManagerOptions) {
@@ -84,7 +93,7 @@ export class SaveManager {
     this.deflater = options.deflater;
     this.sim = options.sim;
     this.info = options.info;
-    this.stored = new Set(options.stored);
+    this.stored = new Map(options.stored);
     this.full = options.full ?? true;
     this.now = options.now ?? Date.now;
     this.onStatus = options.onStatus ?? (() => {});
@@ -126,21 +135,24 @@ export class SaveManager {
 
   /**
    * The page hides or goes away: writes the changes now, raw, in one transaction sent before this
-   * returns. The flags stay set, so the next save writes them again, deflated.
+   * returns. Its columns are marked, so the next save writes them again, deflated.
    */
   flush(): void {
     if (this.closed) return;
     const batch = this.snapshot();
     this.snapshots++;
     this.sending(batch);
+    for (const column of batch.columns) this.mark(columnKey(column.cx, column.cz));
     this.storage.write(batch).catch((error: unknown) => {
       log.warn('page-hide save failed', { error: String(error) });
       this.unsent(batch);
     });
   }
 
-  /** Flushes when the page hides or goes away, until `close`. */
+  /** Flushes when the page hides or goes away, until `stop` or `close`. */
   watchPage(page: PageTargets): void {
+    this.unwatch?.();
+    this.page = page;
     const onVisibility = () => {
       if (page.doc.visibilityState === 'hidden') this.flush();
     };
@@ -153,13 +165,27 @@ export class SaveManager {
     };
   }
 
-  /** Save & quit: stops the autosave and the page watch, then saves a last time. */
-  close(): Promise<boolean> {
+  /** No more saves: stops the autosave and the page watch (a save under way still ends). */
+  stop(): void {
     this.closed = true;
     clearTimeout(this.timer);
     this.unwatch?.();
     this.unwatch = null;
-    return this.save();
+  }
+
+  /**
+   * Save & quit: stops the autosave and the page watch, then saves a last time. When that save
+   * fails, the world stays open: the autosave and the page watch start again.
+   */
+  async close(): Promise<boolean> {
+    this.stop();
+    const saved = await this.save();
+    if (!saved) {
+      this.closed = false;
+      if (this.page) this.watchPage(this.page);
+      this.start();
+    }
+    return saved;
   }
 
   private mark(key: number): void {
@@ -169,11 +195,7 @@ export class SaveManager {
   /** Raw records of the world, its players and the columns to write (every one when `full`). */
   private snapshot(): SaveBatch {
     const only = this.full ? undefined : new Set(this.dirty.keys());
-    const batch = snapshotSim(this.sim, { ...this.info, savedAt: this.now() }, this.stored, only);
-    // Drops may leave or vanish before the next save: their columns are written again then.
-    for (const column of batch.columns)
-      if (column.entities.length > 0) this.mark(columnKey(column.cx, column.cz));
-    return batch;
+    return snapshotSim(this.sim, { ...this.info, savedAt: this.now() }, this.stored, only);
   }
 
   private async run(): Promise<boolean> {
@@ -212,15 +234,20 @@ export class SaveManager {
     }
   }
 
-  /** A write is sent: its columns are (about to be) stored, its removed ones are not. */
+  /** A write is sent: its columns are (about to be) stored with their drops, the removed gone. */
   private sending(batch: SaveBatch): void {
-    for (const column of batch.columns) this.stored.add(columnKey(column.cx, column.cz));
+    for (const column of batch.columns)
+      this.stored.set(columnKey(column.cx, column.cz), dropDigest(column.entities));
     for (const { cx, cz } of batch.removed) this.stored.delete(columnKey(cx, cz));
   }
 
-  /** A write failed: the columns it was to remove may still be stored. */
+  /**
+   * A write failed: storage may still hold the records it replaced, so its columns are written
+   * again by the next save, and the ones it was to remove are still known.
+   */
   private unsent(batch: SaveBatch): void {
-    for (const { cx, cz } of batch.removed) this.stored.add(columnKey(cx, cz));
+    for (const column of batch.columns) this.mark(columnKey(column.cx, column.cz));
+    for (const { cx, cz } of batch.removed) this.stored.set(columnKey(cx, cz), '');
   }
 
   private schedule(ms: number): void {

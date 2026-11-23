@@ -23,7 +23,8 @@
 .menu-layer[hidden],
 .menu-screen[hidden],
 .world-actions[hidden],
-.world-confirm[hidden] {
+.world-confirm[hidden],
+.menu-row[hidden] {
   display: none;
 }
 
@@ -234,6 +235,29 @@
 }
 
 .world-actions,
+/* Save & quit failed: the world is still open (Retry, or Quit without saving once confirmed). */
+.pause-failed {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--c-danger);
+  border-radius: 4px var(--radius) var(--radius) 4px;
+  background: var(--c-panel);
+  font-size: 0.88rem;
+}
+
+.pause-failed p {
+  margin: 0;
+}
+
+.pause-failed .menu-row {
+  margin-top: 10px;
+}
+
+.pause-confirm p {
+  margin-top: 10px;
+  color: var(--c-danger);
+}
+
 .world-confirm {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,5 @@
 import type { Registry } from '../content/registry.ts';
+import { isWhole } from '../core/guards.ts';
 import { HOTBAR_SLOTS } from '../core/player.ts';
 
 /** Hotbar (0–7) then bag (8–31, 6×4). */
@@ -21,39 +22,44 @@ export function createInventory(): Inventory {
   return new Array<ItemStack | null>(INVENTORY_SLOTS).fill(null);
 }
 
-/** Stacks of the same item merge, unless they carry wear. */
-function mergeable(stack: ItemStack, item: string, durability: number | undefined): boolean {
-  return stack.item === item && stack.durability === undefined && durability === undefined;
+/**
+ * Whether two stacks (or item drops) may merge: the same item saved under the same key (unknown
+ * items of different keys stay apart), and neither carries wear.
+ */
+export function sameStack(a: Readonly<ItemStack>, b: Readonly<ItemStack>): boolean {
+  return (
+    a.item === b.item &&
+    a.original === b.original &&
+    a.durability === undefined &&
+    b.durability === undefined
+  );
 }
 
 /**
- * Adds items, topping up matching stacks first, then filling empty slots (hotbar first).
- * Returns the count that did not fit.
+ * Adds the items of `stack` (left as it is), topping up matching stacks first, then filling empty
+ * slots (hotbar first). Returns the count that did not fit.
  */
 export function addItem(
   inventory: Inventory,
   registry: Registry,
-  item: string,
-  count: number,
-  durability?: number,
-  original?: string,
+  stack: Readonly<ItemStack>,
 ): number {
-  const max = registry.maxStack(item);
-  let left = count;
+  const max = registry.maxStack(stack.item);
+  let left = stack.count;
   for (let i = 0; i < inventory.length && left > 0; i++) {
-    const stack = inventory[i];
-    if (!stack || !mergeable(stack, item, durability) || stack.count >= max) continue;
-    const moved = Math.min(left, max - stack.count);
-    stack.count += moved;
+    const target = inventory[i];
+    if (!target || !sameStack(target, stack) || target.count >= max) continue;
+    const moved = Math.min(left, max - target.count);
+    target.count += moved;
     left -= moved;
   }
   for (let i = 0; i < inventory.length && left > 0; i++) {
     if (inventory[i]) continue;
     const moved = Math.min(left, max);
-    const stack: ItemStack = { item, count: moved };
-    if (durability !== undefined) stack.durability = durability;
-    if (original !== undefined) stack.original = original;
-    inventory[i] = stack;
+    const added: ItemStack = { item: stack.item, count: moved };
+    if (stack.durability !== undefined) added.durability = stack.durability;
+    if (stack.original !== undefined) added.original = stack.original;
+    inventory[i] = added;
     left -= moved;
   }
   return left;
@@ -88,7 +94,7 @@ export function moveItems(
     inventory[to] = takeFromSlot(inventory, from, amount);
     return true;
   }
-  if (mergeable(target, source.item, source.durability)) {
+  if (sameStack(target, source)) {
     const moved = Math.min(amount, registry.maxStack(target.item) - target.count);
     if (moved <= 0) return false;
     target.count += moved;
@@ -112,8 +118,7 @@ export function quickMove(inventory: Inventory, registry: Registry, slot: number
   const max = registry.maxStack(stack.item);
   for (let i = first; i < end && stack.count > 0; i++) {
     const target = inventory[i];
-    if (!target || !mergeable(target, stack.item, stack.durability) || target.count >= max)
-      continue;
+    if (!target || !sameStack(target, stack) || target.count >= max) continue;
     const moved = Math.min(stack.count, max - target.count);
     target.count += moved;
     stack.count -= moved;
@@ -158,9 +163,6 @@ export function serializeInventory(inventory: Inventory): Inventory {
     return saved;
   });
 }
-
-const isWhole = (v: unknown, min: number): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v >= min;
 
 /**
  * Reads a saved inventory: malformed slots become empty, the slot count is fixed, unknown items

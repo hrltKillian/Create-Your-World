@@ -32,6 +32,8 @@ export interface MenuHost {
   create(form: NewWorldForm): void;
   resume(): void;
   saveAndQuit(): void;
+  /** After a failed Save & quit, confirmed on the pause menu. */
+  quitWithoutSaving(): void;
   changeSettings(settings: Settings): void;
 }
 
@@ -89,6 +91,7 @@ export class Menus {
       resume: () => host.resume(),
       settings: () => this.open('settings'),
       saveAndQuit: () => host.saveAndQuit(),
+      quitWithoutSaving: () => host.quitWithoutSaving(),
     });
     this.screens = {
       main: this.main.element,
@@ -129,6 +132,7 @@ export class Menus {
     this.pause.setWorld(worldName);
     this.pause.setStatus(null);
     this.pause.setBusy(false);
+    this.pause.setFailed(false);
     this.nav.reset('pause');
     this.element.classList.add('over-world');
     this.render();
@@ -155,6 +159,13 @@ export class Menus {
   setQuitting(quitting: boolean): void {
     this.pause.setBusy(quitting);
     if (quitting) this.pause.setStatus('save.status.saving');
+  }
+
+  /** Save & quit failed, the world still open: the pause menu says so, with what to do next. */
+  quitFailed(): void {
+    this.pause.setBusy(false);
+    this.pause.setFailed(true);
+    this.render();
   }
 
   private open(screen: MenuScreen): void {

@@ -1,8 +1,9 @@
 /**
  * Uniform grid over the x/z plane for neighbour queries, stored in typed arrays: entities are
  * linked into hashed buckets, each entry remembering its exact cell so bucket collisions never
- * return wrong cells or duplicates. No allocation on update, remove or query once warmed up;
- * results come in a deterministic order for a deterministic sequence of operations.
+ * return wrong cells or duplicates. No allocation on update, remove or query once warmed up.
+ * Results come sorted by id: they do not depend on the order entities were linked in (a restored
+ * world links them in id order), so what callers do in that order survives a save and reload.
  */
 export class SpatialHash {
   private readonly cellSize: number;
@@ -60,7 +61,10 @@ export class SpatialHash {
     this.freeHead = slot;
   }
 
-  /** Ids in cells overlapping the square of half-size `radius` (caller filters exact distance). */
+  /**
+   * Ids in cells overlapping the square of half-size `radius`, ascending (caller filters exact
+   * distance).
+   */
   query(x: number, z: number, radius: number, out: number[]): number[] {
     out.length = 0;
     const s = this.cellSize;
@@ -72,6 +76,13 @@ export class SpatialHash {
           if (this.cellX[slot] === gx && this.cellZ[slot] === gz) out.push(this.ids[slot]!);
         }
       }
+    }
+    // Insertion sort, in place: a few ids, mostly in order already.
+    for (let i = 1; i < out.length; i++) {
+      const id = out[i]!;
+      let j = i - 1;
+      for (; j >= 0 && out[j]! > id; j--) out[j + 1] = out[j]!;
+      out[j + 1] = id;
     }
     return out;
   }

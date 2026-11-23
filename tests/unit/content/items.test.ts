@@ -41,7 +41,7 @@ describe('items', () => {
     for (const key of ['item:air', 'item:worldrock', 'item:fresh_water'])
       expect(id(key), key).toBe(-1);
     expect(id(registry.unknownItem)).toBeGreaterThanOrEqual(0);
-    expect(items.maxStack[id(registry.unknownItem)]).toBe(1);
+    expect(items.maxStack[id(registry.unknownItem)]).toBe(BLOCK_STACK);
     // Self-dropping blocks keep their item.
     for (const key of ['item:dirt', 'item:stone', 'item:torch', 'item:gate'])
       expect(id(key), key).toBeGreaterThanOrEqual(0);

@@ -1,6 +1,6 @@
 import type { Registry } from '../content/registry.ts';
 import { lockWorld, type WorldLock } from '../platform/worldLock.ts';
-import { restoreSim, type WorldInfo } from '../sim/persistence.ts';
+import { restoreSim, type StoredColumns, type WorldInfo } from '../sim/persistence.ts';
 import type { ColumnSource } from '../sim/ports.ts';
 import { Simulation } from '../sim/Simulation.ts';
 import type { Storage, WorldRecord } from '../sim/storage.ts';
@@ -17,8 +17,8 @@ export interface WorldSlot {
   readonly info: WorldInfo;
   readonly sim: Simulation;
   readonly lock: WorldLock;
-  /** Keys of the column records in storage. */
-  readonly stored: ReadonlySet<number>;
+  /** The column records in storage. */
+  readonly stored: StoredColumns;
   /** The first save writes every column (a new world, or one saved with another pack). */
   readonly full: boolean;
   readonly created: boolean;
@@ -148,7 +148,7 @@ export async function createWorld(deps: WorldDeps, world: NewWorld): Promise<Wor
     savedAt: world.now,
     rules: { hostiles: world.hostiles },
   };
-  return { info, sim, lock, stored: new Set(), full: true, created: true };
+  return { info, sim, lock, stored: new Map(), full: true, created: true };
 }
 
 /** A saved world, locked and restored; throws WorldOpenError (the lock is let go then). */

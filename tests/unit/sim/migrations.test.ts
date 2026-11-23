@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { openErrorKey } from '../../../src/app/worlds.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import type { ColumnRecord, StoredWorld } from '../../../src/sim/storage.ts';
 import { HOUR_TICKS } from '../../../src/sim/time.ts';
 import {
+  CorruptRecordError,
   MIGRATIONS,
   type MigrationStep,
   migrate,
@@ -33,7 +35,7 @@ describe('save versions', () => {
     expect(SAVE_VERSION).toBe(MIGRATIONS.length + 1);
   });
 
-  it('upgrades a record one step at a time and refuses newer or versionless records', () => {
+  it('upgrades a record one step at a time and refuses newer or damaged records', () => {
     const tag = (name: string) => (r: PlainRecord) => ({ ...r, steps: `${r.steps ?? ''}${name}` });
     const steps: MigrationStep[] = [
       { world: tag('a'), player: tag('p'), column: tag('c') },
@@ -44,8 +46,22 @@ describe('save versions', () => {
     expect(migrate('player', { x: 1 }, 3, steps)).toEqual({ x: 1 });
     expect(() => migrate('world', {}, 4, steps)).toThrow(SaveVersionError);
     for (const version of [0, 1.5, '1', undefined])
-      expect(() => migrate('player', {}, version, steps)).toThrow(SaveVersionError);
+      expect(() => migrate('player', {}, version, steps)).toThrow(CorruptRecordError);
     expect(migrate('world', { id: 'w' }, SAVE_VERSION)).toEqual({ id: 'w' });
+  });
+
+  it('reports a damaged record as unreadable, not as saved by a newer game', () => {
+    const thrown = (version: unknown) => {
+      try {
+        migrate('world', {}, version);
+      } catch (error) {
+        return error;
+      }
+      throw new Error('migrate did not throw');
+    };
+    expect(openErrorKey(thrown(SAVE_VERSION + 1))).toBe('error.world.newer');
+    expect(openErrorKey(thrown(undefined))).toBe('error.world.corrupt');
+    expect(openErrorKey(thrown(undefined), 'error.import')).toBe('error.import');
   });
 
   it('loads the v1 fixture: world, player, edits in two columns and a drop', async () => {
@@ -54,7 +70,7 @@ describe('save versions', () => {
     await storage.write({ ...stored, removed: [] });
     const { sim, restored } = await restoreFrom(storage);
     expect(restored.info.name).toBe('Fixture v1');
-    expect(restored.stored).toEqual(new Set([columnKey(0, 0), columnKey(1, 0)]));
+    expect([...restored.stored.keys()]).toEqual([columnKey(0, 0), columnKey(1, 0)]);
     expect(sim.seed).toBe('fixture-v1');
     expect(sim.worldType).toBe('flat');
     expect(sim.tick).toBe(109);

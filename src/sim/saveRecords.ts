@@ -1,4 +1,5 @@
 import type { Registry } from '../content/registry.ts';
+import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { SAVE_VERSION } from '../world/codec/migrations.ts';
 import { NEUTRAL_INPUT } from './commands.ts';
 import {
@@ -16,10 +17,6 @@ import type { DropRecord, PlayerRecord } from './storage.ts';
  * Readers never trust a record: a malformed field keeps its default (a new player at the spawn),
  * a malformed drop is dropped.
  */
-
-const isWhole = (v: unknown, min: number): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v >= min;
-const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /** Copies the fields of `saved` that have the type of `target`'s (finite numbers, booleans). */
 function assignFields<T extends object>(target: T, saved: unknown): T {
@@ -94,13 +91,11 @@ export function dropRecord(drop: Readonly<ItemDropState>): DropRecord {
 /** The drop of a (migrated) record, or null if it is malformed. */
 export function readDrop(data: unknown, registry: Registry): ItemDropState | null {
   const saved = (data ?? {}) as Partial<DropRecord>;
-  const at = (saved.body ?? {}) as Partial<DropBody>;
   if (saved.kind !== 'itemDrop' || !isWhole(saved.id, 1) || typeof saved.item !== 'string')
     return null;
-  if (!isWhole(saved.count, 1) || !isFiniteNumber(at.x) || !isFiniteNumber(at.y)) return null;
-  if (!isFiniteNumber(at.z)) return null;
+  if (!isWhole(saved.count, 1) || !isPoint(saved.body)) return null;
   const body: DropBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
-  assignFields(body, at);
+  assignFields(body, saved.body);
   const drop: ItemDropState = {
     kind: 'itemDrop',
     id: saved.id,
