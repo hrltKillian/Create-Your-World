@@ -70,7 +70,6 @@ export interface WaitOptions {
 /** No frame for this long means the animation loop is stalled (hidden or throttled pane). */
 const STALL_MS = 50;
 
-/** Polls `done` until it holds; throws once `timeoutMs` has passed. */
 /** Multiplies every waitUntil timeout (the selftest runner stretches waits on slow CI renderers). */
 let waitScale = 1;
 
@@ -78,6 +77,7 @@ export function scaleWaits(factor: number): void {
   waitScale = factor;
 }
 
+/** Polls `done` until it holds; throws once `timeoutMs` (times the wait scale) has passed. */
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
   const limit = options.timeoutMs * waitScale;

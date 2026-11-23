@@ -78,6 +78,16 @@ describe('BagScreen', () => {
     expect(boxes).toEqual(WEAR_SLOTS.map((_, i) => [INVENTORY_SLOTS + i]));
   });
 
+  it('takes only a wearable in its own equipment slot (right-drag splits)', () => {
+    const { screen } = deps();
+    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const head = INVENTORY_SLOTS + WEAR_SLOTS.indexOf('head');
+    const body = INVENTORY_SLOTS + WEAR_SLOTS.indexOf('body');
+    expect(bag.accepts(head, 'item:fur_hood')).toBe(true);
+    expect(bag.accepts(body, 'item:fur_hood')).toBe(false);
+    expect(bag.accepts(head, 'item:broadleaf_log')).toBe(false);
+  });
+
   it('shows what the worn items protect from', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));

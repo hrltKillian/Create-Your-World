@@ -1,3 +1,4 @@
+import type { Registry } from '../../content/registry.ts';
 import { WEAR_SLOTS } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -17,11 +18,16 @@ export class BagScreen {
   readonly logbook: LogbookPanel;
   private readonly board: SlotBoard;
   private readonly protection: HTMLElement;
+  private readonly registry: Registry;
+  private readonly base: number;
 
   constructor(deps: ScreenDeps, logbook: LogbookPanel) {
     this.logbook = logbook;
-    const board = new SlotBoard(deps, 'equip.move', 'screen-bag');
+    // A split dropped back on its slot never looks for a worn slot that would refuse it.
+    const board = new SlotBoard(deps, 'equip.move', 'screen-bag', this.accepts);
     this.board = board;
+    this.registry = deps.art.registry;
+    this.base = deps.slotCount;
     this.element = board.element;
     this.protection = h('p', { class: 'wear-stats' });
     const worn = board.slotViews(deps.slotCount, deps.slotCount + WEAR_SLOTS.length);
@@ -41,6 +47,13 @@ export class BagScreen {
       ),
     );
   }
+
+  /**
+   * Whether an equipment slot (from `slotCount`) takes an item, as the simulation's equip.move
+   * does: a wearable in its own box only.
+   */
+  readonly accepts = (slot: number, item: string): boolean =>
+    this.registry.item(item)?.wear?.slot === WEAR_SLOTS[slot - this.base];
 
   isOpen(): boolean {
     return this.board.isOpen();
