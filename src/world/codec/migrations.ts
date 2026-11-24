@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -75,6 +75,13 @@ export const MIGRATIONS: readonly MigrationStep[] = [
           ? { ...(entity as object), keepLit: (entity as { lit?: unknown }).lit === true }
           : entity,
       ),
+  },
+  // 6 → 7 (M13): players hold a cursor stack while a screen is open, none in an older save (its
+  // inventory of 32 slots keeps its length: the slot numbers of commands are never saved).
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, cursor: null }),
+    column: (record) => record,
   },
 ];
 

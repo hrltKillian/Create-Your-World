@@ -126,6 +126,7 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     restTicks: player.restTicks,
     viewRadius: player.viewRadius,
     inventory: serializeInventory(player.inventory),
+    cursor: player.cursor ? savedStack(player.cursor) : null,
     interaction: { ...player.interaction },
     craft: player.craft.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) })),
     seen: Object.keys(player.seen).sort(),
@@ -235,6 +236,8 @@ export function readPlayer(
   player.prevZ = player.body.z;
   player.input = { ...NEUTRAL_INPUT, yaw: player.yaw, pitch: player.pitch };
   player.inventory = deserializeInventory(saved.inventory, registry);
+  // Without the screen it was on (screens are not saved): back in the inventory at the restore.
+  player.cursor = readStack(saved.cursor, registry);
   assignFields(player.interaction, saved.interaction);
   player.craft = readCraft(saved.craft, registry);
   player.seen = readSeen(saved.seen);

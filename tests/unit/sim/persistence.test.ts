@@ -4,7 +4,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry } from '../../../src/content/registry.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import { BASE_INVENTORY_SLOTS, countItem } from '../../../src/sim/inventory.ts';
+import { BASE_INVENTORY_SLOTS, countItem, createInventory } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
@@ -128,6 +128,23 @@ describe('save records', () => {
     expect(player.input).toMatchObject({ forward: 0, yaw: player.yaw, pitch: player.pitch });
     expect(drops(r.sim).map(dropRecord)).toEqual(drops(s.sim).map(dropRecord));
     expect(persistentHash(r.sim)).toBe(persistentHash(s.sim));
+  });
+
+  it('round-trip the cursor stack and the inventory size of a player record', () => {
+    const s = flatSim('cursor');
+    const player = s.sim.players.get(1)!;
+    player.inventory = createInventory(48);
+    player.inventory[47] = { item: 'item:dirt', count: 2 };
+    player.cursor = { item: 'item:flint_pickaxe', count: 1, durability: 9 };
+    const record = JSON.parse(JSON.stringify(playerRecord('w', player)));
+    const read = readPlayer(record, registry, s.sim.spawn)!;
+    expect([read.inventory, read.cursor, read.screen]).toEqual([
+      player.inventory,
+      player.cursor,
+      null,
+    ]);
+    const bad = { ...record, cursor: { item: 'item:dirt', count: 0 } };
+    expect(readPlayer(bad, registry, s.sim.spawn)!.cursor).toBeNull();
   });
 
   it('read malformed records as defaults', () => {

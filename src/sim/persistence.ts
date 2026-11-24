@@ -41,6 +41,7 @@ import {
   readDrop,
   readPlayer,
 } from './saveRecords.ts';
+import { stowCursor } from './screens.ts';
 import { canonicalJson } from './stateHash.ts';
 import type {
   BlockEntityRecord,
@@ -379,11 +380,13 @@ function addEntities(sim: Simulation, entities: Entity[], nextEntityId: number):
 /**
  * Stacks over a maximum the pack lowered since the save are cut down to it (`fitStacks`): a
  * player's excess goes into their inventory (at their feet when it is full), a block entity's
- * drops on its block.
+ * drops on its block. A player's cursor stack, saved while a screen was open, goes back to the
+ * inventory first (no screen is open after a restore).
  */
 function fitRestoredStacks(sim: Simulation, events: SimEvent[]): void {
   const registry = sim.registry;
   for (const player of sim.players.values()) {
+    stowCursor(sim, player, events);
     const excess = [
       ...fitStacks(registry, player.inventory),
       ...fitStacks(registry, player.equipment),

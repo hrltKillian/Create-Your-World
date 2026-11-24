@@ -4,7 +4,7 @@ import type { StoreCounts } from '../world/ioProtocol.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { CreatureState } from './creatures.ts';
-import type { Inventory } from './inventory.ts';
+import type { Inventory, ItemStack } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
 import type { BlockCell, InteractionState } from './player.ts';
@@ -62,8 +62,10 @@ export interface PlayerRecord {
   readonly exhausted: boolean;
   readonly restTicks: number;
   readonly viewRadius: number;
-  /** Text item keys. */
+  /** Text item keys; its length is the inventory size (from save version 7: 32 before). */
   readonly inventory: Inventory;
+  /** The cursor stack of the screen open when saved, text key (from save version 7). */
+  readonly cursor: ItemStack | null;
   readonly interaction: InteractionState;
   /** The craft queue, its reserved ingredients with text item keys (from save version 2). */
   readonly craft: readonly CraftEntry[];

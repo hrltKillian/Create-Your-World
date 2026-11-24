@@ -211,7 +211,11 @@ describe('save versions', () => {
     const chest = { kind: 'container', x: 2, y: 65, z: 1, slots: [] };
     const column = migrate('column', { blockEntities: [grave, chest] }, 3);
     expect(column.blockEntities).toEqual([{ ...grave, worn: [] }, chest]);
-    expect(migrate('player', { playerId: 1 }, 3)).toEqual({ playerId: 1, drank: false });
+    expect(migrate('player', { playerId: 1 }, 3)).toEqual({
+      playerId: 1,
+      drank: false,
+      cursor: null,
+    });
   });
 
   it('loads the v5 fixture: a herd of Trotters, one hurt and fleeing, a Shagback, a herd flag', async () => {
@@ -309,5 +313,29 @@ describe('save versions', () => {
     const block = (x: number, z: number) => sim.registry.states[sim.world.getBlock(x, 65, z)]!.key;
     expect(block(3, -3)).toBe('block:campfire[lit=1]');
     expect(block(-3, -3)).toBe('block:campfire[lit=0]');
+    // Version 7: no cursor stack in an older save; its inventory keeps its 32 slots.
+    expect(sim.players.get(1)!.inventory).toHaveLength(32);
+  });
+
+  it('upgrades version 6 players: no cursor stack (no slot number of commands is saved)', () => {
+    const player = { playerId: 1, inventory: [null], equipment: [] };
+    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null });
+    expect(migrate('column', { blockEntities: [] }, 6)).toEqual({ blockEntities: [] });
+  });
+
+  it('loads the v7 fixture: a cursor stack saved in the open Bag back in an inventory of 40', async () => {
+    const storage = new MemoryStorage();
+    const stored = fixture(7);
+    expect(stored.players[0]!.cursor).toEqual({ item: 'item:dirt', count: 10 });
+    await storage.write({ ...stored, removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = sim.players.get(1)!;
+    expect([player.screen, player.cursor]).toEqual([null, null]);
+    expect(player.inventory).toHaveLength(40);
+    // The 10 on the cursor join the 10 left in their slot.
+    expect(player.inventory[0]).toEqual({ item: 'item:dirt', count: 20 });
+    expect(player.inventory[39]).toEqual({ item: 'item:stick', count: 1 });
+    const chest = sim.blockEntities.get(cellKey(2, 65, -2)) as ContainerEntity;
+    expect(chest.slots[0]).toEqual({ item: 'item:flint', count: 3 });
   });
 });
