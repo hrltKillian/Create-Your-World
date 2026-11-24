@@ -64,7 +64,7 @@ function skyAt(world: VoxelWorld, x: number, y: number, z: number): boolean {
  * Whether the air around the head cell (x, y, z) is closed: a 6-connected flood through the cells
  * without collision (closed doors collide, open ones do not) that runs out of cells before it
  * reaches open sky (sky light 15), more than `maxCells` cells, or a cell farther than
- * `maxDistance` (Manhattan) from the head. Sky light needs no line of sight: a cell lit 15 sees
+ * `maxDistance` from the head on any axis (a box, so a small room is closed from its corners too). Sky light needs no line of sight: a cell lit 15 sees
  * the sky straight up (glass filters it to 13 and below).
  */
 export function enclosedAt(
@@ -101,7 +101,7 @@ export function enclosedAt(
       const wx = x + dx;
       const wy = y + dy;
       const wz = z + dz;
-      if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > rules.maxDistance) {
+      if (Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) > rules.maxDistance) {
         // Open air past the limits: too big to be a shelter.
         if (open(world, tables, wx, wy, wz)) return false;
         continue;

@@ -229,6 +229,51 @@ describe('death', () => {
     expect(s.player.survival.packLeft).toBe(false);
   });
 
+  it('leaves the pack next to a doorway it died in, never up through the rock', () => {
+    const s = playerTestSim({ seed: 'death-doorway' });
+    s.fill(-3, 65, -3, 3, 90, 3, 'block:stone');
+    s.fill(0, 65, -3, 0, 66, 3, 'block:air');
+    s.put(0, 65, 0, 'block:gate[facing4=s,open=1,half=lower]');
+    s.put(0, 66, 0, 'block:gate[facing4=s,open=1,half=upper]');
+    s.give('item:berries', 5);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(s.player.graves).toHaveLength(1);
+    const [grave] = s.player.graves;
+    expect(grave).toMatchObject({ x: 0, y: 65 });
+    expect(Math.abs(grave!.z)).toBe(1);
+    expect(totals(packAt(s, grave!.x, grave!.y, grave!.z)!.slots)).toEqual({ 'item:berries': 5 });
+  });
+
+  it('comes back beside a shaft dug at the spawn, on the ground, and lives', () => {
+    const s = playerTestSim({ seed: 'respawn-shaft' });
+    const { x, y, z } = s.sim.spawn;
+    s.fill(Math.floor(x), 40, Math.floor(z), Math.floor(x), y - 1, Math.floor(z), 'block:air');
+    for (let death = 0; death < 2; death++) {
+      s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+      const [back] = eventsOf(s.send({ type: 'player.respawn' }), 'respawned');
+      expect(back!.y).toBe(y);
+      expect(Math.floor(back!.x) !== Math.floor(x) || Math.floor(back!.z) !== Math.floor(z)).toBe(
+        true,
+      );
+      s.step(40);
+      expect(s.player.survival.dead).toBe(false);
+      expect(s.player.body.y).toBe(y);
+    }
+  });
+
+  it('comes back on the floor of a pit dug all around the spawn, unhurt', () => {
+    const s = playerTestSim({ seed: 'respawn-pit' });
+    const { x, y, z } = s.sim.spawn;
+    const [bx, bz] = [Math.floor(x), Math.floor(z)];
+    s.fill(bx - 6, 50, bz - 6, bx + 6, y - 1, bz + 6, 'block:air');
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(eventsOf(s.send({ type: 'player.respawn' }), 'respawned')).toMatchObject([
+      { x, y: 50, z },
+    ]);
+    s.step(40);
+    expect(s.player.survival.health).toBeCloseTo(b.respawn.health, 0);
+  });
+
   it('stacks a second pack above the first when dying on the same spot', () => {
     const s = playerTestSim({ seed: 'two-deaths' });
     s.give('item:dirt', 5);

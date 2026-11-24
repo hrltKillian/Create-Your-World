@@ -19,7 +19,7 @@ import type { PlayerState } from './player.ts';
  * filled from the Bag (`equip.move`). What worn items do is read where it matters: warmth and
  * cooling in the thermal model, the air filter and waterproof boots in environment.ts
  * (`wornGear`), armour with combat (M10). A filter wears one use per second it filters a toxic
- * air; other gear wears per hit absorbed (M10).
+ * air; other gear wears one use per creature hit it takes (`wearGear`).
  */
 
 /** The equipment slot (index in WEAR_SLOTS) an item is worn in, −1 if it is not wearable. */
@@ -108,4 +108,17 @@ export function wearFilters(registry: Registry, player: PlayerState, out: SimEve
     if (spendUses(registry, equipment, i, 1))
       out.push({ type: 'inventoryChanged', playerId: player.playerId });
   }
+}
+
+/** A creature's hit landed: every worn piece but a filter loses a use, and one worn out is gone. */
+export function wearGear(registry: Registry, player: PlayerState, out: SimEvent[]): void {
+  const equipment = player.equipment;
+  let changed = false;
+  for (let i = 0; i < equipment.length; i++) {
+    const stack = equipment[i];
+    if (!stack || registry.item(stack.item)?.wear?.airFilter !== undefined) continue;
+    spendUses(registry, equipment, i, 1);
+    changed = true;
+  }
+  if (changed) out.push({ type: 'inventoryChanged', playerId: player.playerId });
 }

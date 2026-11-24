@@ -1,15 +1,4 @@
-import {
-  columnKey,
-  insideBorder,
-  localIndex,
-  SECTION_SIZE,
-  SECTIONS_PER_COLUMN,
-  toColumn,
-  toLocal,
-  WORLD_HEIGHT,
-} from '../world/coords.ts';
-import { surfaceY } from '../world/gen/generateColumn.ts';
-import type { SavedSection } from '../world/protocol.ts';
+import { insideBorder, toColumn, WORLD_HEIGHT } from '../world/coords.ts';
 import { setMode } from './ai/behaviours.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
@@ -25,6 +14,7 @@ import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { surfaceAt } from './surface.ts';
 import { clampGauge, DEATH_CAUSES, GAUGES } from './survival.ts';
 import { setHour } from './time.ts';
 
@@ -201,45 +191,8 @@ function fill(
   if (written > 0) out.push({ type: 'blocksChanged', x0, y0, z0, x1, y1, z1 });
 }
 
-/**
- * Feet height of a teleport: 'surface' is the top of the ground, resolved at once: the heightmap
- * of a loaded column, else the analytic height (generated decorations aside), under the saved
- * sections of an edited column, so the player never lands inside what was built there.
- */
+/** Feet height of a teleport: 'surface' is the top of the ground (`surfaceAt`). */
 function teleportY(sim: Simulation, x: number, y: number | 'surface', z: number): number {
   if (y !== 'surface') return Math.max(1, Math.min(WORLD_HEIGHT - PHYSICS.height, y));
-  const bx = Math.floor(x);
-  const bz = Math.floor(z);
-  const top = sim.world.heightAt(bx, bz);
-  if (top >= 0) return top;
-  const ground = surfaceY(sim.ctx, bx, bz);
-  const saved = sim.edits.get(columnKey(toColumn(bx), toColumn(bz)));
-  return saved ? savedSurface(saved, toLocal(bx), toLocal(bz), ground, sim.world.air) : ground;
-}
-
-/**
- * Top of an unloaded column with saved sections (the highest non-air block + 1, as a heightmap):
- * a saved section gives its blocks, any other one is the generated ground below `ground`.
- */
-function savedSurface(
-  saved: readonly SavedSection[],
-  lx: number,
-  lz: number,
-  ground: number,
-  air: number,
-): number {
-  for (let sy = SECTIONS_PER_COLUMN - 1; sy >= 0; sy--) {
-    const section = saved.find((s) => s.sy === sy);
-    for (let ly = SECTION_SIZE - 1; ly >= 0; ly--) {
-      const y = sy * SECTION_SIZE + ly;
-      if (section === undefined) {
-        if (y < ground) return y + 1;
-        continue;
-      }
-      const state =
-        section.blocks === null ? section.uniformBlock : section.blocks[localIndex(lx, ly, lz)]!;
-      if (state !== air) return y + 1;
-    }
-  }
-  return 0;
+  return surfaceAt(sim, Math.floor(x), Math.floor(z));
 }

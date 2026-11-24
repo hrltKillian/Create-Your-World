@@ -1,5 +1,6 @@
 import { FLAG_REPLACEABLE, type Registry } from '../content/registry.ts';
 import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
+import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { closeBlockEntity } from './blockEntityCommands.ts';
 import { ticksOf } from './clock.ts';
@@ -12,18 +13,24 @@ import { addItem, addToRange, type Inventory, type ItemStack } from './inventory
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { surfaceAt } from './surface.ts';
 import { addEffect, createSurvival } from './survival.ts';
 
 /*
  * Death and respawn (docs « Mort », tick step 14). A player whose health ran out leaves all they
  * carried (inventory, worn items, the ingredients the craft queue reserved) in a permanent
  * Abandoned Pack where they died, recorded in their `graves` for the compass, and lies still until
- * the Respawn command: back at the bedroll slept on last, else at the spawn, with 60 health, 50
+ * the Respawn command: back at the bedroll slept on last, else on the ground at the spawn (beside
+ * it when the ground there was dug below the spawn's height: never over a shaft), with 60 health, 50
  * hunger and 50 thirst, Weakened for 2 minutes and untargeted for 5 seconds. Secondary on a pack
  * takes back what fits, the worn items back on (the pack keeps them apart); an emptied pack goes,
- * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell above, no
+ * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell near, no
  * grave block in the pack) spills on the ground.
  */
+
+/** How far a pack looks for a free cell (Manhattan, from the feet) and a respawn for ground. */
+const PACK_REACH = 2;
+const SPAWN_RINGS = 4;
 
 /** Tick step 14: handles each new death of a player in a loaded column. */
 export function stepDeaths(sim: Simulation, out: SimEvent[]): void {
@@ -80,8 +87,10 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
 }
 
 /**
- * Leaves an Abandoned Pack holding `slots` and the `worn` items in the first free cell (air or
- * replaceable, with no block entity) from the feet up; returns its cell, or null without one.
+ * Leaves an Abandoned Pack holding `slots` and the `worn` items in the free cell (air or
+ * replaceable, with no block entity) nearest the feet, up first (Manhattan, within PACK_REACH: a
+ * doorway or a torch at the feet sends it beside them, never up through rock); returns its cell,
+ * or null without one.
  */
 function leavePack(
   sim: Simulation,
@@ -95,16 +104,54 @@ function leavePack(
   const { registry, world } = sim;
   if (registry.grave < 0) return null;
   const cx = Math.floor(x);
+  const cy = Math.floor(y);
   const cz = Math.floor(z);
-  for (let cy = Math.max(0, Math.floor(y)); cy < WORLD_HEIGHT; cy++) {
-    const state = world.getBlock(cx, cy, cz);
-    const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
-    if (!free || sim.blockEntities.has(cellKey(cx, cy, cz))) continue;
-    editBlock(world, sim.light, cx, cy, cz, registry.grave, out);
-    sim.blockEntities.set(cellKey(cx, cy, cz), { kind: 'grave', x: cx, y: cy, z: cz, slots, worn });
-    return { x: cx, y: cy, z: cz };
-  }
+  for (let d = 0; d <= PACK_REACH; d++)
+    for (let dy = d; dy >= -d; dy--) {
+      const r = d - Math.abs(dy);
+      for (let dx = -r; dx <= r; dx++) {
+        // The cells at distance d: dz is ±(r − |dx|), once when that is 0.
+        const rz = r - Math.abs(dx);
+        for (let dz = -rz; dz <= rz; dz += Math.max(1, 2 * rz)) {
+          const px = cx + dx;
+          const py = cy + dy;
+          const pz = cz + dz;
+          if (py < 0 || py >= WORLD_HEIGHT || !packFits(sim, px, py, pz)) continue;
+          editBlock(world, sim.light, px, py, pz, registry.grave, out);
+          const entity = { kind: 'grave' as const, x: px, y: py, z: pz, slots, worn };
+          sim.blockEntities.set(cellKey(px, py, pz), entity);
+          return { x: px, y: py, z: pz };
+        }
+      }
+    }
   return null;
+}
+
+/** Whether a pack may go in a cell: air or replaceable, with no block entity. */
+function packFits(sim: Simulation, x: number, y: number, z: number): boolean {
+  const { registry } = sim;
+  const state = sim.world.getBlock(x, y, z);
+  const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
+  return free && !sim.blockEntities.has(cellKey(x, y, z));
+}
+
+/**
+ * Where a player with no bedroll comes back: on the ground of the spawn's column, or of the
+ * nearest column (a fixed spiral) whose ground was not dug below the spawn's height; on the floor
+ * of a pit dug all around, so no fall awaits.
+ */
+function spawnPoint(sim: Simulation): { x: number; y: number; z: number } {
+  const { x, y, z } = sim.spawn;
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  let point = { x, y: surfaceAt(sim, bx, bz), z };
+  spiral(SPAWN_RINGS, (dx, dz) => {
+    const ground = surfaceAt(sim, bx + dx, bz + dz);
+    if (ground < y) return false;
+    point = { x: x + dx, y: ground, z: z + dz };
+    return true;
+  });
+  return point;
 }
 
 /** The Respawn command of a dead player (refused while alive). */
@@ -116,9 +163,7 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   }
   const r = sim.registry.pack.balance.respawn;
   const bed = player.respawn;
-  const x = bed ? bed.x + 0.5 : sim.spawn.x;
-  const y = bed ? bed.y : sim.spawn.y;
-  const z = bed ? bed.z + 0.5 : sim.spawn.z;
+  const { x, y, z } = bed ? { x: bed.x + 0.5, y: bed.y, z: bed.z + 0.5 } : spawnPoint(sim);
   // Far away, the player waits frozen (and the client shows its loading screen) until the
   // columns there are lit.
   sim.teleport(player, x, y, z);

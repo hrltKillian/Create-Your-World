@@ -28,12 +28,16 @@ const item = (id: ItemId, maxStack: number, traits: Traits = {}): PackItem => ({
 const found = (id: ItemId, hintKey: PackI18nKey, traits: Traits = {}) =>
   item(id, MATERIAL, { hintKey, ...traits });
 
-/** Melee use (docs « Combat »): damage, seconds between hits, reach in blocks. */
-const weapon = (damage: number, cooldown: number, reach = 3) => ({
+/**
+ * Melee use (docs « Combat »): damage, seconds between hits, reach in blocks; a weapon that is no
+ * tool wears like the tools of its `material` (« Outils et paliers »).
+ */
+const weapon = (damage: number, cooldown: number, reach = 3, material?: ToolMaterial) => ({
   damage,
   cooldown,
   reach,
   knockback: 1,
+  ...(material ? { durability: TOOL_TIERS[material].durability } : {}),
 });
 
 /** Hatchets and pickaxes of a material (tier, speed and durability from `TOOL_TIERS`). */
@@ -45,7 +49,7 @@ const hatchet = (material: ToolMaterial, damage: number) =>
 const pickaxe = (material: ToolMaterial) =>
   item(`${material}_pickaxe`, 1, { tool: { kind: 'pick', ...TOOL_TIERS[material] } });
 const blade = (material: Exclude<ToolMaterial, 'flint'>, damage: number) =>
-  item(`${material}_blade`, 1, { weapon: weapon(damage, 0.5) });
+  item(`${material}_blade`, 1, { weapon: weapon(damage, 0.5, 3, material) });
 
 const gear = (id: ItemId, wear: WearDef) => item(id, 1, { wear });
 
@@ -88,10 +92,10 @@ const materials = [
 
 /** Tools and weapons (« Outils et paliers », the weapon table of « Combat »). */
 const tools = [
-  item('flint_knife', 1, { weapon: weapon(4, 0.4) }),
+  item('flint_knife', 1, { weapon: weapon(4, 0.4, 3, 'flint') }),
   hatchet('flint', 4),
   pickaxe('flint'),
-  item('flint_spear', 1, { weapon: weapon(6, 0.8, 4) }),
+  item('flint_spear', 1, { weapon: weapon(6, 0.8, 4, 'flint') }),
   hatchet('copper', 5),
   pickaxe('copper'),
   blade('copper', 7),

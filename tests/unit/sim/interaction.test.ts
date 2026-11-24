@@ -385,6 +385,26 @@ describe('doors (two-block gates)', () => {
     ]);
   });
 
+  it('opening a gate pops what stood on it (a door whole, for one item)', () => {
+    const s = setup();
+    s.put(0, 65, -2, door(0, 'lower'));
+    s.put(0, 66, -2, door(0, 'upper'));
+    s.put(0, 67, -2, door(0, 'lower'));
+    s.put(0, 68, -2, door(0, 'upper'));
+    s.put(0, 69, -2, 'block:torch');
+    use(s, upper);
+    expect([65, 66].map((y) => s.block(0, y, -2))).toEqual([door(1, 'lower'), door(1, 'upper')]);
+    expect([67, 68, 69].map((y) => s.block(0, y, -2))).toEqual([
+      'block:air',
+      'block:air',
+      'block:air',
+    ]);
+    expect(lying(s)).toEqual([
+      ['item:gate', 1],
+      ['item:torch', 1],
+    ]);
+  });
+
   it('lets the player walk into the arena cabin once its door is open', () => {
     const s = setup('arena');
     s.host.send({ type: 'debug.teleport', x: 5.5, y: 65, z: -3.5 });

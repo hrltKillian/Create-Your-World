@@ -1,12 +1,14 @@
 import type { CreatureDef } from '../content/schema.ts';
 import { centreY, DYING_TICKS } from '../core/creatures.ts';
 import { hash32 } from '../core/hash.ts';
+import { RAY_SOLID } from '../world/raycast.ts';
 import { BRAIN, setMode, voice } from './ai/behaviours.ts';
 import { alarm } from './ai/brains.ts';
 import { lineOfSight, targetOf } from './ai/senses.ts';
 import { ticksOf } from './clock.ts';
 import { type CreatureState, creatureDef, eyeY, isGone, reachGap } from './creatures.ts';
 import { type Gear, wornGear } from './environment.ts';
+import { wearGear } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
@@ -134,7 +136,8 @@ const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: 
 
 /**
  * A creature's blow at a player lands unless the player dodged (out of reach + 0.3, or out of
- * sight) or was hit moments ago. Returns whether it landed.
+ * sight: a block with collision on the line, glass and closed gates included) or was hit moments
+ * ago. Returns whether it landed.
  */
 export function strike(
   sim: Simulation,
@@ -149,11 +152,13 @@ export function strike(
   const b = player.body;
   const tables = sim.registry.tables;
   const from = eyeY(c, def);
-  if (!lineOfSight(sim.world, tables, c.body.x, from, c.body.z, b.x, b.y + eyeHeight(b), b.z))
+  const eye = b.y + eyeHeight(b);
+  if (!lineOfSight(sim.world, tables, c.body.x, from, c.body.z, b.x, eye, b.z, RAY_SOLID))
     return false;
   const armor = wornGear(sim.registry, player.equipment, gear).armor;
   const damage = attack.damage * escalation(def, dayOf(sim.time.ticks)) * armorFactor(armor);
   hurt(player.survival, damage, 'creature');
+  wearGear(sim.registry, player, out);
   if (attack.toxicity)
     adjustGauges(player.survival, sim.registry.pack.balance, 0, 0, 0, attack.toxicity);
   player.invulnerable = COMBAT.playerInvulnerableTicks;
