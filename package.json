@@ -20,7 +20,9 @@
     "test:slow": "vitest run --mode slow",
     "headless": "node tools/headless.ts",
     "e2e": "playwright test",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "e2e:perf": "PERF=1 playwright test perf.spec",
+    "size": "node tools/gzipBudget.ts",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build && npm run size"
   },
   "dependencies": {
     "idb": "8.0.4",

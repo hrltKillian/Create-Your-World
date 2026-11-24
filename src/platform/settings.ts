@@ -1,7 +1,13 @@
+import { DEFAULT_BINDINGS, type KeyBindings, readBindings } from '../input/bindings.ts';
+import { QUALITIES, QUALITY_PRESETS, type Quality } from '../render/quality.ts';
+
 /**
- * Player settings (docs « Settings »): render distance, field of view, mouse, audio buses. Kept in
- * `localStorage` under SETTINGS_KEY as versioned JSON; a missing, blocked or unreadable store gives
- * the defaults, and every field is checked on its own (a bad value falls back to its default).
+ * Player settings (docs « Settings »): graphics (render distance, field of view, resolution,
+ * particles, view bob; a quality preset sets the render distance, the resolution and the
+ * particles at once), the controls (mouse, crouch mode, key bindings), the audio buses and the
+ * interface scale. Kept in `localStorage` under SETTINGS_KEY as versioned JSON; a missing, blocked
+ * or unreadable store gives the defaults, and every field is checked on its own: a bad or missing
+ * value (a field an older version did not store) falls back to its default.
  */
 
 export const SETTINGS_KEY = 'cyw.settings.v1';
@@ -10,8 +16,16 @@ export const SETTINGS_VERSION = 1;
 /** Render distance presets (columns), shortest first. */
 export const RENDER_DISTANCES: readonly number[] = [4, 6, 8, 10];
 export const FOV_RANGE = { min: 60, max: 100 } as const;
+/** Caps of the drawing buffer's pixel ratio (`min(devicePixelRatio, cap)`), lowest first. */
+export const PIXEL_RATIOS: readonly number[] = [0.75, 1, 1.5, 2];
 /** Mouse sensitivity: a factor of the input's base radians per pixel. */
 export const SENSITIVITY_RANGE = { min: 0.25, max: 3 } as const;
+/** Interface scale: a factor of the HUD, screens and menus (the `--ui-scale` CSS variable). */
+export const UI_SCALE_RANGE = { min: 0.75, max: 1.5 } as const;
+export const CROUCH_MODES = ['hold', 'toggle'] as const;
+export type CrouchMode = (typeof CROUCH_MODES)[number];
+/** The quality presets, lowest first (the Settings screen lists them). */
+export { QUALITIES, type Quality };
 
 /** Linear gains (0–1) of the four audio buses. */
 export interface Volumes {
@@ -26,17 +40,40 @@ export interface Settings {
   readonly renderDistance: number;
   /** Vertical field of view in degrees. */
   readonly fov: number;
+  /** Resolution: the pixel-ratio cap, one of PIXEL_RATIOS. */
+  readonly pixelRatio: number;
+  readonly particles: boolean;
+  readonly viewBob: boolean;
   readonly sensitivity: number;
   readonly invertY: boolean;
+  /** Crouch while its key is held, or each press turns it on or off. */
+  readonly crouch: CrouchMode;
+  readonly bindings: KeyBindings;
   readonly volumes: Volumes;
+  readonly uiScale: number;
 }
 
+const MEDIUM = QUALITY_PRESETS.medium;
+
+/** The defaults: the Medium preset, the default keys. */
 export const DEFAULT_SETTINGS: Settings = {
-  renderDistance: 6,
+  renderDistance: MEDIUM.renderDistance,
   fov: 75,
+  pixelRatio: MEDIUM.pixelRatio,
+  particles: MEDIUM.particles,
+  viewBob: true,
   sensitivity: 1,
   invertY: false,
+  crouch: 'hold',
+  bindings: DEFAULT_BINDINGS,
   volumes: { master: 0.8, effects: 1, ambience: 1, ui: 1 },
+  uiScale: 1,
+};
+
+/** Some settings to change: the volumes and the bindings one entry at a time. */
+export type SettingsPatch = Partial<Omit<Settings, 'volumes' | 'bindings'>> & {
+  readonly volumes?: Partial<Volumes>;
+  readonly bindings?: Partial<KeyBindings>;
 };
 
 /** The part of the Web Storage API settings need (`localStorage`, or a fake in tests). */
@@ -48,6 +85,14 @@ function clamped(value: unknown, min: number, max: number, fallback: number): nu
     : fallback;
 }
 
+function oneOf<T>(values: readonly T[], value: unknown, fallback: T): T {
+  return values.includes(value as T) ? (value as T) : fallback;
+}
+
+function flag(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
 /** Settings from parsed JSON: defaults for another version, and for each unusable field. */
 export function readSettings(data: unknown): Settings {
   const d = (data ?? {}) as Partial<Record<keyof Settings | 'version', unknown>>;
@@ -55,24 +100,59 @@ export function readSettings(data: unknown): Settings {
   const def = DEFAULT_SETTINGS;
   const v = (d.volumes ?? {}) as Partial<Record<keyof Volumes, unknown>>;
   return {
-    renderDistance: RENDER_DISTANCES.includes(d.renderDistance as number)
-      ? (d.renderDistance as number)
-      : def.renderDistance,
+    renderDistance: oneOf(RENDER_DISTANCES, d.renderDistance, def.renderDistance),
     fov: Math.round(clamped(d.fov, FOV_RANGE.min, FOV_RANGE.max, def.fov)),
+    pixelRatio: oneOf(PIXEL_RATIOS, d.pixelRatio, def.pixelRatio),
+    particles: flag(d.particles, def.particles),
+    viewBob: flag(d.viewBob, def.viewBob),
     sensitivity: clamped(
       d.sensitivity,
       SENSITIVITY_RANGE.min,
       SENSITIVITY_RANGE.max,
       def.sensitivity,
     ),
-    invertY: typeof d.invertY === 'boolean' ? d.invertY : def.invertY,
+    invertY: flag(d.invertY, def.invertY),
+    crouch: oneOf(CROUCH_MODES, d.crouch, def.crouch),
+    bindings: readBindings(d.bindings),
     volumes: {
       master: clamped(v.master, 0, 1, def.volumes.master),
       effects: clamped(v.effects, 0, 1, def.volumes.effects),
       ambience: clamped(v.ambience, 0, 1, def.volumes.ambience),
       ui: clamped(v.ui, 0, 1, def.volumes.ui),
     },
+    uiScale: clamped(d.uiScale, UI_SCALE_RANGE.min, UI_SCALE_RANGE.max, def.uiScale),
   };
+}
+
+/** The settings with a patch applied, every field checked as when read from the store. */
+export function patchSettings(settings: Settings, patch: SettingsPatch): Settings {
+  return readSettings({
+    ...settings,
+    ...patch,
+    version: SETTINGS_VERSION,
+    volumes: { ...settings.volumes, ...patch.volumes },
+    bindings: { ...settings.bindings, ...patch.bindings },
+  });
+}
+
+/** The quality preset the settings match (render distance, resolution, particles), else null. */
+export function qualityOf(settings: Settings): Quality | null {
+  return (
+    QUALITIES.find((quality) => {
+      const preset = QUALITY_PRESETS[quality];
+      return (
+        preset.renderDistance === settings.renderDistance &&
+        preset.pixelRatio === settings.pixelRatio &&
+        preset.particles === settings.particles
+      );
+    }) ?? null
+  );
+}
+
+/** The settings with a quality preset's render distance, resolution and particles. */
+export function withQuality(settings: Settings, quality: Quality): Settings {
+  const { renderDistance, pixelRatio, particles } = QUALITY_PRESETS[quality];
+  return { ...settings, renderDistance, pixelRatio, particles };
 }
 
 /** The stored text of the settings (with the schema version). */

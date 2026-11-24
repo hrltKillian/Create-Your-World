@@ -1,8 +1,8 @@
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import type { Registry } from '../content/registry.ts';
 import { t } from '../i18n/i18n.ts';
-import { DEFAULT_BINDINGS } from '../input/bindings.ts';
-import { BASE_SENSITIVITY, type InputManager } from '../input/InputManager.ts';
+import { actionForCode } from '../input/bindings.ts';
+import { BASE_SENSITIVITY, type InputManager, isTextField } from '../input/InputManager.ts';
 import type { SaveBackend } from '../platform/IdbStorage.ts';
 import type { SaveStatus } from '../platform/SaveManager.ts';
 import {
@@ -13,6 +13,7 @@ import {
 } from '../platform/settings.ts';
 import { WorkerColumnSource } from '../platform/WorkerColumnSource.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
+import { QUALITY_PRESETS } from '../render/quality.ts';
 import type { WorldView } from '../render/WorldView.ts';
 import { savingBanner } from '../ui/screens/banner.ts';
 import { loadingScreen } from '../ui/screens/loading.ts';
@@ -57,6 +58,8 @@ export interface GameHost {
   readonly touchOnly: boolean;
   /** The xray debug view is on (a new world meshes with it). */
   xray(): boolean;
+  /** Caps the drawing buffer's pixel ratio (the Resolution setting). */
+  setPixelRatio(cap: number): void;
   /** Runs `frame` on every animation frame (with the debug overlay), instead of the last loop. */
   runLoop(frame: (dt: number) => void): void;
   stopLoop(): void;
@@ -86,11 +89,13 @@ export class Game {
   constructor(host: GameHost, backend: SaveBackend) {
     this.host = host;
     this.backend = backend;
-    // Selftests measure on the defaults (a player's render distance or field of view would change
-    // their draws and captures).
-    this.settings = host.params.selftest ? DEFAULT_SETTINGS : loadSettings();
+    // Selftests and benchmarks measure on the defaults (a player's render distance, field of view
+    // or keys would change their draws, captures and presses).
+    const automated = host.params.selftest !== null || host.params.bench !== null;
+    this.settings = automated ? DEFAULT_SETTINGS : loadSettings();
     this.applySettings(this.settings);
     host.view.setRenderDistance(this.renderDistance());
+    host.setPixelRatio(this.graphics().pixelRatio);
     this.loading = loadingScreen();
     this.loading.hidden = true;
     host.root.append(this.loading);
@@ -101,6 +106,7 @@ export class Game {
       touchOnly: host.touchOnly,
       seed: host.params.seed ?? '',
       settings: () => this.settings,
+      keyLabel: (code) => host.input.labels.label(code),
       click: () => {
         if (click) host.audio.playUi(click);
       },
@@ -124,14 +130,22 @@ export class Game {
     return this.showMenu();
   }
 
-  /** Applies settings at once (input, audio, camera, render distance) and stores them. */
+  /**
+   * Applies settings at once (input, audio, camera, resolution, interface scale, the open world's
+   * particles, view bob and render distance) and stores them.
+   */
   changeSettings(settings: Settings): void {
-    const before = this.settings;
+    const distance = this.renderDistance();
+    const ratio = this.graphics().pixelRatio;
     this.applySettings(settings);
-    if (settings.renderDistance !== before.renderDistance) {
-      this.host.view.setRenderDistance(settings.renderDistance);
-      this.open?.session.setRenderDistance(settings.renderDistance);
+    const nextDistance = this.renderDistance();
+    if (nextDistance !== distance) {
+      this.host.view.setRenderDistance(nextDistance);
+      this.open?.session.setRenderDistance(nextDistance);
     }
+    // Only on a change: a resized drawing buffer is cleared (a slider must not flicker the world).
+    const nextRatio = this.graphics().pixelRatio;
+    if (nextRatio !== ratio) this.host.setPixelRatio(nextRatio);
     saveSettings(settings);
   }
 
@@ -252,6 +266,7 @@ export class Game {
       onSaveStatus: (status) => this.onSaveStatus(status),
     });
     this.open = open;
+    this.applyWorldSettings(open);
     open.session.scheduler.setXray(host.xray());
     // The session's play objects (overlays, hand view) are in place: compile while loading.
     view.precompile().catch((error: unknown) => host.recordError(`[render] ${String(error)}`));
@@ -271,8 +286,9 @@ export class Game {
       view.setPose(pose);
       view.frame(dt);
       audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
-      frames.span('world', t1 - t0);
-      frames.span('render', performance.now() - t1);
+      frames.playSpans(open.session.spans, t1 - t0, performance.now() - t1);
+      // Selftests stream on the nominal slices, so their waits do not depend on the machine.
+      if (!this.host.params.selftest) open.session.throttle.observe(frames.lastWork(), dt);
       const loading = open.session.loading;
       if (loading ? this.state === 'world' : this.state === 'loading')
         this.go(loading ? 'unloaded' : 'loaded');
@@ -296,7 +312,7 @@ export class Game {
     };
   }
 
-  /** Columns around the player: `?rd=` in dev builds, else the setting. */
+  /** Columns around the player: `?rd=` (or `?quality=`'s) in dev builds, else the setting. */
   private renderDistance(): number {
     return this.host.params.rd ?? this.settings.renderDistance;
   }
@@ -313,13 +329,16 @@ export class Game {
   }
 
   /**
-   * Esc: back one menu screen; on the pause menu, resume when there is no Pointer Lock (Esc is
-   * not a user gesture, so it cannot capture the mouse); while playing, pause. The bag takes its
-   * own Esc first (it marks the event).
+   * The pause key (Esc unless rebound): back one menu screen; on the pause menu, resume when there
+   * is no Pointer Lock (a key is not a user gesture, so it cannot capture the mouse); while
+   * playing, pause. The bag takes its own Esc first (it marks the event), and the Key bindings
+   * screen every key while it waits for one. A pause key rebound to a letter is typed into a text
+   * box (the New world name and seed), where Esc still goes back.
    */
   private readonly onPauseKey = (event: KeyboardEvent): void => {
-    if (event.repeat || event.defaultPrevented || !DEFAULT_BINDINGS.pause.includes(event.code))
-      return;
+    const pauseKey = actionForCode(this.host.input.bindings, event.code) === 'pause';
+    if (event.repeat || event.defaultPrevented || !pauseKey) return;
+    if (event.code !== 'Escape' && isTextField(event.target)) return;
     if (this.state === 'menu' || this.state === 'paused') {
       if (!this.menus.back() && this.state === 'paused' && !this.host.input.pointer) this.resume();
     } else if ((this.state === 'world' || this.state === 'loading') && this.open?.canPause()) {
@@ -338,10 +357,29 @@ export class Game {
 
   private applySettings(settings: Settings): void {
     this.settings = settings;
-    const { input, audio, view } = this.host;
+    const { input, audio, view, root } = this.host;
     input.sensitivity = BASE_SENSITIVITY * settings.sensitivity;
     input.invertY = settings.invertY;
+    input.crouchToggle = settings.crouch === 'toggle';
+    input.bindings = settings.bindings;
     audio.setVolumes(settings.volumes);
     view.setFov(settings.fov);
+    // main.css zooms the HUD, screens and menus; the dragged stack undoes it (it follows the
+    // pointer in viewport pixels).
+    root.style.setProperty('--ui-scale', String(settings.uiScale));
+    root.style.setProperty('--ui-unscale', String(1 / settings.uiScale));
+    if (this.open) this.applyWorldSettings(this.open);
+  }
+
+  /** The settings a world's own objects hold (every world opens with particles and the bob on). */
+  private applyWorldSettings(open: OpenWorld): void {
+    open.session.play.particles.setEnabled(this.graphics().particles);
+    open.session.rig.viewBob = this.settings.viewBob;
+  }
+
+  /** Resolution and particles: `?quality=`'s preset in dev builds, else the settings. */
+  private graphics(): { readonly pixelRatio: number; readonly particles: boolean } {
+    const quality = this.host.params.quality;
+    return quality ? QUALITY_PRESETS[quality] : this.settings;
   }
 }

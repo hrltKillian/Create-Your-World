@@ -1,4 +1,5 @@
 import type { CreatureDef } from '../../content/schema.ts';
+import { yawOf } from '../../core/angles.ts';
 import { ticksOf } from '../clock.ts';
 import { stepCreatureBody } from '../creatureBody.ts';
 import { type CreatureState, creatureDef, dormant, isGone } from '../creatures.ts';
@@ -166,11 +167,6 @@ function separate(sim: Simulation, c: Readonly<CreatureState>, def: CreatureDef)
     push[0] += (dx / d) * depth * SEPARATION_SPEED;
     push[1] += (dz / d) * depth * SEPARATION_SPEED;
   }
-}
-
-/** Yaw of a direction (lookVector's convention: 0 looks towards −z). */
-function yawOf(dx: number, dz: number): number {
-  return Math.atan2(-dx, -dz);
 }
 
 /**

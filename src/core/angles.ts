@@ -22,3 +22,16 @@ export function lookVector(yaw: number, pitch: number, out: Vec3): Vec3 {
   out.z = -Math.cos(yaw) * cp;
   return out;
 }
+
+/** Yaw of a direction on the ground plane (lookVector's convention: 0 looks towards −z). */
+export function yawOf(dx: number, dz: number): number {
+  return Math.atan2(-dx, -dz);
+}
+
+/** The yaw and pitch that look from `eye` towards `at` (the inverse of lookVector). */
+export function anglesTo(eye: Readonly<Vec3>, at: Readonly<Vec3>): { yaw: number; pitch: number } {
+  const dx = at.x - eye.x;
+  const dy = at.y - eye.y;
+  const dz = at.z - eye.z;
+  return { yaw: yawOf(dx, dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)) };
+}

@@ -29,6 +29,10 @@ export interface CameraPose {
   yaw: number;
   /** Radians, positive looks up. */
   pitch: number;
+  /** Radians around the view axis, positive leans left (a blow taken); 0 when absent. */
+  roll?: number;
+  /** Degrees added to the field of view setting (sprinting); 0 when absent. */
+  fovOffset?: number;
 }
 
 export interface CaptureStats {
@@ -60,6 +64,8 @@ export class WorldView {
    * creatures farther from the camera are not drawn (CreatureView).
    */
   reach = 0;
+  /** Render distance in columns (the cave culling walks within it). */
+  private renderDistance = 0;
   /** Fog range of the render distance (above water). */
   private fogNear = 0;
   private fogFar = 1;
@@ -68,6 +74,8 @@ export class WorldView {
   private underwater = false;
   private hand: HandView | null = null;
   private elapsed = 0;
+  /** The field of view setting (degrees). */
+  private fov = this.camera.fov;
 
   constructor(
     renderer: Renderer,
@@ -102,8 +110,9 @@ export class WorldView {
     hand.camera.updateProjectionMatrix();
   }
 
-  /** Vertical field of view of the world camera, in degrees (Settings). */
+  /** Vertical field of view of the world camera, in degrees (Settings; a pose may add to it). */
   setFov(degrees: number): void {
+    this.fov = degrees;
     this.camera.fov = degrees;
     this.camera.updateProjectionMatrix();
   }
@@ -133,6 +142,7 @@ export class WorldView {
   /** Fog and far plane follow the render distance (in columns). */
   setRenderDistance(renderDistance: number): void {
     const reach = renderDistance * 32;
+    this.renderDistance = renderDistance;
     this.reach = reach;
     this.fogNear = reach * 0.55;
     this.fogFar = reach - 8;
@@ -142,7 +152,12 @@ export class WorldView {
 
   setPose(pose: CameraPose): void {
     this.camera.position.set(pose.x, pose.y, pose.z);
-    this.camera.rotation.set(pose.pitch, pose.yaw, 0);
+    this.camera.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
+    const fov = this.fov + (pose.fovOffset ?? 0);
+    if (fov !== this.camera.fov) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   setDebugView(view: DebugView): void {
@@ -169,7 +184,9 @@ export class WorldView {
     uniforms.uTime.value = this.elapsed % 3600;
     uniforms.uFlicker.value = torchFlicker(this.elapsed);
     this.updateSky();
-    this.sky.follow(this.camera.position.x, this.camera.position.y, this.camera.position.z);
+    const { x, y, z } = this.camera.position;
+    this.sky.follow(x, y, z);
+    this.chunks.cull(x, y, z, this.renderDistance);
     const webgl = this.renderer.webgl;
     webgl.info.reset();
     webgl.render(this.scene, this.camera);

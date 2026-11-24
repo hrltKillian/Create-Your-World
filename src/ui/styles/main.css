@@ -42,6 +42,20 @@ body {
   image-rendering: pixelated;
 }
 
+/*
+ * Interface scale (Settings → Interface): every layer over the canvas (HUD, screens, menus) is
+ * zoomed by --ui-scale, set on #app by the game. The dragged stack is placed in viewport pixels,
+ * so it undoes the zoom (--ui-unscale = 1 / --ui-scale) and stays under the pointer.
+ */
+#app > :not(.game-canvas, .play-layer),
+.play-layer > * {
+  zoom: var(--ui-scale, 1);
+}
+
+.slot-ghost {
+  zoom: var(--ui-unscale, 1);
+}
+
 .screen {
   position: absolute;
   inset: 0;

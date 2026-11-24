@@ -5,16 +5,19 @@ Original voxel survival-adventure sandbox for the browser (Chrome first). The fu
 
 ## Commands
 
-| Command                      | Use                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `npm run dev`                | Vite dev server on :5173 (launch config `game-dev`)                           |
-| `npm run verify`             | typecheck (`tsc -b`) + Biome + Vitest + build — must be green before every PR |
-| `npm run lint:fix`           | format and apply safe fixes                                                   |
-| `npm run test:perf`          | perf thresholds under Node (local only)                                       |
-| `npm run test:slow`          | long determinism bots                                                         |
-| `npm run headless -- --ping` | run pure code under plain Node                                                |
-| `npm run bench`              | minified build with the debug hook, on :4174 (`game-bench`)                   |
-| `npm run e2e`                | Playwright smoke tests (from M2)                                              |
+| Command                                                            | Use                                                                          |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `npm run dev`                                                      | Vite dev server on :5173 (launch config `game-dev`)                          |
+| `npm run verify`                                                   | typecheck (`tsc -b`) + Biome + Vitest + build + size — green before every PR |
+| `npm run lint:fix`                                                 | format and apply safe fixes                                                  |
+| `npm run test:perf`                                                | perf thresholds under Node (local only)                                      |
+| `npm run test:slow`                                                | long determinism bots (both kinds, two game days, run twice)                 |
+| `npm run headless -- --ping`                                       | run pure code under plain Node                                               |
+| `npm run headless -- --seed=42 --ticks=9000 --bot=wanderMineBuild` | the sim in Node: hash, tps, deaths, broken, placed, pickedUp, consumed       |
+| `npm run bench`                                                    | minified build with the debug hook, on :4174 (`game-bench`)                  |
+| `npm run e2e`                                                      | Playwright: boot, selftest (`?selftest=all` per setup), save, input specs    |
+| `npm run e2e:perf`                                                 | the perf spec on the bench build (it builds and serves :4174; local only)    |
+| `npm run size`                                                     | JS gzip of `dist` ≤ 400 kB (`tools/gzipBudget.ts`; the end of `verify`)      |
 
 Never run `vitest` without `run` (watch mode never exits) and never `tsc` without `-b`.
 
@@ -23,11 +26,13 @@ Never run `vitest` without `run` (watch mode never exits) and never `tsc` withou
 1. `npm run verify` green.
 2. Dev server in the browser pane: `await __game.ready()`, `__game.errors()` empty, no error in the
    server log (Vite forwards browser console errors).
-3. `?selftest=mN` shows `SELFTEST PASS n/n`; earlier suites stay green.
+3. `?selftest=mN` shows `SELFTEST PASS n/n`; earlier suites stay green. `?selftest=all` passes in
+   every setup of `e2e/selftest.spec.ts` (its last test checks that every case ran in one of them:
+   a new case must not be skipped everywhere).
 4. Screenshots taken and reviewed. Performance numbers only with the pane visible (a hidden pane
    throttles requestAnimationFrame) and on `game-bench` from M2.
 5. From M4: `__game.ui.i18nMissing()` empty.
-6. README "Try this milestone" updated; originality checklist at M1, M3, M4, M8, M10.
+6. README "Try this milestone" updated; originality checklist at M1, M3, M4, M8, M10, M11.
 
 Deterministic boot URL: `http://localhost:5173/?seed=42&storage=memory&noLock=1&debug=1&skipMenu=1`
 (without `skipMenu` the main menu shows first).
@@ -88,8 +93,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`spiral`, `findBiome`, `findStructure`, `biomesWithin`) and the spawn `world/gen/spawn.ts`; a
     generation step reads the padded `heights` (`PADDED` rows) and writes only its own column
     (decoration: `world/gen/decor.ts`);
-  - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
-    `HOTBAR_SLOTS`): `core/player.ts`;
+  - angles: `core/angles.ts`; player constants shared by sim, render, audio and input (eye heights,
+    `HOTBAR_SLOTS`, `STRIDE`: one footstep and one bob dip): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
   - items and crafting data: `content/items.ts` (`packItems`, `blockItemKey`, `harvests`: the
@@ -208,7 +213,51 @@ They never override the rules above (determinism, zero allocations in hot loops,
     creature part (`placeCreature`, `killCreature`, `creatureList`, `census`, `spawnLog`, applied
     at once without a tick): `app/creatureAutomation.ts`; the benchmarks (`flyBenchmark`,
     `mobsBenchmark` and its scene `MOBS`, timed by `GameSession.tickMs`): `app/benchmarks.ts`;
-  - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
+  - audio (docs « Audio »): bindings `content/schema.ts` (`SoundBindings`: blocks with `step`,
+    `player`, `door`, `chest`, `lit` by station, `clock` dusk/dawn, `ambience` per biome day/night,
+    cave and underwater); recipes in `content/packs/base/` (`sfx.ts` blocks, `playerSfx.ts`,
+    `ambienceSfx.ts` loops, `sfxParts.ts`), all synthesized; validation `content/validateSounds.ts`
+    (`boundSounds`, loops only under `sounds.ambience`, `MAX_LOOP_SECONDS`); the engine
+    `audio/AudioEngine.ts` (`play`, `playLocal`, `playUi`, `setLoop`, `setUnderwater`, `logCount`),
+    its graph `audio/graph.ts` (`WATER_FILTER`), loops `audio/loops.ts` (`LoopBank`: rendered on
+    first use, `seamless` wrap), `audio/Ambience.ts` (`ambienceKey`, 3 s crossfade), `audio/cues.ts`
+    (`consumeSound`, `LAND_MIN_FALL`), `audio/bodySounds.ts` (`BODY_SOUNDS`: steps, strokes,
+    heartbeat; a footstep a `STRIDE`), `audio/crackles.ts`; per-frame wiring `app/AudioBridge.ts` (`OpenWorld.sounds`,
+    `litSounds`); automation `app/audioAutomation.ts` (`audioMark`, `heardSince`, `ambienceView`);
+  - render feel (docs « Rendu », « Caméra 1re personne »): `render/CameraRig.ts` (view bob `BOB`
+    with `viewBob`, `land` dip, `hurt` roll, sprint `fovOffset`/`SPRINT_FOV`; the pose's
+    `roll`/`fovOffset` are applied by `WorldView.setPose` over `setFov`), the hand's inertia
+    `render/HandView.ts` (`look`, `swayX/Y/Z`, `released`), particles `render/Particles.ts` (`burst`,
+    `mineDust`, `landDust`, `trail`, `setEnabled`; patches and the trail texel in
+    `render/particleArt.ts`); automation `app/feelAutomation.ts` (`feelView`, `setParticles`,
+    `setViewBob`);
+  - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
+    `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
+    (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
+    applied by `app/graphicsPreset.ts` `applyQuality`, the client throttle `app/throttle.ts`
+    (`ClientThrottle`, `THROTTLE`; off in selftests), spans `app/perf.ts` (`SPANS`, `playSpans`,
+    `lastSpan`); benchmarks `app/benchmarks.ts` (`BENCH_KINDS`, `runBenchmark`, `loadBenchmark`,
+    `MOBS`) and `app/bench/` (sampler `sampleFrames`; motion `FLY`/`WALK`; cave `CAVE`/`cavePose`;
+    dig `DIG`; stage `teleportAndWait` (the selftests' too) and `staged` (the clock frozen at an
+    hour, the player immune); `autorun.ts` for `?bench=`); the cave search
+    `world/gen/find.ts` `findCave`; the gzip budget `tools/gzipBudget.ts`;
+  - onboarding (docs « Prise en main »): `platform/onboarding.ts` (`SeenTips`, key
+    `cyw.onboarding.v1`, `TIPS`), `ui/onboarding.ts` (`ControlsCard`, `TIP_SECONDS`),
+    `app/onboarding.ts` (`Onboarding`, `onboardingMode`, `seenTipsFor`, `controlRows`; HudBridge asks
+    `dusk()`), automation `app/onboardingAutomation.ts`; ids `#onboarding-card`
+    (`data-action="onboarding-close"`) and `#hud-tip`;
+  - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, `botTick`,
+    `sendBotCommands`, `BotTally`/`tallyEvent`; `BOT_KINDS`, `createBot(kind, seed, world)`, which
+    asks to respawn while dead; `wanderBot`; wanderMineBuild in `wanderMineBuild.ts` with
+    `botSenses.ts`, `botState.ts`, `botNeeds.ts`); the browser driver `app/botDriver.ts` (`pilot`,
+    `driveBot`; `GameSession.pilot` replaces the keyboard input each tick); the objectives walk
+    `sim/testing/objectiveWalk.ts` (`walkObjectives`: the pad, the cabin built with secondary, the
+    sip, the night; `walkPort.ts` with `hold(action, slot, at, ticks, until?)`; `walkSupplies.ts`:
+    crafts, processes, stations, then the world for the items an objective names: `walkGather.ts`
+    (sources found or staged, ores in their biome, the hunt in a pit), `walkHands.ts` (break with
+    the best tool, place, pick up, strike) and `walkReach.ts` (stands and aims along the sim's own
+    ray)), its browser port `app/walkAutomation.ts` (`walkObjectivesHere`); view angles to a point
+    `anglesTo` and a yaw `yawOf` (`core/angles.ts`);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
     with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);
@@ -226,7 +275,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`, `time` (hour 0–24 of the
   world clock), `freezeTime`, `spawns=0|1` (natural creature spawns and herds; by default only in
   generated worlds, never in selftests unless given), `grace` (ticks without hostile spawns,
-  `grace=0`) — more arrive with later milestones.
+  `grace=0`), `quality=low|medium|high` (pixel-ratio cap, and the render distance without `rd`),
+  `occlusion=0` (no cave culling), `bench=walk|fly|cave|mobs|dig|load` (runs it once the render
+  distance is meshed and shows `#bench-result`; implies `skipMenu` and `noLock`, `fly` the free
+  camera), `onboarding=0|1` (`1`: the card and tips as in a new browser; by default once per
+  browser, never under selftest, `noLock`, `skipMenu` or WebDriver).
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4,m5`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 - M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,
@@ -283,7 +336,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   simulation tick alone (`GameSession.tickMs`): `{ creatures, ticks, tickMedian, tickP95,
   tickMax }`; the clock, the immunity, the toxicity and the creature count are put back (the
   creatures are killed: their loot stays).
-- Creature checks (`selftest/m10.ts`, `e2e/creatures.spec.ts`), two setups since the creature
+- Creature checks (`selftest/m10.ts`), two setups since the creature
   rules are fixed when a world opens: `?worldType=flat&fixedStep=1&selftest=m0,m10` (the Prowler
   hunt, stealthy and plain spear blows on Trotters trapped in pits, a Trotter's loot, the mobs
   benchmark; the spawn cases skipped) and, for the spawn cases (none at noon, at least 3 hostiles
@@ -291,7 +344,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `?worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0&selftest=m0,m10`. Creatures and the spear
   come from the pack's data (the stalker, the grazer, the weapon that reaches farthest).
 - Survival checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` (`selftest/m9.ts`, its scenes in
-  `selftest/survivalScenes.ts`; `e2e/survival.spec.ts`): the generated world with fixed steps; the
+  `selftest/survivalScenes.ts`): the generated world with fixed steps; the
   tundra and the marsh are the coldest biome by night and the most toxic one by day, the cabin, pads
   and pool are debug fills of the arena cabin's wall and pond water; its reload case needs IndexedDB
   (skipped with `?storage=memory`).
@@ -307,17 +360,48 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- M11 hook entries (version 11): `audio.mark()`/`audio.since(mark)` (the keys logged after a mark),
+  `audio.ambience()` (`{ loops: [{ key, gain }], underwater, place }`); `render.feel()` (`{ fov,
+  fovOffset, bob, roll, viewBob, sway, particles, particlesOn }`), `render.particles(on)`,
+  `render.viewBob(on)` (for the open world; each new world starts with both on until the settings
+  apply), `render.occlusion(enabled?)` (`{ enabled, runs, reached, lastMs, hidden }`),
+  `render.setQuality(preset)`, `render.chunks()` adds `inPlace` and `hidden`; `perf.benchmark(kind,
+  seconds?)` for walk, fly, cave, mobs, dig (the number of edits) and load, `perf.throttle()`,
+  `perf.snapshot().spans` (8 spans); `onboarding.state()` (`{ on, card, tip, seen }`) and
+  `onboarding.restart(on = true)` (in memory: the card shows); `objectives.walk(maxRadius = 3000)`
+  (a fresh player, the generated world, fixed steps; the keys done); `bot.kinds()` and
+  `bot.run(kind = 'wanderMineBuild', seconds = 300)` (game seconds: 8 ticks a frame in fixed steps,
+  real time otherwise; `{ kind, ticks, deaths, respawns, broken, placed, pickedUp, consumed, alive,
+  x, y, z, errors }`).
+- M11 checks (`selftest/m11.ts`, one case file per part): the objectives walk first
+  (`selftest/objectivesWalk.ts`: `?seed=7&rd=4&fixedStep=1`; a player who did objectives walks in
+  a new world of the same seed, `freshWorld`), onboarding (`onboardingCases.ts`: the card in any
+  world with a player, the tips flat), audio (`m11audio.ts`: `?worldType=arena&fixedStep=1`, keys
+  from the pack's bindings; the clock case ends on day 2), render feel (`m11feel.ts`: flat, fixed
+  steps), performance (`m11perf.ts`: `?seed=7&rd=6`, real ticks; `fly` with `&freecam=1`;
+  frame-time thresholds on the bench build only), the bot (`botCases.ts`: the generated world, fixed
+  steps or real ticks), and the settings cases (`m11settings.ts`). The 5-minute bot run is in
+  `e2e/boot.spec.ts` (local only); `e2e/perf.spec.ts` checks the bench thresholds
+  (`npm run e2e:perf`).
+- `?selftest=all` (`e2e/selftest.spec.ts`): every suite in each of its 8 setups (test chunk,
+  generated real time, free camera, generated fixed steps with IndexedDB, flat with IndexedDB,
+  flat `forceNoIdb`, flat natural spawns, arena with IndexedDB); none may fail, and every case must
+  run in one of them. A case belongs to a setup through `scenes` and `skip` (the `needs…` helpers
+  of `selftest/support.ts`); m7 ends on the Worlds screen, so the play cases after it skip in that
+  boot. The banner's `data-results` lists every case with `ok`, `skipped`, `detail` and `ms`.
 - `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
-  `yieldTask`, `waitUntil`, `waitForChunks`), the debug commands (`teleport`, `fill`, `setBlock`,
+  `yieldTask`, `waitUntil`, `waitForChunks`, `scaledWait`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
   crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
-  `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
+  `dragSlot`) and `saveNow`/`reloadWorld`/`freshWorld` (a new world of the same seed), shared by
+  `debugHook.ts` (its groups in `app/hook/`) and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
-  `needsGeneratedPlayer`, `needsIdb`, `standAt` (flat surface by default), `aimAt` (a block's side,
+  `needsGeneratedPlayer`, `needsSpawningFlatPlayer`, `needsIdb` (the flat and arena player checks
+  skip under `?spawns=1`), `standAt` (flat surface by default), `aimAt` (a block's side,
   or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `emitterOf` and
   `TORCH_LIGHT` (the torch without naming it), `PLAY_SCENES`, `SETTLE_MS`, `SEARCH_RADIUS`,
   `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
-  (`selftest/m4.ts` … `m10.ts`), and every suite ends with `noErrorsCase()`.
+  (`selftest/m4.ts` … `m11.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
@@ -333,3 +417,9 @@ our own skins on the block patterns and procedural gaits (four or six legs); the
 and four-legged with emissive amber eyes (`tests/unit/content/creatures.test.ts`); synthesized
 voices; loot and weapons named by us (Prowler Sinew, Flint Spear…); a hit marker and damage arcs
 in our HUD style.
+
+Finish (reviewed at M11): every sound is synthesized from the pack's recipes at load or on first
+use (footsteps per material, player, doors, chests, fires, stingers and the ambience loops; no
+audio file ships and none is fetched); particles, the attack trail and the hand's sway in our own
+style (chips tinted like the block face they come from); the controls card and tips in our HUD
+style with the player's own key labels; the 8-slot hotbar and the vials unchanged.

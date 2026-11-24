@@ -26,9 +26,11 @@ function setup() {
   } as unknown as ConstructorParameters<typeof MeshScheduler>[1];
   const shown: number[] = [];
   const removed: number[] = [];
+  const outdated: number[] = [];
   const sink: MeshSink = {
     update: (key) => shown.push(key),
     remove: (key) => removed.push(key),
+    outdated: (key) => outdated.push(key),
   };
   const scheduler = new MeshScheduler({ world } as unknown as SimView, runner, sink, {
     belowBlock: registry.unknownBlock,
@@ -46,7 +48,7 @@ function setup() {
   const frame = () => scheduler.update(16, 64, 16, BUDGETS);
   scheduler.onEvent({ type: 'columnMeshable', cx: 0, cz: 0 });
   scheduler.onEvent({ type: 'columnMeshable', cx: 1, cz: 0 });
-  return { world, scheduler, jobs, shown, removed, answer, frame };
+  return { world, scheduler, jobs, shown, removed, outdated, answer, frame };
 }
 
 /** Loads both columns' meshes and clears the records. */
@@ -59,6 +61,7 @@ async function loaded() {
   s.jobs.length = 0;
   s.shown.length = 0;
   s.removed.length = 0;
+  s.outdated.length = 0;
   return s;
 }
 
@@ -93,6 +96,22 @@ describe('mesh scheduler', () => {
     expect(s.scheduler.sectionVersionLag()).toBe(0);
     expect(s.scheduler.editToMeshMs).toBeGreaterThanOrEqual(0);
     expect(s.scheduler.idle()).toBe(true);
+  });
+
+  it('marks queued and edited sections outdated: they count as connected until meshed', async () => {
+    const s = await loaded();
+    breakBorderBlock(s);
+    // Both sections around the broken block, and the empty ones above them (sy 2).
+    const edited = [
+      sectionKey(0, 1, 0),
+      sectionKey(1, 1, 0),
+      sectionKey(0, 2, 0),
+      sectionKey(1, 2, 0),
+    ];
+    expect([...new Set(s.outdated)].sort()).toEqual(expect.arrayContaining(edited.sort()));
+    s.outdated.length = 0;
+    s.scheduler.queue(0, 3, 0);
+    expect(s.outdated).toEqual([sectionKey(0, 3, 0)]);
   });
 
   it('drops a mesh made before an edit and meshes the section again, urgently', async () => {

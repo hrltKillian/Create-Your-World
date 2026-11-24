@@ -5,12 +5,13 @@ import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/reg
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { addStrings } from '../i18n/i18n.ts';
-import { DEFAULT_BINDINGS } from '../input/bindings.ts';
+import { actionForCode } from '../input/bindings.ts';
 import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { openSaveBackend } from '../platform/IdbStorage.ts';
 import { DEFAULT_SETTINGS } from '../platform/settings.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
+import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../render/quality.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
 import { createTextureArray } from '../render/textureArray.ts';
@@ -33,11 +34,10 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 10;
+export const MILESTONE = 11;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
-const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
 /** Seconds between two refreshes of the debug overlay. */
 const OVERLAY_REFRESH = 0.25;
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
@@ -64,6 +64,8 @@ export class App {
   /** Menus, saves and the world open in this tab (null in the developer scenes). */
   game: Game | null = null;
   debugView: DebugView = 'none';
+  /** performance.now() (from the navigation start) of the first frame in play; −1 until then. */
+  playableAt = -1;
 
   private readonly root: HTMLElement;
   private readonly readyPromise: Promise<void>;
@@ -136,7 +138,8 @@ export class App {
       this.workers = new WorkerPool(workerCount(navigator.hardwareConcurrency));
       this.workers.onFatal = (reason) => this.fail(new Error(reason));
       this.renderer = new Renderer(this.root, {
-        maxPixelRatio: 1.5,
+        // The game then caps it at the Resolution setting (`setPixelRatio`), or `?quality=`'s.
+        maxPixelRatio: QUALITY_PRESETS[this.params.quality ?? DEFAULT_QUALITY].pixelRatio,
         // The bench build always renders at a fixed size so fill cost does not depend on the pane.
         fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
       });
@@ -170,6 +173,9 @@ export class App {
   setDebugView(view: DebugView): void {
     this.debugView = view;
     this.view?.setDebugView(view);
+    // The xray view shows the caves, the test scene everything: no cave culling with them.
+    const cull = this.params.occlusion && view !== 'xray' && !this.testScene;
+    this.view?.chunks.occlusion.setEnabled(cull);
     this.session?.scheduler.setXray(view === 'xray');
   }
 
@@ -209,6 +215,7 @@ export class App {
         frames: this.frames,
         touchOnly: report.touchOnly,
         xray: () => this.debugView === 'xray',
+        setPixelRatio: (cap) => this.renderer!.setMaxPixelRatio(cap),
         runLoop: (frame) => this.runSceneLoop(frame),
         stopLoop: () => this.stopLoop(),
         shown: () => this.resolveReady(),
@@ -227,7 +234,9 @@ export class App {
     tints: readonly string[],
   ): WorldView {
     const textures = createTextureArray(layers, pack.manifest.textureSize);
-    return new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
+    const view = new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
+    view.chunks.occlusion.setEnabled(this.params.occlusion);
+    return view;
   }
 
   /** The sound engine: recipes pre-rendered now, the AudioContext made or resumed on a click. */
@@ -249,6 +258,8 @@ export class App {
     const pack = registry.pack;
     const view = this.createWorldView(pack, packLayers(pack), packTints(pack));
     this.view = view;
+    // A showcase seen whole (m1 counts one draw per mesh): no cave culling.
+    view.chunks.occlusion.setEnabled(false);
     const world = new VoxelWorld(registry.air, registry.unknownBlock);
     buildTestScene(world, registry);
     meshTestScene(world, registry, view.chunks);
@@ -283,14 +294,16 @@ export class App {
   }
 
   /**
-   * The debug overlay (the caller places its element), toggled with the debug keys (not while
-   * typing in a menu field: IntlBackslash is @ on a Mac AZERTY), and the `?view=` debug view.
+   * The debug overlay (the caller places its element), toggled with the debug keys as bound now
+   * (not while typing in a menu field: IntlBackslash is @ on a Mac AZERTY), and the `?view=`
+   * debug view.
    */
   private mountDebug(): DebugOverlay {
     const overlay = new DebugOverlay(this.params.debug);
     this.overlay = overlay;
     window.addEventListener('keydown', (event) => {
-      if (DEBUG_KEYS.has(event.code) && !(event.target instanceof HTMLInputElement)) {
+      const debugKey = this.input && actionForCode(this.input.bindings, event.code) === 'debug';
+      if (debugKey && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         overlay.toggle();
       }
@@ -329,6 +342,7 @@ export class App {
         this.lastFrame = now;
         frame(dt);
         this.frames.frameEnd();
+        if (this.playableAt < 0 && this.state === 'world') this.playableAt = performance.now();
         this.resolveReady();
       } catch (error) {
         // three schedules the next frame before calling us: stop the loop and show the error once.

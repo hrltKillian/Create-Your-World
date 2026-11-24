@@ -5,6 +5,7 @@ import { storageEstimate } from '../platform/SaveManager.ts';
 import type { Settings } from '../platform/settings.ts';
 import type { Storage, WorldRecord } from '../sim/storage.ts';
 import { h } from '../ui/h.ts';
+import { ControlsScreen } from '../ui/screens/controls.ts';
 import { MainMenu } from '../ui/screens/mainMenu.ts';
 import { type NewWorldForm, NewWorldScreen } from '../ui/screens/newWorld.ts';
 import { PauseScreen } from '../ui/screens/pause.ts';
@@ -26,6 +27,8 @@ export interface MenuHost {
   /** Seed suggested by the New world screen (`?seed=` in dev builds). */
   readonly seed: string;
   settings(): Settings;
+  /** A key's or mouse button's label on the player's keyboard layout. */
+  keyLabel(code: string): string;
   /** Interface click sound. */
   click(): void;
   play(id: string): void;
@@ -38,8 +41,9 @@ export interface MenuHost {
 }
 
 /**
- * The menu layer (docs « Menus »): the main menu, Worlds, New world, Settings and the pause menu,
- * built once and shown one at a time from a stack (Back and Esc go down one). It reads and edits
+ * The menu layer (docs « Menus »): the main menu, Worlds, New world, Settings with its Key
+ * bindings, and the pause menu, built once and shown one at a time from a stack (Back and the
+ * pause key go down one). It reads and edits
  * the stored worlds (delete, export, import) and hands play, creation, resume and quitting to
  * the app. A notice line reports what went wrong (a world open in another tab, a bad file…).
  */
@@ -51,6 +55,7 @@ export class Menus {
   private readonly worlds: WorldsScreen;
   private readonly newWorld: NewWorldScreen;
   private readonly settings: SettingsScreen;
+  private readonly controls: ControlsScreen;
   private readonly pause: PauseScreen;
   private readonly screens: Readonly<Record<MenuScreen, HTMLElement>>;
   private readonly notice: HTMLElement;
@@ -83,10 +88,17 @@ export class Menus {
       create: (form) => host.create(form),
       back: () => this.back(),
     });
-    this.settings = new SettingsScreen(
-      (settings) => host.changeSettings(settings),
-      () => this.back(),
-    );
+    this.settings = new SettingsScreen({
+      current: () => host.settings(),
+      change: (settings) => host.changeSettings(settings),
+      keys: () => this.open('controls'),
+      back: () => this.back(),
+    });
+    this.controls = new ControlsScreen({
+      label: (code) => host.keyLabel(code),
+      change: (bindings) => host.changeSettings({ ...host.settings(), bindings }),
+      back: () => this.back(),
+    });
     this.pause = new PauseScreen({
       resume: () => host.resume(),
       settings: () => this.open('settings'),
@@ -98,6 +110,7 @@ export class Menus {
       worlds: this.worlds.element,
       newWorld: this.newWorld.element,
       settings: this.settings.element,
+      controls: this.controls.element,
       pause: this.pause.element,
     };
     this.notice = h('p', { class: 'menu-notice', attrs: { role: 'alert' } });
@@ -146,6 +159,8 @@ export class Menus {
   /** Back one screen (Back, Esc); false at the main or pause menu. */
   back(): boolean {
     if (!this.nav.back()) return false;
+    // Back from Key bindings: the settings as they are now.
+    if (this.nav.current === 'settings') this.settings.show(this.host.settings());
     this.render();
     return true;
   }
@@ -176,6 +191,7 @@ export class Menus {
 
   private open(screen: MenuScreen): void {
     if (screen === 'settings') this.settings.show(this.host.settings());
+    else if (screen === 'controls') this.controls.show(this.host.settings().bindings);
     else if (screen === 'worlds') this.showWorlds();
     else if (screen === 'newWorld')
       this.newWorld.reset(t('newWorld.defaultName', { n: this.list.length + 1 }), this.host.seed);
@@ -186,6 +202,8 @@ export class Menus {
   /** Shows the current screen (and the notice: an i18n key, cleared by default), focused. */
   private render(notice: string | null = null): void {
     const current = this.nav.current;
+    // A key the Key bindings screen waited for is not awaited once it is gone.
+    if (current !== 'controls') this.controls.stop();
     this.element.hidden = current === null;
     for (const [name, element] of Object.entries(this.screens)) element.hidden = name !== current;
     this.notice.textContent = notice === null ? '' : t(notice);

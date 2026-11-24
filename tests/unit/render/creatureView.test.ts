@@ -2,6 +2,7 @@ import { Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { DYING_TICKS } from '../../../src/core/creatures.ts';
 import { BoxBatch, fullSkin, WORLD_BOXES } from '../../../src/render/BoxBatch.ts';
+import { CameraRig } from '../../../src/render/CameraRig.ts';
 import { CreatureView } from '../../../src/render/CreatureView.ts';
 import {
   animateCreature,
@@ -12,13 +13,13 @@ import {
 import { HandView } from '../../../src/render/HandView.ts';
 import { buildItemModels } from '../../../src/render/itemModels.ts';
 import { PlayView } from '../../../src/render/PlayView.ts';
-import type { VoxelUniforms } from '../../../src/render/voxelMaterial.ts';
 import type { WorldView } from '../../../src/render/WorldView.ts';
 import type { CreatureMode, CreatureState } from '../../../src/sim/creatures.ts';
 import type { SimView } from '../../../src/sim/host.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
 import type { Entity } from '../../../src/sim/Simulation.ts';
 import { createRayHit } from '../../../src/world/raycast.ts';
+import { boxUniforms } from '../../helpers/boxUniforms.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
 import { packPixels, TEXTURE_SIZE } from '../../helpers/packPixels.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -29,13 +30,7 @@ import { registry } from '../../helpers/registry.ts';
  * and shrink of a death; and the hand view's charged attack.
  */
 
-const shared = {
-  uTextures: { value: null },
-  uDaylight: { value: 1 },
-  uSkyTint: { value: null },
-  uTorchTint: { value: null },
-  uMinLight: { value: 0 },
-} as unknown as VoxelUniforms;
+const shared = boxUniforms;
 
 const modelOf = (creature: string) => registry.model(registry.creature(creature)!.model)!;
 
@@ -239,7 +234,7 @@ describe('creature view budget', () => {
 
   it('never starves the item drops, however many creatures are near', () => {
     const textures = { image: { data: packPixels, width: TEXTURE_SIZE } };
-    const uniforms = { ...shared, uTextures: { value: textures } };
+    const uniforms = { ...shared, uTextures: { value: textures }, uTintColors: { value: [] } };
     const worldView = {
       materials: { uniforms },
       scene: { add() {}, remove() {} },
@@ -266,7 +261,7 @@ describe('creature view budget', () => {
       thrower: -1,
     });
     const sim = { registry, world: flatWorld(), entities, playerId: 1 } as unknown as SimView;
-    const play = new PlayView(worldView, sim);
+    const play = new PlayView(worldView, sim, new CameraRig());
     const eye = { x: 0.5, y: 65.6, z: 0.5 };
     play.draw({
       player: createPlayer(1, 0.5, 64, 0.5, 2, registry.pack.balance),

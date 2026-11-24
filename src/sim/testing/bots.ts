@@ -1,21 +1,45 @@
+import type { Registry } from '../../content/registry.ts';
 import { Rng } from '../../core/rng.ts';
-import type { InputCommand } from '../commands.ts';
+import type { VoxelWorld } from '../../world/VoxelWorld.ts';
+import type { Command } from '../commands.ts';
 import type { PlayerState } from '../player.ts';
+import { wanderMineBuildBot } from './wanderMineBuild.ts';
 
-export type BotKind = 'wander';
-export const BOT_KINDS: readonly BotKind[] = ['wander'];
+export type BotKind = 'wander' | 'wanderMineBuild';
+export const BOT_KINDS: readonly BotKind[] = ['wander', 'wanderMineBuild'];
 
-/** Scripted player for tests and headless runs: deterministic for a given seed. */
+/**
+ * Scripted player for tests, headless runs and the browser driver: deterministic for a given seed
+ * (its decisions come from its own seeded random stream and the simulation's state).
+ */
 export interface Bot {
-  /** Input for the next tick, from the player's current state. */
-  next(player: Readonly<PlayerState>, tick: number): InputCommand;
+  /**
+   * This tick's commands into `out`, from the player's current state: the respawn while it is dead
+   * (createBot), at most one inventory command, then the input (always last).
+   */
+  next(player: Readonly<PlayerState>, tick: number, out: Command[]): void;
 }
 
-export function createBot(kind: BotKind, seed: string): Bot {
-  switch (kind) {
-    case 'wander':
-      return wanderBot(seed);
-  }
+/** What a bot reads besides its player: the pack (item kinds) and the world (water, bushes). */
+export interface BotWorld {
+  readonly registry: Registry;
+  readonly world: VoxelWorld;
+}
+
+const RESPAWN: Command = { type: 'player.respawn' };
+
+/**
+ * A bot of a kind. While its player is dead it first asks to respawn (the death screen's
+ * Respawn), so long runs keep death and respawn in their hashes instead of a body lying still.
+ */
+export function createBot(kind: BotKind, seed: string, world: BotWorld): Bot {
+  const bot = kind === 'wander' ? wanderBot(seed) : wanderMineBuildBot(seed, world);
+  return {
+    next(player, tick, out) {
+      if (player.survival.dead) out.push(RESPAWN);
+      bot.next(player, tick, out);
+    },
+  };
 }
 
 /**
@@ -31,7 +55,7 @@ export function wanderBot(seed: string): Bot {
   let lastZ = Number.NaN;
   let stuck = 0;
   return {
-    next(player, tick) {
+    next(player, tick, out) {
       if (tick >= until) {
         yaw = rng.range(-Math.PI, Math.PI);
         until = tick + rng.intRange(30, 150);
@@ -47,7 +71,7 @@ export function wanderBot(seed: string): Bot {
         until = tick + 1;
         stuck = 0;
       }
-      return {
+      out.push({
         type: 'input',
         forward: 1,
         strafe: 0,
@@ -59,7 +83,7 @@ export function wanderBot(seed: string): Bot {
         primary: false,
         secondary: false,
         slot: 0,
-      };
+      });
     },
   };
 }

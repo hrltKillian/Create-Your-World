@@ -1,6 +1,7 @@
 /**
  * Minimal window/element stand-in for input tests under Node: listeners can be added, removed
- * and fed synthetic events (with a no-op `preventDefault`).
+ * and fed synthetic events (with a no-op `preventDefault` and `stopPropagation`; a listener's
+ * `stopImmediatePropagation` keeps the later listeners from the event).
  */
 export class FakeTarget {
   private readonly listeners = new Map<string, Set<(e: unknown) => void>>();
@@ -15,7 +16,19 @@ export class FakeTarget {
   }
 
   dispatch(type: string, event: Record<string, unknown>) {
-    for (const fn of this.listeners.get(type) ?? []) fn({ preventDefault() {}, ...event });
+    let stopped = false;
+    const e = {
+      preventDefault() {},
+      stopPropagation() {},
+      stopImmediatePropagation() {
+        stopped = true;
+      },
+      ...event,
+    };
+    for (const fn of this.listeners.get(type) ?? []) {
+      fn(e);
+      if (stopped) return;
+    }
   }
 }
 

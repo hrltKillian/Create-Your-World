@@ -19,6 +19,25 @@ describe('boot params', () => {
     expect(parseBootParams('', true).world).toBeNull();
   });
 
+  it('reads the quality preset: its render distance unless ?rd= is given', () => {
+    expect(parseBootParams('?quality=low', true)).toMatchObject({ quality: 'low', rd: 4 });
+    expect(parseBootParams('?quality=high&rd=5', true)).toMatchObject({ quality: 'high', rd: 5 });
+    expect(parseBootParams('?quality=ultra', true)).toMatchObject({ quality: null, rd: null });
+  });
+
+  it('turns the cave culling off with ?occlusion=0 only', () => {
+    expect(parseBootParams('', true).occlusion).toBe(true);
+    expect(parseBootParams('?occlusion=1', true).occlusion).toBe(true);
+    expect(parseBootParams('?occlusion=0', true).occlusion).toBe(false);
+    expect(DEFAULT_BOOT_PARAMS.occlusion).toBe(true);
+  });
+
+  it('runs benchmarks in a new world without the menu, the fly one with the free camera', () => {
+    const walk = parseBootParams('?bench=walk', true);
+    expect(walk).toMatchObject({ bench: 'walk', skipMenu: true, noLock: true, freecam: false });
+    expect(parseBootParams('?bench=fly', true).freecam).toBe(true);
+  });
+
   it('knows the test world types', () => {
     expect(parseBootParams('?worldType=arena', true).worldType).toBe('arena');
     expect(parseBootParams('?worldType=flat', true).worldType).toBe('flat');

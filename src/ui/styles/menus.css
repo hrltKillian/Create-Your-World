@@ -1,4 +1,4 @@
-/* Menus (main, Worlds, New world, Settings, pause), the saving banner and menu controls. */
+/* Menus (main, Worlds, New world, Settings, Key bindings, pause), the saving banner and controls. */
 
 .menu-layer {
   position: absolute;
@@ -353,7 +353,36 @@
   margin: 0;
 }
 
-/* Render distance presets: one segmented control of radios. */
+/* Key bindings: an action per row, its key slots as buttons (the one waiting for a key glows). */
+.key-list {
+  margin-top: 6px;
+}
+
+.key-row {
+  margin: 4px 0;
+}
+
+.key-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.key-slot {
+  min-width: 76px;
+  font-family: var(--font-mono);
+}
+
+.key-slot.waiting {
+  box-shadow: inset 0 0 0 2px var(--c-accent);
+  color: var(--c-accent);
+}
+
+.controls-status {
+  min-height: 1.3em;
+}
+
+/* Segmented controls (quality, render distance, resolution, crouch): one row of radios. */
 .segmented {
   display: flex;
   overflow: hidden;

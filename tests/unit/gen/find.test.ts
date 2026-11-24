@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BIOME_STEP, findBiome, spiral } from '../../../src/world/gen/find.ts';
+import { FLAG_OPAQUE } from '../../../src/content/registry.ts';
+import { BIOME_STEP, CAVE_STEP, findBiome, findCave, spiral } from '../../../src/world/gen/find.ts';
 import { createGenContext } from '../../../src/world/gen/generateColumn.ts';
-import { LatticeCache, pointInfo } from '../../../src/world/gen/sample.ts';
+import { heightAt, LatticeCache, pointInfo } from '../../../src/world/gen/sample.ts';
+import { blockIn, generate } from '../../helpers/gen.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const ctx = createGenContext('find', registry);
@@ -54,5 +56,23 @@ describe('world searches', () => {
     const other = ctx.biomes.find((b) => b.def.key !== here)!.def.key;
     expect(findBiome(ctx, other, from, 0)).toBeNull();
     expect(() => findBiome(ctx, 'biome:nope', from, 100)).toThrow(/Unknown biome/);
+  });
+
+  it('finds a cave pocket deep under the surface that generation really carves', () => {
+    const from = { x: 40, z: -24 };
+    const minDepth = 40;
+    const cave = findCave(ctx, from, 160, minDepth);
+    expect(cave).not.toBeNull();
+    const { x, y, z, distance } = cave!;
+    expect(x % CAVE_STEP).toBe(0);
+    expect(distance).toBeLessThanOrEqual(160);
+    expect(y).toBeLessThanOrEqual(heightAt(ctx, new LatticeCache(), x, z) - minDepth);
+    const column = generate(ctx, x >> 5, z >> 5);
+    const opaque = (cy: number) =>
+      (registry.tables.flags[blockIn(column, x & 31, cy, z & 31)]! & FLAG_OPAQUE) !== 0;
+    expect([y - 1, y, y + 1, y + 2].map(opaque)).toEqual([true, false, false, false]);
+    // The same search finds the same pocket; none fits within a few blocks of the sky.
+    expect(findCave(ctx, from, 160, minDepth)).toEqual(cave);
+    expect(findCave(ctx, from, 160, 250)).toBeNull();
   });
 });

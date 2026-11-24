@@ -6,6 +6,7 @@ import {
   pickVoice,
   type VoiceSlot,
 } from '../../../src/audio/AudioEngine.ts';
+import { WATER_FILTER } from '../../../src/audio/graph.ts';
 
 const voice = (startedAt: number, endsAt: number, audibility: number): VoiceSlot => ({
   startedAt,
@@ -16,20 +17,37 @@ const voice = (startedAt: number, endsAt: number, audibility: number): VoiceSlot
 /** Just enough of the Web Audio graph for the engine to build its buses and voices under Node. */
 class FakeNode {
   readonly gain = { value: 1 };
+  type = '';
+  /** A filter's cutoff: the last target it glides to. */
+  readonly frequency = {
+    value: 0,
+    setTargetAtTime(target: number) {
+      this.value = target;
+    },
+  };
   connect(): void {}
   disconnect(): void {}
 }
 
 class FakeContext {
   static made = 0;
+  static last: FakeContext | null = null;
   state: AudioContextState = 'suspended';
+  readonly currentTime = 0;
   readonly destination = new FakeNode();
   readonly listener = {};
+  readonly filters: FakeNode[] = [];
   constructor() {
     FakeContext.made++;
+    FakeContext.last = this;
   }
   createDynamicsCompressor = () => new FakeNode();
   createGain = () => new FakeNode();
+  createBiquadFilter = () => {
+    const filter = new FakeNode();
+    this.filters.push(filter);
+    return filter;
+  };
   resume(): Promise<void> {
     this.state = 'running';
     return Promise.resolve();
@@ -107,6 +125,38 @@ describe('AudioEngine', () => {
       engine.playUi('sfx:click');
     }
     expect(engine.log()).toHaveLength(AUDIO.logSize);
+  });
+
+  it('logs local sounds and loops as they start, and counts every key ever logged', () => {
+    let clock = 0;
+    const engine = new AudioEngine([], { muted: true, now: () => clock });
+    expect(engine.playLocal('sfx:jump')).toBe(true);
+    expect(engine.playLocal('sfx:jump')).toBe(false);
+    engine.setLoop('sfx:amb_wind', 0.2);
+    engine.setLoop('sfx:amb_wind', 0.6);
+    expect(engine.ambience()).toEqual([{ key: 'sfx:amb_wind', gain: 0.6 }]);
+    engine.setLoop('sfx:amb_wind', 0);
+    expect(engine.ambience()).toEqual([]);
+    engine.setLoop('sfx:amb_wind', 0.1);
+    expect(engine.log()).toEqual(['sfx:jump', 'sfx:amb_wind', 'sfx:amb_wind']);
+    for (let i = 0; i < AUDIO.logSize; i++) {
+      clock += AUDIO.dedupMs;
+      engine.playUi('sfx:click');
+    }
+    expect(engine.logCount()).toBe(AUDIO.logSize + 3);
+  });
+
+  it('muffles effects and ambience under water, now or once the context exists', () => {
+    installFakeAudio();
+    const engine = new AudioEngine([], { muted: false });
+    engine.setUnderwater(true);
+    expect(engine.underwater()).toBe(true);
+    engine.resume();
+    const water = FakeContext.last!.filters[0]!;
+    expect(water.type).toBe('lowpass');
+    expect(water.frequency.value).toBe(WATER_FILTER.underwaterHz);
+    engine.setUnderwater(false);
+    expect(water.frequency.value).toBe(WATER_FILTER.openHz);
   });
 
   it('attenuates linearly from 2 m to 32 m', () => {

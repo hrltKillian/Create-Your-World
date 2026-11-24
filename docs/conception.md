@@ -1788,6 +1788,12 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - la carte des commandes s'affiche au premier lancement ; les indices contextuels apparaissent (premier E, premier minage, premier crépuscule) ;
   - vérification rapide dans Safari (installé) : si le comportement est identique, il est supporté ; sinon, je note les écarts et ne les corrige que s'ils sont simples ;
   - ta partie test de 10 min (et `?bench=walk` sur un M1 ou un PC à GPU intégré, si tu en as un).
+- **Retenu à l'intégration** :
+  - les specs e2e sont `boot`, `selftest`, `saves` et `input`, plus `perf` (bench, en local) ;
+  - `selftest.spec.ts` lance `?selftest=all` dans 8 configurations (scène de test ; monde généré en temps réel, en caméra libre, en pas fixes avec IndexedDB ; monde plat avec IndexedDB, sans IndexedDB, avec apparitions naturelles ; arène) : aucun échec, et chaque cas doit avoir tourné, non sauté, dans au moins une ;
+  - un cas appartient à sa configuration par `scenes` et `skip` ; m7 finit sur l'écran Worlds, donc les cas de jeu suivants sautent dans ce démarrage ; le parcours des objectifs repart d'un nouveau monde de la même graine si des objectifs sont déjà faits ;
+  - le bot `wanderMineBuild` de 5 min tourne en pas fixes dans `boot.spec.ts`, en local seulement (trop long en rendu logiciel) ; la CI joue la minute du cas m11 ;
+  - le parcours des objectifs (`sim/testing/objectiveWalk.ts`) obtient par des actions réelles chaque objet qu'un objectif nomme et que le monde fournit : fibres, bâtons et silex cassés (clic principal maintenu, le bon outil en main) dans les hautes herbes, le feuillage et le gravier, puis ramassés en marchant dessus (un téléport sur l'objet quand la marche n'y mène pas) ; cassitérite, argile réfractaire et fer des marais minés dans leur biome ; Prowler Sinew pris sur un Prowler abattu à la lance ; la cabane est posée bloc par bloc au clic secondaire (murs, toit, porte). Les commandes de débogage ne font que la mise en place : le terrain de la maison, la mare et la fosse de chasse (`debug.fill`), un bloc source posé à côté du joueur quand aucun n'est à portée de la recherche (le désert et le marais de la graine 7, souvent), les matériaux qu'aucun objectif ne nomme (`debug.give` : bûches, pierre, argile, tourbe, minerai de cuivre, peaux, fourrure, résine), le Prowler placé (`debug.spawn`) de nuit (`debug.setTime`) dans la fosse, les stations ouvertes sans viser (`debug.open`) et les téléports d'un poste à l'autre.
 
 ## Vérification
 

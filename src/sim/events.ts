@@ -7,6 +7,8 @@ export type SimEvent =
   /** The column left the render distance (data stays loaded): its meshes can be freed. */
   | { readonly type: 'columnHidden'; readonly cx: number; readonly cz: number }
   | { readonly type: 'columnUnloaded'; readonly cx: number; readonly cz: number }
+  /** A player's jump left the ground (its sound). */
+  | { readonly type: 'playerJumped'; readonly playerId: number }
   | { readonly type: 'playerLanded'; readonly playerId: number; readonly fall: number }
   /**
    * Blocks, or the light an edit changed, inside a box (inclusive corners): the sections around it

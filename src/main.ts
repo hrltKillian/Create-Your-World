@@ -18,6 +18,12 @@ if (__DEBUG_HOOK__) {
 
 await app.start();
 
+if (__DEBUG_HOOK__ && app.params.bench) {
+  // ?bench=walk|fly|cave|mobs|dig|load runs once the world is up (game-bench: npm run bench).
+  const { runBenchFromUrl } = await import('./app/bench/autorun.ts');
+  await runBenchFromUrl(app, app.params.bench);
+}
+
 if (__DEBUG_HOOK__ && app.params.selftest) {
   // The 'app is ready' case reports boot failures; a banner is always shown.
   const { runSelftests } = await import('./app/selftest/runner.ts');

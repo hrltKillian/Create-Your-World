@@ -61,17 +61,25 @@ export function noErrorsCase(name: string): SelftestCase {
 
 /**
  * The player checks need a player (no free camera), fixed steps (teleport, fill and give then
- * apply at once) and a test world: flat (m3, m4, m5, m7) or the arena (m8).
+ * apply at once) and a test world: flat (m3, m4, m5, m7) or the arena (m8); and no natural spawns
+ * (creatures would join in), except the spawn checks of m10, which need them.
  */
-function needsTestPlayer(app: App, worldType: 'flat' | 'arena'): string | null {
+function needsTestPlayer(app: App, worldType: 'flat' | 'arena', spawns = false): string | null {
   if (app.params.freecam) return 'needs a player (no ?freecam)';
   if (!app.params.fixedStep) return 'needs ?fixedStep=1';
   if (app.params.worldType !== worldType) return `needs ?worldType=${worldType}`;
+  if (Boolean(app.params.spawns) !== spawns)
+    return spawns ? 'needs ?spawns=1' : 'natural spawns would join in (without ?spawns=1)';
   return null;
 }
 
 export function needsFlatPlayer(app: App): string | null {
   return needsTestPlayer(app, 'flat');
+}
+
+/** The spawn checks (m10): the flat world, fixed steps, natural spawns from the first tick. */
+export function needsSpawningFlatPlayer(app: App): string | null {
+  return needsTestPlayer(app, 'flat', true) ?? (app.params.grace === 0 ? null : 'needs ?grace=0');
 }
 
 export function needsArenaPlayer(app: App): string | null {
@@ -85,12 +93,23 @@ export function needsIdb(app: App): string | null {
   return null;
 }
 
-/** The generated-world checks (m6) need a player in the default world (not flat or arena). */
+/** The streaming checks (m2) need the default world (not flat or arena), from any camera. */
+export function needsGeneratedWorld(app: App): string | null {
+  return app.params.worldType === 'default'
+    ? null
+    : `needs the generated world (not ?worldType=${app.params.worldType})`;
+}
+
+/** The generated-world checks (m9, m11) need a player in the default world. */
 export function needsGeneratedPlayer(app: App): string | null {
-  if (app.params.freecam) return 'needs a player (no ?freecam)';
-  if (app.params.worldType !== 'default')
-    return `needs the generated world (not ?worldType=${app.params.worldType})`;
-  return null;
+  return app.params.freecam ? 'needs a player (no ?freecam)' : needsGeneratedWorld(app);
+}
+
+/** The checks that wait in wall time (m6, M11 performance) need real ticks. */
+export function needsRealTimeGeneratedPlayer(app: App): string | null {
+  return (
+    needsGeneratedPlayer(app) ?? (app.params.fixedStep ? 'needs real ticks (no ?fixedStep)' : null)
+  );
 }
 
 /**

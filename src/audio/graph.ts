@@ -1,0 +1,82 @@
+/** The Web Audio graph of the engine (browser only): buses, the underwater filter and the voices. */
+
+/** Cutoffs of the underwater low-pass (Hz): open in the air, muffled under water. */
+export const WATER_FILTER = {
+  openHz: 20_000,
+  underwaterHz: 700,
+  /** Time constant of the glide between them (s). */
+  glide: 0.08,
+} as const;
+
+/** What voice stealing needs to know about a voice. */
+export interface VoiceSlot {
+  /** Clock time (ms) the voice started and the time its sound ends. */
+  startedAt: number;
+  endsAt: number;
+  /** Gain × distance attenuation when it started. */
+  audibility: number;
+}
+
+export interface Voice extends VoiceSlot {
+  source: AudioBufferSourceNode | null;
+  readonly gain: GainNode;
+  readonly panner: PannerNode;
+}
+
+export interface Graph {
+  readonly ctx: AudioContext;
+  readonly master: GainNode;
+  /** Effects and ambience pass through it (passe-bas sous l'eau); the interface does not. */
+  readonly water: BiquadFilterNode;
+  readonly sfx: GainNode;
+  readonly ambience: GainNode;
+  readonly ui: GainNode;
+  readonly voices: Voice[];
+}
+
+/** Distances of the voices' linear panners (m). */
+export interface PannerRange {
+  readonly near: number;
+  readonly far: number;
+}
+
+/**
+ * The context, its buses (sfx and ambience → underwater low-pass → master, ui → master, master →
+ * compressor) and `voices` voices, each a gain and an equal-power panner.
+ */
+export function createGraph(voices: number, range: PannerRange): Graph {
+  const ctx = new AudioContext();
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.connect(ctx.destination);
+  const master = ctx.createGain();
+  master.connect(compressor);
+  const water = ctx.createBiquadFilter();
+  water.type = 'lowpass';
+  water.frequency.value = WATER_FILTER.openHz;
+  water.connect(master);
+  const sfx = ctx.createGain();
+  const ambience = ctx.createGain();
+  const ui = ctx.createGain();
+  sfx.connect(water);
+  ambience.connect(water);
+  ui.connect(master);
+  const list: Voice[] = [];
+  for (let i = 0; i < voices; i++) {
+    const panner = new PannerNode(ctx, {
+      panningModel: 'equalpower',
+      distanceModel: 'linear',
+      refDistance: range.near,
+      maxDistance: range.far,
+      rolloffFactor: 1,
+    });
+    list.push({
+      source: null,
+      gain: ctx.createGain(),
+      panner,
+      startedAt: 0,
+      endsAt: 0,
+      audibility: 0,
+    });
+  }
+  return { ctx, master, water, sfx, ambience, ui, voices: list };
+}

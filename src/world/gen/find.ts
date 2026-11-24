@@ -1,3 +1,4 @@
+import { caveAt } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
 import { biomeOf, heightAt, LatticeCache } from './sample.ts';
@@ -5,11 +6,14 @@ import { REGION, regionOf, siteIn } from './structures.ts';
 
 /*
  * Analytic searches over the generated world (nothing is generated): the nearest column of a
- * biome, the nearest structure of a kind, and whether biomes lie within a distance (spawn rule).
+ * biome, the nearest structure of a kind, whether biomes lie within a distance (spawn rule), and
+ * a cave pocket deep underground (the cave benchmark's pose).
  */
 
 /** Biome searches sample every BIOME_STEP blocks (a multiple of the climate lattice step). */
 export const BIOME_STEP = 16;
+/** Cave searches sample a column every CAVE_STEP blocks (the cave noise lattice step). */
+export const CAVE_STEP = 4;
 
 export interface Place {
   readonly x: number;
@@ -19,6 +23,11 @@ export interface Place {
 export interface FoundBiome extends Place {
   /** Distance from the search origin, in blocks. */
   readonly distance: number;
+}
+
+export interface FoundCave extends FoundBiome {
+  /** Feet height: the carved cell above the cave floor. */
+  readonly y: number;
 }
 
 export interface FoundStructure extends FoundBiome {
@@ -136,4 +145,47 @@ export function findStructure(
     }
   }
   return best;
+}
+
+/** Carved cells a cave pocket needs above its floor: the feet, the head and one more. */
+const CAVE_CLEARANCE = 3;
+
+/**
+ * The first cave pocket, ring by ring (columns every CAVE_STEP blocks) within `maxRadius` blocks of
+ * `from`: CAVE_CLEARANCE cells carved by generation over an uncarved floor, above the magma, with
+ * the feet at least `minDepth` blocks under the surface; the lowest one of its column. Null when
+ * none.
+ */
+export function findCave(
+  ctx: GenContext,
+  from: Place,
+  maxRadius: number,
+  minDepth: number,
+): FoundCave | null {
+  const cache = new LatticeCache();
+  const ox = Math.round(from.x / CAVE_STEP);
+  const oz = Math.round(from.z / CAVE_STEP);
+  const lowest = ctx.def.magmaBelowY + 1;
+  let found = null as FoundCave | null;
+  spiral(Math.ceil(maxRadius / CAVE_STEP), (dx, dz) => {
+    const x = (ox + dx) * CAVE_STEP;
+    const z = (oz + dz) * CAVE_STEP;
+    const distance = Math.sqrt((x - from.x) * (x - from.x) + (z - from.z) * (z - from.z));
+    if (distance > maxRadius) return false;
+    const top = heightAt(ctx, cache, x, z) - minDepth + CAVE_CLEARANCE - 1;
+    // Carved cells in a row up to y, and whether the cell under the row is solid.
+    let run = 0;
+    let floor = !caveAt(ctx, cache, x, lowest - 1, z);
+    for (let y = lowest; y <= top; y++) {
+      if (!caveAt(ctx, cache, x, y, z)) {
+        run = 0;
+        floor = true;
+      } else if (++run === CAVE_CLEARANCE && floor) {
+        found = { x, y: y - CAVE_CLEARANCE + 1, z, distance };
+        return true;
+      }
+    }
+    return false;
+  });
+  return found;
 }

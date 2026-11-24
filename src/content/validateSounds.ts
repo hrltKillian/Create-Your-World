@@ -1,63 +1,86 @@
-import type { ContentPack, SfxDef } from './schema.ts';
+import type { ContentPack, SfxDef, SoundBindings } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
-/** Longest synthesized sound (s): recipes are short one-shots. */
+/** Longest synthesized one-shot (s). */
 export const MAX_SFX_SECONDS = 2;
+/** Longest ambience loop (s): rendered on first use, so its length costs nothing at startup. */
+export const MAX_LOOP_SECONDS = 8;
 const MAX_FREQ = 20_000;
 
 /** Length of a recipe in seconds: the end of its last layer. */
 export function sfxSeconds(def: SfxDef): number {
   let end = 0;
   for (const layer of def.layers)
-    end = Math.max(end, (layer.delay ?? 0) + layer.attack + layer.decay);
+    end = Math.max(end, (layer.delay ?? 0) + layer.attack + (layer.hold ?? 0) + layer.decay);
   return end;
 }
+
+/** Every sound key the bindings name, with its path (`sounds.player.jump`…). */
+export function boundSounds(sounds: SoundBindings): [path: string, key: string][] {
+  const out: [string, string][] = [];
+  const walk = (value: unknown, path: string): void => {
+    if (typeof value === 'string') out.push([path, value]);
+    else if (value && typeof value === 'object')
+      for (const [name, inner] of Object.entries(value)) walk(inner, `${path}.${name}`);
+  };
+  walk(sounds, 'sounds');
+  return out;
+}
+
+/** The bound keys that name loop recipes (the ambience); every other one names a one-shot. */
+const isLoopPath = (path: string) => path.startsWith('sounds.ambience.');
 
 const inRange = (v: number, min: number, max: number) => Number.isFinite(v) && v >= min && v <= max;
 
 /** Sound recipes (keys, layers, lengths) and the bindings naming them. */
 export function validateSounds(pack: ContentPack, add: AddIssue): void {
-  const keys = new Set<string>();
+  const recipes = new Map<string, SfxDef>();
   (pack.sfx ?? []).forEach((def, i) => {
     const path = `sfx[${i}]`;
     if (!def.key.startsWith('sfx:')) add(`${path}.key`, `"${def.key}" must start with "sfx:"`);
-    if (keys.has(def.key)) add(`${path}.key`, `duplicate sound "${def.key}"`);
-    keys.add(def.key);
-    if (def.layers.length === 0) add(`${path}.layers`, 'needs at least one layer');
-    def.layers.forEach((layer, l) => {
-      const lpath = `${path}.layers[${l}]`;
-      if (!inRange(layer.gain, 0.001, 1)) add(`${lpath}.gain`, 'must be in (0, 1]');
-      if (!inRange(layer.attack, 0.0005, MAX_SFX_SECONDS)) add(`${lpath}.attack`, 'must be > 0');
-      if (!inRange(layer.decay, 0.001, MAX_SFX_SECONDS)) add(`${lpath}.decay`, 'must be > 0');
-      if (!inRange(layer.delay ?? 0, 0, MAX_SFX_SECONDS)) add(`${lpath}.delay`, 'must be ≥ 0');
-      const tone = layer.source !== 'noise';
-      if (tone && !layer.freq?.every((f) => inRange(f, 20, MAX_FREQ)))
-        add(`${lpath}.freq`, `a tone needs two frequencies in 20–${MAX_FREQ} Hz`);
-      const filter = layer.filter;
-      if (filter && !inRange(filter.freq, 20, MAX_FREQ))
-        add(`${lpath}.filter.freq`, `must be in 20–${MAX_FREQ} Hz`);
-      if (filter?.q !== undefined && !inRange(filter.q, 0.0001, 100))
-        add(`${lpath}.filter.q`, 'must be in (0, 100]');
-    });
-    if (sfxSeconds(def) > MAX_SFX_SECONDS)
-      add(`${path}.layers`, `lasts more than ${MAX_SFX_SECONDS} s`);
+    if (recipes.has(def.key)) add(`${path}.key`, `duplicate sound "${def.key}"`);
+    recipes.set(def.key, def);
+    validateLayers(def, path, add);
   });
 
   const sounds = pack.sounds;
   if (!sounds) return;
-  const bound: [string, string][] = [
-    ['sounds.pickup', sounds.pickup],
-    ['sounds.click', sounds.click],
-    ['sounds.combat.hit', sounds.combat.hit],
-    ['sounds.combat.hurt', sounds.combat.hurt],
-  ];
-  for (const [material, actions] of Object.entries(sounds.blocks)) {
-    for (const [action, key] of Object.entries(actions))
-      bound.push([`sounds.blocks.${material}.${action}`, key]);
-  }
-  for (const [path, key] of bound) {
+  for (const [path, key] of boundSounds(sounds)) {
+    const def = recipes.get(key);
+    const loop = isLoopPath(path);
     if (!key.startsWith('sfx:')) add(path, `"${key}" must start with "sfx:"`);
-    else if (!keys.has(key)) add(path, `no recipe for "${key}"`);
+    else if (!def) add(path, `no recipe for "${key}"`);
+    else if (loop !== (def.loop === true))
+      add(path, `"${key}" must be ${loop ? 'a loop' : 'a one-shot'} recipe`);
   }
+  const stations = new Set<string>((pack.stations ?? []).map((s) => s.key));
+  for (const station of Object.keys(sounds.lit))
+    if (!stations.has(station)) add(`sounds.lit.${station}`, 'unknown station');
+  const biomes = new Set<string>((pack.biomes ?? []).map((b) => b.key));
+  for (const biome of Object.keys(sounds.ambience.biomes))
+    if (!biomes.has(biome)) add(`sounds.ambience.biomes.${biome}`, 'unknown biome');
+}
+
+/** Gains, envelope times, frequencies and the length of one recipe. */
+function validateLayers(def: SfxDef, path: string, add: AddIssue): void {
+  const max = def.loop ? MAX_LOOP_SECONDS : MAX_SFX_SECONDS;
+  if (def.layers.length === 0) add(`${path}.layers`, 'needs at least one layer');
+  def.layers.forEach((layer, l) => {
+    const lpath = `${path}.layers[${l}]`;
+    if (!inRange(layer.gain, 0.001, 1)) add(`${lpath}.gain`, 'must be in (0, 1]');
+    if (!inRange(layer.attack, 0.0005, max)) add(`${lpath}.attack`, 'must be > 0');
+    if (!inRange(layer.decay, 0.001, max)) add(`${lpath}.decay`, 'must be > 0');
+    if (!inRange(layer.delay ?? 0, 0, max)) add(`${lpath}.delay`, 'must be ≥ 0');
+    if (!inRange(layer.hold ?? 0, 0, max)) add(`${lpath}.hold`, 'must be ≥ 0');
+    const tone = layer.source !== 'noise';
+    if (tone && !layer.freq?.every((f) => inRange(f, 20, MAX_FREQ)))
+      add(`${lpath}.freq`, `a tone needs two frequencies in 20–${MAX_FREQ} Hz`);
+    const filter = layer.filter;
+    if (filter && !inRange(filter.freq, 20, MAX_FREQ))
+      add(`${lpath}.filter.freq`, `must be in 20–${MAX_FREQ} Hz`);
+    if (filter?.q !== undefined && !inRange(filter.q, 0.0001, 100))
+      add(`${lpath}.filter.q`, 'must be in (0, 100]');
+  });
+  if (sfxSeconds(def) > max) add(`${path}.layers`, `lasts more than ${max} s`);
 }

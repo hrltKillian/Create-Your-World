@@ -1,30 +1,28 @@
+import { Color } from 'three';
 import { describe, expect, it } from 'vitest';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { CRACK_STAGES } from '../../../src/content/schema.ts';
 import { BlockOverlay, crackLayers, shapeBounds } from '../../../src/render/BlockOverlay.ts';
 import { BOX_NO_TINT, BoxBatch, boxTint } from '../../../src/render/BoxBatch.ts';
+import { CameraRig } from '../../../src/render/CameraRig.ts';
 import { DropView } from '../../../src/render/DropView.ts';
 import { HandView } from '../../../src/render/HandView.ts';
 import { buildItemModels } from '../../../src/render/itemModels.ts';
-import { Particles } from '../../../src/render/Particles.ts';
-import type { VoxelUniforms } from '../../../src/render/voxelMaterial.ts';
+import { LAND_DUST_PER_BLOCK, MINE_DUST, TRAIL_BOXES } from '../../../src/render/Particles.ts';
+import { PlayView } from '../../../src/render/PlayView.ts';
+import type { WorldView } from '../../../src/render/WorldView.ts';
+import type { SimView } from '../../../src/sim/host.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
 import type { Entity } from '../../../src/sim/Simulation.ts';
 import { createRayHit } from '../../../src/world/raycast.ts';
+import { boxUniforms } from '../../helpers/boxUniforms.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
 import { packPixels, TEXTURE_SIZE } from '../../helpers/packPixels.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const items = buildItemModels(registry, packPixels, TEXTURE_SIZE);
-/** The batches and overlays only keep references to these uniforms. */
-const shared = {
-  uTextures: { value: null },
-  uDaylight: { value: 1 },
-  uSkyTint: { value: null },
-  uTorchTint: { value: null },
-  uMinLight: { value: 0 },
-} as unknown as VoxelUniforms;
+const shared = boxUniforms;
 
 function drop(id: number, item: string, x: number, z: number): ItemDropState {
   return {
@@ -89,24 +87,6 @@ describe('item drops', () => {
     expect(tints()).toEqual([foliage, foliage, foliage, 1]);
     draw('item:stone');
     expect(tints()).toEqual([BOX_NO_TINT, BOX_NO_TINT, BOX_NO_TINT, 0]);
-  });
-});
-
-describe('break particles', () => {
-  it('throws chips of the broken block that fall, land and fade', () => {
-    const batch = new BoxBatch(shared, 256, true);
-    const particles = new Particles(batch, flatWorld(), registry.tables);
-    const stone = registry.defaultState('block:stone');
-    particles.burst(0, 63, 0, stone);
-    expect(particles.alive()).toBe(10);
-    batch.begin(0, 0, 0);
-    particles.update(1 / 60);
-    batch.end();
-    expect(batch.size).toBe(10);
-    const layers = batch.mesh.geometry.getAttribute('aLayers');
-    expect(layers.getX(0)).toBe(registry.tables.faceLayer[stone * 6 + 4]);
-    for (let i = 0; i < 90; i++) particles.update(1 / 60);
-    expect(particles.alive()).toBe(0);
   });
 });
 
@@ -203,5 +183,135 @@ describe('hand view', () => {
     expect(hand.swing).toBeGreaterThan(0);
     for (let i = 0; i < 4; i++) hand.draw(player, 0.1, true, 1, 0);
     expect(hand.swing).toBe(0);
+  });
+});
+
+describe('hand view inertia', () => {
+  const FRAME = 1 / 60;
+  /** Translation x of the first box drawn (the forearm). */
+  const armX = (hand: HandView) => hand.batch.mesh.instanceMatrix.array[12]!;
+
+  it('lags behind a turn of the view and eases back to rest', () => {
+    const hand = new HandView(shared, registry, items);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    const frame = (yaw: number, pitch: number) => {
+      hand.look(yaw, pitch);
+      hand.draw(player, FRAME, true, 1, 0);
+    };
+    frame(0, 0);
+    const rest = armX(hand);
+    expect([hand.swayX, hand.swayY, hand.swayZ]).toEqual([0, 0, 0]);
+    // A quick turn to the left leaves the hand on the right, a look up leaves it lower: the
+    // frame of the turn shows its whole lag, whatever the frame time.
+    frame(0.3, 0.2);
+    expect(hand.swayX).toBeCloseTo(0.03, 9);
+    expect(hand.swayY).toBeCloseTo(-0.02, 9);
+    expect(armX(hand)).toBeGreaterThan(rest + 0.01);
+    for (let i = 0; i < 60; i++) frame(0.3, 0.2);
+    expect(Math.abs(hand.swayX)).toBeLessThan(1e-3);
+    expect(Math.abs(hand.swayY)).toBeLessThan(1e-3);
+    expect(armX(hand)).toBeCloseTo(rest, 3);
+    // However fast the turn (left and down here: the hand is left right and high), it stays in view.
+    frame(40, -40);
+    expect([hand.swayX, hand.swayY]).toEqual([0.05, 0.05]);
+  });
+
+  it('leans against the motion while moving or falling, and comes back once still', () => {
+    const hand = new HandView(shared, registry, items);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    // Facing north (yaw 0): moving east is to the right, north is ahead.
+    Object.assign(player.body, { vx: 4.3, vy: -10, vz: -4.3 });
+    for (let i = 0; i < 60; i++) hand.draw(player, FRAME, true, 1, 0);
+    expect(hand.swayX).toBeLessThan(-0.01);
+    expect(hand.swayY).toBeGreaterThan(0.01);
+    expect(hand.swayZ).toBeGreaterThan(0.01);
+    Object.assign(player.body, { vx: 0, vy: 0, vz: 0 });
+    for (let i = 0; i < 60; i++) hand.draw(player, FRAME, true, 1, 0);
+    expect(Math.abs(hand.swayX) + Math.abs(hand.swayY) + Math.abs(hand.swayZ)).toBeLessThan(1e-3);
+  });
+
+  it('flags the frame an attack is released', () => {
+    const hand = new HandView(shared, registry, items);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    player.charge = 4;
+    hand.draw(player, FRAME, true, 1, 0);
+    expect(hand.released).toBe(false);
+    player.charge = -1;
+    hand.draw(player, FRAME, true, 1, 0);
+    expect(hand.released).toBe(true);
+    hand.draw(player, FRAME, true, 1, 0);
+    expect(hand.released).toBe(false);
+  });
+});
+
+describe('play feel', () => {
+  /** A play view over a flat world (stand-in world view and simulation) and its camera rig. */
+  function playSetup() {
+    const textures = { image: { data: packPixels, width: TEXTURE_SIZE } };
+    const tintColors = [new Color(1, 1, 1), new Color(0.2, 0.6, 0.1)];
+    const uniforms = {
+      ...shared,
+      uTextures: { value: textures },
+      uTintColors: { value: tintColors },
+    };
+    const view = {
+      materials: { uniforms },
+      scene: { add() {}, remove() {} },
+      attachHand() {},
+      reach: 64,
+    } as unknown as WorldView;
+    const player = createPlayer(1, 0.5, 64, 0.5, 2, registry.pack.balance);
+    const sim = {
+      registry,
+      world: flatWorld(),
+      entities: new Map(),
+      playerId: 1,
+      player: () => player,
+    } as unknown as SimView;
+    const rig = new CameraRig();
+    const play = new PlayView(view, sim, rig);
+    const eye = { x: 0.5, y: 65.62, z: 0.5 };
+    const frame = () =>
+      play.draw({
+        player,
+        alpha: 1,
+        dt: 1 / 60,
+        pose: { ...eye, yaw: 0, pitch: 0 },
+        eye,
+        firstPerson: true,
+        avatarVisible: false,
+        targets: { hit: createRayHit(), ghost: { x: 0, y: 0, z: 0, state: -1, upper: -1 } },
+      });
+    const settle = () => rig.update(player, 1, sim.world, registry.tables, 1 / 60);
+    settle();
+    return { play, rig, player, frame, settle };
+  }
+
+  it('turns the local player’s mining, landing and blows into dust, a dip and a roll', () => {
+    const { play, rig, player, frame, settle } = playSetup();
+    const local = { playerId: 1 };
+    play.onEvent({ type: 'mineProgress', ...local, x: 0, y: 63, z: -2, stage: 0 });
+    expect(play.particles.alive()).toBe(MINE_DUST);
+    play.onEvent({ type: 'mineProgress', ...local, x: 0, y: 63, z: -2, stage: -1 });
+    expect(play.particles.alive()).toBe(MINE_DUST);
+    play.onEvent({ type: 'playerLanded', ...local, fall: 2 });
+    expect(play.particles.alive()).toBe(MINE_DUST + 2 * LAND_DUST_PER_BLOCK);
+    play.onEvent({ type: 'playerHurt', ...local, amount: 5, source: 9, x: 5, z: 0.5 });
+    // Another player's events change nothing here.
+    play.onEvent({ type: 'playerLanded', playerId: 2, fall: 4 });
+    expect(play.particles.alive()).toBe(MINE_DUST + 2 * LAND_DUST_PER_BLOCK);
+    for (let i = 0; i < 4; i++) settle();
+    expect(rig.pose.y).toBeLessThan(rig.eye.y - 0.05);
+    expect(rig.pose.roll).toBeLessThan(-0.03);
+    // A released attack draws its trail in the same frame, in the one world batch.
+    play.particles.setEnabled(false);
+    play.particles.setEnabled(true);
+    player.charge = 3;
+    frame();
+    expect(play.batch.size).toBe(0);
+    player.charge = -1;
+    frame();
+    expect(play.particles.alive()).toBe(TRAIL_BOXES);
+    expect(play.batch.size).toBe(TRAIL_BOXES);
   });
 });

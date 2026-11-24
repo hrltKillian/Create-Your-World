@@ -24,21 +24,14 @@ import { type GenContext, generateColumn } from '../../world/gen/generateColumn.
 import { LatticeCache, pointInfo } from '../../world/gen/sample.ts';
 import { GROUND, regionOf, siteIn } from '../../world/gen/structures.ts';
 import type { App } from '../App.ts';
-import {
-  framesFor,
-  freezeTime,
-  lightAt,
-  look,
-  setTime,
-  teleport,
-  waitUntil,
-} from '../automation.ts';
+import { framesFor, freezeTime, lightAt, look, setTime, waitUntil } from '../automation.ts';
+import { teleportAndWait } from '../bench/stage.ts';
 import {
   assert,
   chunksMeshed,
   drawsCase,
   keepingClock,
-  needsGeneratedPlayer,
+  needsRealTimeGeneratedPlayer,
   noErrorsCase,
   PLAY_SCENES,
   playerSession,
@@ -49,14 +42,14 @@ import {
 } from './support.ts';
 
 /**
- * M6 « Fait quand » browser checks in the generated world (any seed; skipped in the flat and arena
- * worlds): the spawn stands on solid ground of a spawn biome with its feet and head free,
+ * M6 « Fait quand » browser checks in the generated world with real ticks (any seed; skipped in
+ * the flat and arena worlds and with ?fixedStep=1): the spawn stands on solid ground of a spawn biome with its feet and head free,
  * findBiome finds every biome near the spawn where generation agrees, an underground glowing
  * block (magma, dawn crystal) lights the open cell next to it, the 'xray' view renders and
  * changes the picture, the surface view keeps to the draw budget, and findStructure leads to a
  * camp or cairn generated as its template. The first case teleports back to the spawn and the
- * last one leaves it, so the suite can run again on the same page. Without ?fixedStep=1 commands
- * wait for the next tick: waits are wall time.
+ * last one leaves it, so the suite can run again on the same page. Commands wait for the next
+ * tick: waits are wall time.
  */
 
 /** Longest wait for a teleport to land and the loading radius around it to be meshed. */
@@ -91,17 +84,8 @@ function spawnPlace(app: App): Place {
 
 /** Teleports the player and waits until it landed and the loading radius around it is meshed. */
 async function visit(app: App, x: number, y: number | 'surface', z: number): Promise<void> {
-  const session = app.session!;
-  const body = session.player.body;
-  teleport(app, x, y, z);
-  // Without fixed steps the teleport lands on the next tick (pumped here while the page is hidden).
-  await waitUntil(() => Math.abs(body.x - x) < 0.5 && Math.abs(body.z - z) < 0.5, {
-    timeoutMs: 5000,
-    label: `the teleport to (${x}, ${z}) did not land`,
-    pump: () => session.pumpOnce(document.hidden),
-    pollMs: 20,
-  });
-  await chunksMeshed(app, session.loadingRadius(), VISIT_MS);
+  await teleportAndWait(app, x, y, z);
+  await chunksMeshed(app, app.session!.loadingRadius(), VISIT_MS);
 }
 
 /** Switches the debug view, waits until every shown section is meshed for it, and captures it. */
@@ -186,7 +170,7 @@ export const M6_SUITE: readonly SelftestCase[] = [
     name: 'the spawn stands on solid ground of a spawn biome, its feet and head cells free',
     scenes: PLAY_SCENES,
     timeoutMs: 40_000,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const ctx = gen(app);
@@ -221,7 +205,7 @@ export const M6_SUITE: readonly SelftestCase[] = [
   {
     name: `findBiome finds every biome within ${SEARCH_RADIUS} blocks of the spawn, where generation agrees`,
     scenes: PLAY_SCENES,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const ctx = gen(app);
@@ -245,7 +229,7 @@ export const M6_SUITE: readonly SelftestCase[] = [
   {
     name: 'an underground glowing block (magma, glowing ore) lights the open cell next to it',
     scenes: PLAY_SCENES,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const radius = session.loadingRadius();
@@ -268,7 +252,7 @@ export const M6_SUITE: readonly SelftestCase[] = [
     name: "the 'xray' view renders without errors and changes the picture",
     scenes: PLAY_SCENES,
     timeoutMs: 90_000,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const errors = app.errors.length;
@@ -297,12 +281,12 @@ export const M6_SUITE: readonly SelftestCase[] = [
       assert(added.length === 0, `errors with the xray view: ${added.join(' | ')}`);
     },
   },
-  drawsCase(needsGeneratedPlayer),
+  drawsCase(needsRealTimeGeneratedPlayer),
   {
     name: `findStructure finds a camp or cairn within ${SEARCH_RADIUS} blocks, generated as its template`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const ctx = gen(app);

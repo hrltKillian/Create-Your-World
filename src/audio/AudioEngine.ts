@@ -2,6 +2,10 @@ import { renderSfx } from '../assets/procedural/sfxSynth.ts';
 import type { SfxDef } from '../content/schema.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
 import { DEFAULT_SETTINGS, type Volumes } from '../platform/settings.ts';
+import { createGraph, type Graph, type Voice, type VoiceSlot, WATER_FILTER } from './graph.ts';
+import { LoopBank, type LoopView } from './loops.ts';
+
+export type { VoiceSlot } from './graph.ts';
 
 /** Playback rules (docs/conception.md « Audio »). */
 export const AUDIO = {
@@ -17,15 +21,6 @@ export const AUDIO = {
   /** Keys kept by `log()`. */
   logSize: 256,
 } as const;
-
-/** What voice stealing needs to know about a voice. */
-export interface VoiceSlot {
-  /** Clock time (ms) the voice started and the time its sound ends. */
-  startedAt: number;
-  endsAt: number;
-  /** Gain × distance attenuation when it started. */
-  audibility: number;
-}
 
 /** A free voice if there is one, else the least audible, then the oldest. */
 export function pickVoice(voices: readonly VoiceSlot[], now: number): number {
@@ -46,22 +41,6 @@ export function attenuation(distance: number): number {
   return 1 - (d - AUDIO.near) / (AUDIO.far - AUDIO.near);
 }
 
-interface Voice extends VoiceSlot {
-  source: AudioBufferSourceNode | null;
-  readonly gain: GainNode;
-  readonly panner: PannerNode;
-}
-
-interface Graph {
-  readonly ctx: AudioContext;
-  readonly master: GainNode;
-  readonly sfx: GainNode;
-  /** Ambient loops (none play yet: the bus and its volume are ready for them). */
-  readonly ambience: GainNode;
-  readonly ui: GainNode;
-  readonly voices: Voice[];
-}
-
 export interface AudioOptions {
   /** `?mute=1`: no AudioContext at all; plays are still logged. */
   readonly muted: boolean;
@@ -70,30 +49,35 @@ export interface AudioOptions {
 }
 
 /**
- * The game's sound player: one AudioContext (created on the first user gesture), recipes
- * pre-rendered once, 24 voices with stealing, a linear equal-power panner per voice and the
- * sfx / ambience / ui buses into a master gain and a compressor (their volumes from Settings).
- * Every accepted play is logged for tests, even before the context runs or when muted.
+ * The game's sound player: one AudioContext (created on the first user gesture), one-shot recipes
+ * pre-rendered once, 24 voices with stealing, a linear equal-power panner per voice, the ambience
+ * loops (loops.ts) and the sfx / ambience / ui buses into a master gain and a compressor (their
+ * volumes from Settings), the first two through the underwater low-pass. Every accepted play and
+ * every loop started is logged for tests, even before the context runs or when muted.
  */
 export class AudioEngine {
   private readonly recipes: readonly SfxDef[];
   private readonly muted: boolean;
   private readonly now: () => number;
   private readonly buffers = new Map<string, AudioBuffer>();
+  private readonly loops: LoopBank;
   private readonly lastStart = new Map<string, number>();
   private readonly played: string[] = [];
+  private total = 0;
   private graph: Graph | null = null;
   private volumes: Volumes = DEFAULT_SETTINGS.volumes;
+  private submerged = false;
   private readonly ear: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly forward: Vec3 = { x: 0, y: 0, z: -1 };
 
   constructor(recipes: readonly SfxDef[], options: AudioOptions) {
-    this.recipes = recipes;
+    this.recipes = recipes.filter((def) => !def.loop);
+    this.loops = new LoopBank(recipes);
     this.muted = options.muted;
     this.now = options.now ?? (() => performance.now());
   }
 
-  /** Renders every recipe into a buffer (OfflineAudioContext); needs no user gesture. */
+  /** Renders every one-shot into a buffer (OfflineAudioContext); needs no user gesture. */
   async prerender(): Promise<void> {
     if (this.muted) return;
     // One after the other: a few milliseconds each, and no burst of offline contexts.
@@ -108,8 +92,9 @@ export class AudioEngine {
   resume(): void {
     if (this.muted) return;
     if (!this.graph) {
-      this.graph = createGraph();
+      this.graph = createGraph(AUDIO.voices, AUDIO);
       this.setVolumes(this.volumes);
+      this.setUnderwater(this.submerged);
     }
     void this.graph.ctx.resume();
   }
@@ -152,6 +137,19 @@ export class AudioEngine {
     listener.forwardZ.value = this.forward.z;
   }
 
+  /** The camera is in water: effects and ambience glide to a muffled low-pass (or back). */
+  setUnderwater(underwater: boolean): void {
+    this.submerged = underwater;
+    const graph = this.graph;
+    if (!graph) return;
+    const hz = underwater ? WATER_FILTER.underwaterHz : WATER_FILTER.openHz;
+    graph.water.frequency.setTargetAtTime(hz, graph.ctx.currentTime, WATER_FILTER.glide);
+  }
+
+  underwater(): boolean {
+    return this.submerged;
+  }
+
   /** Plays a sound at a world position (sfx bus). False when it is too far or a duplicate. */
   play(key: string, x: number, y: number, z: number, pitch = 1): boolean {
     const dx = x - this.ear.x;
@@ -171,17 +169,42 @@ export class AudioEngine {
     return true;
   }
 
+  /** Plays one of the local player's own sounds at the ear (sfx bus). False for a duplicate. */
+  playLocal(key: string, pitch = 1): boolean {
+    return this.unpositioned(key, pitch, 'sfx');
+  }
+
   /** Plays an interface sound (ui bus, not positioned). False for a duplicate. */
   playUi(key: string, pitch = 1): boolean {
-    if (!this.accept(key)) return false;
-    const voice = this.start(key, 1, pitch);
-    if (voice) voice.gain.connect(this.graph!.ui);
-    return true;
+    return this.unpositioned(key, pitch, 'ui');
+  }
+
+  /** Sets the gain of an ambience loop (ambience bus); 0 stops it. A loop started is logged. */
+  setLoop(key: string, gain: number): void {
+    const graph = this.graph;
+    if (this.loops.set(key, gain, graph?.ctx ?? null, graph?.ambience ?? null)) this.record(key);
+  }
+
+  /** The ambience loops playing or fading, with their gains. */
+  ambience(): LoopView[] {
+    return this.loops.list();
   }
 
   /** Keys of the last sounds played, oldest first. */
   log(): string[] {
     return [...this.played];
+  }
+
+  /** How many keys were ever logged (what came after a mark: the last `logCount() − mark`). */
+  logCount(): number {
+    return this.total;
+  }
+
+  private unpositioned(key: string, pitch: number, bus: 'sfx' | 'ui'): boolean {
+    if (!this.accept(key)) return false;
+    const voice = this.start(key, 1, pitch);
+    if (voice) voice.gain.connect(this.graph![bus]);
+    return true;
   }
 
   /** De-duplicates and logs a play. */
@@ -190,9 +213,14 @@ export class AudioEngine {
     const last = this.lastStart.get(key);
     if (last !== undefined && now - last < AUDIO.dedupMs) return false;
     this.lastStart.set(key, now);
+    this.record(key);
+    return true;
+  }
+
+  private record(key: string): void {
+    this.total++;
     this.played.push(key);
     if (this.played.length > AUDIO.logSize) this.played.shift();
-    return true;
   }
 
   /**
@@ -223,38 +251,4 @@ export class AudioEngine {
     voice.audibility = gain * distanceGain;
     return voice;
   }
-}
-
-/** The context, its buses (sfx, ambience and ui → master → compressor) and the voices' nodes. */
-function createGraph(): Graph {
-  const ctx = new AudioContext();
-  const compressor = ctx.createDynamicsCompressor();
-  compressor.connect(ctx.destination);
-  const master = ctx.createGain();
-  master.connect(compressor);
-  const sfx = ctx.createGain();
-  const ambience = ctx.createGain();
-  const ui = ctx.createGain();
-  sfx.connect(master);
-  ambience.connect(master);
-  ui.connect(master);
-  const voices: Voice[] = [];
-  for (let i = 0; i < AUDIO.voices; i++) {
-    const panner = new PannerNode(ctx, {
-      panningModel: 'equalpower',
-      distanceModel: 'linear',
-      refDistance: AUDIO.near,
-      maxDistance: AUDIO.far,
-      rolloffFactor: 1,
-    });
-    voices.push({
-      source: null,
-      gain: ctx.createGain(),
-      panner,
-      startedAt: 0,
-      endsAt: 0,
-      audibility: 0,
-    });
-  }
-  return { ctx, master, sfx, ambience, ui, voices };
 }

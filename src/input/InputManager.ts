@@ -4,7 +4,9 @@ import {
   actionForCode,
   DEFAULT_BINDINGS,
   HOTBAR_CODES,
+  type KeyBindings,
   RESERVED_CODES,
+  UNBOUND,
 } from './bindings.ts';
 import { KeyLabels } from './keyLabels.ts';
 import { clampPitch, type LookTarget } from './LookTarget.ts';
@@ -14,13 +16,6 @@ import { PointerLock } from './pointerLock.ts';
 export const BASE_SENSITIVITY = 0.0025;
 /** Wheel distance (pixels) that moves the hotbar by one slot, so trackpad inertia does not spin it. */
 const WHEEL_STEP = 60;
-const PREVENT_DEFAULT: ReadonlySet<string> = new Set([
-  'Space',
-  'Tab',
-  'F3',
-  'Backquote',
-  'IntlBackslash',
-]);
 
 export interface InputOptions {
   /** Capture the mouse with Pointer Lock (otherwise: drag with the left button to look around). */
@@ -30,15 +25,18 @@ export interface InputOptions {
 
 /**
  * Keyboard and mouse state, by physical key. Produces per-tick commands (CommandBuilder) and
- * applies mouse movement to the view every frame.
+ * applies mouse movement to the view every frame. The bindings, the mouse and the crouch mode are
+ * the player's settings (the app sets them; a change applies from the next key press).
  */
 export class InputManager {
   readonly labels: KeyLabels;
   readonly pointer: PointerLock | null;
-  bindings: Readonly<Record<Action, readonly string[]>> = DEFAULT_BINDINGS;
+  bindings: KeyBindings = DEFAULT_BINDINGS;
   /** Radians per pixel. */
   sensitivity = BASE_SENSITIVITY;
   invertY = false;
+  /** Each press of crouch turns it on or off (otherwise: crouched while the key is held). */
+  crouchToggle = false;
   /** False while a menu or screen owns the keyboard. */
   enabled = true;
   slot = 0;
@@ -52,6 +50,8 @@ export class InputManager {
   private mouseDy = 0;
   private wheel = 0;
   private dragging = false;
+  /** Crouched by a toggle press (crouchToggle); a release of every key stands up again. */
+  private crouched = false;
 
   constructor(element: HTMLElement, options: InputOptions) {
     this.element = element;
@@ -69,7 +69,7 @@ export class InputManager {
 
   /** True while an action's key is held (or forced by automation). */
   isDown(action: Action): boolean {
-    if ((this.forced.get(action) ?? 0) > 0) return true;
+    if (this.isForced(action)) return true;
     if (!this.enabled) return false;
     for (const code of this.bindings[action]) if (this.down.has(code)) return true;
     return false;
@@ -127,7 +127,7 @@ export class InputManager {
       strafe: this.axis('right', 'left'),
       jump: this.isDown('jump') || this.latched.has('jump'),
       sprint: this.isDown('sprint'),
-      crouch: this.isDown('crouch'),
+      crouch: this.crouchToggle ? this.crouched || this.isForced('crouch') : this.isDown('crouch'),
       yaw: look.yaw,
       pitch: clampPitch(look.pitch),
       primary: this.isDown('primary') || this.latched.has('primary'),
@@ -141,7 +141,7 @@ export class InputManager {
 
   /** Label of the first key bound to an action, on the player's keyboard layout. */
   keyLabel(action: Action): string {
-    return this.labels.label(this.bindings[action][0] ?? '');
+    return this.labels.label(this.bindings[action].find((code) => code !== UNBOUND) ?? '');
   }
 
   dispose(): void {
@@ -162,15 +162,21 @@ export class InputManager {
     this.latched.clear();
     this.edges.clear();
     this.dragging = false;
+    this.crouched = false;
   };
 
+  private isForced(action: Action): boolean {
+    return (this.forced.get(action) ?? 0) > 0;
+  }
+
   private press(code: string): void {
-    if (RESERVED_CODES.has(code)) return;
+    if (code === UNBOUND || RESERVED_CODES.has(code)) return;
     if (!this.down.has(code) && this.enabled) {
       const action = actionForCode(this.bindings, code);
       if (action) {
         this.edges.add(action);
         this.latched.add(action);
+        if (action === 'crouch' && this.crouchToggle) this.crouched = !this.crouched;
       }
     }
     this.down.add(code);
@@ -178,12 +184,23 @@ export class InputManager {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     this.labels.learn(event.code, event.key);
-    // Menus keep the browser's keys: Space and Tab type, press and move between their controls.
-    if (PREVENT_DEFAULT.has(event.code) && !isFormControl(event.target)) event.preventDefault();
+    if (this.takesDefault(event)) event.preventDefault();
     const slot = HOTBAR_CODES.indexOf(event.code);
     if (slot >= 0 && this.enabled) this.slot = slot;
     if (!event.repeat) this.press(event.code);
   };
+
+  /**
+   * A bound key's browser action is cancelled (Space scrolls, Tab moves the focus, F3 and the
+   * quick-find keys search the page), except for the pause keys: an Esc left unmarked is how the
+   * game knows no screen took it. Menus keep the browser's keys: Space and Tab type, press and move
+   * between their controls; shortcuts with Ctrl, Cmd or Alt are the browser's.
+   */
+  private takesDefault(event: KeyboardEvent): boolean {
+    if (event.ctrlKey || event.metaKey || event.altKey || isFormControl(event.target)) return false;
+    const action = actionForCode(this.bindings, event.code);
+    return action !== null && action !== 'pause';
+  }
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     this.down.delete(event.code);
@@ -232,4 +249,14 @@ function isFormControl(target: EventTarget | null | undefined): boolean {
     target instanceof Element &&
     target.closest('input, select, textarea, button') !== null
   );
+}
+
+/**
+ * A text box has the key (the New world name and seed): it is typed there, not a game key. Not a
+ * slider, box or button, where keys type nothing. Read by tag and type, so Node tests can send
+ * the screens' own stand-in elements.
+ */
+export function isTextField(target: EventTarget | null | undefined): boolean {
+  const field = target as { readonly tagName?: unknown; readonly type?: unknown } | null;
+  return field?.tagName === 'TEXTAREA' || (field?.tagName === 'INPUT' && field.type === 'text');
 }

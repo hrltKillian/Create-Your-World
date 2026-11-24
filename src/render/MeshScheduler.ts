@@ -22,7 +22,7 @@ import type { ChunkMeshes } from './ChunkMeshes.ts';
 type PendingSection = Readonly<SectionCoords>;
 
 /** Where meshes go: the chunk meshes (a fake in tests). */
-export type MeshSink = Pick<ChunkMeshes, 'update' | 'remove'>;
+export type MeshSink = Pick<ChunkMeshes, 'update' | 'remove' | 'outdated'>;
 
 export interface MeshBudgets {
   /** Mesh jobs in flight at once. */
@@ -92,6 +92,8 @@ export class MeshScheduler {
   private stale = 0;
   /** Milliseconds from the first blocksChanged of the last batch to the upload of its meshes. */
   editToMeshMs = 0;
+  /** Wall time of the last `update`'s uploads (ms; the frame's `upload` span). */
+  uploadMs = 0;
   /** Meshes are built for the `xray` debug view. */
   private xray = false;
 
@@ -174,6 +176,8 @@ export class MeshScheduler {
   /** An edited section: urgent, in the open batch, and any mesh held for it is outdated. */
   private edited(cx: number, sy: number, cz: number): void {
     const key = sectionKey(cx, sy, cz);
+    // Cave culling: a section whose mesh is pending counts as fully connected.
+    this.chunks.outdated(key);
     this.pending.delete(key);
     this.urgent.set(key, { cx, sy, cz });
     this.batch.add(key);
@@ -190,7 +194,10 @@ export class MeshScheduler {
   queue(cx: number, sy: number, cz: number): void {
     const key = sectionKey(cx, sy, cz);
     if (this.batch.has(key)) this.edited(cx, sy, cz);
-    else this.pending.set(key, { cx, sy, cz });
+    else {
+      this.chunks.outdated(key);
+      this.pending.set(key, { cx, sy, cz });
+    }
   }
 
   /**
@@ -210,7 +217,9 @@ export class MeshScheduler {
   /** Dispatches jobs (edits first, then the nearest to the camera) and uploads finished meshes. */
   update(cameraX: number, cameraY: number, cameraZ: number, budgets: MeshBudgets): void {
     // Results first: an outdated one frees its section for the urgent job in this same frame.
+    const t0 = performance.now();
     this.upload(budgets);
+    this.uploadMs = performance.now() - t0;
     if (this.urgent.size > 0) this.urgent.forEach(this.dispatchUrgent);
     this.commitBatch();
     // Every popped section counts, empty ones included, so a frame never scans without bound.
@@ -300,6 +309,7 @@ export class MeshScheduler {
     // Gone or no longer complete: the simulation emits columnMeshable again when it is.
     if (!section || !this.neighboursLoaded(s.cx, s.cz)) return GONE;
     if (section.isEmpty(this.fill.air)) {
+      // No mesh and no mask: an empty section counts as fully connected (ALL_CONNECTED).
       if (!this.batch.has(key)) {
         this.chunks.remove(key);
         this.shownVersion.set(key, section.version);

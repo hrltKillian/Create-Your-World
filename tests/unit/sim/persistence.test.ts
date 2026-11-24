@@ -13,6 +13,7 @@ import { dropRecord, playerRecord, readDrop, readPlayer } from '../../../src/sim
 import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
+import { botTick } from '../../../src/sim/testing/runBot.ts';
 import { unpackSections } from '../../../src/world/codec/columnRecord.ts';
 import {
   CorruptRecordError,
@@ -166,6 +167,7 @@ describe('restoring a world', () => {
   it('gives the same persistent state after save, reload and resume (ticks 1500 → 3000)', async () => {
     const seed = 'resume';
     /** The wander bot, with edits in two sections, items and a throw near the player at 1400. */
+    const commands: Command[] = [];
     const drive = (s: TestSim, bot: Bot, to: number) => {
       while (s.sim.tick < to) {
         const player = s.sim.players.get(1)!;
@@ -178,8 +180,7 @@ describe('restoring a world', () => {
           s.host.send({ type: 'debug.give', item: 'item:dirt', count: 5 });
           s.host.send({ type: 'inv.drop', slot: 0, all: false });
         }
-        s.host.send(bot.next(player, s.sim.tick));
-        s.host.advance(1, s.events);
+        botTick(s.host, bot, player, commands, s.events);
         s.events.length = 0;
       }
     };

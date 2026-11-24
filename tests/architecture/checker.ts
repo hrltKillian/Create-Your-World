@@ -43,11 +43,23 @@ export const LAYERS: Readonly<Record<Layer, LayerRule>> = {
   i18n: { values: ['core', 'content'], types: [] },
   assets: { values: ['core', 'content'], types: [] },
   input: { values: ['core', 'content', 'i18n'], types: ['sim'] },
-  platform: { values: ['core', 'content', 'world', 'sim'], types: [] },
+  // The settings store and check the key bindings and the quality presets (pure data modules).
+  platform: {
+    values: ['core', 'content', 'world', 'sim', 'input/bindings', 'render/quality'],
+    types: [],
+  },
   render: { values: ['core', 'content', 'world', 'assets'], types: ['sim', 'input'] },
   audio: { values: ['core', 'content', 'assets', 'platform/settings'], types: ['sim'] },
   ui: {
-    values: ['core', 'content', 'i18n', 'assets', 'input/keyLabels', 'platform/settings'],
+    values: [
+      'core',
+      'content',
+      'i18n',
+      'assets',
+      'input/keyLabels',
+      'input/bindings',
+      'platform/settings',
+    ],
     types: ['sim'],
   },
   app: { values: ['*'], types: ['*'] },

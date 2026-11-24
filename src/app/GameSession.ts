@@ -19,6 +19,8 @@ import { daylightAt, hourOf } from '../sim/time.ts';
 import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import { ClientAim } from './ClientAim.ts';
 import type { FreeCam } from './FreeCam.ts';
+import type { SessionSpans } from './perf.ts';
+import { ClientThrottle } from './throttle.ts';
 
 const MAX_STEPS = 4;
 /** Closest third-person camera distance (m) at which the avatar is still drawn. */
@@ -56,6 +58,19 @@ export class GameSession {
   readonly startedAt = performance.now();
   /** Wall time of the last simulation tick alone, in ms (the mobs benchmark). */
   tickMs = 0;
+  /** The last frame's time per subsystem (ms), for FrameStats. */
+  readonly spans: SessionSpans = {
+    input: 0,
+    sim: 0,
+    stream: 0,
+    mesh: 0,
+    upload: 0,
+    entities: 0,
+  };
+  /** Scales the client's mesh slices to the frame work (fed by the frame loop). */
+  readonly throttle = new ClientThrottle();
+  /** performance.now() of the last span boundary of the frame. */
+  private lapAt = 0;
   private readonly view: WorldView;
   private readonly input: InputManager;
   private readonly freecam: FreeCam | null;
@@ -73,6 +88,8 @@ export class GameSession {
   private paused = false;
   /** Client systems that react to the simulation's events besides rendering (UI, audio). */
   readonly listeners: ((event: SimEvent) => void)[] = [];
+  /** Sends each tick's commands instead of the keyboard and mouse (the bot driver), or null. */
+  pilot: ((host: SimHost) => void) | null = null;
 
   constructor(
     options: SessionOptions,
@@ -97,7 +114,7 @@ export class GameSession {
       missingLight: 0,
       air: registry.air,
     });
-    this.play = new PlayView(view, this.host.view);
+    this.play = new PlayView(view, this.host.view, this.rig);
     this.entities = this.play.entities;
     this.aim = new ClientAim(this.host.view.world, registry, this.player, this.host.view.entities);
     // Puts the eye at the spawn before the first frame, so the first ticks aim from there.
@@ -148,6 +165,8 @@ export class GameSession {
 
   /** One rendered frame: input, fixed-step ticks, streaming, meshing, camera and entities. */
   frame(dt: number): CameraPose {
+    const spans = this.spans;
+    this.lap();
     if (this.freecam) this.freecam.update(dt);
     else {
       this.input.applyMouseLook(this.rig);
@@ -156,6 +175,7 @@ export class GameSession {
       if (this.input.consume('drop'))
         this.host.send({ type: 'inv.drop', slot: this.input.slot, all: this.input.shiftHeld() });
     }
+    spans.input = this.lap();
     // While paused the accumulator is frozen, so the view stays where it was.
     if (!this.paused && !this.fixedStep) {
       this.acc += dt;
@@ -167,6 +187,7 @@ export class GameSession {
       }
       if (steps === MAX_STEPS) this.acc = 0;
     }
+    spans.sim = this.lap();
     // A teleport or a far respawn lands in an unlit column: load around it behind the overlay.
     if (!this.loading && !this.freecam && !this.playerColumnLit()) this.loading = true;
     if (this.loading)
@@ -176,10 +197,22 @@ export class GameSession {
       this.sendViewIfMoved();
       this.host.pumpWorld({ columns: INTEGRATE_PER_TICK }, this.events);
     }
-    this.afterTicks(this.loading ? LOADING_BUDGETS : PLAY_BUDGETS, true);
+    spans.stream = this.lap();
+    this.afterTicks(this.loading ? LOADING_BUDGETS : this.throttle.budgets(PLAY_BUDGETS), true);
+    spans.upload = this.scheduler.uploadMs;
+    spans.mesh = Math.max(0, this.lap() - spans.upload);
     const pose = this.render(dt);
     this.updateEnvironment(pose);
+    spans.entities = this.lap();
     return pose;
+  }
+
+  /** Milliseconds since the last span boundary of the frame, which this call moves to now. */
+  private lap(): number {
+    const now = performance.now();
+    const ms = now - this.lapAt;
+    this.lapAt = now;
+    return ms;
   }
 
   /** Advances `n` ticks right now (fixed-step automation). The loading flag is left to frames. */
@@ -243,7 +276,8 @@ export class GameSession {
 
   private tick(): void {
     this.sendView();
-    if (!this.freecam) {
+    if (this.pilot) this.pilot(this.host);
+    else if (!this.freecam) {
       // The view may have turned since the last frame (automation steps several ticks at once).
       this.updateAim();
       this.host.send(this.input.sample(this.rig, this.aim.target()));
@@ -330,6 +364,7 @@ export class GameSession {
   }
 }
 
+/** The nominal client slices of play (the adaptive throttle scales them down). */
 const PLAY_BUDGETS: MeshBudgets = {
   maxInFlight: 8,
   dispatchPerFrame: 4,
