@@ -96,7 +96,8 @@ export function buildItemTables(
   items.forEach((item, i) => {
     tables.maxStack[i] = item.maxStack;
     tables.toolSpeed[i] = item.tool?.speed ?? 1;
-    tables.durability[i] = item.tool?.durability ?? item.wear?.durability ?? charges(item);
+    tables.durability[i] =
+      item.tool?.durability ?? item.weapon?.durability ?? item.wear?.durability ?? charges(item);
     const block = placed.get(item.key);
     if (block !== undefined) tables.places[i] = blockState(block);
   });

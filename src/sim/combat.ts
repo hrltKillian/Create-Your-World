@@ -1,16 +1,18 @@
 import type { CreatureDef } from '../content/schema.ts';
 import { centreY, DYING_TICKS } from '../core/creatures.ts';
 import { hash32 } from '../core/hash.ts';
+import { RAY_SOLID } from '../world/raycast.ts';
 import { BRAIN, setMode, voice } from './ai/behaviours.ts';
 import { alarm } from './ai/brains.ts';
 import { lineOfSight, targetOf } from './ai/senses.ts';
 import { ticksOf } from './clock.ts';
 import { type CreatureState, creatureDef, eyeY, isGone, reachGap } from './creatures.ts';
 import { type Gear, wornGear } from './environment.ts';
+import { wearGear } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
-import { eyeHeight } from './physics.ts';
+import { bodyHeight, eyeHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { adjustGauges, hurt } from './survival.ts';
@@ -134,7 +136,8 @@ const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: 
 
 /**
  * A creature's blow at a player lands unless the player dodged (out of reach + 0.3, or out of
- * sight) or was hit moments ago. Returns whether it landed.
+ * sight: a collision box on both lines to the eye and to the top of the head, glass and closed
+ * gates included, not a low block a line passes over) or was hit moments ago. Returns whether it landed.
  */
 export function strike(
   sim: Simulation,
@@ -149,11 +152,22 @@ export function strike(
   const b = player.body;
   const tables = sim.registry.tables;
   const from = eyeY(c, def);
-  if (!lineOfSight(sim.world, tables, c.body.x, from, c.body.z, b.x, b.y + eyeHeight(b), b.z))
+  // The eye line, else the line to the top of the head on the side facing the creature: a
+  // crouching player's eye line can dip into a low block (a chest) the blow passes over.
+  const dx = b.x - c.body.x;
+  const dz = b.z - c.body.z;
+  const k = PHYSICS.width / 2 / (Math.sqrt(dx * dx + dz * dz) || 1);
+  const clear = (x: number, y: number, z: number) =>
+    lineOfSight(sim.world, tables, c.body.x, from, c.body.z, x, y, z, RAY_SOLID);
+  if (
+    !clear(b.x, b.y + eyeHeight(b), b.z) &&
+    !clear(b.x - dx * k, b.y + bodyHeight(b), b.z - dz * k)
+  )
     return false;
   const armor = wornGear(sim.registry, player.equipment, gear).armor;
   const damage = attack.damage * escalation(def, dayOf(sim.time.ticks)) * armorFactor(armor);
   hurt(player.survival, damage, 'creature');
+  wearGear(sim.registry, player, out);
   if (attack.toxicity)
     adjustGauges(player.survival, sim.registry.pack.balance, 0, 0, 0, attack.toxicity);
   player.invulnerable = COMBAT.playerInvulnerableTicks;

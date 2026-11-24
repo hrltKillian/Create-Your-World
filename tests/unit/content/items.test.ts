@@ -141,3 +141,19 @@ describe('item validation', () => {
     expect(validatePack(pack).map((i) => i.path)).toEqual(['arena.oreWall[0]']);
   });
 });
+
+describe('weapon validation', () => {
+  it('wants a weapon durability to be a whole number of uses within the cap', () => {
+    const issues = (durability: number) => {
+      const pack = broken((p) => {
+        const spear = p.items!.find((i) => i.key === 'item:flint_spear')!;
+        (spear.weapon as { durability?: number }).durability = durability;
+      });
+      return validatePack(pack).map((i) => i.path);
+    };
+    const spear = basePack.items!.findIndex((i) => i.key === 'item:flint_spear');
+    expect(issues(59.5)).toEqual([`items[${spear}].weapon.durability`]);
+    expect(issues(65_536)).toEqual([`items[${spear}].weapon.durability`]);
+    expect(issues(60)).toEqual([]);
+  });
+});

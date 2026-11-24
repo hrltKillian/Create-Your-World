@@ -1,5 +1,12 @@
-import { FLAG_REPLACEABLE, type Registry } from '../content/registry.ts';
+import {
+  COLLISION_LIQUID,
+  COLLISION_NONE,
+  FLAG_REPLACEABLE,
+  FLAG_SOLID,
+  type Registry,
+} from '../content/registry.ts';
 import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
+import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { closeBlockEntity } from './blockEntityCommands.ts';
 import { ticksOf } from './clock.ts';
@@ -12,18 +19,24 @@ import { addItem, addToRange, type Inventory, type ItemStack } from './inventory
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { collisionReader, surfaceAt } from './surface.ts';
 import { addEffect, createSurvival } from './survival.ts';
 
 /*
  * Death and respawn (docs « Mort », tick step 14). A player whose health ran out leaves all they
  * carried (inventory, worn items, the ingredients the craft queue reserved) in a permanent
  * Abandoned Pack where they died, recorded in their `graves` for the compass, and lies still until
- * the Respawn command: back at the bedroll slept on last, else at the spawn, with 60 health, 50
+ * the Respawn command: back at the bedroll slept on last, else on the ground at the spawn (beside
+ * it when the ground there was dug below the spawn's height: never over a shaft), with 60 health, 50
  * hunger and 50 thirst, Weakened for 2 minutes and untargeted for 5 seconds. Secondary on a pack
  * takes back what fits, the worn items back on (the pack keeps them apart); an emptied pack goes,
- * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell above, no
+ * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell near, no
  * grave block in the pack) spills on the ground.
  */
+
+/** How far a pack looks for a free cell (steps from the feet) and a respawn for ground (rings). */
+const PACK_REACH = 2;
+const SPAWN_RINGS = 4;
 
 /** Tick step 14: handles each new death of a player in a loaded column. */
 export function stepDeaths(sim: Simulation, out: SimEvent[]): void {
@@ -79,9 +92,21 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
   return stacks;
 }
 
+/** The steps a pack takes from cell to cell, up first, down last. */
+const PACK_STEPS: readonly (readonly [number, number, number])[] = [
+  [0, 1, 0],
+  [-1, 0, 0],
+  [1, 0, 0],
+  [0, 0, -1],
+  [0, 0, 1],
+  [0, -1, 0],
+];
+
 /**
- * Leaves an Abandoned Pack holding `slots` and the `worn` items in the first free cell (air or
- * replaceable, with no block entity) from the feet up; returns its cell, or null without one.
+ * Leaves an Abandoned Pack holding `slots` and the `worn` items in the free cell (air or
+ * replaceable, with no block entity) nearest the feet: a breadth-first walk from the feet through
+ * cells without collision, up first, at most PACK_REACH steps (a doorway or a torch at the feet
+ * sends it beside them, never through rock); returns its cell, or null without one.
  */
 function leavePack(
   sim: Simulation,
@@ -94,17 +119,92 @@ function leavePack(
 ): BlockCell | null {
   const { registry, world } = sim;
   if (registry.grave < 0) return null;
-  const cx = Math.floor(x);
-  const cz = Math.floor(z);
-  for (let cy = Math.max(0, Math.floor(y)); cy < WORLD_HEIGHT; cy++) {
-    const state = world.getBlock(cx, cy, cz);
-    const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
-    if (!free || sim.blockEntities.has(cellKey(cx, cy, cz))) continue;
-    editBlock(world, sim.light, cx, cy, cz, registry.grave, out);
-    sim.blockEntities.set(cellKey(cx, cy, cz), { kind: 'grave', x: cx, y: cy, z: cz, slots, worn });
-    return { x: cx, y: cy, z: cz };
+  const feet = { x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) };
+  const seen = new Set([cellKey(feet.x, feet.y, feet.z)]);
+  let ring: BlockCell[] = [feet];
+  for (let d = 0; d <= PACK_REACH && ring.length > 0; d++) {
+    for (const cell of ring)
+      if (
+        packFits(sim, cell.x, cell.y, cell.z) &&
+        editBlock(world, sim.light, cell.x, cell.y, cell.z, registry.grave, out)
+      ) {
+        sim.blockEntities.set(cellKey(cell.x, cell.y, cell.z), {
+          kind: 'grave',
+          ...cell,
+          slots,
+          worn,
+        });
+        return cell;
+      }
+    const next: BlockCell[] = [];
+    for (const cell of ring)
+      for (const [dx, dy, dz] of PACK_STEPS) {
+        const step = { x: cell.x + dx, y: cell.y + dy, z: cell.z + dz };
+        const key = cellKey(step.x, step.y, step.z);
+        if (step.y < 0 || step.y >= WORLD_HEIGHT || seen.has(key)) continue;
+        seen.add(key);
+        const state = world.getBlock(step.x, step.y, step.z);
+        if (state !== world.outside && (registry.tables.flags[state]! & FLAG_SOLID) === 0)
+          next.push(step);
+      }
+    ring = next;
   }
   return null;
+}
+
+/** Whether a pack may go in a cell: inside the world, air or replaceable, with no block entity. */
+function packFits(sim: Simulation, x: number, y: number, z: number): boolean {
+  if (y < 0 || y >= WORLD_HEIGHT) return false;
+  const { registry } = sim;
+  const state = sim.world.getBlock(x, y, z);
+  const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
+  return free && !sim.blockEntities.has(cellKey(x, y, z));
+}
+
+/** Heights a respawn tries in a column, from the spawn's: the same, then up or down 1, then 2. */
+const SPAWN_BAND = [0, 1, -1, 2, -2];
+
+/**
+ * Where a player with no bedroll comes back: at the spawn while they can stand there, else on the
+ * first cell they can stand on within SPAWN_BAND of its height in the spawn's column, then in the
+ * nearest columns (a fixed spiral): never over a shaft, nor on a roof or a canopy over it. Last, on
+ * the floor of a pit dug all around, so no fall awaits.
+ */
+function spawnPoint(sim: Simulation): { x: number; y: number; z: number } {
+  const { x, y, z } = sim.spawn;
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  const standable = standableIn(collisionReader(sim));
+  let point: { x: number; y: number; z: number } | null = null;
+  spiral(SPAWN_RINGS, (dx, dz) => {
+    for (const dy of SPAWN_BAND)
+      if (standable(bx + dx, y + dy, bz + dz)) {
+        point = { x: x + dx, y: y + dy, z: z + dz };
+        return true;
+      }
+    return false;
+  });
+  if (point) return point;
+  for (let floor = y - 3; floor > 0; floor--)
+    if (standable(bx, floor, bz)) return { x, y: floor, z };
+  return { x, y: surfaceAt(sim, bx, bz), z };
+}
+
+/**
+ * Whether a player fits with their feet in cell (x, y, z), with the cells' collision from
+ * `collisionAt`: ground under them, feet and head free.
+ */
+function standableIn(collisionAt: (x: number, y: number, z: number) => number) {
+  return (x: number, y: number, z: number): boolean => {
+    if (y < 1 || y + 1 >= WORLD_HEIGHT) return false;
+    const ground = collisionAt(x, y - 1, z);
+    return (
+      ground !== COLLISION_NONE &&
+      ground !== COLLISION_LIQUID &&
+      collisionAt(x, y, z) === COLLISION_NONE &&
+      collisionAt(x, y + 1, z) === COLLISION_NONE
+    );
+  };
 }
 
 /** The Respawn command of a dead player (refused while alive). */
@@ -116,9 +216,7 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   }
   const r = sim.registry.pack.balance.respawn;
   const bed = player.respawn;
-  const x = bed ? bed.x + 0.5 : sim.spawn.x;
-  const y = bed ? bed.y : sim.spawn.y;
-  const z = bed ? bed.z + 0.5 : sim.spawn.z;
+  const { x, y, z } = bed ? { x: bed.x + 0.5, y: bed.y, z: bed.z + 0.5 } : spawnPoint(sim);
   // Far away, the player waits frozen (and the client shows its loading screen) until the
   // columns there are lit.
   sim.teleport(player, x, y, z);

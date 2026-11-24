@@ -2,7 +2,7 @@ import type { RawTables } from '../../content/registry.ts';
 import type { CreatureDef } from '../../content/schema.ts';
 import { lookVector, type Vec3 } from '../../core/angles.ts';
 import { centreY } from '../../core/creatures.ts';
-import { createRayHit, RAY_OPAQUE, raycast } from '../../world/raycast.ts';
+import { createRayHit, RAY_OPAQUE, type RAY_SOLID, raycast } from '../../world/raycast.ts';
 import type { VoxelWorld } from '../../world/VoxelWorld.ts';
 import { type CreatureState, eyeY, isAlert } from '../creatures.ts';
 import { eyeHeight } from '../physics.ts';
@@ -77,7 +77,8 @@ const sight = createRayHit();
 /**
  * Whether nothing opaque lies between two points (two points of one cell included): the voxel walk
  * of world/raycast.ts along the segment, stopped by opaque blocks only (creatures see through
- * glass, plants and water). Unloaded cells block.
+ * glass, plants and water). With `RAY_SOLID`, stopped by the collision boxes of blocks instead (a
+ * blow: glass, foliage and closed gates shield, a blow passes over a campfire or a chest). Unloaded cells block.
  */
 export function lineOfSight(
   world: VoxelWorld,
@@ -88,6 +89,7 @@ export function lineOfSight(
   x1: number,
   y1: number,
   z1: number,
+  mode: typeof RAY_OPAQUE | typeof RAY_SOLID = RAY_OPAQUE,
 ): boolean {
   const dx = x1 - x0;
   const dy = y1 - y0;
@@ -95,7 +97,7 @@ export function lineOfSight(
   const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
   // Two equal points: a ray of length 0 with no direction tests their cell alone.
   const k = length > 0 ? 1 / length : 0;
-  raycast(world, tables, x0, y0, z0, dx * k, dy * k, dz * k, length, sight, RAY_OPAQUE);
+  raycast(world, tables, x0, y0, z0, dx * k, dy * k, dz * k, length, sight, mode);
   return !sight.hit;
 }
 

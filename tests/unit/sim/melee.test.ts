@@ -238,6 +238,19 @@ describe('melee', () => {
     );
     expect(drops.sort()).toEqual(['item:raw_hide', 'item:raw_meat']);
   });
+  it.each([
+    ['item:flint_knife', 60],
+    ['item:flint_spear', 60],
+    ['item:copper_blade', 160],
+    ['item:iron_blade', 640],
+  ])('a %s has its tier’s durability and wears by one use a blow', (weapon, uses) => {
+    expect(registry.itemTables.durability[registry.itemId(weapon)]).toBe(uses);
+    const s = world(`wear-${weapon}`);
+    s.give(weapon);
+    const c = trotter(s, true);
+    click(s, pitchAt(s, c));
+    expect(s.player.inventory[0]!.durability).toBe(uses - 1);
+  });
 });
 
 describe("a creature's blow", () => {
@@ -273,6 +286,25 @@ describe("a creature's blow", () => {
     expect(eventsOf(out, 'sound').map((e) => e.sfx)).toEqual(['sfx:player_hurt']);
   });
 
+  it('every worn piece but a filter loses a use a hit landed; a worn-out one is gone', () => {
+    const s = world('gear-wear');
+    const cuirass = registry.itemTables.durability[registry.itemId('item:bronze_cuirass')]!;
+    s.player.equipment[0] = { item: 'item:fur_hood', count: 1, durability: 1 };
+    s.player.equipment[1] = { item: 'item:filter_mask', count: 1 };
+    s.player.equipment[2] = { item: 'item:bronze_cuirass', count: 1 };
+    const out: Parameters<typeof strike>[4] = [];
+    expect(strike(s.sim, shagback(s), def, s.player, out)).toBe(true);
+    expect(s.player.equipment[0]).toBeNull();
+    expect(s.player.equipment[1]!.durability).toBeUndefined();
+    expect(s.player.equipment[2]!.durability).toBe(cuirass - 1);
+    expect(eventsOf(out, 'inventoryChanged')).toHaveLength(1);
+    // A dodged blow wears nothing.
+    s.player.invulnerable = 0;
+    s.fill(0, 65, -1, 0, 67, -1, 'block:stone');
+    expect(strike(s.sim, shagback(s), def, s.player, [])).toBe(false);
+    expect(s.player.equipment[2]!.durability).toBe(cuirass - 1);
+  });
+
   it('lands on a player standing in its own block column (both eyes in one cell)', () => {
     const s = world('point-blank');
     const c = place(s, 'creature:shagback', 0.3, 0.3);
@@ -287,6 +319,43 @@ describe("a creature's blow", () => {
     s.fill(0, 65, -1, 0, 67, -1, 'block:stone');
     expect(strike(s.sim, c, def, s.player, [])).toBe(false);
     expect(s.player.survival.health).toBe(100);
+  });
+
+  it.each([
+    ['glass', 'block:glass', 'block:glass'],
+    ['foliage', 'block:foliage', 'block:foliage'],
+    ['gate', 'block:gate[facing4=s,open=0,half=lower]', 'block:gate[facing4=s,open=0,half=upper]'],
+  ])('a wall of %s (solid, not opaque) dodges the blow', (name, lower, upper) => {
+    const s = world(`see-through-${name}`);
+    const c = shagback(s);
+    s.put(0, 65, -1, lower);
+    s.put(0, 66, -1, upper);
+    expect(strike(s.sim, c, def, s.player, [])).toBe(false);
+    expect(s.player.survival.health).toBe(100);
+  });
+
+  it.each([
+    ['block:campfire[lit=1]', false],
+    ['block:chest[facing4=n]', false],
+    ['block:glowbloom_lantern', false],
+    ['block:campfire[lit=1]', true],
+    ['block:chest[facing4=n]', true],
+  ])('a low %s lets a Prowler’s blow over it land (crouching: %s)', (state, crouching) => {
+    const s = world(`low-block-${state}-${crouching}`);
+    const prowler = registry.creature('creature:prowler')!;
+    const c = place(s, 'creature:prowler', 0.5, -1.6);
+    c.modeTicks = 600;
+    s.put(0, 65, -1, state);
+    s.player.body.crouching = crouching;
+    for (const pz of [0.2375, 0.35, 0.5])
+      for (const cz of [-1.52, -1.6, -1.7, -1.88]) {
+        s.player.body.z = pz;
+        c.body.z = cz;
+        s.player.invulnerable = 0;
+        s.player.survival.health = 100;
+        expect(strike(s.sim, c, prowler, s.player, []), `player ${pz}, Prowler ${cz}`).toBe(true);
+        expect(s.player.survival.health).toBeLessThan(100);
+      }
   });
 
   it('a creature is invulnerable for 8 ticks after a blow', () => {

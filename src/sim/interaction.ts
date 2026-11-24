@@ -130,12 +130,24 @@ export function stopMining(player: PlayerState, out: SimEvent[]): void {
 /** Breaks the aimed block, wears the held tool and pops the blocks that stood on it. */
 function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: SimEvent[]): void {
   const { x, y, z, state } = hit;
-  let top = breakWhole(sim, player, x, y, z, canHarvest(sim.registry, state, itemId), out);
+  const top = breakWhole(sim, player, x, y, z, canHarvest(sim.registry, state, itemId), out);
   const wear = toolWear(sim.registry, state, itemId);
   if (wear > 0 && player.inventory[player.input.slot]) {
     spendUses(sim.registry, player.inventory, player.input.slot, wear);
     out.push({ type: 'inventoryChanged', playerId: player.playerId });
   }
+  popAbove(sim, player, x, top, z, out);
+}
+
+/** Pops (harvested) the blocks that stood on the cell (x, top, z), now unable to bear them. */
+function popAbove(
+  sim: Simulation,
+  player: PlayerState,
+  x: number,
+  top: number,
+  z: number,
+  out: SimEvent[],
+): void {
   while (top + 1 < WORLD_HEIGHT) {
     const def = sim.registry.blockDef(sim.world.getBlock(x, top + 1, z));
     if (def.placement?.support !== 'below') break;
@@ -252,7 +264,8 @@ function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 
 /**
  * Opens or closes a gate, both halves of a tall one (closing is refused while a player or a
- * creature stands in it), with the pack's door sounds (its place sound without them).
+ * creature stands in it), with the pack's door sounds (its place sound without them). An open gate
+ * bears nothing: what stood on it pops, as if it broke.
  */
 function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const registry = sim.registry;
@@ -276,6 +289,8 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
   const door = registry.pack.sounds?.door;
   const sfx = door ? door[value === '1' ? 'open' : 'close'] : registry.blockSfx(next, 'place');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+  if ((registry.tables.flags[next]! & FLAG_SOLID) === 0)
+    popAbove(sim, player, x, Math.max(y, other), z, out);
 }
 
 /** Places one of the held blocks against the aimed face. */

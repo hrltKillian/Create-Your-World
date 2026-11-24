@@ -35,7 +35,7 @@ export function generateResult(
 }
 
 /** Lays saved sections over a generated column (taking their arrays) and fixes its heightmap. */
-function restoreSections(column: Column, saved: readonly SavedSection[], air: number): void {
+export function restoreSections(column: Column, saved: readonly SavedSection[], air: number): void {
   let top = 0;
   for (const s of saved) {
     const section = column.sections[s.sy]!;

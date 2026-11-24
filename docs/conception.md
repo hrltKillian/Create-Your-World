@@ -989,7 +989,7 @@ Exemples verrouillés par les tests :
 **Abri** (tous les 30 ticks, et après une édition à ≤ 10 blocs)
 
 - BFS 6-connexe depuis la tête, à travers les cellules sans collision :
-  - ≤ 384 cellules et ≤ 10 blocs en distance de Manhattan ;
+  - ≤ 384 cellules et ≤ 10 blocs de la tête sur chaque axe (une petite pièce fermée l'est aussi depuis ses coins) ;
   - les portes fermées comptent comme des murs.
 - Atteindre une cellule de **ciel 15**, ou dépasser les limites → exposé. File vidée → **fermé**.
 - Coût environ 20 µs, sans allocation.
@@ -1006,7 +1006,7 @@ Exemples verrouillés par les tests :
 | Désert  | Straw Hat (fraîcheur 6) + Fiber Veil (8)                                             |
 | Marais  | Filter Mask (×0,15, 60 min d'usage) + Waxed Boots (annulent l'eau croupie aux pieds) |
 
-Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bronze 3 et 6, cuirasse de carapace 5.
+Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bronze 3 et 6, cuirasse de carapace 5. Chaque coup de créature reçu use d'un point chaque pièce portée (sauf le masque filtrant, qui s'use à la seconde d'air toxique filtré) ; une pièce usée disparaît.
 
 **Jour/nuit**
 
@@ -1022,10 +1022,10 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
 
 **Mort**
 
-- L'inventaire va dans un **Abandoned Pack** permanent. Il est enregistré dans `graves[]` du joueur, donc son marqueur sur la boussole survit au rechargement.
+- L'inventaire va dans un **Abandoned Pack** permanent, dans la cellule libre la plus proche des pieds (≤ 2 pas de cellule en cellule sans collision depuis les pieds, le haut d'abord ; jamais à travers la roche ni hors du monde : sans cellule, les objets tombent au sol). Il est enregistré dans `graves[]` du joueur, donc son marqueur sur la boussole survit au rechargement.
 - L'écran de mort affiche la cause (`death.cause.*`).
 - Réapparition :
-  - à la natte, sinon au point d'apparition, en mode chargement si c'est loin ;
+  - à la natte, sinon au point d'apparition tant qu'on peut s'y tenir (sol solide dessous, pieds et tête libres) ; sinon sur la première cellule où l'on tient à ±2 blocs de sa hauteur, dans sa colonne puis dans les plus proches (jamais au-dessus d'un puits, ni sur un toit ou une canopée, ni dans un buisson : une colonne non chargée est générée pour le test, sous ses sections sauvegardées, donc le point est le même que l'on meure près ou loin) ; sinon au fond de la fosse creusée dessous ; en mode chargement si c'est loin ;
   - santé 60, faim 50, soif 50 ;
   - statut « Weakened » (−20 % de dégâts) pendant 2 min, et 5 s sans être ciblé.
 
@@ -1069,7 +1069,7 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
   - armure : `dégâts × 20/(20 + A)` ;
   - recul : 6 + 3 m/s × (1 − résistance) ;
   - invulnérabilité : joueur 15 ticks, créatures 8 ;
-  - attaques télégraphiées et esquivables (portée + 0,3 et ligne de vue au moment de l'impact) ;
+  - attaques télégraphiées et esquivables (portée + 0,3 et ligne de vue au moment de l'impact : de l'œil de la créature à l'œil du joueur ou au sommet de sa tête, côté créature ; seules les boîtes de collision coupent la ligne, un coup passe au-dessus d'un feu de camp ou d'un coffre, même joueur accroupi) ;
   - marqueur d'impact et arcs indiquant la direction des dégâts.
 
 | Arme                                    | Dégâts        | Recharge | Portée |
@@ -1368,7 +1368,13 @@ export interface ItemDef {
   maxStack: number;
   tags?: readonly TagKey[];
   tool?: { kind: ToolKind; tier: Tier; speed: number; durability: number };
-  weapon?: { damage: number; cooldown: number; reach: number; knockback: number };
+  weapon?: {
+    damage: number;
+    cooldown: number;
+    reach: number;
+    knockback: number;
+    durability?: number;
+  }; // durabilité d'une arme qui n'est pas un outil (couteau, lance, lames : celle de leur palier)
   wear?: {
     slot: 'head' | 'face' | 'body' | 'legs' | 'feet';
     armor?: number;

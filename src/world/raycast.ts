@@ -1,4 +1,5 @@
 import {
+  COLLISION_BOXES,
   COLLISION_LIQUID,
   FLAG_OPAQUE,
   FLAG_SOLID,
@@ -27,7 +28,10 @@ export interface RayHit {
  */
 export const RAY_TARGET = 0;
 export const RAY_TARGET_LIQUIDS = 1;
-/** Blocks with collision, and unloaded columns (camera probes, the reach of a blow). */
+/**
+ * Collision boxes, and unloaded columns (camera probes, the reach of a blow): a ray passing over a
+ * low block (a campfire, a chest) goes on.
+ */
 export const RAY_SOLID = 2;
 /** Opaque blocks, and unloaded columns (creatures' lines of sight: glass and plants let it by). */
 export const RAY_OPAQUE = 3;
@@ -88,7 +92,12 @@ export function raycast(
         : state !== world.outside &&
           tables.pass[state] !== PASS_NONE &&
           (mode === RAY_TARGET_LIQUIDS || tables.collision[state] !== COLLISION_LIQUID);
-    if (stops) {
+    // A block with collision boxes stops a solid ray only where the ray enters one of them.
+    const entry =
+      stops && mode === RAY_SOLID && tables.collision[state]! >= COLLISION_BOXES
+        ? boxEntry(tables, state, x, y, z, ox, oy, oz, dx, dy, dz, maxDistance)
+        : t;
+    if (stops && entry <= maxDistance) {
       out.hit = true;
       out.x = x;
       out.y = y;
@@ -96,7 +105,7 @@ export function raycast(
       out.nx = nx;
       out.ny = ny;
       out.nz = nz;
-      out.distance = t;
+      out.distance = Math.max(t, entry);
       out.state = state;
       return out;
     }
@@ -124,6 +133,57 @@ export function raycast(
     }
   }
   return out;
+}
+
+/**
+ * Distance along the ray (o + t·d, 0 ≤ t ≤ max) where it enters the first of the collision boxes of
+ * `state` in cell (x, y, z) (the slab test), or +∞ when it misses them all.
+ */
+function boxEntry(
+  tables: RawTables,
+  state: number,
+  x: number,
+  y: number,
+  z: number,
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  max: number,
+): number {
+  const boxes = tables.collisionBoxes[tables.collision[state]! - COLLISION_BOXES]!;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i]!;
+    const t = Math.max(
+      0,
+      slabEnter(ox, dx, x + b[0] / 16, x + b[3] / 16, max),
+      slabEnter(oy, dy, y + b[1] / 16, y + b[4] / 16, max),
+      slabEnter(oz, dz, z + b[2] / 16, z + b[5] / 16, max),
+    );
+    const exit = Math.min(
+      max,
+      slabExit(ox, dx, x + b[0] / 16, x + b[3] / 16),
+      slabExit(oy, dy, y + b[1] / 16, y + b[4] / 16),
+      slabExit(oz, dz, z + b[2] / 16, z + b[5] / 16),
+    );
+    if (t <= exit && t < best) best = t;
+  }
+  return best;
+}
+
+/** Where a ray along one axis enters [lo, hi] (−∞ when inside without moving, past `max` when never). */
+function slabEnter(o: number, d: number, lo: number, hi: number, max: number): number {
+  if (d === 0) return o >= lo && o <= hi ? Number.NEGATIVE_INFINITY : max + 1;
+  return d > 0 ? (lo - o) / d : (hi - o) / d;
+}
+
+/** Where a ray along one axis leaves [lo, hi] (+∞ when it stays inside). */
+function slabExit(o: number, d: number, lo: number, hi: number): number {
+  if (d === 0) return Number.POSITIVE_INFINITY;
+  return d > 0 ? (hi - o) / d : (lo - o) / d;
 }
 
 /** Normal of each face, in the registry's face order (+x, −x, +y, −y, +z, −z), as x, y, z triples. */

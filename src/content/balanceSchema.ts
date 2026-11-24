@@ -119,7 +119,7 @@ export interface ShelterBalance {
   /** Seconds between two tests (a nearby edit tests again the next tick). */
   readonly checkSec: number;
   readonly maxCells: number;
-  /** Manhattan distance from the head (at most 15). */
+  /** Distance from the head on each axis (at most 15). */
   readonly maxDistance: number;
   /** An edit within this many blocks (each axis) tests the shelter again. */
   readonly editRadius: number;

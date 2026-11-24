@@ -96,6 +96,21 @@ describe('shelter test', () => {
     expect(door(1)).toBe('covered');
   });
 
+  it('finds a closed 8×8 room, 2 high, enclosed from a corner as from its middle', () => {
+    // The far corner lies 7 + 7 + 1 = 15 blocks away (Manhattan): each axis stays within 10.
+    const { world } = litWorld(1, (w) => {
+      floor(w);
+      for (let x = 0; x <= 9; x++)
+        for (let z = 0; z <= 9; z++) {
+          put(w, x, 66, z, PLANKS);
+          if (x === 0 || x === 9 || z === 0 || z === 9)
+            for (let y = 64; y <= 65; y++) put(w, x, y, z, PLANKS);
+        }
+    });
+    expect(shelterAt(world, registry.tables, 1, 65, 1, rules)).toBe('enclosed');
+    expect(shelterAt(world, registry.tables, 4, 65, 5, rules)).toBe('enclosed');
+  });
+
   it('finds a closed hall too large to be a shelter: covered', () => {
     // 13×13 inside, 4 high: more cells and farther than the limits allow.
     const { world } = litWorld(1, (w) => {

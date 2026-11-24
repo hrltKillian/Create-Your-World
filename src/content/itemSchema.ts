@@ -40,6 +40,8 @@ export interface WeaponDef {
   readonly reach: number;
   /** Knockback factor (1 = a normal hit). */
   readonly knockback: number;
+  /** Uses before a weapon that is no tool breaks, one a blow landed (a tool's are its `tool`'s). */
+  readonly durability?: number;
 }
 
 export type WearSlot = 'head' | 'face' | 'body' | 'legs' | 'feet';
