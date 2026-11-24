@@ -896,7 +896,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 - Recettes `known: 'start'` connues dès le départ ; les autres sont **révélées dès qu'un de leurs ingrédients a été vu**.
 - Un ingrédient inconnu s'affiche avec un indice, par exemple « Found in the frozen lands to the north ».
-- File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation.
+- File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation. Une recette déjà dans la file s'ajoute à son entrée, jusqu'à une pile du résultat (`entryCrafts`), puis une nouvelle entrée s'ouvre : cinq ×1 font la même file qu'un ×5 (M13).
 - Temps de craft à la main dans les données : 1 à 3 s (Flint Hatchet : 2 s).
 - Établi à ≤ 4 blocs, vérifié à l'ajout grâce à un index spatial des stations.
 - Le résultat va dans l'inventaire, ou au sol s'il est plein.

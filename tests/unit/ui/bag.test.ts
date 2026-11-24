@@ -48,6 +48,7 @@ function logbookSource(owned: Record<string, number>): LogbookSource {
     seen,
     owned: (ingredient) => owned[ingredient] ?? 0,
     stationNear: () => false,
+    room: () => MAX_CRAFT_COUNT,
   };
 }
 

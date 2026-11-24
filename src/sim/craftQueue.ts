@@ -1,11 +1,12 @@
 import type { Registry } from '../content/registry.ts';
+import type { RecipeDef } from '../content/schema.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
 import { withinReach } from './blockEntities.ts';
 import { ticksOf } from './clock.ts';
 import { reject, whole } from './commandRules.ts';
 import type { CraftCommand } from './commands.ts';
 import type { SimEvent } from './events.ts';
-import { countMatching, freshStack, type Inventory, takeMatching } from './inventory.ts';
+import { countMatching, freshStack, type Inventory, pileOnto, takeMatching } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { bodyHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
@@ -14,8 +15,10 @@ import type { Simulation } from './Simulation.ts';
 /**
  * The Logbook's craft queue (docs « Craft : le Logbook »): 5 entries per player, the first one in
  * progress. Queuing checks that the recipe is revealed, that its station stands within 4 blocks,
- * and takes its ingredients at once (reserved in the entry); cancelling gives them back. Each
- * craft done goes to the bag, or to the ground at the player's feet when the bag is full.
+ * and takes its ingredients at once (reserved in the entry); cancelling gives them back. A recipe
+ * already queued adds its crafts to its entry, up to one stack of the output (`entryCrafts`), so
+ * five ×1 make the same entry as one ×5; past that, a new entry opens. Each craft done goes to the
+ * bag, or to the ground at the player's feet when the bag is full.
  */
 
 export const CRAFT_QUEUE = 5;
@@ -59,6 +62,83 @@ export function stationNear(sim: Simulation, player: PlayerState, station: strin
   return false;
 }
 
+/**
+ * Most crafts one queue entry holds: what makes one stack of the recipe's output (at least one
+ * craft).
+ */
+export function entryCrafts(registry: Registry, recipe: RecipeDef): number {
+  const { item, count } = recipe.output;
+  return Math.max(1, Math.floor(registry.maxStack(item) / count));
+}
+
+/** Crafts of a recipe a queue still takes: room in its entries, then in the free entries. */
+export function queueRoom(
+  registry: Registry,
+  queue: readonly CraftEntry[],
+  recipe: RecipeDef,
+): number {
+  const cap = entryCrafts(registry, recipe);
+  let room = (CRAFT_QUEUE - queue.length) * cap;
+  for (const entry of queue)
+    if (entry.recipe === recipe.key) room += Math.max(0, cap - entry.count);
+  return room;
+}
+
+/**
+ * Adds `count` crafts of a recipe to a queue (the caller checked queueRoom and the ingredients):
+ * onto its entries with room first, then into new entries, each reserving the ingredients of its
+ * crafts from the player's inventory (merged onto the stacks already reserved).
+ */
+function addCrafts(
+  sim: Simulation,
+  player: PlayerState,
+  queue: CraftEntry[],
+  recipe: RecipeDef,
+  count: number,
+): void {
+  const cap = entryCrafts(sim.registry, recipe);
+  let left = count;
+  for (let i = 0; i < queue.length && left > 0; i++) {
+    const entry = queue[i]!;
+    const crafts = Math.min(left, cap - entry.count);
+    if (entry.recipe !== recipe.key || crafts <= 0) continue;
+    reserve(sim, player, entry, recipe, crafts);
+    left -= crafts;
+  }
+  while (left > 0) {
+    const entry: CraftEntry = { recipe: recipe.key, count: 0, progressTicks: 0, reserved: [] };
+    const crafts = Math.min(left, cap);
+    reserve(sim, player, entry, recipe, crafts);
+    queue.push(entry);
+    left -= crafts;
+  }
+}
+
+/** Takes the ingredients of `crafts` crafts from the player into an entry, counting them in it. */
+function reserve(
+  sim: Simulation,
+  player: PlayerState,
+  entry: CraftEntry,
+  recipe: RecipeDef,
+  crafts: number,
+): void {
+  const registry = sim.registry;
+  const inventory = player.inventory;
+  const taken: Inventory = [];
+  for (const input of recipe.inputs)
+    takeMatching(
+      inventory,
+      0,
+      inventory.length,
+      registry.crafting,
+      input.item,
+      input.count * crafts,
+      taken,
+    );
+  for (const stack of taken) if (stack) pileOnto(entry.reserved, registry, stack);
+  entry.count += crafts;
+}
+
 /** Queues `count` crafts of a recipe, reserving their ingredients; returns the refusal, if any. */
 export function enqueueCraft(
   sim: Simulation,
@@ -66,21 +146,19 @@ export function enqueueCraft(
   key: string,
   count: number,
 ): string | null {
-  const crafting = sim.registry.crafting;
+  const registry = sim.registry;
+  const crafting = registry.crafting;
   const recipe = crafting.recipe(key);
   if (!recipe) return 'unknown recipe';
   if (!crafting.revealed(recipe, player.seen)) return 'not revealed';
-  if (player.craft.length >= CRAFT_QUEUE) return 'queue full';
   if (recipe.station !== undefined && !stationNear(sim, player, recipe.station)) return 'station';
+  const queue = player.craft;
+  if (queueRoom(registry, queue, recipe) < count) return 'queue full';
   const inventory = player.inventory;
-  const end = inventory.length;
   for (const input of recipe.inputs)
-    if (countMatching(inventory, 0, end, crafting, input.item) < input.count * count)
+    if (countMatching(inventory, 0, inventory.length, crafting, input.item) < input.count * count)
       return 'ingredients';
-  const reserved: Inventory = [];
-  for (const input of recipe.inputs)
-    takeMatching(inventory, 0, end, crafting, input.item, input.count * count, reserved);
-  player.craft.push({ recipe: key, count, progressTicks: 0, reserved });
+  addCrafts(sim, player, queue, recipe, count);
   return null;
 }
 
@@ -147,14 +225,25 @@ export function stepCrafting(sim: Simulation, player: PlayerState, out: SimEvent
     cancelCraft(sim, player, 0, out);
     return;
   }
-  if (++entry.progressTicks < ticksOf(recipe.seconds)) return;
+  if (!progressCraft(registry, entry, recipe)) return;
+  const { item, count } = recipe.output;
+  giveItems(sim, player, freshStack(registry, item, count), out);
+  out.push({ type: 'crafted', playerId: player.playerId, recipe: recipe.key, item, count });
+  if (entry.count === 0) player.craft.shift();
+}
+
+/**
+ * One tick of the craft under way of a queue's first entry. Returns true when it is done: its
+ * ingredients are used up from the reservation and the entry counts one craft less (its output,
+ * and the entry once empty, are the caller's).
+ */
+export function progressCraft(registry: Registry, entry: CraftEntry, recipe: RecipeDef): boolean {
+  if (++entry.progressTicks < ticksOf(recipe.seconds)) return false;
   entry.progressTicks = 0;
   const reserved = entry.reserved;
   for (const input of recipe.inputs)
     takeMatching(reserved, 0, reserved.length, registry.crafting, input.item, input.count);
   entry.reserved = reserved.filter((stack) => stack !== null);
-  const { item, count } = recipe.output;
-  giveItems(sim, player, freshStack(registry, item, count), out);
-  out.push({ type: 'crafted', playerId: player.playerId, recipe: recipe.key, item, count });
-  if (--entry.count === 0) player.craft.shift();
+  entry.count--;
+  return true;
 }

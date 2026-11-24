@@ -14,6 +14,7 @@ import {
   MAX_INVENTORY_SLOTS,
   moveInto,
   moveStack,
+  pileOnto,
   quickMove,
   sameStack,
   serializeInventory,
@@ -99,6 +100,20 @@ describe('inventory', () => {
     ]);
     expect(counts(slots)).toEqual([64, 0, 64, 1]);
     expect(fitStacks(registry, slots)).toEqual([]);
+  });
+
+  it('piles stacks onto a growing list: matching ones topped up, the rest in stacks of 64', () => {
+    const stacks: Inventory = [{ item: 'item:dirt', count: 60 }];
+    pileOnto(stacks, registry, { item: 'item:dirt', count: 70 });
+    pileOnto(stacks, registry, { item: 'item:flint_pickaxe', count: 1, durability: 9 });
+    pileOnto(stacks, registry, { item: 'item:flint_pickaxe', count: 1, durability: 9 });
+    expect(stacks).toEqual([
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:dirt', count: 2 },
+      { item: 'item:flint_pickaxe', count: 1, durability: 9 },
+      { item: 'item:flint_pickaxe', count: 1, durability: 9 },
+    ]);
   });
 
   it('keeps item totals through 1000 random operations', () => {

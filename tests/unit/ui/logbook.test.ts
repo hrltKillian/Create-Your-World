@@ -17,6 +17,7 @@ function source(
   owned: Record<string, number>,
   seen: readonly string[] = [],
   near = false,
+  room = MAX,
 ): LogbookSource & { stationCalls: number } {
   const seenSet: Record<string, boolean> = {};
   for (const key of [...Object.keys(owned), ...seen]) seenSet[key] = true;
@@ -29,6 +30,7 @@ function source(
       this.stationCalls++;
       return near;
     },
+    room: () => room,
   };
 }
 
@@ -99,14 +101,17 @@ describe('Logbook', () => {
   it('turns the ×1, ×5 and Max buttons on only for what can be queued', () => {
     const rows = logbookRows(source({ 'item:plant_fiber': 9 }), MAX);
     const cord = row(rows, 'recipe:cord');
-    expect(cord.max).toBe(3);
-    expect(batchCount(1, cord, false)).toBe(1);
-    expect(batchCount(5, cord, false)).toBe(0);
-    expect(batchCount('max', cord, false)).toBe(3);
-    expect(batchCount(1, cord, true)).toBe(0);
+    expect([cord.max, cord.room]).toEqual([3, MAX]);
+    expect(batchCount(1, cord)).toBe(1);
+    expect(batchCount(5, cord)).toBe(0);
+    expect(batchCount('max', cord)).toBe(3);
     const knife = row(rows, 'recipe:flint_knife');
-    expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', knife, false))).toEqual([
-      0, 0, 0,
-    ]);
+    expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', knife))).toEqual([0, 0, 0]);
+    // The queue's room for the recipe caps every button: Max queues what still fits.
+    const plenty = { 'item:plant_fiber': 99 };
+    const roomFor = (room: number) =>
+      row(logbookRows(source(plenty, [], false, room), MAX), 'recipe:cord');
+    expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(2)))).toEqual([1, 0, 2]);
+    expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(0)))).toEqual([0, 0, 0]);
   });
 });

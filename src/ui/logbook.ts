@@ -16,6 +16,8 @@ export interface LogbookSource {
   owned(ingredient: string): number;
   /** Whether a block of a station stands within reach. */
   stationNear(station: string): boolean;
+  /** Crafts of a recipe the queue still takes (its entry's room, then the free entries). */
+  room(recipe: RecipeDef): number;
 }
 
 /** An ingredient's pip: owned / required for one craft. */
@@ -35,6 +37,8 @@ export interface RecipeRow {
   /** Made by hand, or its station stands near. */
   readonly stationOk: boolean;
   readonly craftable: boolean;
+  /** Crafts of it the queue still takes. */
+  readonly room: number;
 }
 
 /** The Logbook's buttons: one craft, five, or as many as the inventory pays for. */
@@ -74,7 +78,8 @@ export function logbookRows(source: LogbookSource, maxCount: number): RecipeRow[
       if (!near.has(station)) near.set(station, source.stationNear(station));
       stationOk = near.get(station)!;
     }
-    rows.push({ recipe, pips, max, stationOk, craftable: max > 0 && stationOk });
+    const room = source.room(recipe);
+    rows.push({ recipe, pips, max, stationOk, craftable: max > 0 && stationOk, room });
   }
   // Array.prototype.sort is stable: pack order is kept inside each group.
   return rows.sort((a, b) => Number(b.craftable) - Number(a.craftable));
@@ -88,9 +93,12 @@ export function hiddenRecipes(source: LogbookSource): number {
   return hidden;
 }
 
-/** Crafts a button queues (0: the button is off: not craftable, too few, or the queue is full). */
-export function batchCount(batch: CraftBatch, row: RecipeRow, queueFull: boolean): number {
-  if (!row.craftable || queueFull) return 0;
-  const count = batch === 'max' ? row.max : batch;
-  return count <= row.max ? count : 0;
+/**
+ * Crafts a button queues (0: the button is off: not craftable, too few, or no room left in the
+ * queue for them).
+ */
+export function batchCount(batch: CraftBatch, row: RecipeRow): number {
+  if (!row.craftable) return 0;
+  const count = batch === 'max' ? Math.min(row.max, row.room) : batch;
+  return count <= row.max && count <= row.room ? count : 0;
 }

@@ -14,7 +14,7 @@ import { editBlock } from './edits.ts';
 import { wearSlotOf } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { stopMining } from './interaction.ts';
-import { addItem, addToRange, type Inventory, type ItemStack } from './inventory.ts';
+import { addItem, type Inventory, type ItemStack, pileOnto } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
@@ -86,11 +86,7 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
   const loose: Inventory = [player.cursor];
   player.cursor = null;
   for (const entry of player.craft) loose.push(...entry.reserved);
-  for (const stack of loose) {
-    if (!stack) continue;
-    const left = addToRange(stacks, registry, 0, stacks.length, stack);
-    if (left > 0) stacks.push({ ...stack, count: left });
-  }
+  for (const stack of loose) if (stack) pileOnto(stacks, registry, stack);
   player.craft = [];
   return stacks;
 }

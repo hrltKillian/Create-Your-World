@@ -3,7 +3,7 @@ import type { InputManager } from '../input/InputManager.ts';
 import type { StationEntity } from '../sim/blockEntities.ts';
 import { ticksOf } from '../sim/clock.ts';
 import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
-import type { CraftEntry } from '../sim/craftQueue.ts';
+import { type CraftEntry, queueRoom } from '../sim/craftQueue.ts';
 import { type Gear, wornGear } from '../sim/environment.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
@@ -114,6 +114,7 @@ export class UiBridge {
         owned: (ingredient) =>
           countMatching(player.inventory, 0, player.inventory.length, crafting, ingredient),
         stationNear: (station) => view.stationNear(station),
+        room: (recipe) => queueRoom(view.registry, player.craft, recipe),
       },
       queue: player.craft.map((entry) => queueView(view.registry, entry)),
     };

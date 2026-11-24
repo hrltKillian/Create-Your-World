@@ -98,6 +98,21 @@ export function addToRange(
   return left;
 }
 
+/**
+ * Adds the items of `stack` (left as it is) to a list of stacks that grows (reserved ingredients,
+ * an Abandoned Pack's contents): onto matching stacks up to their maximum, the rest as new stacks
+ * of at most a maximum each.
+ */
+export function pileOnto(stacks: Inventory, registry: Registry, stack: Readonly<ItemStack>): void {
+  let left = addToRange(stacks, registry, 0, stacks.length, stack);
+  const max = registry.maxStack(stack.item);
+  while (left > 0) {
+    const count = Math.min(left, max);
+    stacks.push({ ...stack, count });
+    left -= count;
+  }
+}
+
 /** Whether all the items of `stack` fit in the slots [first, end) (the addToRange rule). */
 export function roomFor(
   slots: Inventory,

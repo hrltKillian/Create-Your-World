@@ -40,8 +40,8 @@ export interface LogbookLimits {
 /**
  * The Logbook (right of the Bag): tabs, the revealed recipes with craftable ones first, each with
  * its owned/required pips and station badge; the selected recipe's ingredients (with where an
- * unseen one is found), « Requires: Workbench nearby », the ×1/×5/Max buttons; then the queue of 5,
- * whose entries cancel on a click. Rebuilt only when what it shows changes.
+ * unseen one is found), « Requires: Workbench nearby », the ×1/×5/Max buttons (on for what the
+ * inventory pays for and the queue takes); then the queue of 5, whose entries cancel on a click. Rebuilt only when what it shows changes.
  */
 export class LogbookPanel {
   readonly element: HTMLElement;
@@ -107,7 +107,7 @@ export class LogbookPanel {
     const parts = [this.tab, this.selected, this.art.icons.length, hidden];
     for (const entry of queue) parts.push(entry.recipe, entry.count);
     for (const row of rows) {
-      parts.push(row.recipe.key, row.max, Number(row.stationOk));
+      parts.push(row.recipe.key, row.max, row.room, Number(row.stationOk));
       for (const pip of row.pips) parts.push(pip.owned, Number(pip.seen));
     }
     return parts.join('|');
@@ -124,10 +124,9 @@ export class LogbookPanel {
         : [h('p', { class: 'logbook-empty' }, t('logbook.empty'))]),
     );
     const selected = shown.find((row) => row.recipe.key === this.selected);
-    const queueFull = queue.length >= this.limits.queue;
     this.detail.replaceChildren(
       ...(selected
-        ? this.details(selected, queueFull)
+        ? this.details(selected)
         : [h('p', { class: 'logbook-empty' }, t('logbook.pick'))]),
     );
     this.queueLabel.textContent = t('logbook.queue', { n: queue.length, max: this.limits.queue });
@@ -215,7 +214,7 @@ export class LogbookPanel {
     return station ? t(station.nameKey) : key;
   }
 
-  private details(row: RecipeRow, queueFull: boolean): HTMLElement[] {
+  private details(row: RecipeRow): HTMLElement[] {
     const recipe = row.recipe;
     const out: HTMLElement[] = [
       h(
@@ -236,15 +235,15 @@ export class LogbookPanel {
       h(
         'div',
         { class: 'logbook-batches' },
-        ...CRAFT_BATCHES.map((batch) => this.batchButton(batch, row, queueFull)),
+        ...CRAFT_BATCHES.map((batch) => this.batchButton(batch, row)),
       ),
     );
     return out;
   }
 
   /** ×1, ×5 or Max: queues that many crafts of the row's recipe (disabled when it cannot). */
-  private batchButton(batch: CraftBatch, row: RecipeRow, queueFull: boolean): HTMLElement {
-    const count = batchCount(batch, row, queueFull);
+  private batchButton(batch: CraftBatch, row: RecipeRow): HTMLElement {
+    const count = batchCount(batch, row);
     const recipe = row.recipe.key;
     const button = menuButton(
       `craft-${batch}`,
