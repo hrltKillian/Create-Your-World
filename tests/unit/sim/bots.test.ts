@@ -15,6 +15,7 @@ import {
   TOOL,
   TOXIC,
   WATER,
+  wayAhead,
 } from '../../../src/sim/testing/botSenses.ts';
 import { BOT_KINDS, type BotKind, createBot } from '../../../src/sim/testing/bots.ts';
 import { botTick } from '../../../src/sim/testing/runBot.ts';
@@ -78,6 +79,19 @@ describe('what the bot tells apart', () => {
     expect(nearestSource(senses, WATER, s.player.body, target)).toBe(true);
     expect(target).toEqual({ tx: 3, ty: 64, tz: 3 });
     expect(nearestSource(senses, BUSH, s.player.body, target)).toBe(false);
+  });
+
+  it('sees whether the next cell ahead is free at the feet and at the head', () => {
+    const s = playerTestSim({ seed: 'ahead' });
+    const senses = botSenses(s.sim);
+    // Yaw 0 looks north (−z): the next cell is (0, 65, −1).
+    expect(wayAhead(senses, s.player.body, 0)).toBe(true);
+    s.put(0, 66, -1, 'block:dirt');
+    expect(wayAhead(senses, s.player.body, 0)).toBe(false);
+    expect(wayAhead(senses, s.player.body, Math.PI)).toBe(true);
+    s.put(0, 66, -1, 'block:air');
+    s.put(0, 65, -1, 'block:dirt');
+    expect(wayAhead(senses, s.player.body, 0)).toBe(false);
   });
 });
 
@@ -172,6 +186,21 @@ describe('how the bot looks after itself', () => {
     s.send({ type: 'debug.teleport', x: 0.5, y: FLAT_SURFACE - 3, z: 0.5 });
     s.give('item:dirt', 16);
     expect(drive(s, 1200)).toBeGreaterThanOrEqual(FLAT_SURFACE + 1);
+  });
+
+  it('digs its way out of a hole under a ceiling, with nothing to climb with', () => {
+    const s = playerTestSim({ seed: 'trap' });
+    s.put(0, FLAT_SURFACE, 0, 'block:air');
+    s.put(0, FLAT_SURFACE + 2, 0, 'block:dirt');
+    s.send({ type: 'debug.teleport', x: 0.5, y: FLAT_SURFACE, z: 0.5 });
+    const bot = createBot('wanderMineBuild', 'bots', s.sim);
+    const commands: Command[] = [];
+    let away = 0;
+    for (let i = 0; i < 900 && away < 2; i++) {
+      botTick(s.host, bot, s.player, commands, s.events);
+      away = Math.max(Math.abs(s.player.body.x - 0.5), Math.abs(s.player.body.z - 0.5));
+    }
+    expect(away).toBeGreaterThanOrEqual(2);
   });
 
   it('swims up from the bottom of a pool', () => {

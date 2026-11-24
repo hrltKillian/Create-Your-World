@@ -106,7 +106,7 @@ export function takeCare(
 /**
  * Eats or drinks an item of `kind` from the hotbar. With none in the whole inventory (tidying
  * brings those of the bag), a search every RESCAN_TICKS walks to the nearest `source` block, or
- * roams onwards when there is none in sight.
+ * roams onwards for ROAM_TICKS when there is none in sight.
  */
 function care(
   s: BotState,
@@ -130,6 +130,8 @@ function care(
   if (tick < s.scanAt[source]!) return false;
   s.scanAt[source] = tick + RESCAN_TICKS;
   if (!nearestSource(senses, source, player.body, s)) {
+    // The next search once this roam is over.
+    s.scanAt[source] = tick + ROAM_TICKS;
     startWalk(s, tick, s.roam, ROAM_TICKS);
     return true;
   }

@@ -11,6 +11,7 @@ import {
   headroom,
   slotWith,
   walledIn,
+  wayAhead,
 } from './botSenses.ts';
 import {
   BACK,
@@ -32,22 +33,25 @@ import type { Bot, BotWorld } from './bots.ts';
 /*
  * The wanderMineBuild bot (docs « Vérification »): it wanders, mines what it aims at (the
  * simulation casts its own ray when the input has no client target) and walks onto the drops,
- * builds with the blocks of its hotbar, jumps over obstacles and climbs walls and pits by placing
- * blocks under its feet, swims up, and looks after its hunger and thirst (botNeeds.ts). Every
- * choice comes from its own seeded random stream and the simulation's state, so two runs give
- * the same hash.
+ * builds with the blocks of its hotbar, jumps over obstacles, climbs walls and pits by placing
+ * blocks under its feet or digs its way through, swims up, and looks after its hunger and thirst
+ * (botNeeds.ts). Every choice comes from its own seeded random stream and the simulation's
+ * state, so two runs give the same hash.
  */
 
-/** Ticks of walking onto what was just mined, to pick up its drops. */
+/** Ticks of walking onto what was just mined or dug, to pick up its drops. */
 const COLLECT_TICKS = 25;
 /**
  * A walk or a search covers PROGRESS_M (Manhattan, on the ground plane) every PROGRESS_TICKS, or
- * the bot is blocked: it climbs or turns away (a search gives up for a while).
+ * the bot is blocked: it climbs, digs or turns away (a search gives up for a while).
  */
 const PROGRESS_TICKS = 45;
 const PROGRESS_M = 1;
 /** Share of the times a stuck bot with blocks climbs instead of turning away (always in a pit). */
 const CLIMB_CHANCE = 0.5;
+/** Share of the other times a stuck walk digs its way ahead, and the longest dig (two stones). */
+const DIG_CHANCE = 0.5;
+const DIG_TICKS = 300;
 /** View pitches (radians) of mining: straight down, the ground just ahead, the ground further. */
 const DIG_DOWN = -1.45;
 const GROUND_AHEAD = -0.75;
@@ -73,8 +77,9 @@ export function wanderMineBuildBot(seed: string, world: BotWorld): Bot {
       s.lastX = b.x;
       s.lastZ = b.z;
       checkProgress(s, rng, senses, player, tick);
-      // Needs interrupt wandering, mining and building, not a meal or a search.
-      const cared = s.task !== 'eat' && s.task !== 'seek' && takeCare(s, senses, player, tick);
+      // Needs interrupt wandering, mining and building, not a meal, a search or a way out.
+      const busy = s.task === 'eat' || s.task === 'seek' || s.task === 'dig';
+      const cared = !busy && takeCare(s, senses, player, tick);
       if (!cared) moveOn(s, rng, senses, player, tick);
       // Whatever the task, a head under water swims up.
       const swim = b.headInWater ? JUMP : 0;
@@ -104,8 +109,8 @@ function checkProgress(
 
 /**
  * Blocked while walking or seeking: climbs (always in a pit, else half the time) when the hotbar
- * holds a block and no ceiling is in the way, else a walk turns away (and roams that way from
- * now on) and a search gives up for a while.
+ * holds a block and no ceiling is in the way, else a search gives up for a while and a walk digs
+ * its way ahead or turns away (and roams that way from now on).
  */
 function unstick(
   s: BotState,
@@ -119,13 +124,21 @@ function unstick(
   if (slot >= 0 && headroom(senses, b) && (walledIn(senses, b) || rng.chance(CLIMB_CHANCE))) {
     s.climb = rng.intRange(20, 45);
     s.slot = slot;
-  } else if (s.task === 'walk') {
+  } else if (s.task === 'seek') giveUp(s, rng, tick);
+  else if (rng.chance(DIG_CHANCE)) {
+    begin(s, 'dig', tick, DIG_TICKS);
+    s.pitch = GROUND_AHEAD;
+    s.slot = handSlot(senses, player.inventory, s.slot);
+  } else {
     s.yaw = rng.range(-Math.PI, Math.PI);
     s.roam = s.yaw;
-  } else giveUp(s, rng, tick);
+  }
 }
 
-/** Ends the task when it is done (the next one starts) or out of time (a search gives up). */
+/**
+ * Ends the task when it is done (the next one starts: a meal or a search met the need, a dig
+ * opened the way) or out of time (a search gives up).
+ */
 function moveOn(
   s: BotState,
   rng: Rng,
@@ -133,14 +146,15 @@ function moveOn(
   player: Readonly<PlayerState>,
   tick: number,
 ): void {
-  if (needMet(s, senses, player)) chooseNext(s, rng, senses, player, tick);
+  const dug = s.task === 'dig' && wayAhead(senses, player.body, s.yaw);
+  if (dug || needMet(s, senses, player)) chooseNext(s, rng, senses, player, tick);
   else if (tick >= s.until && s.task === 'seek') giveUp(s, rng, tick);
   else if (tick >= s.until) chooseNext(s, rng, senses, player, tick);
 }
 
 /**
- * The next task: walking onto what was just mined (its drops), else walking (40 %), mining (35 %)
- * or building (25 %, with a block in the hotbar; else mining).
+ * The next task: walking onto what was just mined or dug (its drops, the way out), else walking
+ * (40 %), mining (35 %) or building (25 %, with a block in the hotbar; else mining).
  */
 function chooseNext(
   s: BotState,
@@ -149,7 +163,7 @@ function chooseNext(
   player: Readonly<PlayerState>,
   tick: number,
 ): void {
-  if (s.task === 'mine' || (s.task === 'seek' && s.want === BUSH)) {
+  if (s.task === 'mine' || s.task === 'dig' || (s.task === 'seek' && s.want === BUSH)) {
     startWalk(s, tick, s.yaw, COLLECT_TICKS);
     return;
   }
@@ -214,6 +228,7 @@ function act(
       return FORWARD | (jump ? JUMP : 0) | (sprint ? SPRINT : 0);
     }
     case 'mine':
+    case 'dig':
       return PRIMARY;
     case 'build':
       s.yaw += s.turn;

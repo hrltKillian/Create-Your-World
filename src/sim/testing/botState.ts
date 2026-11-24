@@ -3,7 +3,7 @@ import type { Target } from './botSenses.ts';
 
 /* What the wanderMineBuild bot is doing, its state and the input it sends from it. */
 
-export type Task = 'walk' | 'mine' | 'build' | 'eat' | 'seek';
+export type Task = 'walk' | 'mine' | 'dig' | 'build' | 'eat' | 'seek';
 
 /** Buttons of an input (bit flags). */
 export const FORWARD = 1;

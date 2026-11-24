@@ -1,3 +1,4 @@
+import { lookVector, type Vec3 } from '../../core/angles.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { solidCell } from '../collision.ts';
 import type { Inventory, ItemStack } from '../inventory.ts';
@@ -155,6 +156,20 @@ export function walledIn(senses: BotSenses, body: Readonly<Body>): boolean {
     solidCell(world, t, x, y, z + 1) &&
     solidCell(world, t, x, y, z - 1)
   );
+}
+
+/** How far ahead of the feet (m) the way is checked: the next cell when facing it. */
+const STEP_AHEAD = 0.8;
+const ahead: Vec3 = { x: 0, y: 0, z: 0 };
+
+/** Whether the cells one step ahead along `yaw`, at the feet and at the head, are both free. */
+export function wayAhead(senses: BotSenses, body: Readonly<Body>, yaw: number): boolean {
+  const t = senses.registry.tables;
+  lookVector(yaw, 0, ahead);
+  const x = Math.floor(body.x + ahead.x * STEP_AHEAD);
+  const y = Math.floor(body.y);
+  const z = Math.floor(body.z + ahead.z * STEP_AHEAD);
+  return !solidCell(senses.world, t, x, y, z) && !solidCell(senses.world, t, x, y + 1, z);
 }
 
 /** Whether the cell above the head is free: standing one block higher fits (no cave ceiling). */
