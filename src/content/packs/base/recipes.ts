@@ -27,8 +27,8 @@ const KILN = 'station:kiln';
 const BLOOMERY = 'station:bloomery';
 
 /**
- * Stations: the workbench is a place to craft at; the others are block entities with slots. The
- * campfire burns as long as it has fuel, the kilns only while they process.
+ * Stations: the workbench is a place to craft at; the others are block entities with slots whose
+ * fire burns only while they process. The campfire's may also be kept burning (warmth, light).
  */
 export const stations = [
   { key: BENCH, nameKey: 'block.workbench', inputSlots: 0, fuelSlot: false, outputSlots: 0 },
@@ -38,7 +38,8 @@ export const stations = [
     inputSlots: 2,
     fuelSlot: true,
     outputSlots: 1,
-    burns: 'whileFuel',
+    burns: true,
+    keepLit: true,
   },
   {
     key: KILN,
@@ -46,7 +47,7 @@ export const stations = [
     inputSlots: 2,
     fuelSlot: true,
     outputSlots: 1,
-    burns: 'whileProcessing',
+    burns: true,
   },
   {
     key: BLOOMERY,
@@ -54,7 +55,7 @@ export const stations = [
     inputSlots: 1,
     fuelSlot: true,
     outputSlots: 1,
-    burns: 'whileProcessing',
+    burns: true,
   },
 ] as const satisfies readonly PackStation[];
 

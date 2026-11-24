@@ -37,6 +37,7 @@ function station(
     progressTicks: 0,
     process: '',
     lit: false,
+    keepLit: false,
     tick: 0,
   };
 }
@@ -102,8 +103,32 @@ describe('station processing', () => {
     expect(fuel(kiln)).toEqual(stack('broadleaf_log', 1));
   });
 
-  it('keeps a campfire burning while it has fuel, cooking meanwhile', () => {
-    const fire = station('station:campfire', [], stack('stick', 2));
+  it('burns nothing at an idle campfire with fuel and no recipe to run', () => {
+    const idle = station('station:campfire', [], stack('broadleaf_log', 3));
+    run(idle, 5000);
+    expect(idle).toMatchObject({ lit: false, burnTicksLeft: 0, process: '' });
+    expect(fuel(idle)).toEqual(stack('broadleaf_log', 3));
+    // An input that makes nothing leaves it cold too.
+    idle.slots[0] = stack('dirt', 4);
+    run(idle, 100);
+    expect(idle.lit).toBe(false);
+    expect(fuel(idle)).toEqual(stack('broadleaf_log', 3));
+  });
+
+  it('cooks at a campfire, burning only while it cooks, then goes out', () => {
+    const cooking = station('station:campfire', [stack('raw_meat', 1)], stack('broadleaf_log', 2));
+    run(cooking, 1);
+    expect(cooking).toMatchObject({ lit: true, process: 'process:grilled_meat' });
+    run(cooking, ticksOf(8) - 1);
+    expect(output(cooking)).toEqual(stack('grilled_meat', 1));
+    run(cooking, 10);
+    // Nothing left to cook: the rest of the log waits for the next meal.
+    expect(cooking).toMatchObject({ lit: false, burnTicksLeft: ticksOf(40) - ticksOf(8) });
+    expect(fuel(cooking)).toEqual(stack('broadleaf_log', 1));
+  });
+
+  it('keeps a campfire burning while it has fuel when kept lit, cooking meanwhile', () => {
+    const fire = { ...station('station:campfire', [], stack('stick', 2)), keepLit: true };
     run(fire, 1);
     expect(fire.lit).toBe(true);
     run(fire, 2 * ticksOf(5) - 1);
@@ -111,11 +136,18 @@ describe('station processing', () => {
     expect(fuel(fire)).toBeNull();
     run(fire, 1);
     expect(fire.lit).toBe(false);
-    const cooking = station('station:campfire', [stack('raw_meat', 1)], stack('broadleaf_log', 1));
+    const cooking = {
+      ...station('station:campfire', [stack('raw_meat', 1)], stack('broadleaf_log', 1)),
+      keepLit: true,
+    };
     run(cooking, ticksOf(8));
     expect(output(cooking)).toEqual(stack('grilled_meat', 1));
     run(cooking, 10);
     expect(cooking.lit).toBe(true);
+    // Turned off, it goes out at once and keeps the rest of its log.
+    cooking.keepLit = false;
+    run(cooking, 1);
+    expect(cooking).toMatchObject({ lit: false, burnTicksLeft: ticksOf(40) - ticksOf(8) - 10 });
   });
 
   it('runs the bloomery on charcoal only', () => {

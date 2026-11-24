@@ -200,6 +200,11 @@ export interface StationDef {
   readonly inputSlots: number;
   readonly fuelSlot: boolean;
   readonly outputSlots: number;
-  /** Fire: burns as long as there is fuel (campfire), or only while processing (kilns). */
-  readonly burns?: 'whileFuel' | 'whileProcessing';
+  /** A processing station: its fire burns fuel only while one of its processes runs. */
+  readonly burns?: boolean;
+  /**
+   * Its fire may also be kept burning without a process, for warmth and light (the campfire's
+   * « Keep burning » toggle on its screen; any fuel).
+   */
+  readonly keepLit?: boolean;
 }

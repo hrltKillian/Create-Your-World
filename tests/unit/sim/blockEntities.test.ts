@@ -258,6 +258,7 @@ describe('stations in the world', () => {
     const def = registry.crafting.station('station:campfire')!;
     s.send({ type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) });
     const fire = s.entity<StationEntity>(0, 65, -2)!;
+    fire.keepLit = true;
     fire.burnTicksLeft = 0;
     fire.slots[fuelSlotOf(def)] = { item: 'item:broadleaf_log', count: 50 };
     fire.tick = s.sim.tick - 50_000;
@@ -326,5 +327,44 @@ describe('stations in the world', () => {
     s.give('item:stick', 2);
     expect(rejections(s.send({ type: 'station.move', from: 0 }))).toEqual(['nothing to move']);
     expect(s.player.inventory[0]).toEqual({ item: 'item:stick', count: 2 });
+  });
+
+  it('keeps an open campfire burning on its toggle, lit and warm, and refuses it elsewhere', () => {
+    const s = setup();
+    s.put(0, 65, -2, 'block:campfire[lit=0]');
+    s.give('item:broadleaf_log', 2);
+    const keep: Command = { type: 'station.keepLit' };
+    // Nothing open: refused.
+    expect(rejections(s.send(keep))).toEqual(['not open']);
+    const def = registry.crafting.station('station:campfire')!;
+    s.send(open(0, 65, -2), { type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) });
+    const fire = s.entity<StationEntity>(0, 65, -2)!;
+    // Fuel alone: no recipe runs, nothing burns.
+    s.step(30);
+    expect(fire).toMatchObject({ lit: false, keepLit: false, burnTicksLeft: 0 });
+    expect(s.block(0, 65, -2)).toBe('block:campfire[lit=0]');
+    expect(rejections(s.send(keep))).toEqual([]);
+    s.step(1);
+    expect(fire).toMatchObject({ lit: true, keepLit: true });
+    expect(s.block(0, 65, -2)).toBe('block:campfire[lit=1]');
+    expect(blockOf(s.host.view.world.getLight(0, 65, -1))).toBeGreaterThan(0);
+    // It stays on once the screen is closed, and goes out when turned off again.
+    s.send({ type: 'container.close' });
+    s.step(30);
+    expect(fire.lit).toBe(true);
+    expect(rejections(s.send(keep))).toEqual(['not open']);
+    s.send(open(0, 65, -2), keep);
+    s.step(1);
+    expect(fire).toMatchObject({ lit: false, keepLit: false });
+    expect(s.block(0, 65, -2)).toBe('block:campfire[lit=0]');
+    // Two quick clicks (both in one tick) turn it on and off again.
+    s.send(keep, keep);
+    s.step(1);
+    expect(fire).toMatchObject({ lit: false, keepLit: false });
+    // A kiln's fire only burns for its processes: no toggle.
+    s.put(2, 65, -2, 'block:kiln[facing4=s,lit=0]');
+    s.send(open(2, 65, -2));
+    expect(rejections(s.send(keep))).toEqual(['invalid']);
+    expect(s.entity<StationEntity>(2, 65, -2)!.keepLit).toBe(false);
   });
 });

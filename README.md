@@ -29,23 +29,27 @@ Keys are bound by their **physical position** (`KeyboardEvent.code`). The same k
 layout: ZQSD on AZERTY is WASD on QWERTY. The game shows your keyboard's own labels, on the
 controls card of the first launch and in the hints.
 
-| Action                                 | Physical key (`code`)        | QWERTY label      | AZERTY label      |
-| -------------------------------------- | ---------------------------- | ----------------- | ----------------- |
-| Move                                   | KeyW / KeyA / KeyS / KeyD    | W / A / S / D     | Z / Q / S / D     |
-| Jump / sprint / crouch                 | Space / ShiftLeft / KeyC     | Space / Shift / C | Space / Shift / C |
-| Mine, attack (hold: charged blow)      | left mouse button            | click             | click             |
-| Use, place, eat, drink, open           | right mouse button           | click             | click             |
-| Hotbar slot (8 slots)                  | Digit1–Digit8, mouse wheel   | 1–8               | 1–8               |
-| Bag and Logbook                        | KeyE or Tab                  | E / Tab           | E / Tab           |
-| Throw an item (Shift: the whole stack) | KeyG                         | G                 | G                 |
-| First or third person                  | KeyV                         | V                 | V                 |
-| Debug panel                            | F3, Backquote, IntlBackslash | F3 / `            | F3 (fn+F3) / @    |
-| Pause                                  | Escape                       | Esc               | Esc               |
+| Action                                 | Physical key (`code`)        | QWERTY label  | AZERTY label   |
+| -------------------------------------- | ---------------------------- | ------------- | -------------- |
+| Move                                   | KeyW / KeyA / KeyS / KeyD    | W / A / S / D | Z / Q / S / D  |
+| Jump (hold: again on each landing)     | Space                        | Space         | Space          |
+| Sprint (or forward tapped twice)       | ShiftLeft (KeyW, KeyW)       | Shift (W, W)  | Shift (Z, Z)   |
+| Crouch                                 | KeyC                         | C             | C              |
+| Mine, attack (hold: charged blow)      | left mouse button            | click         | click          |
+| Use, place, eat, drink, open           | right mouse button           | click         | click          |
+| Hotbar slot (8 slots)                  | Digit1–Digit8, mouse wheel   | 1–8           | 1–8            |
+| Bag and Logbook                        | KeyE or Tab                  | E / Tab       | E / Tab        |
+| Throw an item (Shift: the whole stack) | KeyG                         | G             | G              |
+| First or third person                  | KeyV                         | V             | V              |
+| Debug panel                            | F3, Backquote, IntlBackslash | F3 / `        | F3 (fn+F3) / @ |
+| Pause (Esc on a screen closes it)      | Escape                       | Esc           | Esc            |
 
-Click the game to capture the mouse. Ctrl, Cmd, Alt, F5, F11 and F12 are never bound. The Settings
-screen changes the controls (rebinding, mouse sensitivity, invert Y, crouch held or toggled), the
-graphics (quality preset, render distance, field of view, resolution, particles, view bob), the
-four volumes and the interface scale.
+Click the game to capture the mouse. Esc on the bag, a chest or a station closes it back to play (if
+the browser does not capture the mouse again by itself, a light « Click to resume » shows while the
+game goes on); only Esc in play opens the pause menu. Ctrl, Cmd, Alt, F5, F11 and F12 are never
+bound. The Settings screen changes the controls (rebinding, mouse sensitivity, invert Y, crouch held
+or toggled), the graphics (quality preset, render distance, field of view, resolution, particles,
+view bob), the four volumes and the interface scale.
 
 ## Commands
 
@@ -87,7 +91,7 @@ tips as in a new browser; by default they show once per browser, never under aut
 
 ## The `__game` hook (dev and bench builds)
 
-`window.__game` (version 11) drives and inspects the game from the console or Playwright. It is
+`window.__game` (version 12) drives and inspects the game from the console or Playwright. It is
 loaded by a dynamic import and never ships in a production build. Mutations go through the
 simulation's `debug.*` commands. With `?fixedStep=1` they apply at once, and `press` advances its
 ticks.
@@ -100,7 +104,7 @@ ticks.
 | player           | `get()`, `teleport(x, y\|'surface', z)`, `setStat(stat, value)`, `stats()`, `give(item, count)`, `inventory()`, `equip(slot)`, `kill(cause?)`, `god(on?)`                                                               |
 | world            | `block()`, `setBlock()`, `fill()`, `light()`, `shelter()`, `biome(x, z)`, `findBiome()`, `findStructure()`, `waitForChunks()`, `pump(ms)`, `genHash()`, `setRenderDistance()`, `memory()`, `seed()`, `spawn()`          |
 | entities         | `spawn(creature, x, y\|'surface', z)`, `list()`, `kill(id)`, `census()`, `spawnLog()`                                                                                                                                   |
-| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)`                                                                                                                                         |
+| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)` (a station adds `lit`, `flame`, `progress`, `process`, `keepLit`)                                                                       |
 | objectives, bot  | `objectives.walk(maxRadius?)` (every objective in order, fixed steps); `bot.kinds()`, `bot.run(kind?, seconds?)` (game seconds; returns its tally and `errors`)                                                         |
 | ui, onboarding   | `ui.screen()`, `ui.open(x?, y?, z?)`, `ui.close()`, `ui.bag(open?)`, `ui.click(selector)`, `ui.drag(from, to)`, `ui.text(selector)`, `ui.hotbar()`, `ui.i18nMissing()`; `onboarding.state()`, `onboarding.restart(on?)` |
 | settings, save   | `settings.get()`, `settings.set(patch)`; `save.now()`, `save.reload()`, `save.worlds()`, `save.inspect(id?)`, `save.wipeAll()`                                                                                          |
@@ -115,18 +119,36 @@ boot; a case that needs another setup is skipped, and none may fail. `npm run e2
 each setup the suites need (`e2e/selftest.spec.ts`), and checks that every case ran in at least one
 of them:
 
-| Setup                  | Query                                                      | Runs                                                  |
-| ---------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
-| test chunk scene       | `scene=testchunk`                                          | m1                                                    |
-| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time         |
-| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                     |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot             |
-| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                        |
-| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel |
-| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                            |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio                      |
+| Setup                  | Query                                                      | Runs                                                                         |
+| ---------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| test chunk scene       | `scene=testchunk`                                          | m1                                                                           |
+| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                |
+| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                            |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot                                    |
+| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                               |
+| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel |
+| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                   |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio                                             |
 
 ## Try this milestone
+
+**M12 — Controls and fuel** (the first milestone of plan v2, `docs/conception.md` « Plan v2 »).
+`npm run dev`, then open `http://localhost:5173/?worldType=flat&skipMenu=1`.
+
+- **Jump**: hold Space and the player jumps again on each landing (5 stamina each, never twice in
+  the air).
+- **Sprint**: tap forward twice within 300 ms and keep it held to sprint, as with Shift.
+- **Eating and drinking** slow the player to 40 % of the speed (`balance.consume.moveFactor`), with
+  no sprint: hold the right button on berries while walking.
+- **Esc on a screen**: open the bag (E) or a chest, then Esc: back to play at once, no pause menu
+  (a light « Click to resume » if the browser keeps the mouse free). Esc in play still pauses.
+- **Fuel**: every fire burns only while it works. A campfire with logs and nothing to cook stays
+  cold; its screen's « Keep burning (warmth, light) » toggle keeps it lit while it has fuel (it
+  warms and lights the camp). Campfires burning in older saves stay lit.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m12` holds jump, double-taps forward with
+  real key events, runs while eating, presses Esc on the bag and a campfire, and flips the toggle.
+
+### Earlier milestones
 
 **M11 — Polish and performance.** `npm run dev`, then open `http://localhost:5173`.
 
@@ -174,8 +196,6 @@ of them:
   wanderMineBuild bot play 5 minutes (quick with `?fixedStep=1`, the camera following) and reports
   `errors: []`. `?selftest=all` runs every suite.
 
-### Earlier milestones
-
 - **M10, creatures and combat**: the Trotter, Shagback, Prowler, Swarmlings and Shellback, natural
   spawns in the dark only, charged and stealthy blows, loot; `__game.entities.spawn(…)`,
   `?worldType=flat&skipMenu=1&spawns=1&grace=0&time=23`.
@@ -199,3 +219,8 @@ of them:
 M0 scaffold · M1 voxel core · M2 terrain and streaming · M3 player and cameras · M4 mining and
 building · M5 light and time · M6 caves and decoration · M7 saves and menus · M8 items, Logbook and
 stations · M9 survival and hazards · M10 creatures and combat · M11 polish and performance.
+
+Plan v2 (`docs/conception.md` « Plan v2 »): M12 controls and fuel · M13 bag, cursor, Logbook and
+workbench · M14 block updates, leaves, torches · M15 water · M16 biomes, caves and ores of the
+planet · M17 fair creatures, bestiary, scanner · M18 the lost colony · M19 quests, XP, skills ·
+M20 readability · M21 HUD layout.

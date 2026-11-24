@@ -2,6 +2,8 @@
 
 Original voxel survival-adventure sandbox for the browser (Chrome first). The full spec is
 `docs/conception.md` (in French): follow it, milestone by milestone (M0–M11).
+Plan v2 (after the first playtest: decisions 15–21, milestones M12–M21) is its last part,
+« Plan v2 » (`# Plan v2` in `docs/conception.md`).
 
 ## Commands
 
@@ -80,6 +82,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   (then say why in a comment at its top).
 - Shared helpers, to import rather than copy:
   - game numbers: `PHYSICS` (`sim/physics.ts`), `STAMINA` (`sim/player.ts`);
+  - controls (M12): a held jump jumps again on each landing (`jumpAndGravity`, `sim/physics.ts`:
+    jump buffer and coyote time, never twice in the air); the double-tap sprint latch
+    `input/sprintLatch.ts` (`SprintLatch`, `DOUBLE_TAP_MS`; `InputManager` sends `sprint: key ||
+    latch` while forward is held); eating or drinking slows the player (`consuming` and `NO_USE`
+    in `sim/consume.ts`: × `balance.consume.moveFactor`, no sprint; `MoveInput.speedFactor`);
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
     `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
     `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
@@ -152,7 +159,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `withinReach`; kinds container, station, grave; a bedroll is `blockEntity: 'bed'` with no
     record); their screens
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
-    `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`); the craft queue `sim/craftQueue.ts`
+    `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`; a fire burns only while a process runs, or
+    while `StationEntity.keepLit`: the campfire's « Keep burning » toggle, `StationDef.keepLit`,
+    command `station.keepLit`, no payload, flips it with that station open); the craft queue `sim/craftQueue.ts`
     (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
@@ -167,7 +176,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (survival.ts);
   - secondary held (docs « Priorité des actions »): interactive blocks in `sim/interaction.ts`
     (`usesAimedBlock`, `useAimed`), then `holdUse` in `sim/consume.ts` (eat or drink the held item,
-    `interaction.useItem`/`useTicks`: the action the press started), sips and fills in
+    `interaction.useItem`/`useTicks`: the action the press started, back to `NO_USE` once it
+    stops: another item in hand, an aimed interactive block, a release), sips and fills in
     `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
     (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`equip.move`: slots
     32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
@@ -201,7 +211,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `menuButton`/`menuPanel`/`slider` in `ui/screens/menuParts.ts`; player settings
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
   - slot screens (Bag with the Logbook, Container, Station): `app/inventoryUi.ts` opens and closes
-    them (the bag on its key, chests and stations on `blockEntityOpened`/`blockEntityClosed`),
+    them (the bag on its key, chests and stations on `blockEntityOpened`/`blockEntityClosed`; Esc
+    or the key closes any screen back to play: `PlayGate.closeScreen()` captures the mouse again,
+    else the light « Click to resume » `showResumePrompt` while the simulation runs; the pause
+    menu opens only on Esc in play, `canPause`; `GameSession.isPaused()`),
     `app/UiBridge.ts` refreshes them (`queueView`, `stationStatus`); `ui/slotBoard.ts`
     (`SlotBoard`: drag and drop, hover caption, hotkeys; `ScreenDeps`), the gesture commands
     `ui/inventoryGestures.ts` (`SlotContext`: block entity slots from 32), the pure Logbook
@@ -360,6 +373,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Controls and fuel checks: `?worldType=flat&fixedStep=1&selftest=m0,m12` (`selftest/m12.ts`): a
+  held jump, the double tap, E and Esc as real key events at the focused element, a run while
+  eating, the campfire's toggle clicked; in `?selftest=all` they run in the flat `forceNoIdb` boot
+  (m7 leaves the IndexedDB one on the Worlds screen).
+- M12 hook entries (version 12): `container.contents` adds `keepLit` for a station; the Station
+  screen's « Keep burning » toggle carries `data-action="keep-lit"` (`aria-pressed` shows what the
+  simulation keeps).
 - M11 hook entries (version 11): `audio.mark()`/`audio.since(mark)` (the keys logged after a mark),
   `audio.ambience()` (`{ loops: [{ key, gain }], underwater, place }`); `render.feel()` (`{ fov,
   fovOffset, bob, roll, viewBob, sway, particles, particlesOn }`), `render.particles(on)`,

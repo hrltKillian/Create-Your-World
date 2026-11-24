@@ -183,7 +183,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
       }
       const before = countItem(inventory, output);
       const screens = app.inventory!;
-      screens.closeScreen(true);
+      screens.closeScreen();
       screens.toggleBag();
       try {
         assert(screens.screen() === 'bag', `the bag key opened ${screens.screen()}`);
@@ -205,7 +205,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
         assert(queued, `the queue shows nothing (sim queue: ${session.player.craft.length})`);
         session.step(CRAFT_TICKS - 1);
       } finally {
-        screens.closeScreen(true);
+        screens.closeScreen();
       }
       const made = countItem(inventory, output) - before;
       assert(made === recipe.output.count, `${made} ${output} after step(${CRAFT_TICKS})`);
@@ -285,7 +285,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
         );
         await waitForSlot('station', OPEN_SLOTS_BASE + out);
       } finally {
-        app.inventory?.closeScreen(true);
+        app.inventory?.closeScreen();
       }
     },
   },
@@ -345,7 +345,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
         const stored = countItem(slotsAt(app, cell), item) - before;
         assert(stored === moved, `the chest got ${stored} ${item}, not ${moved}`);
       } finally {
-        app.inventory?.closeScreen(true);
+        app.inventory?.closeScreen();
       }
       // Applies the container.close the screen sent, so the save holds a closed chest.
       session.step(1);
@@ -364,7 +364,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
         const left = slotsAt(app, cell).filter((stack) => stack !== null).length;
         assert(left === 0, `« Take all » left ${left} stacks in the chest`);
       } finally {
-        app.inventory?.closeScreen(true);
+        app.inventory?.closeScreen();
       }
     },
   },

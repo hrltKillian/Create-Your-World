@@ -30,22 +30,29 @@ Aucun nom, créature, objet, texture, son ni écran n'en est repris.
 - 60 FPS sur un portable de classe M1 à la distance de rendu par défaut.
 - Chaque jalon laisse le jeu lançable, se valide objectivement et arrive sur `main` par une PR.
 
-| #   | Ta décision (définitive)                                                                                                                                                       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Monde **voxel**, entièrement minable et constructible, procédural et infini (bordure dure à ±1 000 000 blocs)                                                                  |
-| 2   | **1re personne** par défaut ; une touche bascule en **3e personne** (avatar visible et animé)                                                                                  |
-| 3   | **Solo**, mais simulation séparée du rendu et des entrées (contrat `SimHost`), prête pour une coop future                                                                      |
-| 4   | **Chrome en priorité** (desktop, clavier + souris, Pointer Lock). Firefox et Safari sont aussi visés s'ils se comportent pareil, sans travail spécifique. Ni mobile ni manette |
-| 5   | Thème non fixé : **tout le contenu est en données**, avec un pack neutre fourni                                                                                                |
-| 6   | Survie : santé, **faim et soif**, **endurance**, **nuits dangereuses**, **dangers environnementaux** (froid, chaleur, toxicité)                                                |
-| 7   | **Assets générés par le code** (pixel-art, modèles en boîtes, sons Web Audio) derrière une abstraction remplaçable                                                             |
-| 8   | **Tranche verticale jouable**, livrée par jalons testables                                                                                                                     |
-| 9   | Jeu **en anglais d'abord**, via des clés i18n : les traductions (le français en premier) viendront si le jeu plaît                                                             |
-| 10  | Mêmes **touches physiques** sur tous les claviers : ZQSD sur AZERTY = WASD sur QWERTY                                                                                          |
-| 11  | Dépôt `hrltKillian/Create-Your-World` : une PR par jalon, que je crée puis merge moi-même après CI verte et revue                                                              |
-| 12  | **KISS, DRY et SRP** appliqués dans tout le projet (code, tests, outillage), pour la maintenabilité et la structure (voir « Principes de code »)                               |
-| 13  | **Exécution autonome** (22/11/2026) : je déroule M4 → M11 sans te solliciter, puis j'améliore ce qui existe tant que tu ne m'interromps pas (voir « Exécution autonome »)      |
-| 14  | **Priorité : un jeu qui fonctionne sans bug ni erreur**. Le style passe après ; tes avis sur le style sont facultatifs et ne bloquent jamais un jalon                          |
+| #   | Ta décision (définitive)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Monde **voxel**, entièrement minable et constructible, procédural et infini (bordure dure à ±1 000 000 blocs)                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 2   | **1re personne** par défaut ; une touche bascule en **3e personne** (avatar visible et animé)                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 3   | **Solo**, mais simulation séparée du rendu et des entrées (contrat `SimHost`), prête pour une coop future                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 4   | **Chrome en priorité** (desktop, clavier + souris, Pointer Lock). Firefox et Safari sont aussi visés s'ils se comportent pareil, sans travail spécifique. Ni mobile ni manette                                                                                                                                                                                                                                                                                                                                                                      |
+| 5   | Thème non fixé : **tout le contenu est en données**, avec un pack neutre fourni                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 6   | Survie : santé, **faim et soif**, **endurance**, **nuits dangereuses**, **dangers environnementaux** (froid, chaleur, toxicité)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 7   | **Assets générés par le code** (pixel-art, modèles en boîtes, sons Web Audio) derrière une abstraction remplaçable                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 8   | **Tranche verticale jouable**, livrée par jalons testables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 9   | Jeu **en anglais d'abord**, via des clés i18n : les traductions (le français en premier) viendront si le jeu plaît                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 10  | Mêmes **touches physiques** sur tous les claviers : ZQSD sur AZERTY = WASD sur QWERTY                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 11  | Dépôt `hrltKillian/Create-Your-World` : une PR par jalon, que je crée puis merge moi-même après CI verte et revue                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 12  | **KISS, DRY et SRP** appliqués dans tout le projet (code, tests, outillage), pour la maintenabilité et la structure (voir « Principes de code »)                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 13  | **Exécution autonome** (22/11/2026) : je déroule M4 → M11 sans te solliciter, puis j'améliore ce qui existe tant que tu ne m'interromps pas (voir « Exécution autonome »)                                                                                                                                                                                                                                                                                                                                                                           |
+| 14  | **Priorité : un jeu qui fonctionne sans bug ni erreur**. Le style passe après ; tes avis sur le style sont facultatifs et ne bloquent jamais un jalon                                                                                                                                                                                                                                                                                                                                                                                               |
+| 15  | **La logique avant le graphisme** : un jeu beau mais cassé est pire qu'un jeu moche qui marche. Les jalons graphiques (M20, M21) passent en dernier.                                                                                                                                                                                                                                                                                                                                                                                                |
+| 16  | **Thème : colonie perdue sur une autre planète.** Ta capsule s'écrase sur une planète où une première colonie humaine a disparu. Faune et flore extraterrestres, ruines de la colonie avec reliques, journaux et plans. Les quêtes suivent la piste des anciens colons. Progression : de la récupération à la reconstruction. Le contenu actuel peut être repensé, c'est un brouillon.                                                                                                                                                              |
+| 17  | **Les biomes avant les structures** : la génération est refaite et stabilisée (M16) avant de générer les structures du thème (M18), qui en dépendent. Cela couvre les biomes, les grottes (plus d'ouvertures sur la surface, plus larges par endroits, qui se croisent, noyées près du fond des lacs et scellées plus bas) et les minerais (tables de probabilité par couche, limites strictes, aucune couche sans minerai, minerais exclusifs à certains biomes pour pousser à l'exploration, sans règle implicite de rareté selon la profondeur). |
+| 18  | **Établi = Logbook de l'établi** : clic droit dessus, un écran montre les recettes d'établi, avec recherche et filtre. L'établi a sa propre file et ses cases de sortie. Pas de grille 3×3.                                                                                                                                                                                                                                                                                                                                                         |
+| 19  | **L'XP vient uniquement des quêtes**, mais le jeu reste jouable sans elles (plus dur). Aucune recette essentielle n'est bloquée par un niveau : un test d'atteignabilité le prouve. Les niveaux donnent des points de compétence et des recettes exclusives, comme un sac plus grand.                                                                                                                                                                                                                                                               |
+| 20  | **Inventaire au clic façon Minecraft, seul** : clic gauche pour prendre ou poser une pile qui reste sur le curseur, clic droit pour la moitié ou un seul objet, Maj+clic pour un transfert. Un clic hors de l'interface jette toute la pile (gauche) ou un seul objet (droit). Le glisser-déposer est retiré. Dans la file de fabrication, une même recette occupe une seule case : 5 clics sur ×1 = une case de 5.                                                                                                                                 |
+| 21  | **Piles de 64 par défaut**, avec une valeur propre à un objet si besoin (16…). Outils, armes, équipements et récipients : 1.                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 **Contraintes de forme.**
 
@@ -836,6 +843,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
   | Secondaire (clic droit) | bloc interactif (station, coffre, porte, natte) → consommer l'objet tenu (maintenu `consume.seconds`) → remplir un récipient ou boire sur un liquide → poser |
   | Accroupi + secondaire   | force la pose, par exemple contre un coffre                                                                                                                  |
   - Maintenir le clic gauche ≥ 0,5 s **sur une créature** donne une attaque chargée, appliquée au relâchement.
+  - Pendant qu'on mange ou boit, on avance à ×`consume.moveFactor` (0,4) et sans sprint ; changer d'objet en main ou viser un bloc interactif arrête l'action jusqu'au prochain appui (M12).
   - Sur un bloc, maintenir mine ; si la cible change pendant le maintien, la progression repart de zéro.
 - **Casser** :
   - `t = dureté × 1,5 / vitesse de l'outil` si le type d'outil correspond ; sinon vitesse 1 ;
@@ -895,8 +903,8 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 **Stations de transformation**
 
-- Ce sont des entités de bloc avec entrées, combustible, sortie, `burnTicksLeft`, `progressTicks` et un état `lit` qui pilote lumière et chaleur.
-- Le feu de camp brûle tant qu'il a du combustible ; four et bas fourneau ne brûlent que pendant un traitement.
+- Ce sont des entités de bloc avec entrées, combustible, sortie, `burnTicksLeft`, `progressTicks`, `keepLit` et un état `lit` qui pilote lumière et chaleur.
+- Une station ne brûle son combustible que pendant un traitement valide. Le feu de camp peut aussi rester allumé sans traitement : interrupteur « Keep burning » (`keepLit`, éteint par défaut, sauvegardé ; chaque commande `station.keepLit` l'inverse) (M12).
 - Sortie pleine → pause.
 - Hors du rayon de simulation, ou après un déchargement : rejeu tick par tick depuis `lastTick` à la ré-entrée, plafonné à 36 000 ticks.
 
@@ -1113,7 +1121,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
     - boutons ×1/×5/Max, file de 5 ;
     - « Requires: Workbench nearby ».
 - **Conteneur** : « Take all » / « Store all ».
-- **Station** : entrées, combustible (flamme), progression, sortie, procédés connus.
+- **Station** : entrées, combustible (flamme), progression, sortie, procédés connus ; l'interrupteur « Keep burning » du feu de camp (M12).
 - **Manipulation** : glisser-déposer en pointer events, clic droit pour diviser, Maj+clic pour transférer, chiffre au survol pour échanger.
 
 **Menus**
@@ -1176,6 +1184,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 | Jeter (Maj = pile entière) / caméra | KeyG / KeyV                                    | G / V             | G / V                           |
 | Debug / pause                       | F3, Backquote ou IntlBackslash / Escape        | F3 ou ` / Esc     | F3 (fn+F3 sur Mac) ou @ / Échap |
 
+- Saut maintenu : un saut à chaque retour au sol. Double appui sur « avancer » (≤ 300 ms) : sprint tant que la touche reste tenue (M12).
 - Jamais lié : Ctrl, Cmd, Alt, F5, F11, F12.
 - `contextmenu` empêché ; toutes les touches relâchées sur `blur`.
 - **Étiquettes**, par ordre de préférence :
@@ -1191,7 +1200,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
    - Ensuite `audio.resume()`.
 2. Perte du verrou sans écran ouvert → pause.
 3. Ouvrir le sac → le jeu appelle lui-même `exitPointerLock()` ; la sim continue.
-4. Fermer avec la même touche re-verrouille (c'est un geste utilisateur). Fermer avec Échap, ou après une erreur → overlay « Click to resume ».
+4. Fermer un écran (sa touche, Échap, ou la sim qui le ferme) revient au jeu sans pause et re-verrouille. Si le navigateur refuse (Échap n'est pas un geste utilisateur), une simple invite « Click to resume » s'affiche et la simulation continue (M12).
 5. Le premier mouvement et les sauts de plus de 400 px sont ignorés.
 6. Pas de plein écran intégré en v1.
 7. `?noLock=1` pour l'automatisation.
@@ -1438,7 +1447,7 @@ export interface CreatureDef {
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RecipeDef`                   | key, category, station?, seconds, inputs [{item ou tag, count}], output {item, count}, known?: 'start', hintKey?                                                                                  |
 | `ProcessDef`                  | key, station, seconds, fuel: 'any' \| 'charcoal' \| 'none', inputs, output                                                                                                                        |
-| `StationDef`                  | key, inputSlots, fuelSlot, outputSlots, burns: 'whileFuel' \| 'whileProcessing'                                                                                                                   |
+| `StationDef`                  | key, inputSlots, fuelSlot, outputSlots, burns?: boolean, keepLit?: boolean                                                                                                                        |
 | `BiomeDef`                    | key, nameKey, rule {order, conditions sur C/E/M/T/H/X et h}, climate {dayC, nightC}, toxicity? {day, night}, surface, filler, liquid, tints, fog, ambience, features [{feature, weight}], hintKey |
 | `WorldgenDef`                 | seaLevel, bedrockY, deepStoneBelowY, magmaBelowY, splines C et E, échelles de bruit, bande de latitude {amplitude, period}, seuils des grottes                                                    |
 | `OreDef`                      | key, block, biomes, yRange, veinsPerSection, veinSize, replaces                                                                                                                                   |
@@ -2003,3 +2012,422 @@ Aucune allocation dans les boucles chaudes : tableaux de travail, vecteurs réut
 - Niveaux de difficulté ; agriculture et élevage ; succès.
 - Traductions (le français en premier) et sélecteur de langue : la structure i18n est prête.
 - Packs JSON chargés à l'exécution et mods ; sauvegarde dans le cloud.
+
+# Plan v2 : « Create Your World », après la première partie test
+
+## Contexte v2
+
+Le plan v1 (M0–M11) est livré et mergé. Le premier tour d'amélioration (PR #14–16) aussi. Après une première partie test, tu as fait 18 retours :
+
+- un jeu trop « correct » : quêtes dépendantes d'un bon point d'apparition, sans récompense ;
+- des créatures trop fortes et irréalistes ;
+- des feuilles et une eau sans physique ;
+- des bordures de biomes en dégradé et trop de pierre en surface ;
+- un sac et un Logbook peu pratiques ;
+- un établi sans interface et du combustible gaspillé ;
+- aucun thème ;
+- un HUD mal placé et des mots ou effets visuels incompris ;
+- des contrôles à améliorer (saut, sprint, manger).
+
+Ce plan v2 répond à chacun d'eux.
+
+**Décisions** : les décisions 15 à 21 de ce plan sont dans le tableau des décisions du « Contexte » (en tête de ce document).
+
+**Inchangé** : KISS/DRY/SRP, déterminisme, couches, i18n, protocole de jalon (vérifications, autotests, revue adversariale en deux passes, PR, CI verte, squash-merge), exécution autonome avec un compte rendu en français à chaque jalon.
+
+**Règles communes aux jalons v2**
+
+- Tout nouvel état persistant vient avec un sérialiseur, une valeur par défaut, un test d'aller-retour et une étape de migration (`SAVE_VERSION` +1 par jalon concerné). `GEN_VERSION` +1 dès que la génération ou une clé d'état change, avec mise à jour des snapshots dorés.
+- **Lecture tolérante des clés d'état (M14)** : `registry.stateIdOrUnknown` lit `block:x[props]`, garde les valeurs encore valides et complète avec les défauts. Les anciennes sauvegardes s'ouvrent donc sans réécrire `stateKeys` (eau = source, torche = au sol, feuilles = non posées par le joueur).
+
+## Jalons v2
+
+### M12 — Contrôles et combustible (retours 12, 9, 18 côté logique)
+
+- **Saut continu** : `sim/physics.ts` relance le saut à chaque tick où la touche est tenue au sol (on retire `jumpHeldLast`). Le temps de coyote empêche le double saut ; le coût d'endurance reste.
+- **Double appui sur « avancer » = sprint** tant que la touche reste tenue :
+  - nouveau module pur `input/sprintLatch.ts` (fenêtre de 300 ms) ;
+  - `InputManager` envoie `sprint: shift || verrou` ;
+  - la sim ne change pas.
+- **Manger ou boire ralentit** : `stepPlayer` applique ×`balance.consume.moveFactor` (0,4) et retire le sprint pendant une consommation.
+- **Bug : Échap sur le sac affiche la pause.** Aujourd'hui `inventoryUi` → `playGate.closeScreen(false)` met la simulation en pause et affiche « Click to resume ».
+  - Échap ferme désormais le sac (ou un coffre, une station) et revient au jeu sans pause ni menu.
+  - On tente de recapturer la souris. Si le navigateur refuse (Échap ne compte pas comme un geste de l'utilisateur), un simple « Cliquez pour reprendre » s'affiche ; la simulation continue, comme quand on ferme l'inventaire dans Minecraft.
+  - Le menu pause ne s'ouvre qu'avec Échap en jeu, sans écran ouvert.
+  - Tests unitaires de la porte (`playGate`) et cas d'autotest au clavier.
+- **Combustible** : toutes les stations ne brûlent que si une recette valide tourne.
+  - Le feu de camp gagne un interrupteur « Garder allumé (chaleur, lumière) », éteint par défaut : `StationEntity.keepLit`, commande `station.keepLit` (qui l'inverse), bouton sur l'écran Station.
+  - Migration SAVE 6 : les feux déjà allumés le restent.
+- **Fichiers** : `sim/physics.ts`, `sim/player.ts`, `input/InputManager.ts`, `sim/stations.ts`, `packs/base/recipes.ts`, `ui/screens/station.ts`, `world/codec/migrations.ts`.
+- **Tests** :
+  - N sauts en tenant la touche ;
+  - verrou de sprint avec temps simulé ;
+  - un feu de camp oisif ne consomme rien, sauf avec `keepLit` ;
+  - migration v5 ;
+  - suite m12.
+- **Risque** : les bots et la marche des objectifs supposent un saut à l'appui ; ils sont à adapter.
+
+### M13 — Sac, curseur, Logbook et établi (retours 7, 8)
+
+**Pile sur le curseur, autoritaire côté sim** (prête pour le multijoueur) :
+
+- `PlayerState.cursor` (sauvegardé) et commandes `screen.open/close`, `slot.click {slot, button, shift}`, `slot.hotkey`.
+- Un seul module de règles, `sim/slotClicks.ts`, qui réutilise `moveStack`, `moveInto`, `addToRange`, `stationAccepts` et `wearFilters` :
+  - clic gauche : prendre, poser, fusionner ou échanger ;
+  - clic droit : prendre la moitié ou poser un seul objet ;
+  - Maj+clic : transfert rapide ;
+  - clic hors de l'interface avec une pile sur le curseur, comme dans Minecraft : clic gauche, toute la pile est jetée ; clic droit, un seul objet est jeté.
+- La pile du curseur revient dans l'inventaire à la fermeture, à la fermeture automatique et à la réapparition. À la mort, elle va dans le sac abandonné.
+- Les anciennes commandes de déplacement sont retirées. Le client dessine la pile sous la souris ; `ui/slotBoard.ts` perd le fantôme de glisser.
+
+**Piles et taille du sac** :
+
+- `DEFAULT_STACK = 64`, `maxStack` facultatif, validation (outils, équipements et récipients à 1). `fitStacks` redécoupe au chargement.
+- Inventaire de taille variable : 32 de base, 64 au plus, via les améliorations de M19. Les cases portées et celles des entités de bloc sont renumérotées au-delà de 64. Partout, `inventory.length` remplace le littéral 32.
+
+**Établi** :
+
+- Entité de bloc avec sa file (5 entrées) et 4 cases de sortie. Ajouter à sa file exige l'établi ouvert.
+- Les ingrédients sont réservés sur le joueur, la file avance avec rattrapage, la sortie pleine met en pause. Casser l'établi rend les réservations.
+
+**File de fabrication regroupée** (file du joueur comme file de l'établi) :
+
+- Ajouter une recette déjà présente dans la file augmente le nombre de cette entrée au lieu d'occuper une nouvelle case. Cliquer 5 fois sur ×1 donne donc une seule case de 5, comme un clic sur ×5.
+- Plafond par entrée : la taille de pile du résultat. Au-delà, une nouvelle case s'ouvre.
+- Annuler une entrée rend tous ses ingrédients réservés.
+- Test : 5 clics ×1 et 1 clic ×5 donnent la même file.
+
+**Logbook** :
+
+- Recherche (noms de sortie et d'ingrédients, sans accents ni casse) et filtre « Fabricable maintenant ».
+- **Recettes non découvertes affichées en bas, grisées**, à la place du simple compteur « encore à découvrir » : le joueur voit ce qu'il lui reste à fabriquer.
+  - Le résultat est visible ; un ingrédient jamais vu s'affiche en « ? » avec son indice de provenance.
+  - Ces recettes ne se fabriquent pas.
+  - Elles suivent l'onglet et la recherche, et le filtre « Fabricable maintenant » les masque.
+  - Les recettes à plan ou à niveau (M18, M19) indiquent ce qui les débloque.
+- Le Logbook du sac montre les recettes à la main plus « N de plus à l'établi ».
+- Nouvelle barre d'onglets du sac : Inventaire, Logbook, puis Quêtes, Bestiaire et État dans les jalons suivants.
+
+**Sauvegarde** : SAVE 7 (curseur, file de l'établi, renumérotation).
+
+**Fichiers** : `sim/commands.ts`, `sim/slotClicks.ts` (nouveau), `sim/inventory.ts`, `sim/blockEntityCommands.ts`, `sim/craftQueue.ts`, `sim/stations.ts`, `content/items.ts`, `content/validateItems.ts`, `ui/slotBoard.ts`, `ui/inventoryGestures.ts`, `ui/logbook.ts`, `ui/screens/{bag,logbook,station}.ts`, `app/inventoryUi.ts`, `app/automation.ts`.
+
+**Tests** :
+
+- chaque cas de clic, y compris les cases de sortie et les cases refusées ;
+- curseur rangé à la fermeture, à la fermeture automatique et à la mort ;
+- file d'établi qui avance sans joueur proche ;
+- recherche et filtre du Logbook ;
+- `?host=serialize` ;
+- m8 réécrite au clic, nouvelle suite m13.
+
+### M14 — Mises à jour de blocs, feuilles, torches (retours 5, 15)
+
+**Ordonnanceur déterministe** (`sim/blockUpdates.ts`, étape 10 du tick prévue par la spec) :
+
+- Tas binaire en tableaux typés trié par (échéance, n°), dédupliqué par cellule et type (`support`, `liquid`, `decay`), inclus dans le hash d'état.
+- Budgets : 256 mises à jour par tick ; le reste passe en tête au tick suivant, sans blocage.
+- Exécution seulement dans le rayon de simulation, colonnes LIT. Au déchargement, les mises à jour sont garées avec la colonne (`ColumnRecord.updates`) et reprises au chargement.
+- Un seul chemin d'édition, `changeBlock` = `editBlock` + avertissement des 6 voisins.
+- Un seul chemin de casse, `removeBlock(…, by)` extrait de `breakBlock` : il sert au joueur comme au monde. Les blocs soutenus deviennent des mises à jour `support`, comme pour la porte.
+
+**Feuilles** :
+
+- Champ `decay {anchor: tag:log, radius: 5, seconds: [2, 12]}` et état `placed` : les feuilles posées par le joueur ne tombent jamais.
+- Retirer une bûche planifie toutes les feuilles du rayon. Un parcours en largeur cherche une bûche ; sans bûche, la feuille tombe avec son butin, comme cassée par le joueur.
+- Délai pseudo-aléatoire déterministe.
+
+**Torches** :
+
+- `RAY_TARGET` teste les boîtes dessinées (table `targetBoxes`, au moins 4/16). Viser le vide à côté de la torche vise donc le bloc derrière.
+- Torches murales : état `attach` (sol, n, e, s, w) et `support: 'face'` enfin implémenté. Une torche sur un mur tombe avec ce mur ; la pose au plafond est refusée.
+
+**Versions** : SAVE 8, GEN 4, lecture tolérante des clés.
+
+**Tests** :
+
+- ordre, dédoublonnage, report de budget et garage de l'ordonnanceur ;
+- les feuilles de chaque arbre généré touchent une bûche ;
+- couper le tronc fait disparaître la canopée en 12 s au plus, et les feuilles posées restent ;
+- une torche tombe avec son mur ;
+- viser à côté d'une torche ;
+- une ancienne sauvegarde s'ouvre ;
+- perf « coupe de 30 bûches » : étape 10 ≤ 0,5 ms en médiane.
+
+### M15 — L'eau, règles de Minecraft (retour 17)
+
+**États** : niveau `level` (0 = source, 1–7 = écoulement) et `falling`. Tables précalculées pour éviter `withState` dans les boucles chaudes.
+
+**Règles** (données `LiquidDef.flow`) :
+
+- Eau douce : délai de 8 ticks (≈ 5 ticks à 20 Hz), portée 7, recherche de trou à 4, sources infinies (2 sources voisines sur sol solide créent une source).
+- Eau croupie : plus lente et sans source infinie.
+- Écoulement :
+  - l'eau descend d'abord ;
+  - sinon elle s'étale vers le ou les chemins les plus courts menant à une chute dans un rayon de 4 ;
+  - elle s'assèche quand plus rien ne l'alimente.
+- Les plantes emportées lâchent leur butin. Budget d'écritures par tick : un lac éventré s'écoule sur plusieurs ticks, sans bloquer.
+
+**Rendu** : hauteur du dessus selon le niveau. Le mailleur ne fusionne que les dessus de même hauteur ; faces latérales entre niveaux.
+
+**Physique** : `isLiquid` dépend de la hauteur, donc une flaque ne fait pas nager. Lumière et maillage via le chemin normal.
+
+**Version** : GEN 5.
+
+**Tests** :
+
+- scènes unitaires : losange de 7 niveaux, trou attracteur, source infinie, assèchement, chute ;
+- colonne voisine non chargée ;
+- snapshot du maillage ;
+- perf « barrage cédé dans une fosse de 20×20 » : tick p95 ≤ 4 ms sous Node ;
+- suite m15 dans la mare de l'arène.
+
+### M16 — Biomes, grottes et minerais de la planète (retours 6, 16, le thème côté génération, le sous-sol)
+
+**Bible du thème** (`docs/theme.md`) : la planète, ses biomes, sa faune, sa flore, ses matériaux et le nom de chaque élément. Les noms sont proposés dans la PR ; tu peux les changer plus tard, ce ne sont que des chaînes.
+
+**Biomes repensés pour la planète** :
+
+- Climat, surface, remplissage, liquides, teintes, flore et décor en données.
+- Les clés restent stables quand c'est possible.
+- Le jeu de biomes peut changer, avec les mêmes garanties : danger froid, chaud et toxique à moins de 1 km de l'apparition.
+
+**Bordures nettes** : la gigue par colonne (bruit blanc de `biomeOf`) est remplacée par un champ lisse (longueur d'onde ≈ 40 blocs) interpolé comme le climat. Les bordures deviennent des lignes ondulées et propres ; recherches, apparition et structures restent cohérentes.
+
+**Grottes repensées** :
+
+- Beaucoup plus d'ouvertures sur la surface : trous, gouffres et entrées à flanc de colline ou de falaise.
+- **Grottes sous l'eau, deux cas.**
+  - Près du fond d'un lac ou de la mer : grottes noyées, générées déjà remplies d'eau (sources). Rien ne coule au chargement, le lac ne se vide pas, et on peut plonger pour les explorer.
+  - Plus en profondeur : grottes sèches et scellées, avec au moins 3 blocs de roche entre elles et toute eau. Si le joueur perce ce plafond, l'eau s'y déverse selon les règles du M15.
+  - La génération ne laisse jamais d'eau posée sur de l'air : aucune mise à jour d'eau au chargement d'une colonne intacte.
+- Des grottes plus larges et plus grandes par endroits : grandes cavernes et salles, réparties sur plusieurs bandes de profondeur, plus seulement y 12–50.
+- Des réseaux qui se croisent : plusieurs familles de tunnels indépendantes, de largeur variable, se rejoignent en carrefours.
+- Paramètres en données (`CaveDef`).
+- Tests :
+  - part des colonnes ouvertes sur la surface dans une fourchette cible ;
+  - présence de carrefours et de grandes salles sur 10 graines ;
+  - grottes sous l'eau noyées près du fond, scellées par au moins 3 blocs plus bas ;
+  - une colonne générée ne produit aucune mise à jour d'eau à son chargement ;
+  - perf de génération ≤ 10 ms par colonne.
+
+**Minerais en tables de répartition par couche** :
+
+- Chaque minerai (y compris ceux de la bible du thème) déclare une courbe de probabilité par profondeur : des couches avec un pourcentage de chance d'apparition (filons par section), une taille de filon, et des limites basse et haute strictes.
+- Aucune règle implicite de rareté ou de richesse selon la profondeur : la fréquence et la taille à chaque profondeur viennent uniquement des probabilités et des limites déclarées par chaque minerai.
+- Aucune couche sans minerai, du socle jusqu'au sommet de la pierre : la validation du pack vérifie que chaque tranche de hauteur est couverte par au moins un minerai.
+- **Minerais exclusifs à certains biomes**, pour obliger à explorer plusieurs biomes :
+  - chaque palier de la progression exige au moins un minerai qu'on ne trouve que dans un biome précis ;
+  - ces biomes sont garantis à moins de 1 km de l'apparition, comme aujourd'hui pour le froid, le chaud et le toxique ;
+  - des minerais communs, présents partout, assurent la couverture de chaque couche.
+  - La bible du thème fixe quel minerai appartient à quel biome ; `reachable` et les quêtes d'histoire s'appuient sur cette garantie.
+- Une table récapitulative, générée depuis les données, va dans `docs/theme.md`.
+- Tests :
+  - recensement sur 10 graines : la fréquence observée par couche suit la table (±20 %) ;
+  - aucun minerai hors de ses limites ni hors de son biome ;
+  - aucune couche vide ;
+  - sur 20 graines, chaque minerai exclusif est trouvable à moins de 1 km de l'apparition.
+
+**Pierre en surface** : rochers seulement dans le biome rocheux. `writeBoulder` ne crée plus de piliers sur les pentes (enfoncé de 1, colonnes trop basses ignorées).
+
+**Version** : GEN 6.
+
+**Tests** :
+
+- sur 256×256 blocs et 5 graines, aucune colonne isolée dans un autre biome que ses 4 voisines ;
+- rochers seulement dans leur biome, sans pilier ;
+- apparition, `findBiome` et goldens.
+
+### M17 — Créatures équitables et vivantes, bestiaire, scanner (retours 3, 4, 2)
+
+**Mouvement juste** :
+
+- Agilité en données : accélération au sol ≈ 20 m/s², 4 en l'air, rotation 120–240°/s.
+- La vitesse suit l'orientation : on peut feinter et esquiver une charge.
+- Les petits sauts coûtent de l'endurance et ont un temps de recharge.
+
+**Endurance des créatures** :
+
+- Course limitée ; endurance vide = marche jusqu'à 50 %.
+- Les blessures ralentissent.
+- Invulnérabilité ramenée à 5 ticks, et les brouteurs résistent au recul.
+
+**Sens et limites** :
+
+- Plus de suivi à distance sans vue : un chasseur va à la dernière position vue ou entendue, cherche 6 s, puis abandonne.
+- Une poursuite sans touche s'arrête après 25 s.
+- La fuite dure tant que l'endurance tient, puis la créature reste méfiante 20 s : elle observe au lieu de fuir.
+
+**Besoins** :
+
+- Faim et soif : les créatures cherchent de la nourriture et de l'eau. Elles broutent les plantes et les carnivores sont attirés par la viande au sol (appât).
+- Régénération si nourries.
+- Dégâts de chute.
+
+**Nouvelle faune extraterrestre** : noms, modèles et comportements selon la bible.
+
+**Bestiaire** (onglet du sac) :
+
+- Une créature est « rencontrée » quand on la voit ou qu'on la frappe, « étudiée » quand le scanner a fini de la scanner ou qu'on la tue.
+- Texte généré depuis les données : catégorie, où et quand elle apparaît, régime, comportement. Les statistiques s'affichent une fois la créature étudiée.
+
+**Scanner : un équipement de tête** (recette connue dès le départ, à partir de pièces de la capsule). Il va dans l'emplacement tête, à la place d'une capuche ou d'un casque : c'est un choix pour le joueur.
+
+- **Scan automatique** quand on regarde une créature pendant X secondes à Y blocs au plus, en ligne de vue. X et Y sont des données (`wear.scanner {seconds, range}` ; par exemple 2 s et 24 blocs).
+- Un anneau de progression autour du réticule montre le scan en cours ; détourner le regard l'interrompt.
+- Une fois le scan fini, la créature est « étudiée ».
+- Tant que le scanner est porté, le panneau de cible affiche le nom, la vie, l'endurance et l'état de la créature regardée.
+- Le Scanner Mk II (M19) scanne plus vite et plus loin.
+- Sans scanner, une créature jamais rencontrée apparaît comme « Créature inconnue ».
+
+**Sauvegarde** : SAVE 9.
+
+**Tests** (headless, 10 graines) :
+
+- un joueur qui sprinte rattrape un brouteur en 30 s ;
+- casser la ligne de vue fait perdre un chasseur ;
+- un pas de côté esquive une charge ;
+- manger et boire dans une scène herbe + mare ;
+- benchmark `mobs` inchangé.
+
+### M18 — Structures et contenu de la colonie perdue (retour 10, après M16)
+
+**Moteur** :
+
+- `StructureDef.place` (au point d'apparition, ou dans un anneau de distance et de biomes) et `storySites(ctx)`, mémoïsé et calculé à partir de `findSpawn`.
+- `ItemDef.lore` : des journaux à lire dans une section Journal du Logbook.
+- `ItemDef.blueprint` : des plans qui révèlent des recettes `known: 'blueprint'`.
+
+**Contenu** :
+
+- **Site du crash** au point d'apparition : la capsule et un casier de récupération au contenu fixe, avec le premier journal.
+- **Avant-poste de la colonie** à 120–250 blocs.
+- **Relais du nord** (froid) et **station du marais** (toxique).
+- **Ruines aléatoires** avec butin (journaux, plans). Plus de cairns ni de cercles de pierre.
+
+**Progression** : récupération et silex, puis cuivre, bronze et fer, puis la reconstruction avec les blocs de la colonie débloqués par des plans. Renommages selon la bible.
+
+**Version** : GEN 7.
+
+**Tests** :
+
+- les sites d'histoire sont présents et déterministes sur 20 graines ;
+- `reachable` atteint le fer sans les recettes à plan ni à niveau ;
+- checklist d'originalité.
+
+### M19 — Quêtes, XP, niveaux, compétences (retours 1, 13 onglet État)
+
+**Données** : `QuestDef` avec `kind` (`story` ou `task`), XP, prérequis, objectif et récompenses d'objets. L'objectif est soit une condition existante (`conditionHolds`, plus « atteindre un site »), soit un compteur.
+
+**Compteurs** (`PlayerState.tally`) : distance à pied, blocs cassés et posés, objets fabriqués, créatures tuées, aliments consommés, créatures scannées, nuits. Ils sont alimentés à l'étape 16 par les événements du tick.
+
+**Chaîne d'histoire** :
+
+- Capsule, outils, eau, abri et feu, première nuit, avant-poste, établi, cuivre, relais du nord, bronze, station du marais, fer.
+- Chaque étape vise un site garanti, un biome garanti ou un objet fabricable près de l'apparition : jamais un point d'apparition chanceux.
+
+**Tâches générales** :
+
+- 3 tirées au hasard dans le tableau de quêtes, selon le palier du joueur : marcher 500 blocs, casser 64 blocs, fabriquer 10 objets, tuer 3 créatures, manger 5 fois, poser 50 blocs, scanner 2 créatures.
+- Réclamer donne l'XP et une nouvelle tâche ; on peut en relancer une par jour de jeu.
+
+**Progression** :
+
+- XP uniquement par les quêtes ; niveaux ; points de compétence.
+- Compétences :
+  - vitalité (+10 PV) ;
+  - endurance (+10) ;
+  - portage (+4 cases) ;
+  - métabolisme (−6 % faim et soif) ;
+  - résistance (+1,5 °C de confort) ;
+  - force (+6 % corps à corps et minage).
+- `playerStats(player)` passe par les points d'accroche existants : `clampGauge`, `staminaCap`, taux des jauges, `thermalStatus`, dégâts, minage, taille de l'inventaire.
+
+**Recettes exclusives** (`RecipeDef.level`) : armature de sac à dos (+8 cases, deux fois), Scanner Mk II, combinaison isolante. `reachable` sans recettes à niveau doit atteindre le fer.
+
+**Interface** :
+
+- Les objectifs quittent le HUD : seul un message de progression ou de réussite reste.
+- Onglets Quêtes (réclamer, relancer, épingler à la boussole) et État (compétences, effets actifs avec leur règle exacte).
+
+**Sauvegarde** : SAVE 10. Les anciens objectifs deviennent des quêtes d'histoire réussies, avec leur XP.
+
+**Tests** :
+
+- marche d'histoire sur 5 graines ;
+- chaque tâche réussie en monde plat ;
+- calcul d'XP et de niveaux ;
+- chaque effet de compétence ;
+- migration v9 ;
+- suite m19.
+
+### M20 — Lisibilité (retours 14, 18 côté client, 13 affichage)
+
+- **Coup chargé visible** :
+  - la main recule selon la charge et tremble une fois prête ;
+  - un anneau au réticule se remplit et flashe à 0,5 s, avec un son « prêt » ;
+  - la traînée n'apparaît que pour un coup chargé, avec un marqueur d'impact plus fort.
+- **Manger et boire** : la main porte l'objet à la bouche avec un léger balancement (miettes ou inclinaison).
+- **Mots d'état** :
+  - icône et infobulle pour chacun ;
+  - « À couvert » et « Abrité » fusionnés en une seule ligne d'abri ;
+  - « Inaperçu » devient un œil au réticule ;
+  - « Épuisé » passe par l'arc d'endurance rouge.
+
+### M21 — Disposition du HUD (retour 11, dernier)
+
+- Placement :
+  - jauges et effets en bas à gauche, au-dessus de la barre ;
+  - boussole en haut au centre, avec le panneau de cible dessous ;
+  - horloge en haut à droite, avec l'épingle de quête ;
+  - messages à droite.
+- Test e2e en 1024×768, 1280×720 et 1920×1080 : chaque `#hud-*` reste dans l'écran sans chevauchement.
+
+**Ensuite** : la boucle d'amélioration reprend (audits, corrections, une PR par chantier).
+
+## Réponses aux questions de la partie test
+
+**Les mots du HUD.** Aucun n'est décoratif, tous changent les règles :
+
+| Mot       | Effet en jeu                                                         |
+| --------- | -------------------------------------------------------------------- |
+| Abrité    | température tirée vers 18 °C, toxicité ×0,2 ; nécessaire pour dormir |
+| À couvert | −8 °C seulement au-dessus de 28 °C, toxicité ×0,7                    |
+| Épuisé    | pas de sprint, minage plus lent                                      |
+| Affamé    | endurance plafonnée à 50                                             |
+| Assoiffé  | endurance récupérée moitié moins vite                                |
+| Froid     | faim ×1,5, pas de régénération                                       |
+| Chaud     | soif ×2, pas de régénération                                         |
+| Nauséeux  | pas de régénération                                                  |
+| Affaibli  | dégâts ×0,8                                                          |
+| Inaperçu  | les créatures t'ignorent 5 s                                         |
+
+Ce qui manquait, c'est l'explication. M20 ajoute les infobulles et M19 l'onglet État.
+
+**Les pointillés.** C'est la traînée d'attaque, affichée à chaque fin de coup visant une créature, identique pour un coup léger ou chargé. Le coup chargé existe bien : 0,5 s tenu donne ×1,8 dégâts et ×1,5 recul. Mais rien ne le montrait ; M20 le rend lisible.
+
+## Fichiers critiques v2
+
+- `src/sim/Simulation.ts` : ordre du tick, étape 10.
+- `src/sim/edits.ts`, `src/sim/blockUpdates.ts` (nouveau), `src/sim/blockRemoval.ts`.
+- `src/sim/inventory.ts`, `src/sim/slotClicks.ts` (nouveau), `src/sim/blockEntityCommands.ts`, `src/sim/stations.ts`.
+- `src/world/gen/{sample,climate,decor,structures}.ts`, `src/content/packs/base/worldgen.ts`.
+- `src/world/mesh/greedyMesher.ts`, `src/world/raycast.ts`.
+- `src/sim/ai/{brains,senses,behaviours,creatureStep}.ts`, `src/sim/creatureBody.ts`.
+- `src/content/schema.ts`, `src/content/registry.ts`, `src/content/reachability.ts`.
+
+## Vérification v2 (à chaque jalon)
+
+1. `npm run verify` vert : types, Biome, Vitest, build, budget gzip ≤ 400 Ko.
+2. `npm run test:perf`, `npm run test:slow`, et `npm run headless -- --seed=42 --ticks=3000 --bot=wander` deux fois avec le même hash. Si le hash change volontairement, la raison est écrite dans la PR.
+3. Navigateur intégré : `?selftest=mN` puis `?selftest=all` dans ses configurations, `__game.errors()` vide, `i18nMissing()` vide, captures relues.
+4. `npm run e2e` vert (dont `selftest.spec` sur les 8 configurations et la couverture de chaque cas) ; `npm run e2e:perf` en local quand le rendu ou la sim change.
+5. Revue adversariale en deux passes, avec un test qui échoue sans chaque correction ; PR, CI verte, squash-merge, compte rendu en français.
+
+## Risques v2
+
+- La réécriture des autotests et des bots (M13, M19).
+- Le coût de l'eau en lumière et en remaillage (M15), protégé par des budgets et un test de perf.
+- Le réglage de l'IA (M17) : les chiffres sont en données, et les tests vérifient des résultats plutôt que des ticks exacts.
+- Les sites d'histoire calculés dans les workers (M18, mémoïsés).
+- Le budget gzip avec les nouveaux écrans.

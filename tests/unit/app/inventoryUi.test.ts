@@ -54,16 +54,16 @@ function setup() {
   const session = { host: s.host, player: s.player, listeners };
   const gate = {
     screenOpen: false,
-    closes: [] as boolean[],
+    closes: 0,
     canOpenScreen() {
       return !this.screenOpen;
     },
     openScreen() {
       this.screenOpen = true;
     },
-    closeScreen(relock: boolean) {
+    closeScreen() {
       this.screenOpen = false;
-      this.closes.push(relock);
+      this.closes++;
     },
   };
   const input = { slot: 0, keyLabel: () => 'E', bindings: DEFAULT_BINDINGS };
@@ -93,18 +93,18 @@ describe('InventoryUi', () => {
     expect(gate.screenOpen).toBe(true);
     send({ type: 'debug.setStat', stat: 'health', value: 0 });
     expect(ui.screen()).toBeNull();
-    // No "Click to resume": the gate's screen is still up, for the death screen.
-    expect(gate.closes).toEqual([]);
+    // Not back to play: the gate's screen is still up, for the death screen.
+    expect(gate.closes).toBe(0);
     expect(gate.screenOpen).toBe(true);
   });
 
-  it('closes a station the player walked away from back to the "Click to resume" overlay', () => {
+  it('closes a station the player walked away from back to play', () => {
     const { ui, gate, send } = setup();
     send({ type: 'debug.open', ...CAMPFIRE });
     expect(ui.screen()).toBe('station');
     send({ type: 'debug.teleport', x: 20.5, y: 65, z: 0.5 });
     expect(ui.screen()).toBeNull();
-    expect(gate.closes).toEqual([false]);
+    expect(gate.closes).toBe(1);
     expect((ui.station.element as unknown as FakeElement).hidden).toBe(true);
   });
 
@@ -122,10 +122,38 @@ describe('InventoryUi', () => {
     expect(ui.screen()).toBe('bag');
     expect(press()).toBe(true);
     expect(ui.screen()).toBeNull();
-    expect(gate.closes).toEqual([true]);
+    expect(gate.closes).toBe(1);
     // Paused (no screen may open): Tab keeps its browser action, for the menus' controls.
     gate.screenOpen = true;
     expect(press()).toBe(false);
+  });
+
+  it('closes the bag, a chest or a station on Esc back to play, the Esc consumed', () => {
+    const { ui, gate, send, player } = setup();
+    const esc = () => {
+      const event = { code: 'Escape', repeat: false, defaultPrevented: false } as KeyboardEvent;
+      (event as { preventDefault(): void }).preventDefault = () => {
+        (event as { defaultPrevented: boolean }).defaultPrevented = true;
+      };
+      keydown(event);
+      return event.defaultPrevented;
+    };
+    ui.toggleBag();
+    expect(ui.screen()).toBe('bag');
+    // Consumed, so the app's pause key handler leaves it alone.
+    expect(esc()).toBe(true);
+    expect(ui.screen()).toBeNull();
+    expect(gate).toMatchObject({ screenOpen: false, closes: 1 });
+    send({ type: 'debug.open', ...CAMPFIRE });
+    expect(ui.screen()).toBe('station');
+    expect(esc()).toBe(true);
+    expect(ui.screen()).toBeNull();
+    expect(gate).toMatchObject({ screenOpen: false, closes: 2 });
+    // The simulation closes the station too.
+    send();
+    expect(player.opened).toBeNull();
+    // In play with no screen, Esc is the app's (the pause menu).
+    expect(esc()).toBe(false);
   });
 
   it('draws the item icons once for every world opened with the same content', () => {

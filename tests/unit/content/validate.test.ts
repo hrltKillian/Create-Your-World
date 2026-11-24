@@ -188,11 +188,13 @@ describe('content validation of the balance', () => {
     pack.balance.climate.heatSources = 0;
     pack.balance.creatures.spawnGraceTicks = 5400.5;
     pack.balance.combat.hand.reach = 0;
+    pack.balance.consume.moveFactor = 1.2;
     const torch = pack.blocks.find((b: { key: string }) => b.key === 'block:torch');
     torch.heat = { celsius: 3.5, radius: 9 };
     const paths = validatePack(pack).map((i) => i.path);
     expect(paths.sort()).toEqual(
       [
+        'balance.consume.moveFactor',
         'balance.hunger.perMin',
         'balance.sleep.wakeHour',
         'balance.shelter.maxDistance',

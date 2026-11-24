@@ -76,6 +76,7 @@ export const balance: BalanceDef = {
     coveredToxicity: 0.7,
   },
   water: { sipSec: 0.8 },
+  consume: { moveFactor: 0.4 },
   sleep: { fromHour: 19.5, toHour: 5, wakeHour: 6, hunger: 10, thirst: 15, hostileRadius: 16 },
   respawn: {
     health: 60,

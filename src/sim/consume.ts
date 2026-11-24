@@ -3,7 +3,7 @@ import { ticksOf } from './clock.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack, spendUses, takeFromSlot } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
-import { NO_USE, type PlayerState } from './player.ts';
+import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { adjustGauges } from './survival.ts';
 import { aimedLiquid, fill, sip } from './water.ts';
@@ -14,10 +14,22 @@ import { aimedLiquid, fill, sip } from './water.ts';
  * at a time), fill a held empty container from the aimed liquid (on the press), or sip from it with
  * the hand empty (held `water.sipSec`). A held action is the one the press started: another hand
  * or target stops it until the button is pressed again (a container just filled is not drunk).
+ * `interaction.useItem` names the action while it runs, and only then (`consuming`).
  */
 
+/** `interaction.useItem` when secondary holds no action. */
+export const NO_USE = -2;
 /** `interaction.useItem` of a sip. */
 const SIP = -1;
+
+/**
+ * Eating or drinking: secondary held on the action its press started, which ran last tick (the
+ * player moves before interacting). The player then moves at `balance.consume.moveFactor` of the
+ * speed and cannot sprint (player.ts).
+ */
+export function consuming(player: Readonly<PlayerState>): boolean {
+  return player.input.secondary && player.interaction.useItem !== NO_USE;
+}
 
 /** Counts the ticks of the held action; true each time it is done (it then starts over). */
 function held(player: PlayerState, pressed: boolean, action: number, ticks: number): boolean {
@@ -26,7 +38,10 @@ function held(player: PlayerState, pressed: boolean, action: number, ticks: numb
     st.useItem = action;
     st.useTicks = 0;
   }
-  if (st.useItem !== action) return false;
+  if (st.useItem !== action) {
+    st.useItem = NO_USE;
+    return false;
+  }
   if (++st.useTicks < ticks) return false;
   st.useTicks = 0;
   return true;
@@ -54,9 +69,9 @@ export function holdUse(
   const liquid = aimedLiquid(sim, player);
   if (liquid < 0) return false;
   if (stack) {
-    if (!pressed) return true;
+    // Filled on the press only: holding on stops the action that ran (nothing to drink yet).
     player.interaction.useItem = NO_USE;
-    return fill(sim, player, liquid, out);
+    return !pressed || fill(sim, player, liquid, out);
   }
   if (registry.blockDef(liquid).liquid?.drinkable !== true) return false;
   if (held(player, pressed, SIP, ticksOf(registry.pack.balance.water.sipSec)))

@@ -46,7 +46,7 @@ export const WALK = {
 
 /**
  * The player walks for `seconds` of real ticks (the pane must be visible) from where it stands,
- * jumping onto steps (jump is a press: held only while blocked on the ground) and turning away
+ * jumping onto steps (jump held for 2 ticks while blocked on the ground) and turning away
  * from walls, with the world streaming around it; immune, at noon. Frame statistics, and the blocks
  * walked. The player, the clock and its immunity are put back after.
  */
@@ -75,7 +75,7 @@ export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
       checkZ = body.z;
     }
     look(app, yaw, WALK.pitch);
-    // Up a step (released in the air, so the next step is a new press), or swimming up.
+    // Up a step (released in the air: a held jump would jump again on landing), or swimming up.
     const blocked = body.onGround && Math.hypot(body.vx, body.vz) < WALK.blockedSpeed;
     if (blocked || body.inWater) input.force('jump', 2);
   };

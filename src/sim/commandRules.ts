@@ -77,6 +77,7 @@ export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
     case 'container.open':
       return validCell(c);
     case 'container.close':
+    case 'station.keepLit':
       return true;
     case 'container.move':
     case 'station.move':

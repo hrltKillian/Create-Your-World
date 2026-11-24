@@ -8,7 +8,7 @@ import { openBlockEntity } from './blockEntityCommands.ts';
 import { forgetCell } from './blockRemoval.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject } from './commandRules.ts';
-import { holdUse } from './consume.ts';
+import { holdUse, NO_USE } from './consume.ts';
 import { recoverPack } from './death.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
@@ -31,7 +31,7 @@ import {
   type Placement,
   planPlacement,
 } from './placement.ts';
-import { NO_USE, type PlayerState, STAMINA, spendStamina } from './player.ts';
+import { type PlayerState, STAMINA, spendStamina } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { sleepOn } from './sleep.ts';
 import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
@@ -223,6 +223,8 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
     return;
   }
   if (status === AIM_HIT && usesAimedBlock(sim.registry, hit.state, input.crouch)) {
+    // The aimed block stops a held meal until the next press, as another hand does (consume.ts).
+    st.useItem = NO_USE;
     if (pressed) useAimed(sim, player, out);
     return;
   }

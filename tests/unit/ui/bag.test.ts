@@ -226,17 +226,49 @@ describe('StationScreen', () => {
     expect(rows).toHaveLength(registry.crafting.processesOf('station:kiln').length);
     const slots: Inventory = new Array(base + 4).fill(null);
     const flame = () => fake(station.element).querySelector('.flame')!;
-    const burning = { lit: true, flame: 0.5, progress: 0.25, process: 'process:copper_ingot' };
+    const burning = {
+      lit: true,
+      flame: 0.5,
+      progress: 0.25,
+      process: 'process:copper_ingot',
+      keepLit: false,
+    };
     station.update(slots, burning);
     expect(flame().className).toBe('flame lit');
     const active = fake(station.element).findAll((e) => e.className === 'station-process active');
     expect(active).toHaveLength(1);
     // A banked fire (idle, fuel time left) is dim: its size stays, it is not lit.
-    station.update(slots, { lit: false, flame: 0.5, progress: 0, process: '' });
+    station.update(slots, { lit: false, flame: 0.5, progress: 0, process: '', keepLit: false });
     expect(flame().className).toBe('flame');
     expect(flame().style.getPropertyValue('--flame')).toBe('0.5');
-    station.update(slots, { lit: false, flame: 0, progress: 0, process: '' });
+    station.update(slots, { lit: false, flame: 0, progress: 0, process: '', keepLit: false });
     expect(flame().className).toBe('flame');
+    // A kiln's fire burns only for its processes: no « Keep burning » toggle.
+    expect(fake(station.element).findAction('keep-lit')!.hidden).toBe(true);
+  });
+
+  it("shows the campfire's « Keep burning » toggle as the simulation keeps it, and flips it", () => {
+    const { screen, sent } = deps();
+    const station = new StationScreen(screen);
+    station.open(registry.crafting.station('station:campfire')!, 'Campfire');
+    const toggle = fake(station.element).findAction('keep-lit')!;
+    expect(toggle.hidden).toBe(false);
+    const slots: Inventory = new Array(INVENTORY_SLOTS + 4).fill(null);
+    const status = { lit: false, flame: 0, progress: 0, process: '', keepLit: false };
+    station.update(slots, status);
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    const toggles = () => sent.filter((c) => c.type === 'station.keepLit');
+    toggle.dispatch('click');
+    expect(toggles()).toEqual([{ type: 'station.keepLit' }]);
+    // The screen shows what the simulation keeps, not the click.
+    expect(toggle.classList.contains('on')).toBe(false);
+    station.update(slots, { ...status, keepLit: true, lit: true });
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(toggle.classList.contains('on')).toBe(true);
+    // Each click flips it in the simulation, however soon after the last one (no refresh between).
+    toggle.dispatch('click');
+    toggle.dispatch('click');
+    expect(toggles()).toEqual(new Array(3).fill({ type: 'station.keepLit' }));
   });
 
   it('tells which items its slots take, from the station layout (right-drag splits)', () => {

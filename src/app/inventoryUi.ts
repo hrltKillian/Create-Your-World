@@ -53,9 +53,10 @@ interface ScreenView {
 /**
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
  * Station): item icons, refresh, commands, sounds and keys. E or Tab opens the bag and closes any
- * screen (capturing the mouse again), Esc closes it, a hotbar key over a slot swaps. Chests and
- * stations open from the simulation (secondary on the block): their screen shows on its
- * `blockEntityOpened` event and goes on `blockEntityClosed`; closing one sends `container.close`.
+ * screen, so does Esc (back to play either way, never the pause menu: PlayGate.closeScreen), a
+ * hotbar key over a slot swaps. Chests and stations open from the simulation (secondary on the
+ * block): their screen shows on its `blockEntityOpened` event and goes on `blockEntityClosed`;
+ * closing one sends `container.close`.
  */
 export class InventoryUi {
   readonly hotbar: Hotbar;
@@ -133,12 +134,9 @@ export class InventoryUi {
     return this.station.isOpen() ? 'station' : null;
   }
 
-  /**
-   * Opens the bag while playing, or closes the open screen (capturing the mouse again). Returns
-   * whether it did either.
-   */
+  /** Opens the bag while playing, or closes the open screen. Returns whether it did either. */
   toggleBag(): boolean {
-    if (this.screen()) this.closeScreen(true);
+    if (this.screen()) this.closeScreen();
     else if (this.gate.canOpenScreen()) {
       this.bag.open();
       this.gate.openScreen();
@@ -146,11 +144,11 @@ export class InventoryUi {
     return true;
   }
 
-  /** `relock`: back to the game (the screens' own key), else to the "Click to resume" overlay (Esc). */
-  closeScreen(relock: boolean): void {
+  /** Closes the open screen, back to play (the mouse captured again: PlayGate.closeScreen). */
+  closeScreen(): void {
     if (!this.screen()) return;
     this.hideScreen();
-    this.gate.closeScreen(relock);
+    this.gate.closeScreen();
   }
 
   /** Closes the open screen for another that takes its place (the death screen): the gate keeps it. */
@@ -202,7 +200,7 @@ export class InventoryUi {
     const open = this.openView();
     if (!open || open === this.bag) return;
     open.close();
-    if (!this.session.player.survival.dead) this.gate.closeScreen(false);
+    if (!this.session.player.survival.dead) this.gate.closeScreen();
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
@@ -215,7 +213,7 @@ export class InventoryUi {
     else if (action === 'pause') {
       // Consumed: the same Esc must not also open the pause menu.
       event.preventDefault();
-      this.closeScreen(false);
+      this.closeScreen();
     } else {
       const slot = HOTBAR_CODES.indexOf(event.code);
       if (slot >= 0) this.openView()?.hotkey(slot);

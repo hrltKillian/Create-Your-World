@@ -155,5 +155,6 @@ export function stationStatus(registry: Registry, station: Readonly<StationEntit
     flame: station.burnTicks > 0 ? station.burnTicksLeft / station.burnTicks : 0,
     progress: Math.min(1, progress),
     process: station.process,
+    keepLit: station.keepLit,
   };
 }

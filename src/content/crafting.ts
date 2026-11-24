@@ -79,11 +79,12 @@ export class Crafting {
   }
 
   /**
-   * Whether a station's fire can burn an item: a campfire any fuel, a kiln or bloomery only fuel
-   * one of its processes burns (a bloomery's charcoal; logs would block its fuel slot).
+   * Whether a station's fire can burn an item: a fire that may be kept lit (campfire) any fuel, a
+   * kiln or bloomery only fuel one of its processes burns (a bloomery's charcoal; logs would block
+   * its fuel slot).
    */
   burnsIn(station: StationDef, item: string): boolean {
-    if (station.burns === 'whileFuel' && this.burnSeconds(item, 'any') > 0) return true;
+    if (station.keepLit && this.burnSeconds(item, 'any') > 0) return true;
     return this.processesOf(station.key).some((p) => this.burnSeconds(item, p.fuel) > 0);
   }
 

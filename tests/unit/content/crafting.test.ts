@@ -19,7 +19,7 @@ describe('crafting index', () => {
   it('finds recipes, processes and stations by key, and the processes of a station', () => {
     expect(recipe('flint_hatchet').output).toEqual({ item: 'item:flint_hatchet', count: 1 });
     expect(crafting.recipe('recipe:nope')).toBeUndefined();
-    expect(crafting.station('station:kiln')?.burns).toBe('whileProcessing');
+    expect(crafting.station('station:kiln')?.burns).toBe(true);
     const kiln = crafting.processesOf('station:kiln').map((p) => p.key);
     expect(kiln).toContain('process:bronze_ingot');
     expect(kiln).not.toContain('process:iron_ingot');
@@ -113,7 +113,7 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     expect(process('flask_boiled').seconds).toBe(6);
   });
 
-  it('gives each processing station a lit block entity; the campfire burns while it has fuel', () => {
+  it('gives each processing station a lit block entity; only the campfire may be kept lit', () => {
     const blocks = basePack.blocks.filter((b) => b.station !== undefined);
     expect(blocks.map((b) => b.station).sort()).toEqual([
       'station:bloomery',
@@ -126,8 +126,8 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
       expect(block.blockEntity === 'station', block.key).toBe(fire);
       expect(block.states?.includes('lit') ?? false, block.key).toBe(fire);
     }
-    expect(crafting.station('station:campfire')!.burns).toBe('whileFuel');
-    expect(crafting.station('station:bloomery')!.burns).toBe('whileProcessing');
+    const kept = basePack.stations!.filter((s) => s.keepLit).map((s) => s.key);
+    expect(kept).toEqual(['station:campfire']);
     const lit = registry.withState(registry.defaultState('block:campfire'), 'lit', '1');
     expect(registry.tables.emit[lit]).toBe(14);
     expect(registry.tables.emit[registry.defaultState('block:campfire')]).toBe(0);
@@ -199,10 +199,12 @@ describe('crafting validation', () => {
       ];
       processes[2]!.output = { item: 'item:nope', count: 1 };
       p.stations!.find((s) => s.key === 'station:bloomery')!.fuelSlot = false;
+      p.stations!.find((s) => s.key === 'station:workbench')!.keepLit = true;
       p.creatures![0]!.loot = 'loot:nope';
     });
     const paths = validatePack(pack).map((i) => i.path);
     const bloomery = basePack.stations!.findIndex((s) => s.key === 'station:bloomery');
+    const bench = basePack.stations!.findIndex((s) => s.key === 'station:workbench');
     expect(paths).toEqual(
       expect.arrayContaining([
         'recipes[0].inputs[0].item',
@@ -215,6 +217,7 @@ describe('crafting validation', () => {
         'processes[1].inputs',
         'processes[2].output.item',
         `stations[${bloomery}]`,
+        `stations[${bench}].keepLit`,
         'creatures[0].loot',
       ]),
     );

@@ -29,6 +29,7 @@ export function validateBalance(pack: ContentPack, add: AddIssue): void {
     'climate.enclosedBlend': b.climate.enclosedBlend,
     'shelter.enclosedToxicity': b.shelter.enclosedToxicity,
     'shelter.coveredToxicity': b.shelter.coveredToxicity,
+    'consume.moveFactor': b.consume.moveFactor,
   };
   for (const [path, value] of Object.entries(fractions))
     if (!(value <= 1)) add(`balance.${path}`, 'must be within 0–1');

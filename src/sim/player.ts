@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
+import { consuming, NO_USE } from './consume.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory } from './inventory.ts';
@@ -42,14 +43,14 @@ export interface InteractionState {
   useCooldown: number;
   /** Secondary was down last tick (gates toggle on the press only). */
   useHeld: boolean;
-  /** The action the held secondary started (consume.ts): NO_USE, −1 a sip, else the item id. */
+  /**
+   * The held secondary's action while it runs (consume.ts): NO_USE, −1 a sip, else the item id;
+   * back to NO_USE as soon as it stops (released, another hand or target).
+   */
   useItem: number;
   /** Ticks it has been held for (an item eaten or drunk, a sip). */
   useTicks: number;
 }
-
-/** `InteractionState.useItem` when secondary holds no action. */
-export const NO_USE = -2;
 
 export function createInteraction(): InteractionState {
   return {
@@ -213,6 +214,7 @@ const move: MoveInput = {
   jumpAllowed: false,
   sprint: false,
   crouch: false,
+  speedFactor: 1,
   yaw: 0,
 };
 const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
@@ -220,8 +222,8 @@ const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false 
 /**
  * One tick of player control. The previous position (render interpolation) and the view angles
  * always update; physics and stamina only run when `active` (its column is LIT: a frozen player
- * cannot fall into the void) and alive. A landing takes its fall damage. Returns whether the body
- * was stepped.
+ * cannot fall into the void) and alive. Eating or drinking slows the player (`consuming`). A
+ * landing takes its fall damage. Returns whether the body was stepped.
  */
 export function stepPlayer(
   player: PlayerState,
@@ -243,12 +245,14 @@ export function stepPlayer(
   if (!active || player.survival.health <= 0) return false;
   const balance = registry.pack.balance;
   const canSprint = !player.exhausted && player.stamina > 0;
+  const slowed = consuming(player);
   move.forward = input.forward;
   move.strafe = input.strafe;
   move.jump = input.jump;
   move.jumpAllowed = player.stamina >= STAMINA.jump;
-  move.sprint = input.sprint && canSprint;
+  move.sprint = input.sprint && canSprint && !slowed;
   move.crouch = input.crouch;
+  move.speedFactor = slowed ? balance.consume.moveFactor : 1;
   move.yaw = input.yaw;
   const result = stepBody(body, move, world, registry.tables, dt, stepResult);
   if (result.jumped) {

@@ -186,6 +186,7 @@ export const en = {
   'station.processes': 'Processes',
   'station.charcoalOnly': 'Charcoal only',
   'station.noFuel': 'No fuel',
+  'station.keepLit': 'Keep burning (warmth, light)',
   'menu.play': 'Play',
   'menu.continue': 'Continue',
   'menu.worlds': 'Worlds',

@@ -28,18 +28,18 @@ export function uiHook(app: App) {
       const inventory = app.inventory;
       if (x !== undefined && y !== undefined && z !== undefined) {
         // Like the bag's key: an open chest or station screen closes first (no pause flicker).
-        if (inventory?.screen() && inventory.screen() !== 'bag') inventory.closeScreen(true);
+        if (inventory?.screen() && inventory.screen() !== 'bag') inventory.closeScreen();
         openBlock(app, x, y, z);
       } else if (inventory && inventory.screen() !== 'bag') {
         // The bag's key closes a chest or station screen first.
-        if (inventory.screen()) inventory.closeScreen(true);
+        if (inventory.screen()) inventory.closeScreen();
         inventory.toggleBag();
       }
       return inventory?.screen() ?? null;
     },
     /** Closes the open bag, chest or station screen like its key does; returns what is open after. */
     close: () => {
-      app.inventory?.closeScreen(true);
+      app.inventory?.closeScreen();
       return app.inventory?.screen() ?? null;
     },
     /**

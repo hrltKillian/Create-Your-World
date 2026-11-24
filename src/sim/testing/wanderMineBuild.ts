@@ -124,8 +124,6 @@ function unstick(
   if (slot >= 0 && headroom(senses, b) && (walledIn(senses, b) || rng.chance(CLIMB_CHANCE))) {
     s.climb = rng.intRange(20, 45);
     s.slot = slot;
-    // A stuck walk holds jump, and only a fresh press jumps: the climb's first tick lets go.
-    s.start = tick;
   } else if (s.task === 'seek') giveUp(s, rng, tick);
   else if (rng.chance(DIG_CHANCE)) {
     begin(s, 'dig', tick, DIG_TICKS);
@@ -243,8 +241,9 @@ function act(
 }
 
 /**
- * One tick of a climb: looking straight down, it jumps and places the block under its feet once
- * they clear the cell (a held secondary places every few ticks), then walks on the same way.
+ * One tick of a climb: looking straight down, it jumps (again on each landing) and places the
+ * block under its feet once they clear the cell (a held secondary places every few ticks), then
+ * walks on the same way.
  */
 function climb(s: BotState): number {
   s.climb--;

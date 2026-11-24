@@ -12,11 +12,11 @@ import type { Simulation } from './Simulation.ts';
 
 /**
  * Station processing (docs « Stations de transformation », tick step 9). Each tick a station runs
- * the first of its processes whose inputs are all there: the fire burns its fuel (a campfire as long
- * as it has some, a kiln or bloomery only while a process runs), the process advances while the
- * fire burns and completes into the outputs; full outputs pause it. Stations only tick inside the
- * simulation radius; one that comes back into it (its column reloaded, or a player returning)
- * catches up tick by tick from its own last tick, at most one game day.
+ * the first of its processes whose inputs are all there: the fire burns its fuel only while a
+ * process runs (or, for a campfire, while the player keeps it burning: `keepLit`), the process
+ * advances while the fire burns and completes into the outputs; full outputs pause it. Stations
+ * only tick inside the simulation radius; one that comes back into it (its column reloaded, or a
+ * player returning) catches up tick by tick from its own last tick, at most one game day.
  */
 
 /** Stations tick within this many columns of a player (the simulation radius). */
@@ -74,7 +74,7 @@ export function stepStation(station: StationEntity, def: StationDef, registry: R
   const out = outputSlotOf(def);
   const end = out + def.outputSlots;
   const ready = process !== undefined && roomFor(station.slots, registry, out, end, process.output);
-  const wantsFire = def.burns === 'whileFuel' || (ready && process?.fuel !== 'none');
+  const wantsFire = station.keepLit || (ready && process?.fuel !== 'none');
   if (wantsFire && station.burnTicksLeft === 0) ignite(station, def, registry, process);
   const burning = wantsFire && station.burnTicksLeft > 0;
   if (burning) {
