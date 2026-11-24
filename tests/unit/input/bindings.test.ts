@@ -8,6 +8,7 @@ import {
   RESERVED_CODES,
   readBindings,
   rebind,
+  UNBOUND,
 } from '../../../src/input/bindings.ts';
 
 /*
@@ -86,9 +87,33 @@ describe('key bindings', () => {
     expect(readBindings({ ...DEFAULT_BINDINGS, inventory: ['KeyE', 'Mouse1'] })).toEqual(
       DEFAULT_BINDINGS,
     );
+    // Only the dead slot falls back (its default, the action's other keys kept).
     expect(
       readBindings({ ...DEFAULT_BINDINGS, sprint: ['Mouse1'], debug: ['Mouse1', 'F1', 'F2'] }),
-    ).toEqual({ ...DEFAULT_BINDINGS, sprint: ['Mouse1'] });
+    ).toEqual({ ...DEFAULT_BINDINGS, sprint: ['Mouse1'], debug: ['F3', 'F1', 'F2'] });
+  });
+
+  it('drops only a dead binding whose default key another action took, keeping the rest', () => {
+    // The bag moved to the middle button, its E given to Drop, a ZQSD layout.
+    const zqsd = { forward: ['KeyZ'], left: ['KeyQ'], drop: ['KeyE'] };
+    const stored = { ...DEFAULT_BINDINGS, ...zqsd, inventory: ['Mouse1', 'Tab'] };
+    // No default of the bag is free: the dead slot is left unbound (no key fires it).
+    expect(readBindings(stored)).toEqual({ ...stored, inventory: [UNBOUND, 'Tab'] });
+    // A free default of the action fills it: its own (E, once Drop is back on G), else another.
+    expect(readBindings({ ...stored, drop: ['KeyG'] })).toEqual({
+      ...stored,
+      drop: ['KeyG'],
+      inventory: ['KeyE', 'Tab'],
+    });
+    expect(readBindings({ ...stored, inventory: ['Mouse1', 'KeyI'] })).toEqual({
+      ...stored,
+      inventory: ['Tab', 'KeyI'],
+    });
+    // An unbound slot never matches a key, and it reads back the same (or its default once free).
+    const read = readBindings(stored);
+    expect(actionForCode(read, UNBOUND)).toBeNull();
+    expect(readBindings(JSON.parse(JSON.stringify(read)))).toEqual(read);
+    expect(readBindings({ ...read, drop: ['KeyG'] }).inventory).toEqual(['KeyE', 'Tab']);
   });
 
   it('reads stored bindings action by action, and the defaults when a code is bound twice', () => {
@@ -109,8 +134,12 @@ describe('key bindings', () => {
       crouch: ['KeyC'],
     });
     expect(readBindings({ ...DEFAULT_BINDINGS, jump: ['KeyW'] })).toBe(DEFAULT_BINDINGS);
-    // An action back on its default may meet the key another one took.
-    expect(readBindings({ ...stored, jump: ['KeyW'], forward: ['F12'] })).toBe(DEFAULT_BINDINGS);
+    // An action back on its default may meet the key another one took: that slot is unbound.
+    expect(readBindings({ ...stored, jump: ['KeyW'], forward: ['F12'] })).toEqual({
+      ...stored,
+      jump: ['KeyW'],
+      forward: [UNBOUND],
+    });
     expect(readBindings(undefined)).toEqual(DEFAULT_BINDINGS);
     expect(readBindings('KeyW')).toEqual(DEFAULT_BINDINGS);
   });

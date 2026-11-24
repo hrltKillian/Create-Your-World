@@ -1,9 +1,10 @@
 import { blockItemKey } from '../../content/items.ts';
-import { FLAG_REPLACEABLE } from '../../content/registry.ts';
+import { FLAG_LIQUID, FLAG_REPLACEABLE } from '../../content/registry.ts';
 import type { BlockDef, CreatureDef, OreDef, ProcessDef, RecipeDef } from '../../content/schema.ts';
 import { findBiome } from '../../world/gen/find.ts';
 import { pointInfo } from '../../world/gen/sample.ts';
 import { isGone } from '../creatures.ts';
+import { bodyInCell } from '../placement.ts';
 import { hourOf } from '../time.ts';
 import { Hands } from './walkHands.ts';
 import { type Cell, cellText, type WalkPort } from './walkPort.ts';
@@ -32,13 +33,12 @@ const NIGHT_HOUR = 23;
 const PIT_DEPTH = 2;
 /** Ticks a killed creature gets to fall over and be gone. */
 const DYING_LIMIT = 120;
-/** The four sides, where a source is staged beside the player. */
-const SIDES: readonly (readonly [number, number])[] = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
+/** Cells around the feet a source may be staged in: to the side, below and above. */
+const STAGE_SIDE = 2;
+const STAGE_BELOW = 1;
+const STAGE_ABOVE = 1;
+/** How far over the feet the floor of a staging pod's stand lies (the body stays below it). */
+const POD_RISE = 3;
 
 /** The walk's sources in the world; the walk itself picks the hunting pit. */
 export abstract class Gathering extends Hands {
@@ -125,26 +125,55 @@ export abstract class Gathering extends Hands {
   }
 
   /**
-   * Stages the source that drops an item most often beside the player's feet (a one-cell
-   * `debug.fill` on free ground): none lies within the search.
+   * Stages the source that drops an item most often near the player's feet (a one-cell
+   * `debug.fill`): none lies within the search. The nearest cell that is free (replaceable, no
+   * liquid, not the body's) on solid ground and that a stand sees once the block is in; else one
+   * in a stone pod built over the player (stand and source on its floor, walled off from water).
    */
   private stage(item: string, sources: readonly BlockDef[]): Cell {
     const best = sources.reduce((a, b) =>
       this.dropChance(b, item) > this.dropChance(a, item) ? b : a,
     );
+    const state = this.registry.defaultState(best.key);
     const world = this.view.world;
     const flags = this.registry.tables.flags;
     const f = this.feet();
-    for (const [dx, dz] of SIDES) {
-      const cell = { x: f.x + dx, y: f.y, z: f.z + dz };
-      const free = (flags[world.getBlock(cell.x, cell.y, cell.z)]! & FLAG_REPLACEABLE) !== 0;
-      if (!free || !solidAt(world, this.registry, { x: cell.x, y: cell.y - 1, z: cell.z }))
-        continue;
-      const state = this.registry.defaultState(best.key);
+    const cells: Cell[] = [];
+    for (let dy = -STAGE_BELOW; dy <= STAGE_ABOVE; dy++)
+      for (let dz = -STAGE_SIDE; dz <= STAGE_SIDE; dz++)
+        for (let dx = -STAGE_SIDE; dx <= STAGE_SIDE; dx++) {
+          const cell = { x: f.x + dx, y: f.y + dy, z: f.z + dz };
+          const flag = flags[world.getBlock(cell.x, cell.y, cell.z)]!;
+          const free = (flag & FLAG_REPLACEABLE) !== 0 && (flag & FLAG_LIQUID) === 0;
+          const ground = solidAt(world, this.registry, { x: cell.x, y: cell.y - 1, z: cell.z });
+          const body = bodyInCell(this.view.entities, this.registry, cell.x, cell.y, cell.z);
+          if (free && ground && !body) cells.push(cell);
+        }
+    const away = (c: Cell) => (c.x - f.x) ** 2 + (c.y - f.y) ** 2 + (c.z - f.z) ** 2;
+    cells.sort((a, b) => away(a) - away(b));
+    for (const cell of cells) {
+      const was = world.getBlock(cell.x, cell.y, cell.z);
       this.fill(cell.x, cell.y, cell.z, cell.x, cell.y, cell.z, state);
-      return cell;
+      if (standFor(world, this.registry, cell, f, aimToBreak(world, this.registry, cell)))
+        return cell;
+      this.fill(cell.x, cell.y, cell.z, cell.x, cell.y, cell.z, was);
     }
-    throw new Error(`no free ground beside ${cellText(f)} to stage ${best.key} on`);
+    return this.stageInPod(state);
+  }
+
+  /**
+   * A source block in a stone pod over the player's head (clear of the body): a floor, walls and
+   * a roof around a stand (feet and head cells) and the source beside it.
+   */
+  private stageInPod(state: number): Cell {
+    const f = this.feet();
+    const stand = { x: f.x, y: f.y + POD_RISE, z: f.z };
+    const source = { x: stand.x + 1, y: stand.y, z: stand.z };
+    const { x, y, z } = stand;
+    this.fill(x - 1, y - 1, z - 1, x + 2, y + 2, z + 1, this.wallState());
+    this.fill(x, y, z, x, y + 1, z, this.registry.air);
+    this.fill(source.x, source.y, source.z, source.x, source.y, source.z, state);
+    return source;
   }
 
   /** The biome-bound deposit (ore) whose block is the item. */

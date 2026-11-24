@@ -1,6 +1,7 @@
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import type { Registry } from '../content/registry.ts';
 import { t } from '../i18n/i18n.ts';
+import { actionForCode } from '../input/bindings.ts';
 import { BASE_SENSITIVITY, type InputManager, isTextField } from '../input/InputManager.ts';
 import type { SaveBackend } from '../platform/IdbStorage.ts';
 import type { SaveStatus } from '../platform/SaveManager.ts';
@@ -335,8 +336,8 @@ export class Game {
    * box (the New world name and seed), where Esc still goes back.
    */
   private readonly onPauseKey = (event: KeyboardEvent): void => {
-    const keys = this.host.input.bindings.pause;
-    if (event.repeat || event.defaultPrevented || !keys.includes(event.code)) return;
+    const pauseKey = actionForCode(this.host.input.bindings, event.code) === 'pause';
+    if (event.repeat || event.defaultPrevented || !pauseKey) return;
     if (event.code !== 'Escape' && isTextField(event.target)) return;
     if (this.state === 'menu' || this.state === 'paused') {
       if (!this.menus.back() && this.state === 'paused' && !this.host.input.pointer) this.resume();

@@ -12,7 +12,7 @@ import { registry } from '../../helpers/registry.ts';
 
 /*
  * The objectives walk (sim/testing/objectiveWalk.ts) on an inline simulation of the browser
- * walk's world (?seed=7, the generated world, no natural spawns): every objective of the pack is
+ * walk's world (?seed=7, the generated world, no natural spawns, and a few other seeds): every objective of the pack is
  * done in chain order with the game's own actions (« téléports et actions réelles »: the items the
  * objectives name that the world yields are broken out of it and picked up, the creature's struck
  * down, the cabin built block by block), and an objective done out of its turn fails the walk. The
@@ -21,6 +21,11 @@ import { registry } from '../../helpers/registry.ts';
 
 /** The browser walk's seed and search radius (selftest/support.ts SEARCH_RADIUS). */
 const SEED = '7';
+/**
+ * Other worlds the chain is walked in: a break right after a walk onto a drop (42, 123, 2024), a
+ * source staged on uneven ground (3, 11: a marsh ledge) or in a pod over water (2024).
+ */
+const OTHER_SEEDS = ['42', '123', '2024', '3', '11'];
 const SEARCH_RADIUS = 1500;
 /** Columns streamed around the player, and those that must be lit after a teleport. */
 const VIEW_RADIUS = 2;
@@ -117,13 +122,17 @@ function worldItems(): string[] {
 }
 
 describe('objectives walk', () => {
-  it('does every objective of the pack in chain order with the game actions', async () => {
-    const { player, port } = inlinePort(SEED);
-    const done = await walkObjectives(port, { searchRadius: SEARCH_RADIUS });
-    const chain = registry.pack.objectives!.map((o) => o.key);
-    expect(done).toEqual(chain);
-    expect(player.survival.dead).toBe(false);
-  }, 60_000);
+  it.each([SEED, ...OTHER_SEEDS])(
+    'does every objective of the pack in chain order with the game actions (seed %s)',
+    async (seed) => {
+      const { player, port } = inlinePort(seed);
+      const done = await walkObjectives(port, { searchRadius: SEARCH_RADIUS });
+      const chain = registry.pack.objectives!.map((o) => o.key);
+      expect(done).toEqual(chain);
+      expect(player.survival.dead).toBe(false);
+    },
+    60_000,
+  );
 
   it('takes the named items from the world, strikes the creature, builds the cabin', async () => {
     const { player, port, sent, seen } = inlinePort(SEED);

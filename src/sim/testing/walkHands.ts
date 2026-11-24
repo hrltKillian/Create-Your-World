@@ -1,5 +1,6 @@
 import { blockItemKey, fitsTool, harvests } from '../../content/items.ts';
 import type { Registry } from '../../content/registry.ts';
+import type { BlockKey } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { TICKS_PER_SECOND } from '../clock.ts';
 import type { SimView } from '../host.ts';
@@ -8,6 +9,7 @@ import { breakSeconds } from '../mining.ts';
 import { eyeHeight } from '../physics.ts';
 import { bodyInCell } from '../placement.ts';
 import type { PlayerState } from '../player.ts';
+import { emptySlot } from './botSenses.ts';
 import { type Cell, cellText, type Point, type WalkPort } from './walkPort.ts';
 import { type Aim, aimToBreak, aimToPlace, standFor } from './walkReach.ts';
 
@@ -30,6 +32,8 @@ const MINING_SLACK = 1.5;
 /** Ticks a weapon's cooldown may take before a blow, and where a blow aims: near the top. */
 const COOLDOWN_TICKS = 120;
 const AIM_HEIGHT = 0.9;
+/** Most ticks a body still sliding (after a walk onto a drop) gets to come to rest before aiming. */
+const REST_TICKS = 20;
 
 export abstract class Hands {
   protected readonly port: WalkPort;
@@ -101,12 +105,23 @@ export abstract class Hands {
     this.port.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state: key });
   }
 
+  /** The block of floors and walls: the worldgen's stone (solid and opaque). */
+  protected wallBlock(): BlockKey {
+    const stone = this.registry.pack.worldgen?.stone;
+    if (!stone) throw new Error('the pack has no worldgen stone for the walls');
+    return stone;
+  }
+
+  protected wallState(): number {
+    return this.registry.defaultState(this.wallBlock());
+  }
+
   /** A hotbar slot with nothing in it (the bare hand), freed into the bag when none is. */
   protected emptyHand(): number {
     const inventory = this.me().inventory;
-    const free = inventory.findIndex((stack, i) => i < HOTBAR_SLOTS && stack === null);
+    const free = emptySlot(inventory, 0, HOTBAR_SLOTS);
     if (free >= 0) return free;
-    const bag = inventory.findIndex((stack, i) => i >= HOTBAR_SLOTS && stack === null);
+    const bag = emptySlot(inventory, HOTBAR_SLOTS, inventory.length);
     if (bag < 0) throw new Error('the inventory is full: no hand to free');
     this.port.send({ type: 'inv.move', from: HOTBAR_SLOTS - 1, to: bag });
     return HOTBAR_SLOTS - 1;
@@ -118,7 +133,7 @@ export abstract class Hands {
     const slot = inventory.findIndex((stack) => stack?.item === item);
     if (slot < 0) throw new Error(`no ${item} in the inventory`);
     if (slot < HOTBAR_SLOTS) return slot;
-    const free = inventory.findIndex((stack, i) => i < HOTBAR_SLOTS && stack === null);
+    const free = emptySlot(inventory, 0, HOTBAR_SLOTS);
     const to = free >= 0 ? free : HOTBAR_SLOTS - 1;
     this.port.send({ type: 'inv.move', from: slot, to });
     return to;
@@ -131,10 +146,13 @@ export abstract class Hands {
   protected async reach(cell: Cell, aim: Aim, cells = 1): Promise<Point | null> {
     const b = this.me().body;
     const eye = () => ({ x: b.x, y: b.y + eyeHeight(b), z: b.z });
-    // From where the player stands: on the ground, neither in the cell nor on it.
+    // From where the player stands: at rest on the ground (the aim is taken once for the whole
+    // hold, so a body still sliding after a walk would carry the ray off the cell), neither in the
+    // cell nor on it.
+    const still = this.stepUntil(() => b.onGround && b.vx === 0 && b.vz === 0, REST_TICKS);
     const { x, y, z } = cell;
     const inTheWay = bodyInCell(this.view.entities, this.registry, x, y, z, cells + 1);
-    const here = inTheWay || !b.onGround ? null : aim(eye());
+    const here = inTheWay || !still ? null : aim(eye());
     if (here) return here;
     const spot = standFor(this.view.world, this.registry, cell, this.feet(), aim);
     if (!spot) return null;

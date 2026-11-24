@@ -1,5 +1,5 @@
 import { t } from '../i18n/i18n.ts';
-import { type Action, HOTBAR_CODES } from '../input/bindings.ts';
+import { type Action, actionForCode, HOTBAR_CODES } from '../input/bindings.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { SeenTips, type Tip } from '../platform/onboarding.ts';
 import { browserStore } from '../platform/settings.ts';
@@ -194,7 +194,7 @@ export class Onboarding {
 
   /** Esc closes the card before it would open the pause menu (a capture listener runs first). */
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (!this.card.isOpen() || !this.input.bindings.pause.includes(event.code)) return;
+    if (!this.card.isOpen() || actionForCode(this.input.bindings, event.code) !== 'pause') return;
     event.preventDefault();
     this.dismiss(false);
   };

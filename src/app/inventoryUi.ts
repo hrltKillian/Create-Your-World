@@ -3,7 +3,7 @@ import type { AudioEngine } from '../audio/AudioEngine.ts';
 import type { Registry } from '../content/registry.ts';
 import { createLogger } from '../core/log.ts';
 import { t } from '../i18n/i18n.ts';
-import { HOTBAR_CODES } from '../input/bindings.ts';
+import { actionForCode, HOTBAR_CODES } from '../input/bindings.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../sim/craftQueue.ts';
 import type { SimEvent } from '../sim/events.ts';
@@ -185,10 +185,10 @@ export class InventoryUi {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
-    const bindings = this.input.bindings;
-    if (bindings.inventory.includes(event.code)) this.toggleBag();
+    const action = actionForCode(this.input.bindings, event.code);
+    if (action === 'inventory') this.toggleBag();
     else if (!this.screen()) return;
-    else if (bindings.pause.includes(event.code)) {
+    else if (action === 'pause') {
       // Consumed: the same Esc must not also open the pause menu.
       event.preventDefault();
       this.closeScreen(false);

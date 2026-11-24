@@ -6,6 +6,7 @@ import {
   HOTBAR_CODES,
   type KeyBindings,
   RESERVED_CODES,
+  UNBOUND,
 } from './bindings.ts';
 import { KeyLabels } from './keyLabels.ts';
 import { clampPitch, type LookTarget } from './LookTarget.ts';
@@ -140,7 +141,7 @@ export class InputManager {
 
   /** Label of the first key bound to an action, on the player's keyboard layout. */
   keyLabel(action: Action): string {
-    return this.labels.label(this.bindings[action][0] ?? '');
+    return this.labels.label(this.bindings[action].find((code) => code !== UNBOUND) ?? '');
   }
 
   dispose(): void {
@@ -169,7 +170,7 @@ export class InputManager {
   }
 
   private press(code: string): void {
-    if (RESERVED_CODES.has(code)) return;
+    if (code === UNBOUND || RESERVED_CODES.has(code)) return;
     if (!this.down.has(code) && this.enabled) {
       const action = actionForCode(this.bindings, code);
       if (action) {

@@ -1,5 +1,5 @@
 import { blockItemKey } from '../../content/items.ts';
-import type { BlockKey, ObjectiveDef } from '../../content/schema.ts';
+import type { ObjectiveDef } from '../../content/schema.ts';
 import { TICKS_PER_SECOND, ticksOf } from '../clock.ts';
 import type { PlayerState } from '../player.ts';
 import { DAY_TICKS, nightsSurvived } from '../time.ts';
@@ -141,17 +141,6 @@ class ObjectiveWalk extends Supplies {
     this.fill(x - ROOM, y, z - ROOM, x + ROOM, y, z + ROOM, air);
     this.fill(x + WALL, y, z + DOOR, x + WALL, y, z + DOOR, air);
     await this.goHome(true);
-  }
-
-  /** The block of floors and walls: the worldgen's stone (solid and opaque). */
-  private wallBlock(): BlockKey {
-    const stone = this.registry.pack.worldgen?.stone;
-    if (!stone) throw new Error('the pack has no worldgen stone for the home walls');
-    return stone;
-  }
-
-  private wallState(): number {
-    return this.registry.defaultState(this.wallBlock());
   }
 
   /**

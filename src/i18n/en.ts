@@ -274,6 +274,7 @@ export const en = {
   'controls.press':
     'Press a key for “{action}”, or click its box with a mouse button. Esc cancels.',
   'controls.waiting': '…',
+  'controls.unbound': '—',
   'controls.taken': '{key} is already bound to “{action}”.',
   'controls.reserved': '{key} cannot be bound: the browser or the hotbar uses it.',
   'controls.keyOnly': '{key} cannot be bound to “{action}”: it takes a keyboard key.',

@@ -5,6 +5,7 @@ import {
   DEFAULT_BINDINGS,
   type KeyBindings,
   rebind,
+  UNBOUND,
 } from '../../input/bindings.ts';
 import { h } from '../h.ts';
 import { menuButton, menuPanel } from './menuParts.ts';
@@ -181,8 +182,9 @@ export class ControlsScreen {
   private render(): void {
     for (const entry of this.slots) {
       const waiting = entry === this.waiting;
-      const code = this.bindings[entry.action][entry.slot] ?? '';
-      entry.button.textContent = waiting ? t('controls.waiting') : this.actions.label(code);
+      const code = this.bindings[entry.action][entry.slot] ?? UNBOUND;
+      const label = code === UNBOUND ? t('controls.unbound') : this.actions.label(code);
+      entry.button.textContent = waiting ? t('controls.waiting') : label;
       entry.button.classList.toggle('waiting', waiting);
     }
   }

@@ -5,6 +5,7 @@ import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/reg
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { addStrings } from '../i18n/i18n.ts';
+import { actionForCode } from '../input/bindings.ts';
 import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { openSaveBackend } from '../platform/IdbStorage.ts';
@@ -301,8 +302,8 @@ export class App {
     const overlay = new DebugOverlay(this.params.debug);
     this.overlay = overlay;
     window.addEventListener('keydown', (event) => {
-      const keys = this.input?.bindings.debug;
-      if (keys?.includes(event.code) && !(event.target instanceof HTMLInputElement)) {
+      const debugKey = this.input && actionForCode(this.input.bindings, event.code) === 'debug';
+      if (debugKey && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         overlay.toggle();
       }

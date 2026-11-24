@@ -99,7 +99,14 @@ export function bindable(code: string, action: Action): boolean {
   );
 }
 
+/**
+ * A key slot with no code: readBindings leaves a stored dead binding there when every default of
+ * its action is another action's. No key fires it (a key event's code may be empty).
+ */
+export const UNBOUND = '';
+
 export function actionForCode(bindings: KeyBindings, code: string): Action | null {
+  if (code === UNBOUND) return null;
   for (const action of ACTIONS) if (bindings[action].includes(code)) return action;
   return null;
 }
@@ -136,23 +143,39 @@ export function rebind(
 }
 
 /**
- * Bindings from stored data: an action keeps its stored codes when it may take them all and they
- * are as many as its default's, else it gets its default. A code bound twice gives the defaults.
+ * Bindings from stored data: an action keeps each stored code it may take when they are as many
+ * as its default's (else none). A slot left without one takes the first of its action's defaults
+ * that no slot holds (its own first), else stays UNBOUND: a dead binding never takes another
+ * action's key. A code stored twice gives the defaults.
  */
 export function readBindings(data: unknown): KeyBindings {
   const stored = (data ?? {}) as Partial<Record<Action, unknown>>;
-  const out = {} as Record<Action, readonly string[]>;
+  const out = {} as Record<Action, string[]>;
   const seen = new Set<string>();
   for (const action of ACTIONS) {
     const value = stored[action];
-    const valid =
-      Array.isArray(value) &&
-      value.length === DEFAULT_BINDINGS[action].length &&
-      value.every((code) => typeof code === 'string' && bindable(code, action));
-    out[action] = valid ? [...(value as string[])] : DEFAULT_BINDINGS[action];
+    const defaults = DEFAULT_BINDINGS[action];
+    const fits = Array.isArray(value) && value.length === defaults.length;
+    out[action] = defaults.map((_, slot) => {
+      const code: unknown = fits ? value[slot] : undefined;
+      return typeof code === 'string' && bindable(code, action) ? code : UNBOUND;
+    });
     for (const code of out[action]) {
+      if (code === UNBOUND) continue;
       if (seen.has(code)) return DEFAULT_BINDINGS;
       seen.add(code);
+    }
+  }
+  // Once every stored code is known, so a fallback never takes a key the player gave elsewhere.
+  for (const action of ACTIONS) {
+    const codes = out[action];
+    const defaults = DEFAULT_BINDINGS[action];
+    for (let slot = 0; slot < codes.length; slot++) {
+      if (codes[slot] !== UNBOUND) continue;
+      const free = [defaults[slot]!, ...defaults].find((code) => !seen.has(code));
+      if (free === undefined) continue;
+      codes[slot] = free;
+      seen.add(free);
     }
   }
   return out;
