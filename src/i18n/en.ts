@@ -276,6 +276,7 @@ export const en = {
   'controls.waiting': '…',
   'controls.taken': '{key} is already bound to “{action}”.',
   'controls.reserved': '{key} cannot be bound: the browser or the hotbar uses it.',
+  'controls.keyOnly': '{key} cannot be bound to “{action}”: it takes a keyboard key.',
   'controls.reset': 'Reset to defaults',
   'controls.restored': 'Default keys restored.',
   'action.forward': 'Move forward',

@@ -1,14 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { App } from '../../../src/app/App.ts';
 import { type BootParams, DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
 import { Game, type GameHost } from '../../../src/app/Game.ts';
+import { applyQuality } from '../../../src/app/graphicsPreset.ts';
 import type { FrameStats } from '../../../src/app/perf.ts';
 import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
 import { DEFAULT_BINDINGS, type KeyBindings } from '../../../src/input/bindings.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import { KeyLabels } from '../../../src/input/keyLabels.ts';
-import { DEFAULT_SETTINGS, SETTINGS_KEY, writeSettings } from '../../../src/platform/settings.ts';
+import {
+  DEFAULT_SETTINGS,
+  SETTINGS_KEY,
+  withQuality,
+  writeSettings,
+} from '../../../src/platform/settings.ts';
 import type { WorkerPool } from '../../../src/platform/WorkerPool.ts';
 import { lockWorld } from '../../../src/platform/worldLock.ts';
+import { QUALITY_PRESETS, type Quality } from '../../../src/render/quality.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { installFakeWindow, removeFakeWindow } from '../../helpers/fakeTarget.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -176,9 +184,19 @@ describe('save & quit', () => {
   });
 });
 
-/** A key pressed while playing or in the menus (the game listens on the window). */
-function press(s: ReturnType<typeof setup>, code: string) {
-  const event = { code, key: code, repeat: false, defaultPrevented: false, stopPropagation() {} };
+/**
+ * A key pressed while playing or in the menus (the game listens on the window), sent to `target`
+ * (the focused element) when given.
+ */
+function press(s: ReturnType<typeof setup>, code: string, target?: FakeElement) {
+  const event = {
+    code,
+    key: code,
+    repeat: false,
+    defaultPrevented: false,
+    target,
+    stopPropagation() {},
+  };
   s.win.dispatch('keydown', event);
 }
 
@@ -246,6 +264,52 @@ describe('settings', () => {
     expect(s.game.menus.screen()).toBe('controls');
     press(s, 'KeyP');
     expect(s.game.menus.screen()).toBe('settings');
+    s.game.changeSettings(DEFAULT_SETTINGS);
+  });
+
+  it('types a pause key rebound to a letter into a text box, where Esc still goes back', async () => {
+    const s = setup();
+    await s.game.start();
+    const menus = s.game.menus.element as unknown as FakeElement;
+    // The browser reflects the type attribute as the `type` property.
+    const field = (name: string) =>
+      Object.assign(menus.findAll((e) => e.getAttribute('name') === name)[0]!, { type: 'text' });
+    s.button('worlds').dispatch('click');
+    s.button('new-world').dispatch('click');
+    expect(s.game.menus.screen()).toBe('newWorld');
+    press(s, 'Escape', field('name'));
+    expect(s.game.menus.screen()).toBe('worlds');
+    s.game.changeSettings({
+      ...DEFAULT_SETTINGS,
+      bindings: { ...DEFAULT_BINDINGS, pause: ['KeyP'] },
+    });
+    s.button('new-world').dispatch('click');
+    press(s, 'KeyP', field('name'));
+    press(s, 'KeyP', field('seed'));
+    expect(s.game.menus.screen()).toBe('newWorld');
+    // Off the text boxes (a button has the focus), P goes back.
+    press(s, 'KeyP', s.button('create'));
+    expect(s.game.menus.screen()).toBe('worlds');
+    s.game.changeSettings(DEFAULT_SETTINGS);
+  });
+
+  it('applies a quality preset from the debug hook through the settings, particles included', async () => {
+    const s = setup({ rd: null });
+    await s.game.createWorld({ name: 'Low', seed: 'low', hostiles: true });
+    const session = s.game.open!.session;
+    const app = { game: s.game } as unknown as App;
+    expect(applyQuality(app, 'low')).toEqual(withQuality(DEFAULT_SETTINGS, 'low'));
+    expect(s.game.settings).toEqual(withQuality(DEFAULT_SETTINGS, 'low'));
+    expect(session.play.particles.enabled).toBe(false);
+    expect(session.renderDistance).toBe(QUALITY_PRESETS.low.renderDistance);
+    expect(s.pixelRatios.at(-1)).toBe(QUALITY_PRESETS.low.pixelRatio);
+    // A later change of another setting keeps the preset (the settings never drifted from it).
+    s.game.changeSettings({ ...s.game.settings, fov: 90 });
+    expect(session.renderDistance).toBe(QUALITY_PRESETS.low.renderDistance);
+    expect(s.pixelRatios.at(-1)).toBe(QUALITY_PRESETS.low.pixelRatio);
+    expect(() => applyQuality(app, 'ultra' as Quality)).toThrow(/Unknown quality/);
+    // Developer scenes have no game, so no settings.
+    expect(applyQuality({ game: null } as unknown as App, 'low')).toBeNull();
     s.game.changeSettings(DEFAULT_SETTINGS);
   });
 

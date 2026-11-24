@@ -1,10 +1,8 @@
-import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../../render/quality.ts';
 import type { App } from '../App.ts';
 import { caveBenchmark } from '../bench/cave.ts';
 import { DIG, digBenchmark } from '../bench/dig.ts';
 import { flyBenchmark, walkBenchmark } from '../bench/motion.ts';
 import { loadBenchmark } from '../benchmarks.ts';
-import { applyQuality } from '../graphicsPreset.ts';
 import {
   assert,
   assertTiming,
@@ -15,12 +13,13 @@ import {
 } from './support.ts';
 
 /**
- * M11 « Fait quand » performance checks (cave culling, benchmarks, quality presets), on the
- * generated world with real ticks: ?seed=7&rd=6&selftest=m0,<suite> (the free-camera `fly` case
- * with &freecam=1 instead). Deterministic counters (draws, triangles, sections) are hard checks;
- * frame-time thresholds are only checked on the bench build (`npm run bench`, pane visible: docs
- * « les mesures de perf se font uniquement sur bench »), and wall-clock ones not on slow CI
- * renderers (?timing=0). Part of the m11 suite (selftest/m11.ts).
+ * M11 « Fait quand » performance checks (cave culling, benchmarks), on the generated world with
+ * real ticks: ?seed=7&rd=6&selftest=m0,<suite> (the free-camera `fly` case with &freecam=1
+ * instead); the quality presets are checked with the settings (m11settings.ts). Deterministic
+ * counters (draws, triangles, sections) are hard checks; frame-time thresholds are only checked on
+ * the bench build (`npm run bench`, pane visible: docs « les mesures de perf se font uniquement
+ * sur bench »), and wall-clock ones not on slow CI renderers (?timing=0). Part of the m11 suite
+ * (selftest/m11.ts).
  */
 
 /** « `cave` : ≤ 150 draws » and « −30 % de draws sous terre par rapport à occlusion=0 ». */
@@ -132,27 +131,6 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
       const fly = await flyBenchmark(app, FLY_SECONDS);
       assert(fly.frames > 0 && fly.workP95 > 0, `no frame sampled: ${JSON.stringify(fly)}`);
       onBench(app, fly.workP95 <= FLY_WORK_P95_MS, `fly work p95 ${fly.workP95.toFixed(2)} ms`);
-    },
-  },
-  {
-    name: 'render.setQuality: a preset sets the render distance and caps the pixel ratio',
-    scenes: PLAY_SCENES,
-    timeoutMs: 30_000,
-    skip: needsRealTimeGeneratedPlayer,
-    run: async (app) => {
-      const session = await playerSession(app);
-      const rd = session.renderDistance;
-      const renderer = app.renderer!;
-      try {
-        const low = applyQuality(app, 'low');
-        assert(session.renderDistance === QUALITY_PRESETS.low.renderDistance, 'render distance');
-        assert(low.pixelRatio <= QUALITY_PRESETS.low.pixelRatio, `pixel ratio ${low.pixelRatio}`);
-      } finally {
-        renderer.setMaxPixelRatio(
-          QUALITY_PRESETS[app.params.quality ?? DEFAULT_QUALITY].pixelRatio,
-        );
-        session.setRenderDistance(rd);
-      }
     },
   },
 ];

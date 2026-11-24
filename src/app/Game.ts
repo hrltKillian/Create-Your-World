@@ -1,7 +1,7 @@
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import type { Registry } from '../content/registry.ts';
 import { t } from '../i18n/i18n.ts';
-import { BASE_SENSITIVITY, type InputManager } from '../input/InputManager.ts';
+import { BASE_SENSITIVITY, type InputManager, isTextField } from '../input/InputManager.ts';
 import type { SaveBackend } from '../platform/IdbStorage.ts';
 import type { SaveStatus } from '../platform/SaveManager.ts';
 import {
@@ -331,11 +331,13 @@ export class Game {
    * The pause key (Esc unless rebound): back one menu screen; on the pause menu, resume when there
    * is no Pointer Lock (a key is not a user gesture, so it cannot capture the mouse); while
    * playing, pause. The bag takes its own Esc first (it marks the event), and the Key bindings
-   * screen every key while it waits for one.
+   * screen every key while it waits for one. A pause key rebound to a letter is typed into a text
+   * box (the New world name and seed), where Esc still goes back.
    */
   private readonly onPauseKey = (event: KeyboardEvent): void => {
     const keys = this.host.input.bindings.pause;
     if (event.repeat || event.defaultPrevented || !keys.includes(event.code)) return;
+    if (event.code !== 'Escape' && isTextField(event.target)) return;
     if (this.state === 'menu' || this.state === 'paused') {
       if (!this.menus.back() && this.state === 'paused' && !this.host.input.pointer) this.resume();
     } else if ((this.state === 'world' || this.state === 'loading') && this.open?.canPause()) {

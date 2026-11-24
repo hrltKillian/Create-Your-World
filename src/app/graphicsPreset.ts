@@ -1,16 +1,18 @@
-import { QUALITIES, QUALITY_PRESETS, type Quality } from '../render/quality.ts';
+import { type Settings, withQuality } from '../platform/settings.ts';
+import { QUALITIES, type Quality } from '../render/quality.ts';
 import type { App } from './App.ts';
 
 /**
- * Applies a graphics preset now (`render.setQuality`): the drawing buffer's pixel-ratio cap and
- * the render distance of the open world (the particles switch arrives with the settings screen).
- * Returns the preset and the pixel ratio in use.
+ * Applies a graphics preset now (`render.setQuality`) the way the Settings screen's Quality choice
+ * does, through `Game.changeSettings`: its render distance, resolution and particles apply at once
+ * and are stored (`?rd=` and `?quality=` still win, as there). Returns the settings in use; null
+ * without a game (developer scenes).
  */
-export function applyQuality(app: App, quality: Quality) {
+export function applyQuality(app: App, quality: Quality): Settings | null {
   if (!QUALITIES.includes(quality))
     throw new Error(`Unknown quality "${quality}" (${QUALITIES.join(', ')})`);
-  const preset = QUALITY_PRESETS[quality];
-  app.renderer?.setMaxPixelRatio(preset.pixelRatio);
-  app.session?.setRenderDistance(preset.renderDistance);
-  return { quality, ...preset, pixelRatio: app.renderer?.webgl.getPixelRatio() ?? 0 };
+  const game = app.game;
+  if (!game) return null;
+  game.changeSettings(withQuality(game.settings, quality));
+  return game.settings;
 }

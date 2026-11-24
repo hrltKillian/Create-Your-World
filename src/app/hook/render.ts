@@ -58,7 +58,10 @@ export function renderHook(app: App) {
       if (enabled !== undefined) chunks.occlusion.setEnabled(enabled);
       return { ...chunks.occlusion.stats(), hidden: chunks.stats().hidden };
     },
-    /** A graphics preset now ('low', 'medium', 'high'): pixel-ratio cap and render distance. */
+    /**
+     * A graphics preset now ('low', 'medium', 'high'), applied and stored like the Settings
+     * screen's (render distance, resolution, particles); the settings in use.
+     */
     setQuality: (quality: Quality) => applyQuality(app, quality),
     /** Animation angles (degrees) and head pivot height of an entity's rig. */
     rig: (who: 'player' | number = 'player') => {

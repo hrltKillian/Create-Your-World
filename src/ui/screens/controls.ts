@@ -29,10 +29,11 @@ interface KeySlot {
  * slots (as many as its defaults), labelled from the player's keyboard layout. A click on a slot
  * waits for a key, or for a mouse button pressed on that slot; Esc cancels, except on a pause
  * slot (Esc is the pause key's own), and a press anywhere else stops waiting. A key no action may
- * take (Ctrl, Cmd, Alt, F5, F11, F12, the hotbar digits) or one another slot holds is refused with
- * a line saying so: conflicts are never swapped. Reset to defaults puts every key back. While it
- * waits, the screen takes every key first (window, capture phase), so neither the pause, the bag
- * nor the debug overlay sees it.
+ * take (Ctrl, Cmd, Alt, F5, F11, F12, the hotbar digits), one another slot holds, or a mouse button
+ * for an action only keys drive (bag, debug overlay, pause) is refused with a line saying so:
+ * conflicts are never swapped. Reset to defaults puts every key back. While it waits, the screen
+ * takes every key first (window, capture phase), so neither the pause, the bag nor the debug
+ * overlay sees it.
  */
 export class ControlsScreen {
   readonly element: HTMLElement;
@@ -158,6 +159,8 @@ export class ControlsScreen {
       this.apply(result.bindings);
     } else if (result.reason === 'taken') {
       this.say(t('controls.taken', { key, action: t(`action.${result.by}`) }));
+    } else if (result.reason === 'keyOnly') {
+      this.say(t('controls.keyOnly', { key, action: t(`action.${entry.action}`) }));
     } else {
       this.say(t('controls.reserved', { key }));
     }

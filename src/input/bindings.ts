@@ -80,9 +80,18 @@ export const RESERVED_CODES: ReadonlySet<string> = new Set([
 /** Mouse buttons an action can take: left, middle and right (the side buttons navigate back). */
 export const MOUSE_CODES: readonly string[] = ['Mouse0', 'Mouse1', 'Mouse2'];
 
-/** A code an action may take: a key or a MOUSE_CODES button, never a reserved or a hotbar key. */
-export function bindable(code: string): boolean {
-  if (code.startsWith('Mouse')) return MOUSE_CODES.includes(code);
+/**
+ * Actions read from key presses only (the bag, the debug overlay, pause and back listen to
+ * keydown): a mouse button bound to one would do nothing.
+ */
+const KEY_ONLY: readonly Action[] = ['inventory', 'debug', 'pause'];
+
+/**
+ * A code `action` may take: a key, or a MOUSE_CODES button unless the action is KEY_ONLY; never a
+ * reserved or a hotbar key.
+ */
+export function bindable(code: string, action: Action): boolean {
+  if (code.startsWith('Mouse')) return MOUSE_CODES.includes(code) && !KEY_ONLY.includes(action);
   return (
     /^[A-Z][A-Za-z0-9]{0,31}$/.test(code) &&
     !RESERVED_CODES.has(code) &&
@@ -95,10 +104,13 @@ export function actionForCode(bindings: KeyBindings, code: string): Action | nul
   return null;
 }
 
-/** What a rebinding did: the new bindings, or why it was refused. */
+/**
+ * What a rebinding did: the new bindings, or why it was refused (`keyOnly`: a mouse button for a
+ * KEY_ONLY action).
+ */
 export type Rebinding =
   | { readonly ok: true; readonly bindings: KeyBindings }
-  | { readonly ok: false; readonly reason: 'reserved' }
+  | { readonly ok: false; readonly reason: 'reserved' | 'keyOnly' }
   | { readonly ok: false; readonly reason: 'taken'; readonly by: Action };
 
 /**
@@ -113,7 +125,10 @@ export function rebind(
   code: string,
 ): Rebinding {
   const codes = bindings[action];
-  if (slot < 0 || slot >= codes.length || !bindable(code)) return { ok: false, reason: 'reserved' };
+  if (slot < 0 || slot >= codes.length) return { ok: false, reason: 'reserved' };
+  // A MOUSE_CODES button is refused only for a KEY_ONLY action.
+  if (!bindable(code, action))
+    return { ok: false, reason: MOUSE_CODES.includes(code) ? 'keyOnly' : 'reserved' };
   if (codes[slot] === code) return { ok: true, bindings };
   const by = actionForCode(bindings, code);
   if (by) return { ok: false, reason: 'taken', by };
@@ -121,8 +136,8 @@ export function rebind(
 }
 
 /**
- * Bindings from stored data: an action keeps its stored codes when they are bindable and as many
- * as its default's, else it gets its default. A code bound twice gives the defaults.
+ * Bindings from stored data: an action keeps its stored codes when it may take them all and they
+ * are as many as its default's, else it gets its default. A code bound twice gives the defaults.
  */
 export function readBindings(data: unknown): KeyBindings {
   const stored = (data ?? {}) as Partial<Record<Action, unknown>>;
@@ -133,7 +148,7 @@ export function readBindings(data: unknown): KeyBindings {
     const valid =
       Array.isArray(value) &&
       value.length === DEFAULT_BINDINGS[action].length &&
-      value.every((code) => typeof code === 'string' && bindable(code));
+      value.every((code) => typeof code === 'string' && bindable(code, action));
     out[action] = valid ? [...(value as string[])] : DEFAULT_BINDINGS[action];
     for (const code of out[action]) {
       if (seen.has(code)) return DEFAULT_BINDINGS;

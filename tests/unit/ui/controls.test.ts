@@ -141,6 +141,19 @@ describe('ControlsScreen', () => {
     expect(s.slot('drop:0').textContent).toBe('G');
   });
 
+  it('refuses a mouse button for the bag, the debug overlay and pause, saying why', () => {
+    const s = setup();
+    for (const action of ['inventory', 'debug', 'pause'] as const) {
+      s.slot(`${action}:0`).dispatch('click');
+      s.press(s.slot(`${action}:0`), 1);
+      expect(s.status()).toBe(
+        t('controls.keyOnly', { key: t('key.mouseMiddle'), action: t(`action.${action}`) }),
+      );
+      expect(s.slot(`${action}:0`).classList.contains('waiting')).toBe(false);
+    }
+    expect(s.changes).toEqual([]);
+  });
+
   it('resets every key to its default', () => {
     const s = setup({ ...DEFAULT_BINDINGS, jump: ['KeyJ'], camera: ['KeyB'] });
     s.slot('drop:0').dispatch('click');
