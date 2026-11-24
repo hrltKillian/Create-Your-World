@@ -153,6 +153,11 @@ export class GameSession {
     this.paused = paused;
   }
 
+  /** No ticks from the frame loop: the pause menu or the click-to-play overlay is up. */
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   get spawn(): { readonly x: number; readonly y: number; readonly z: number } {
     return this.host.view.spawn;
   }
