@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { FLAG_SOLID } from '../../../src/content/registry.ts';
-import { CameraRig } from '../../../src/render/CameraRig.ts';
+import { EYE_HEIGHT } from '../../../src/core/player.ts';
+import {
+  BOB,
+  CameraRig,
+  DIP_MAX,
+  HURT_ROLL,
+  pulse,
+  SPRINT_FOV,
+} from '../../../src/render/CameraRig.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
 import type { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
@@ -97,5 +105,135 @@ describe('third-person camera', () => {
         expect(clear(w, rig)).toBe(true);
       }
     }
+  });
+});
+
+describe('first-person feel', () => {
+  const FRAME = 1 / 60;
+
+  /** A rig over a player on the ground; each frame moves the feet `move` m/s north (−z). */
+  function walker() {
+    const w = flatWorld();
+    const player = createPlayer(1, 0.5, 64, 0.5, 2, registry.pack.balance);
+    player.body.onGround = true;
+    const rig = new CameraRig();
+    const frame = (move = 0) => {
+      player.prevZ = player.body.z;
+      player.body.z -= move * FRAME;
+      rig.update(player, 1, w, registry.tables, FRAME);
+      return rig.pose.y - rig.eye.y;
+    };
+    /** The lowest and highest camera offset from the eye over `seconds` of frames. */
+    const range = (seconds: number, move = 0) => {
+      let low = Number.POSITIVE_INFINITY;
+      let high = Number.NEGATIVE_INFINITY;
+      for (let i = 0; i < seconds * 60; i++) {
+        const offset = frame(move);
+        low = Math.min(low, offset);
+        high = Math.max(high, offset);
+      }
+      return { low, high };
+    };
+    return { player, rig, frame, range };
+  }
+
+  it('bobs 0.035 m while walking, the eye staying put, and eases to rest', () => {
+    const { player, rig, frame, range } = walker();
+    range(1, 4.3);
+    const walking = range(1, 4.3);
+    expect(walking.high).toBeCloseTo(BOB, 3);
+    expect(walking.low).toBeCloseTo(-BOB, 3);
+    // The aim's origin never bobs.
+    expect(rig.eye.y).toBe(64 + EYE_HEIGHT);
+    expect(Math.abs(rig.pose.x - rig.eye.x)).toBeLessThanOrEqual(BOB / 2);
+    // Standing still, in the air or with the bob off: back to the eye.
+    range(1);
+    expect(Math.abs(frame())).toBeLessThan(1e-3);
+    player.body.onGround = false;
+    range(1, 4.3);
+    expect(Math.abs(frame(4.3))).toBeLessThan(1e-3);
+    player.body.onGround = true;
+    rig.viewBob = false;
+    const off = range(1, 4.3);
+    expect([off.low, off.high]).toEqual([0, 0]);
+    expect(rig.pose.x).toBe(rig.eye.x);
+  });
+
+  it('bobs less while crouch-walking, and a teleport is no step', () => {
+    const { frame, range } = walker();
+    range(1, 1.6);
+    const slow = range(1, 1.6);
+    expect(slow.high).toBeLessThan(BOB * 0.6);
+    expect(slow.high).toBeGreaterThan(BOB * 0.3);
+    range(1);
+    expect(Math.abs(frame(600))).toBeLessThan(1e-3);
+  });
+
+  it('dips on a landing, deeper for a longer fall, then comes back', () => {
+    const { rig, frame, range } = walker();
+    frame();
+    rig.land(10);
+    expect(range(0.2).low).toBeCloseTo(-DIP_MAX, 2);
+    range(0.3);
+    expect(frame()).toBe(0);
+    rig.land(1);
+    const shallow = range(0.5).low;
+    expect(shallow).toBeLessThan(-0.02);
+    expect(shallow).toBeGreaterThan(-DIP_MAX / 2);
+    expect(rig.eye.y).toBe(64 + EYE_HEIGHT);
+  });
+
+  it('rolls towards the side a blow came from, then levels', () => {
+    const { rig, frame } = walker();
+    frame();
+    /** The roll over the next 0.1 s that is farthest from level. */
+    const peak = () => {
+      let roll = 0;
+      for (let i = 0; i < 6; i++) {
+        frame();
+        if (Math.abs(rig.pose.roll!) > Math.abs(roll)) roll = rig.pose.roll!;
+      }
+      return roll;
+    };
+    // Looking north: east is on the right; a negative roll leans the view right.
+    rig.hurt(5.5, 0.5);
+    expect(peak()).toBeCloseTo(-HURT_ROLL, 2);
+    for (let i = 0; i < 30; i++) frame();
+    expect(Math.abs(rig.pose.roll!)).toBe(0);
+    rig.hurt(-4.5, 0.5);
+    expect(peak()).toBeCloseTo(HURT_ROLL, 2);
+    // Turned to face east, the same blow from the east comes from straight ahead: rightwards.
+    rig.yaw = -Math.PI / 2;
+    for (let i = 0; i < 30; i++) frame();
+    rig.hurt(0.5, 5.5);
+    expect(peak()).toBeLessThan(0);
+  });
+
+  it('widens the view by 8° while sprinting in first person, smoothly', () => {
+    const { player, rig, frame } = walker();
+    player.sprinting = true;
+    frame();
+    expect(rig.pose.fovOffset).toBeGreaterThan(0);
+    expect(rig.pose.fovOffset).toBeLessThan(SPRINT_FOV / 2);
+    for (let i = 0; i < 30; i++) frame(6.4);
+    expect(rig.pose.fovOffset).toBeCloseTo(SPRINT_FOV, 1);
+    player.sprinting = false;
+    for (let i = 0; i < 60; i++) frame();
+    expect(rig.pose.fovOffset).toBe(0);
+    // In third person the view keeps the setting, and never rolls.
+    rig.mode = 'third';
+    player.sprinting = true;
+    rig.hurt(5.5, 0.5);
+    for (let i = 0; i < 30; i++) frame(6.4);
+    expect([rig.pose.fovOffset, rig.pose.roll]).toEqual([0, 0]);
+  });
+
+  it('shapes the dip and the roll with a quick rise and a slower fall', () => {
+    expect(pulse(0, 0.1, 0.3)).toBe(0);
+    expect(pulse(0.1, 0.1, 0.3)).toBe(1);
+    expect(pulse(0.05, 0.1, 0.3)).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(pulse(0.25, 0.1, 0.3)).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(pulse(0.4, 0.1, 0.3)).toBe(0);
+    expect(pulse(Number.POSITIVE_INFINITY, 0.1, 0.3)).toBe(0);
   });
 });

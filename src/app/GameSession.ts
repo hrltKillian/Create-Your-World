@@ -99,7 +99,7 @@ export class GameSession {
       missingLight: 0,
       air: registry.air,
     });
-    this.play = new PlayView(view, this.host.view);
+    this.play = new PlayView(view, this.host.view, this.rig);
     this.entities = this.play.entities;
     this.aim = new ClientAim(this.host.view.world, registry, this.player, this.host.view.entities);
     // Puts the eye at the spawn before the first frame, so the first ticks aim from there.

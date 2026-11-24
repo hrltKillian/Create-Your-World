@@ -48,7 +48,11 @@ export const BOX_NO_TINT = 0xffffff;
  * 8 bits a channel packed as 0xRRGGBB, which a float attribute holds exactly.
  */
 export function boxTint(hex: string): number {
-  const c = new Color(hex);
+  return colorTint(new Color(hex));
+}
+
+/** A linear colour (the chunks' tint uniforms hold these) packed as `boxTint` does. */
+export function colorTint(c: Color): number {
   return (Math.round(c.r * 255) << 16) | (Math.round(c.g * 255) << 8) | Math.round(c.b * 255);
 }
 

@@ -29,6 +29,10 @@ export interface CameraPose {
   yaw: number;
   /** Radians, positive looks up. */
   pitch: number;
+  /** Radians around the view axis, positive leans left (a blow taken); 0 when absent. */
+  roll?: number;
+  /** Degrees added to the field of view setting (sprinting); 0 when absent. */
+  fovOffset?: number;
 }
 
 export interface CaptureStats {
@@ -68,6 +72,8 @@ export class WorldView {
   private underwater = false;
   private hand: HandView | null = null;
   private elapsed = 0;
+  /** The field of view setting (degrees). */
+  private fov = this.camera.fov;
 
   constructor(
     renderer: Renderer,
@@ -102,8 +108,9 @@ export class WorldView {
     hand.camera.updateProjectionMatrix();
   }
 
-  /** Vertical field of view of the world camera, in degrees (Settings). */
+  /** Vertical field of view of the world camera, in degrees (Settings; a pose may add to it). */
   setFov(degrees: number): void {
+    this.fov = degrees;
     this.camera.fov = degrees;
     this.camera.updateProjectionMatrix();
   }
@@ -142,7 +149,12 @@ export class WorldView {
 
   setPose(pose: CameraPose): void {
     this.camera.position.set(pose.x, pose.y, pose.z);
-    this.camera.rotation.set(pose.pitch, pose.yaw, 0);
+    this.camera.rotation.set(pose.pitch, pose.yaw, pose.roll ?? 0);
+    const fov = this.fov + (pose.fovOffset ?? 0);
+    if (fov !== this.camera.fov) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   setDebugView(view: DebugView): void {
