@@ -11,6 +11,7 @@ import { type CapabilityReport, detectCapabilities } from '../platform/capabilit
 import { openSaveBackend } from '../platform/IdbStorage.ts';
 import { DEFAULT_SETTINGS } from '../platform/settings.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
+import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../render/quality.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
 import { createTextureArray } from '../render/textureArray.ts';
@@ -64,6 +65,8 @@ export class App {
   /** Menus, saves and the world open in this tab (null in the developer scenes). */
   game: Game | null = null;
   debugView: DebugView = 'none';
+  /** performance.now() (from the navigation start) of the first frame in play; −1 until then. */
+  playableAt = -1;
 
   private readonly root: HTMLElement;
   private readonly readyPromise: Promise<void>;
@@ -136,7 +139,7 @@ export class App {
       this.workers = new WorkerPool(workerCount(navigator.hardwareConcurrency));
       this.workers.onFatal = (reason) => this.fail(new Error(reason));
       this.renderer = new Renderer(this.root, {
-        maxPixelRatio: 1.5,
+        maxPixelRatio: QUALITY_PRESETS[this.params.quality ?? DEFAULT_QUALITY].pixelRatio,
         // The bench build always renders at a fixed size so fill cost does not depend on the pane.
         fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
       });
@@ -170,6 +173,9 @@ export class App {
   setDebugView(view: DebugView): void {
     this.debugView = view;
     this.view?.setDebugView(view);
+    // The xray view shows the caves, the test scene everything: no cave culling with them.
+    const cull = this.params.occlusion && view !== 'xray' && !this.testScene;
+    this.view?.chunks.occlusion.setEnabled(cull);
     this.session?.scheduler.setXray(view === 'xray');
   }
 
@@ -227,7 +233,9 @@ export class App {
     tints: readonly string[],
   ): WorldView {
     const textures = createTextureArray(layers, pack.manifest.textureSize);
-    return new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
+    const view = new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
+    view.chunks.occlusion.setEnabled(this.params.occlusion);
+    return view;
   }
 
   /** The sound engine: recipes pre-rendered now, the AudioContext made or resumed on a click. */
@@ -249,6 +257,8 @@ export class App {
     const pack = registry.pack;
     const view = this.createWorldView(pack, packLayers(pack), packTints(pack));
     this.view = view;
+    // A showcase seen whole (m1 counts one draw per mesh): no cave culling.
+    view.chunks.occlusion.setEnabled(false);
     const world = new VoxelWorld(registry.air, registry.unknownBlock);
     buildTestScene(world, registry);
     meshTestScene(world, registry, view.chunks);
@@ -329,6 +339,7 @@ export class App {
         this.lastFrame = now;
         frame(dt);
         this.frames.frameEnd();
+        if (this.playableAt < 0 && this.state === 'world') this.playableAt = performance.now();
         this.resolveReady();
       } catch (error) {
         // three schedules the next frame before calling us: stop the loop and show the error once.

@@ -1,3 +1,4 @@
+import { parseQuality, QUALITY_PRESETS, type Quality } from '../render/quality.ts';
 import type { WorldType } from '../world/gen/generateColumn.ts';
 
 /** URL parameters that drive deterministic boots for tests and debugging (dev and bench only). */
@@ -21,9 +22,16 @@ export interface BootParams {
   readonly timing: boolean;
   /** Debug render view: quads, ao or light. */
   readonly view: string | null;
-  /** Render distance in columns. */
+  /** Render distance in columns (else the `quality` preset's, else the setting). */
   readonly rd: number | null;
-  /** Benchmark run (fixed drawing-buffer size). */
+  /** Graphics preset: its pixel-ratio cap and, without `rd`, its render distance. */
+  readonly quality: Quality | null;
+  /** Cave culling (`?occlusion=0` turns it off). */
+  readonly occlusion: boolean;
+  /**
+   * Benchmark to run once the world is up (`walk`, `fly`, `cave`, `mobs`, `dig`, `load`; fixed
+   * drawing-buffer size; implies `skipMenu` and `noLock`).
+   */
   readonly bench: string | null;
   readonly worldType: WorldType;
   /** Keyboard layout used for key labels (otherwise detected). */
@@ -60,6 +68,8 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   timing: true,
   view: null,
   rd: null,
+  quality: null,
+  occlusion: true,
   bench: null,
   worldType: 'default',
   kb: null,
@@ -93,25 +103,33 @@ function ticks(value: string | null): number | null {
 export function parseBootParams(search: string, allowDebug: boolean): BootParams {
   if (!allowDebug) return DEFAULT_BOOT_PARAMS;
   const params = new URLSearchParams(search);
+  // Selftests and benchmarks run in a world, and cannot click through the menus or capture the mouse.
+  const automated = params.has('selftest') || params.has('bench');
+  const quality = parseQuality(params.get('quality'));
   return {
     seed: params.get('seed'),
-    // Selftests run in a world: they cannot click through the menus either.
-    skipMenu: flag(params, 'skipMenu') || params.has('selftest'),
+    skipMenu: flag(params, 'skipMenu') || automated,
     world: params.get('world'),
-    // Automated selftests cannot click to capture the mouse.
-    noLock: flag(params, 'noLock') || params.has('selftest'),
+    noLock: flag(params, 'noLock') || automated,
     debug: flag(params, 'debug'),
     storage: params.get('storage') === 'memory' ? 'memory' : 'idb',
     forceNoWebGL: flag(params, 'forceNoWebGL'),
     forceNoIdb: flag(params, 'forceNoIdb'),
     scene: params.get('scene'),
-    freecam: flag(params, 'freecam'),
+    // The fly benchmark flies the free camera.
+    freecam: flag(params, 'freecam') || params.get('bench') === 'fly',
     fixedStep: flag(params, 'fixedStep'),
     selftest: params.get('selftest'),
     mute: flag(params, 'mute'),
     timing: params.get('timing') !== '0',
     view: params.get('view'),
-    rd: params.has('rd') ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6)) : null,
+    rd: params.has('rd')
+      ? Math.max(2, Math.min(12, Number(params.get('rd')) || 6))
+      : quality
+        ? QUALITY_PRESETS[quality].renderDistance
+        : null,
+    quality,
+    occlusion: params.get('occlusion') !== '0',
     bench: params.get('bench'),
     worldType: (['flat', 'arena'] as const).find((w) => w === params.get('worldType')) ?? 'default',
     kb: (['qwerty', 'azerty', 'qwertz'] as const).find((k) => k === params.get('kb')) ?? null,

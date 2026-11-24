@@ -1,6 +1,31 @@
-/** Frame statistics: rAF intervals (pacing) and CPU work time per frame (budgets). */
+/** Frame statistics: rAF intervals (pacing), CPU work time per frame and per subsystem (budgets). */
 
 const WINDOW = 240;
+
+/** Subsystems timed every frame of play (docs « Budgets du thread principal par image »). */
+export const SPANS = [
+  'input',
+  'sim',
+  'stream',
+  'mesh',
+  'upload',
+  'entities',
+  'ui',
+  'render',
+] as const;
+export type SpanName = (typeof SPANS)[number];
+
+/**
+ * The play session's share of one frame, in ms, written as it runs: input (mouse look, actions),
+ * sim (ticks), stream (world pumping while loading or in fixed steps), mesh (tick events, padded
+ * copies and mesh jobs), upload (finished meshes to the GPU), entities (camera, aim, play view).
+ */
+export type SessionSpans = Record<Exclude<SpanName, 'ui' | 'render'>, number>;
+
+const SPAN_INDEX = Object.fromEntries(SPANS.map((name, i) => [name, i])) as Record<
+  SpanName,
+  number
+>;
 
 export class FrameStats {
   private readonly intervals = new Float64Array(WINDOW);
@@ -9,8 +34,11 @@ export class FrameStats {
   private cursor = 0;
   private lastFrame = -1;
   private frameStartedAt = 0;
-  private readonly spans = new Map<string, Float64Array>();
-  private readonly spanCursor = new Map<string, number>();
+  private frameCount = 0;
+  /** One ring of WINDOW values per span, and each ring's cursor. */
+  private readonly spans = new Float64Array(WINDOW * SPANS.length);
+  private readonly spanCursor = new Int32Array(SPANS.length);
+  private readonly spanSeen = new Uint8Array(SPANS.length);
 
   /** Call at the very start of the animation-loop callback. */
   frameStart(now: number): void {
@@ -20,8 +48,6 @@ export class FrameStats {
     this.lastFrame = now;
     this.frameStartedAt = performance.now();
   }
-
-  private frameCount = 0;
 
   /** Frames completed so far (automation uses it to detect a throttled animation loop). */
   frameTotal(): number {
@@ -36,27 +62,63 @@ export class FrameStats {
     this.count = Math.min(WINDOW, this.count + 1);
   }
 
-  /** Records the time a subsystem took during this frame (ring buffer per name). */
-  span(name: string, ms: number): void {
-    let buffer = this.spans.get(name);
-    if (!buffer) {
-      buffer = new Float64Array(WINDOW);
-      this.spans.set(name, buffer);
-    }
-    const cursor = this.spanCursor.get(name) ?? 0;
-    buffer[cursor] = ms;
-    this.spanCursor.set(name, (cursor + 1) % WINDOW);
+  /** CPU work (ms) of the last completed frame (0 before the first). */
+  lastWork(): number {
+    return this.count > 0 ? this.work[(this.cursor + WINDOW - 1) % WINDOW]! : 0;
   }
 
-  /** p95 of each recorded subsystem span. */
-  spanP95(): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const [name, buffer] of this.spans) {
-      const values = Array.from(buffer)
+  /** rAF interval (ms) before the last completed frame (0 when unknown). */
+  lastInterval(): number {
+    return this.count > 0 ? this.intervals[(this.cursor + WINDOW - 1) % WINDOW]! : 0;
+  }
+
+  /** A span's time (ms) in the last frame that recorded it (0 before any). */
+  lastSpan(name: SpanName): number {
+    const i = SPAN_INDEX[name];
+    return this.spans[i * WINDOW + ((this.spanCursor[i]! + WINDOW - 1) % WINDOW)]!;
+  }
+
+  /** Records the time a subsystem took during this frame (one ring buffer per span). */
+  span(name: SpanName, ms: number): void {
+    const i = SPAN_INDEX[name];
+    const cursor = this.spanCursor[i]!;
+    this.spans[i * WINDOW + cursor] = ms;
+    this.spanCursor[i] = (cursor + 1) % WINDOW;
+    this.spanSeen[i] = 1;
+  }
+
+  /**
+   * The spans of one frame of play: the session's, the rest of the open world's frame (`ui`: the
+   * HUD and the slot screens; `worldMs` is the whole of it) and the world view's (`render`).
+   */
+  playSpans(session: Readonly<SessionSpans>, worldMs: number, renderMs: number): void {
+    const own =
+      session.input +
+      session.sim +
+      session.stream +
+      session.mesh +
+      session.upload +
+      session.entities;
+    this.span('input', session.input);
+    this.span('sim', session.sim);
+    this.span('stream', session.stream);
+    this.span('mesh', session.mesh);
+    this.span('upload', session.upload);
+    this.span('entities', session.entities);
+    this.span('ui', Math.max(0, worldMs - own));
+    this.span('render', renderMs);
+  }
+
+  /** p95 of each recorded span, over the frames where it took time (zeros left out). */
+  spanP95(): Partial<Record<SpanName, number>> {
+    const out: Partial<Record<SpanName, number>> = {};
+    SPANS.forEach((name, i) => {
+      if (!this.spanSeen[i]) return;
+      const values = Array.from(this.spans.subarray(i * WINDOW, (i + 1) * WINDOW))
         .filter((v) => v > 0)
         .sort((a, b) => a - b);
       out[name] = percentile(values, 0.95);
-    }
+    });
     return out;
   }
 

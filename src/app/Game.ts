@@ -271,8 +271,9 @@ export class Game {
       view.setPose(pose);
       view.frame(dt);
       audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
-      frames.span('world', t1 - t0);
-      frames.span('render', performance.now() - t1);
+      frames.playSpans(open.session.spans, t1 - t0, performance.now() - t1);
+      // Selftests stream on the nominal slices, so their waits do not depend on the machine.
+      if (!this.host.params.selftest) open.session.throttle.observe(frames.lastWork(), dt);
       const loading = open.session.loading;
       if (loading ? this.state === 'world' : this.state === 'loading')
         this.go(loading ? 'unloaded' : 'loaded');

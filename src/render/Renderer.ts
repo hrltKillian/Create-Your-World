@@ -21,7 +21,7 @@ export class Renderer {
   readonly webgl: WebGLRenderer;
   private readonly observer: ResizeObserver;
   private readonly container: HTMLElement;
-  private readonly maxPixelRatio: number;
+  private maxPixelRatio: number;
   private readonly fixedBuffer: readonly [number, number] | undefined;
   private dprQuery: MediaQueryList | null = null;
   private onResize: ((width: number, height: number) => void) | null = null;
@@ -41,6 +41,12 @@ export class Renderer {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
     this.watchPixelRatio();
+    this.resize();
+  }
+
+  /** Caps the pixel ratio (a quality preset's 1, 1.5 or 2) and resizes the drawing buffer. */
+  setMaxPixelRatio(ratio: number): void {
+    this.maxPixelRatio = ratio;
     this.resize();
   }
 

@@ -64,6 +64,8 @@ export class WorldView {
    * creatures farther from the camera are not drawn (CreatureView).
    */
   reach = 0;
+  /** Render distance in columns (the cave culling walks within it). */
+  private renderDistance = 0;
   /** Fog range of the render distance (above water). */
   private fogNear = 0;
   private fogFar = 1;
@@ -140,6 +142,7 @@ export class WorldView {
   /** Fog and far plane follow the render distance (in columns). */
   setRenderDistance(renderDistance: number): void {
     const reach = renderDistance * 32;
+    this.renderDistance = renderDistance;
     this.reach = reach;
     this.fogNear = reach * 0.55;
     this.fogFar = reach - 8;
@@ -181,7 +184,9 @@ export class WorldView {
     uniforms.uTime.value = this.elapsed % 3600;
     uniforms.uFlicker.value = torchFlicker(this.elapsed);
     this.updateSky();
-    this.sky.follow(this.camera.position.x, this.camera.position.y, this.camera.position.z);
+    const { x, y, z } = this.camera.position;
+    this.sky.follow(x, y, z);
+    this.chunks.cull(x, y, z, this.renderDistance);
     const webgl = this.renderer.webgl;
     webgl.info.reset();
     webgl.render(this.scene, this.camera);
