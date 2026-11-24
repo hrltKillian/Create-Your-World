@@ -151,9 +151,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `creatureCensus` (sim/creatures.ts) counts the living ones (the hook, `runBot` and the headless
     runner); `SimView.spawnLog`;
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
-    `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
-    `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
-    filled container's charges), `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
+    `moveStack`, `moveInto`, `quickMove`, `countMatching`/`takeMatching` for item-or-tag
+    ingredients, `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's,
+    gear's wear, a filled container's charges), `readStack`/`savedStack`, `fitStacks`; the
+    inventory's size `inventorySize`: `BASE_INVENTORY_SLOTS` 32 to `MAX_INVENTORY_SLOTS` 64, always
+    `inventory.length`); stack sizes `DEFAULT_STACK` 64, an item's `maxStack`, 1 for tools, weapons,
+    wearables and containers (`stackLimit`, `content/items.ts`; `registry.maxStack(key)`);
+  - the slot screens' rules (decision 20, owned by the simulation): the open screen and the cursor
+    stack `PlayerState.screen`/`cursor`, commands `screen.open {kind:'bag'}`/`screen.close` in
+    `sim/screens.ts` (whatever closes a screen puts the cursor back, `stowCursor`; a death takes it
+    into the pack), the clicks `slot.click {slot, button, shift}` (slot −1: beside the panel,
+    throws) and `slot.hotkey {slot, hotbar}` in `sim/slotClicks.ts` (`applySlotCommand`); slot
+    numbers: the inventory from 0, the open block entity's or the Bag's worn items from
+    `OPEN_SLOTS_BASE` (64, `sim/commands.ts`); bots, walks and automation send the clicks of
+    `sim/testing/slotMoves.ts` (`slotClick`, `shiftClick`, `moveClicks`, `inBag`); block entities `sim/blockEntities.ts`
     (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
     `structureLootAt` loot, `removeBlockEntity` spills (and drops a pack's grave markers),
     `withinReach`; kinds container, station, workbench, grave; a bedroll is `blockEntity: 'bed'`
@@ -186,8 +197,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `interaction.useItem`/`useTicks`: the action the press started, back to `NO_USE` once it
     stops: another item in hand, an aimed interactive block, a release), sips and fills in
     `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
-    (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`equip.move`: slots
-    32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
+    (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`wearSlotOf`,
+    `wearFilters`; slots 64–68 of the Bag's clicks, head to feet); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
     Abandoned Pack (`registry.grave`), `player.respawn` and `recoverPack` in `sim/death.ts` (tick
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
     `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
@@ -224,11 +235,18 @@ They never override the rules above (determinism, zero allocations in hot loops,
     or the key closes any screen back to play: `PlayGate.closeScreen()` captures the mouse again,
     else the light « Click to resume » `showResumePrompt` while the simulation runs; the pause
     menu opens only on Esc in play, `canPause`; `GameSession.isPaused()`),
-    `app/UiBridge.ts` refreshes them (`queueView`, `stationStatus`); `ui/slotBoard.ts`
-    (`SlotBoard`: drag and drop, hover caption, hotkeys; `ScreenDeps`), the gesture commands
-    `ui/inventoryGestures.ts` (`SlotContext`: block entity slots from 32), the pure Logbook
-    `ui/logbook.ts` (`logbookRows` of `LogbookSource.station`'s recipes, the hand ones by default;
-    `batchCount` within `room`; `stationRecipes`: « N more at the Workbench »); item and tag names and icons `ui/itemSlot.ts`
+    `app/UiBridge.ts` refreshes them with the cursor stack (`queueView`, `stationStatus`;
+    `screenSlots`); `ui/slotBoard.ts` (`SlotBoard`: a press on a slot sends `slot.click`, one beside
+    the panel slot −1, a number key over a slot `slot.hotkey`; the cursor stack drawn under the
+    mouse, `.slot-cursor`; hover caption; `ScreenDeps`); the Bag's tab bar `ui/screens/bag.ts`
+    (`BAG_PAGES`: Inventory, Logbook; the page chosen last shows); the pure Logbook `ui/logbook.ts`
+    (`logbookRows` of `LogbookSource.station`'s recipes, the hand ones by default: craftable, other
+    revealed, then the undiscovered ones (`discovered: false`, greyed, never craftable; `shownName`:
+    their unseen ingredients are « ? »); `filterRows` with `searchKey` (output and shown ingredient
+    names, without case or accents) and « Can craft now »; `batchCount` within `room`;
+    `stationRecipes`: « N more at the Workbench »), drawn by `ui/screens/logbook.ts`
+    (`LogbookPanel`; keys typed in its search box are its own but Esc: `isTextField`); item and
+    tag names and icons `ui/itemSlot.ts`
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
@@ -327,16 +345,16 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - M8 screens: `ui.screen()` also names `'container'` and `'station'` (opened by secondary on the
   block; the Bag with its Logbook stays `'bag'`); Logbook rows carry `data-recipe`, tabs `data-tab`,
   its buttons `data-action` (`craft-1`, `craft-5`, `craft-max`), queue entries `data-queue` (a click
-  cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (0–31
-  the inventory, 32+ the open chest or station: inputs, fuel, outputs; in the Bag 32–36 the worn
-  items, head to feet, moved with `equip.move`).
+  cancels); the Container screen has `take-all`/`store-all`; every slot carries `data-slot` (the
+  inventory from 0, its length 32 to 64; from 64 the open chest, station or workbench: inputs,
+  fuel, outputs; in the Bag 64–68 the worn items, head to feet).
 - M8 hook entries (version 8): `craft.enqueue(recipe, count?)` (applied at once in fixed steps) and
   `craft.queue()` (`{ recipe, count, progress }`), `container.contents(x, y, z)` (`{ kind, slots }`,
   a station adds `station`, `lit` (its fire burns), `flame` (fuel left), `progress`, `process`;
   an Abandoned Pack adds `worn`, head to feet; null until a generated chest is first opened), `ui.open(x?, y?, z?)` (no argument: the bag; a
   cell: its chest or station through `debug.open`, like secondary on it within 5 blocks but without
-  aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)`,
-  `ui.drag(from, to)` (pointer events like the mouse, on `data-slot` numbers) and `ui.close()`.
+  aiming, applied at once in fixed steps; returns `ui.screen()`), `ui.click(selector)` and
+  `ui.close()` (M13 replaced `ui.drag` with slot clicks).
   `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
 - M9 screens: `ui.screen()` also names `'death'` (`#screen-death`, `data-action="respawn"`; it
   follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
@@ -346,7 +364,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `player.stats()` (gauges, the effects as the HUD lists them, shelter, felt °C and target, death and
   cause, `god`, bedroll, packs, objectives, worn items), `player.kill(cause = 'fall')` (the death
   at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
-  wearable on, a worn item 32–36 off), `world.shelter()` (the test at the player's head, now);
+  wearable on, a worn item 64–68 off), `world.shelter()` (the test at the player's head, now);
   `ui.text(selector)` reads the HUD (`#hud-clock`, `#hud-effects`…).
 - M10 hook entries (version 10): `entities.spawn(creature, x, y | 'surface', z)` (`debug.spawn`,
   applied at once without a tick, facing the player; returns the id, null when refused),
@@ -391,6 +409,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
   bench's recipes and queue, whose entries cancel with `workbench: true`, and its outputs from
   slot 64); `ui.open(x, y, z)` opens it; `craft.enqueue` of a bench recipe needs it open;
   `container.contents` of a workbench adds `station` and `queue` (as `craft.queue()` shows one).
+- M13 hook entries (version 13): `ui.click(target, button = 0, shift = false)` (a slot number:
+  a press on its `data-slot` like the mouse, 0 left, 1 right, false when it does not show (a
+  hidden page of the Bag); a selector: the element, as before) and `ui.clickOutside(button = 0)`
+  (beside the open screen's panel: throws the cursor stack, or one item); `ui.slot`, `ui.move` and
+  `ui.drag` are gone. Screens: the cursor stack `.slot-cursor` (hidden while empty); the Bag's
+  tabs `[data-page="inventory|logbook"]`; a Logbook's search box `[data-action="search"]` (its
+  `input` event), its « Can craft now » `[data-action="craftable-only"]` (`aria-pressed`), its
+  undiscovered rows `.logbook-row.undiscovered` (unseen ingredients `.item-unknown`).
+- Bag, cursor and workbench checks: `?worldType=arena&fixedStep=1&selftest=m0,m13`
+  (`selftest/m13.ts`, the workbench and Logbook cases in `m13bench.ts`, their shared steps
+  `ready`/`openBag`/`closeScreen`/`clickAt` in `screenSteps.ts`): every move by clicks on the
+  screens; the materials are items no recipe takes (`freshMaterial`: a gift reveals nothing), the
+  bench recipe the first whose entry holds 5 crafts.
 - M12 hook entries (version 12): `container.contents` adds `keepLit` for a station; the Station
   screen's « Keep burning » toggle carries `data-action="keep-lit"` (`aria-pressed` shows what the
   simulation keeps).
@@ -427,15 +458,16 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `yieldTask`, `waitUntil`, `waitForChunks`, `scaledWait`), the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
   crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
-  `dragSlot`) and `saveNow`/`reloadWorld`/`freshWorld` (a new world of the same seed), shared by
+  `clickSlot`, `clickOutside`, `moveSlot`) and `saveNow`/`reloadWorld`/`freshWorld` (a new world of the same seed), shared by
   `debugHook.ts` (its groups in `app/hook/`) and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
   `needsGeneratedPlayer`, `needsSpawningFlatPlayer`, `needsIdb` (the flat and arena player checks
   skip under `?spawns=1`), `standAt` (flat surface by default), `aimAt` (a block's side,
-  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `emitterOf` and
+  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `workshopBlock`/`openFromSouth` (the
+  arena's workshop row), `waitForShown`/`waitForSlot` (`UI_FRAMES`), `stateKey`, `emitterOf` and
   `TORCH_LIGHT` (the torch without naming it), `PLAY_SCENES`, `SETTLE_MS`, `SEARCH_RADIUS`,
   `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
-  (`selftest/m4.ts` … `m11.ts`), and every suite ends with `noErrorsCase()`.
+  (`selftest/m4.ts` … `m13.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
