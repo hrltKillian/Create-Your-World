@@ -1,41 +1,82 @@
 import { ticksOf } from '../sim/clock.ts';
 import type { App } from './App.ts';
-import { clock, freezeTime, setTime, yieldTask } from './automation.ts';
+import { clock, freezeTime, setTime, waitUntil, yieldTask } from './automation.ts';
+import { caveBenchmark } from './bench/cave.ts';
+import { digBenchmark } from './bench/dig.ts';
+import { flyBenchmark, walkBenchmark } from './bench/motion.ts';
 import { killCreature, placeCreature } from './creatureAutomation.ts';
 import { percentile } from './perf.ts';
 import { god, setStat } from './survivalAutomation.ts';
 
 /**
- * The performance benchmarks of `__game.perf.benchmark(kind)` (docs « Mesure de performance »):
- * `fly`, the camera flown in a straight line (frame work), and `mobs`, about 25 creatures around
- * the player (simulation ticks).
+ * The performance benchmarks of `__game.perf.benchmark(kind)` and `?bench=` (docs « Mesure de
+ * performance », M11 « Fait quand »), measured on the bench build (`npm run bench`, pane visible):
+ * - `walk`: the player walking on the generated world (frame work p95, intervals over 20 ms);
+ * - `fly`: the free camera flown in a straight line (the same);
+ * - `cave`: a fixed pose deep underground, the cave culling on then off (draws);
+ * - `mobs`: about 25 creatures around the player (simulation ticks);
+ * - `dig`: repeated edits beside the player (edit → mesh p95);
+ * - `load`: navigation → world playable, and → render distance meshed.
+ * The frame benchmarks are in `bench/`.
  */
+export const BENCH_KINDS = ['walk', 'fly', 'cave', 'mobs', 'dig', 'load'] as const;
+export type BenchKind = (typeof BENCH_KINDS)[number];
 
 /**
- * Flies the free camera in a straight line for `seconds` (the pane must be visible) and returns
- * frame statistics: CPU work p95, share of intervals over 20 ms, subsystem p95.
+ * Runs a benchmark: `seconds` of frames or ticks (`dig`: the number of edits; `load` takes none);
+ * each kind has its own default.
  */
-export async function flyBenchmark(app: App, seconds: number) {
-  const cam = app.freecam;
-  if (!cam) throw new Error('No camera');
-  const start = { ...cam.pose };
-  cam.set({ y: Math.max(start.y, 110), pitch: -0.2, yaw: -Math.PI / 2 });
-  const t0 = performance.now();
-  await new Promise<void>((resolve) => {
-    const tick = () => {
-      const t = (performance.now() - t0) / 1000;
-      cam.set({ x: start.x + t * 20 });
-      if (t >= seconds) resolve();
-      else requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+export function runBenchmark(app: App, kind: BenchKind, seconds?: number) {
+  switch (kind) {
+    case 'walk':
+      return walkBenchmark(app, seconds);
+    case 'fly':
+      return flyBenchmark(app, seconds);
+    case 'cave':
+      return caveBenchmark(app, seconds);
+    case 'mobs':
+      return mobsBenchmark(app, seconds);
+    case 'dig':
+      return digBenchmark(app, seconds);
+    case 'load':
+      return loadBenchmark(app);
+    default:
+      throw new Error(`Unknown benchmark "${String(kind)}" (${BENCH_KINDS.join(', ')})`);
+  }
+}
+
+/**
+ * Load times since the navigation started (ms; `performance.now()` counts from it): to the
+ * world's first playable frame (loading radius meshed, `App.playableAt`), and to the whole render
+ * distance meshed (as first seen by this call: run it at boot, `?bench=load`).
+ */
+export async function loadBenchmark(app: App) {
+  const session = app.session;
+  if (!session) throw new Error('No world session');
+  await waitUntil(() => app.playableAt >= 0, {
+    timeoutMs: 60_000,
+    label: 'the world never became playable',
+    pollMs: 20,
   });
-  return { kind: 'fly', seconds, ...app.frames.snapshot(), spans: app.frames.spanP95() };
+  await waitUntil(() => session.chunksReady(session.renderDistance), {
+    timeoutMs: 60_000,
+    label: `render distance ${session.renderDistance} not meshed`,
+    pollMs: 20,
+  });
+  return {
+    kind: 'load' as const,
+    playableMs: app.playableAt,
+    renderDistanceMs: performance.now(),
+    loadingRadius: session.loadingRadius(),
+    renderDistance: session.renderDistance,
+  };
 }
 
 /** The `mobs` scene: « environ 25 créatures », hunting by night. */
 export const MOBS = {
   creatures: 25,
+  /** Seconds of ticks measured by default. */
+  seconds: 10,
   /** Hour of the world clock (frozen) while it runs: the hostiles hunt. */
   hour: 23,
   /** Ticks run before the measured ones (the creatures settle, find their target, plan). */
@@ -58,7 +99,7 @@ const GOLDEN_ANGLE = 2.399;
  * and max. The clock, the player's immunity and toxicity (Swarmling bites) and the world are put
  * back after (the creatures still there are killed, so their loot stays on the ground).
  */
-export async function mobsBenchmark(app: App, seconds: number) {
+export async function mobsBenchmark(app: App, seconds: number = MOBS.seconds) {
   const session = app.session;
   const kinds = app.registry?.pack.creatures ?? [];
   const time = clock(app);
