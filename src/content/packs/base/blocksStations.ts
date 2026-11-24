@@ -55,6 +55,7 @@ export const stationBlocks = [
     hardness: 2,
     tool: 'axe',
     drops: 'self',
+    blockEntity: 'workbench',
     station: 'station:workbench',
     sound: 'wood',
   },

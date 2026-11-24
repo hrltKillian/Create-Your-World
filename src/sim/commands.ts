@@ -108,12 +108,22 @@ export type BlockEntityCommand =
  */
 export const OPEN_SLOTS_BASE = MAX_INVENTORY_SLOTS;
 
-/** The Logbook (docs « Craft : le Logbook »): a queue of 5 entries per player. */
+/**
+ * The Logbook (docs « Craft : le Logbook »): a queue of 5 entries per player for the hand recipes,
+ * one per workbench for its station's recipes (sim/craftQueue.ts).
+ */
 export type CraftCommand =
-  /** Queues `count` crafts of a recipe as one entry, reserving all their ingredients at once. */
+  /**
+   * Queues `count` crafts of a recipe, reserving all their ingredients at once: a hand recipe in
+   * the player's queue, a station recipe in the queue of the workbench of its station the player
+   * has open (refused without one).
+   */
   | { readonly type: 'craft.enqueue'; readonly recipe: string; readonly count: number }
-  /** Cancels a queue entry; its ingredients come back (at the player's feet if the bag is full). */
-  | { readonly type: 'craft.cancel'; readonly index: number };
+  /**
+   * Cancels an entry of the player's queue, or of the open workbench's (`workbench`); its
+   * ingredients come to the player (at their feet if the bag is full).
+   */
+  | { readonly type: 'craft.cancel'; readonly index: number; readonly workbench?: boolean };
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =

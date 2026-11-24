@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_STACK } from '../../../src/content/items.ts';
-import {
-  CRAFT_QUEUE,
-  entryCrafts,
-  noteSeen,
-  queueRoom,
-  STATION_REACH,
-} from '../../../src/sim/craftQueue.ts';
+import { CRAFT_QUEUE, entryCrafts, noteSeen, queueRoom } from '../../../src/sim/craftQueue.ts';
 import { addItem, countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -144,25 +138,6 @@ describe('craft queue', () => {
     expect(queueRoom(registry, s.player.craft, registry.crafting.recipe('recipe:planks')!)).toBe(
       (CRAFT_QUEUE - 1) * cap - 4,
     );
-  });
-
-  it('needs a workbench within 4 blocks for workbench recipes, checked when queued', () => {
-    const s = setup();
-    s.give('item:planks', 16);
-    s.give('item:cord', 2);
-    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
-    const at = (x: number, z: number, state: string) =>
-      s.send({ type: 'debug.fill', x0: x, y0: 65, z0: z, x1: x, y1: 65, z1: z, state });
-    at(STATION_REACH + 2, 0, 'block:workbench');
-    expect(s.host.view.stationNear('station:workbench')).toBe(false);
-    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
-    at(3, 0, 'block:workbench');
-    expect(s.host.view.stationNear('station:workbench')).toBe(true);
-    expect(rejections(s.enqueue('chest'))).toEqual([]);
-    // Taking the workbench away does not stop what is queued.
-    at(3, 0, 'block:air');
-    s.step(90);
-    expect(countItem(s.player.inventory, 'item:chest')).toBe(1);
   });
 
   it('reveals a recipe once one of its ingredients has been seen (tags included)', () => {

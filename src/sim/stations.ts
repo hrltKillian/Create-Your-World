@@ -9,14 +9,16 @@ import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { addToRange, countMatching, type Inventory, roomFor, takeMatching } from './inventory.ts';
 import type { Simulation } from './Simulation.ts';
+import { advanceWorkbench } from './workbench.ts';
 
 /**
  * Station processing (docs « Stations de transformation », tick step 9). Each tick a station runs
  * the first of its processes whose inputs are all there: the fire burns its fuel only while a
  * process runs (or, for a campfire, while the player keeps it burning: `keepLit`), the process
  * advances while the fire burns and completes into the outputs; full outputs pause it. Stations
- * only tick inside the simulation radius; one that comes back into it (its column reloaded, or a
- * player returning) catches up tick by tick from its own last tick, at most one game day.
+ * (and workbenches: workbench.ts) only tick inside the simulation radius; one that comes back into
+ * it (its column reloaded, or a player returning) catches up tick by tick from its own last tick,
+ * at most one game day.
  */
 
 /** Stations tick within this many columns of a player (the simulation radius). */
@@ -135,19 +137,23 @@ function simulated(sim: Simulation, cx: number, cz: number): boolean {
 }
 
 /**
- * Tick step 9 for stations: each one inside the simulation radius advances to the current tick
- * (one tick, or its catch-up), then its block shows whether it burns.
+ * Tick step 9 for stations and workbenches: each one inside the simulation radius advances to the
+ * current tick (one tick, or its catch-up); a station's block then shows whether it burns.
  */
 export function stepStations(sim: Simulation, out: SimEvent[]): void {
   const registry = sim.registry;
   for (const entity of sim.blockEntities.values()) {
-    if (entity.kind !== 'station' || !simulated(sim, toColumn(entity.x), toColumn(entity.z)))
-      continue;
-    const def = registry.crafting.station(entity.station);
-    const behind = sim.tick - entity.tick;
+    if (entity.kind !== 'station' && entity.kind !== 'workbench') continue;
+    if (!simulated(sim, toColumn(entity.x), toColumn(entity.z))) continue;
+    const ticks = Math.min(sim.tick - entity.tick, MAX_REPLAY_TICKS);
     entity.tick = sim.tick;
+    if (entity.kind === 'workbench') {
+      advanceWorkbench(sim, entity, ticks, out);
+      continue;
+    }
+    const def = registry.crafting.station(entity.station);
     if (!def) continue;
-    advanceStation(entity, def, registry, Math.min(behind, MAX_REPLAY_TICKS));
+    advanceStation(entity, def, registry, ticks);
     showFire(sim, entity, out);
   }
 }

@@ -77,7 +77,10 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       ),
   },
   // 6 → 7 (M13): players hold a cursor stack while a screen is open, none in an older save (its
-  // inventory of 32 slots keeps its length: the slot numbers of commands are never saved).
+  // inventory of 32 slots keeps its length: the slot numbers of commands are never saved). A
+  // workbench keeps its own queue and outputs in a block entity: an older save has none (one is
+  // made when it is first opened), and the workbench recipes it queued in a player's own queue
+  // finish there, as they did.
   {
     world: (record) => record,
     player: (record) => ({ ...record, cursor: null }),

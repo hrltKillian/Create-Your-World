@@ -32,7 +32,8 @@ import { openedEntity } from './screens.ts';
  *   anything).
  * A slot only takes what it may hold: anything in the inventory and a chest, a wearable in its own
  * worn slot, a station's layout (`stationAccepts`: its outputs take nothing, so a click there only
- * takes, onto a cursor of the same item too). Every refusal changes nothing.
+ * takes, onto a cursor of the same item too), nothing a workbench's outputs. Every refusal changes
+ * nothing.
  */
 
 /** Applies a slot command of a player, announcing the change or the refusal. */
@@ -83,6 +84,8 @@ function takes(
   if (slots === player.inventory) return true;
   if (slots === player.equipment) return wearSlotOf(sim.registry, item) === index;
   const entity = openedEntity(sim, player);
+  // A workbench's slots are all outputs.
+  if (entity?.kind === 'workbench') return false;
   if (entity?.kind !== 'station') return true;
   const crafting = sim.registry.crafting;
   const def = crafting.station(entity.station);
@@ -154,6 +157,7 @@ function quickMoveFrom(
     const entity = openedEntity(sim, player);
     if (!entity) return 'not open';
     if (entity.kind === 'station') return intoStation(sim, entity, inventory, index);
+    if (entity.kind === 'workbench') return 'slot';
     moved = moveInto(registry, inventory, index, entity.slots, 0, entity.slots.length);
   }
   return moved ? null : 'nothing to move';

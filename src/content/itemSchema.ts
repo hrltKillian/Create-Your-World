@@ -199,10 +199,12 @@ export interface ProcessDef {
  */
 export interface StationDef {
   readonly key: StationKey;
-  /** Name shown on Logbook badges (« Requires: Workbench nearby »). */
+  /** Name of its screen and of the Logbook's « N more at the Workbench ». */
   readonly nameKey: string;
+  /** Inputs and fuel of a processing station (none for a workbench). */
   readonly inputSlots: number;
   readonly fuelSlot: boolean;
+  /** Where its processes, or a workbench's crafts, wait to be taken. */
   readonly outputSlots: number;
   /** A processing station: its fire burns fuel only while one of its processes runs. */
   readonly burns?: boolean;

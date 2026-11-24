@@ -128,11 +128,15 @@ export interface BlockDef {
   readonly heat?: { readonly celsius: number; readonly radius: number };
   /**
    * What secondary does on the block, with the state the simulation keeps for it: a chest's
-   * contents, a station's slots and fire, an Abandoned Pack's items (`grave`, left by a death:
+   * contents, a station's slots and fire, a workbench's craft queue and outputs (`workbench`: its
+   * station's recipes, sim/workbench.ts), an Abandoned Pack's items (`grave`, left by a death:
    * sim/death.ts), or nothing for a bedroll (`bed`: sleeping, sim/sleep.ts).
    */
-  readonly blockEntity?: 'container' | 'station' | 'grave' | 'bed';
-  /** The station this block is: recipes and processes of that station need it nearby. */
+  readonly blockEntity?: 'container' | 'station' | 'workbench' | 'grave' | 'bed';
+  /**
+   * The station this block is: a processing station runs its processes, a workbench makes its
+   * recipes; objectives may ask for one nearby.
+   */
   readonly station?: StationKey;
   readonly placement?: {
     readonly support?: 'below' | 'face';

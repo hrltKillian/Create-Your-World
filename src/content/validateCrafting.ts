@@ -42,8 +42,11 @@ export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssu
     unique(path, recipe.key, 'recipe:');
     if (!RECIPE_CATEGORIES.includes(recipe.category))
       add(`${path}.category`, `unknown category "${recipe.category}"`);
-    if (recipe.station !== undefined && !stations.has(recipe.station))
+    const station = recipe.station === undefined ? undefined : stations.get(recipe.station);
+    if (recipe.station !== undefined && !station)
       add(`${path}.station`, `unknown station "${recipe.station}"`);
+    // A recipe made at a station goes through a workbench's queue.
+    if (station?.burns) add(`${path}.station`, `"${recipe.station}" is no workbench`);
     if (!(recipe.seconds > 0)) add(`${path}.seconds`, 'must be > 0');
     inputs(`${path}.inputs`, recipe.inputs);
     output(`${path}.output`, recipe.output);
@@ -75,11 +78,11 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
     stations.set(station.key, station);
     if (pack.strings[station.nameKey] === undefined)
       add(`${path}.nameKey`, `no string for "${station.nameKey}"`);
-    const slots = [station.inputSlots, station.outputSlots];
-    if (station.burns && !(slots.every((n) => isCount(n, 1)) && station.fuelSlot))
-      add(path, 'a processing station needs input, fuel and output slots');
-    if (!station.burns && (slots.some((n) => n !== 0) || station.fuelSlot))
-      add(path, 'a station without fire has no slots');
+    if (!isCount(station.outputSlots, 1)) add(`${path}.outputSlots`, 'must be an integer ≥ 1');
+    if (station.burns && !(isCount(station.inputSlots, 1) && station.fuelSlot))
+      add(path, 'a processing station needs input and fuel slots');
+    if (!station.burns && (station.inputSlots !== 0 || station.fuelSlot))
+      add(path, 'a station without fire (a workbench) has no inputs and no fuel');
     if (station.keepLit && !station.burns) add(`${path}.keepLit`, 'only a fire can be kept lit');
   });
   pack.blocks.forEach((block, i) => {
@@ -87,11 +90,13 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
     const station = block.station === undefined ? undefined : stations.get(block.station);
     if (block.station !== undefined && !station)
       add(`${path}.station`, `unknown station "${block.station}"`);
-    if (block.blockEntity === 'station' && block.station === undefined)
-      add(`${path}.station`, 'a station entity names its station');
-    // A processing station keeps its slots and fire in a block entity; the fire lights it up.
-    if (station?.burns && block.blockEntity !== 'station')
-      add(`${path}.blockEntity`, 'a processing station is a station entity');
+    const entity = block.blockEntity;
+    if ((entity === 'station' || entity === 'workbench') && block.station === undefined)
+      add(`${path}.station`, `a ${entity} entity names its station`);
+    // A processing station keeps its slots and fire in a block entity; the fire lights it up. A
+    // workbench keeps its queue and outputs in one.
+    const kind = station?.burns ? 'station' : 'workbench';
+    if (station && entity !== kind) add(`${path}.blockEntity`, `its station is a ${kind} entity`);
     if (station?.burns && !block.states?.includes('lit'))
       add(`${path}.states`, 'a processing station needs the "lit" state');
   });

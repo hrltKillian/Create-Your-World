@@ -114,7 +114,7 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     expect(process('flask_boiled').seconds).toBe(6);
   });
 
-  it('gives each processing station a lit block entity; only the campfire may be kept lit', () => {
+  it('gives each processing station a lit block entity, the workbench its own; only the campfire may be kept lit', () => {
     const blocks = basePack.blocks.filter((b) => b.station !== undefined);
     expect(blocks.map((b) => b.station).sort()).toEqual([
       'station:bloomery',
@@ -124,7 +124,7 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     ]);
     for (const block of blocks) {
       const fire = crafting.station(block.station!)!.burns !== undefined;
-      expect(block.blockEntity === 'station', block.key).toBe(fire);
+      expect(block.blockEntity, block.key).toBe(fire ? 'station' : 'workbench');
       expect(block.states?.includes('lit') ?? false, block.key).toBe(fire);
     }
     const kept = basePack.stations!.filter((s) => s.keepLit).map((s) => s.key);
@@ -191,6 +191,7 @@ describe('crafting validation', () => {
       recipes[2]!.category = 'magic';
       recipes[3]!.output = { item: 'item:flint_knife', count: 2 };
       recipes[4]!.key = recipes[5]!.key;
+      recipes[6]!.station = 'station:kiln';
       const processes = p.processes!;
       processes[0]!.station = 'station:workbench';
       processes[1]!.inputs = [
@@ -200,7 +201,9 @@ describe('crafting validation', () => {
       ];
       processes[2]!.output = { item: 'item:nope', count: 1 };
       p.stations!.find((s) => s.key === 'station:bloomery')!.fuelSlot = false;
-      p.stations!.find((s) => s.key === 'station:workbench')!.keepLit = true;
+      const workbench = p.stations!.find((s) => s.key === 'station:workbench')!;
+      workbench.keepLit = true;
+      workbench.outputSlots = 0;
       p.creatures![0]!.loot = 'loot:nope';
     });
     const paths = validatePack(pack).map((i) => i.path);
@@ -214,11 +217,13 @@ describe('crafting validation', () => {
         'recipes[2].category',
         'recipes[3].output.count',
         'recipes[5].key',
+        'recipes[6].station',
         'processes[0].station',
         'processes[1].inputs',
         'processes[2].output.item',
         `stations[${bloomery}]`,
         `stations[${bench}].keepLit`,
+        `stations[${bench}].outputSlots`,
         'creatures[0].loot',
       ]),
     );
@@ -231,6 +236,7 @@ describe('crafting validation', () => {
       delete campfire.whenState;
       const kiln = p.blocks!.find((b) => b.key === 'block:kiln')!;
       delete kiln.station;
+      delete p.blocks!.find((b) => b.key === 'block:workbench')!.blockEntity;
       const structure = p.structures![1]!;
       structure.lootTables = { S: 'loot:nope' };
       const water = p.blocks!.find((b) => b.key === 'block:fresh_water')!;
@@ -253,6 +259,7 @@ describe('crafting validation', () => {
       expect.arrayContaining([
         `blocks[${index('block:campfire')}].states`,
         `blocks[${index('block:kiln')}].station`,
+        `blocks[${index('block:workbench')}].blockEntity`,
         'structures[1].lootTables.S',
         `blocks[${index('block:fresh_water')}].liquid.fills`,
         `blocks[${index('block:sand')}].item.hintKey`,

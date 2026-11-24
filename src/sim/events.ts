@@ -62,7 +62,7 @@ export type SimEvent =
   | {
       readonly type: 'blockEntityOpened';
       readonly playerId: number;
-      readonly kind: 'container' | 'station';
+      readonly kind: 'container' | 'station' | 'workbench';
       readonly x: number;
       readonly y: number;
       readonly z: number;
@@ -72,6 +72,16 @@ export type SimEvent =
   | {
       readonly type: 'crafted';
       readonly playerId: number;
+      readonly recipe: string;
+      readonly item: string;
+      readonly count: number;
+    }
+  /** One craft of a workbench's queue is done (its output went to the bench's outputs). */
+  | {
+      readonly type: 'workbenchCrafted';
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
       readonly recipe: string;
       readonly item: string;
       readonly count: number;
