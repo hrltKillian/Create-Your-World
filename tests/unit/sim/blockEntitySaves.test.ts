@@ -211,7 +211,7 @@ describe('saving block entities and craft queues', () => {
       { type: 'container.open', x: 2, y: 65, z: -2 },
       { type: 'station.move', from: 0, to: fuel },
     );
-    s.send({ type: 'station.keepLit', on: true });
+    s.send({ type: 'station.keepLit' });
     s.step(10);
     const fire = s.sim.blockEntities.get(cellKey(2, 65, -2)) as StationEntity;
     expect(fire).toMatchObject({ keepLit: true, lit: true });

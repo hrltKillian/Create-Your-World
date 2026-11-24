@@ -257,15 +257,18 @@ describe('StationScreen', () => {
     const status = { lit: false, flame: 0, progress: 0, process: '', keepLit: false };
     station.update(slots, status);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    const toggles = () => sent.filter((c) => c.type === 'station.keepLit');
     toggle.dispatch('click');
-    expect(sent.at(-1)).toEqual({ type: 'station.keepLit', on: true });
+    expect(toggles()).toEqual([{ type: 'station.keepLit' }]);
     // The screen shows what the simulation keeps, not the click.
     expect(toggle.classList.contains('on')).toBe(false);
     station.update(slots, { ...status, keepLit: true, lit: true });
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     expect(toggle.classList.contains('on')).toBe(true);
+    // Each click flips it in the simulation, however soon after the last one (no refresh between).
     toggle.dispatch('click');
-    expect(sent.at(-1)).toEqual({ type: 'station.keepLit', on: false });
+    toggle.dispatch('click');
+    expect(toggles()).toEqual(new Array(3).fill({ type: 'station.keepLit' }));
   });
 
   it('tells which items its slots take, from the station layout (right-drag splits)', () => {

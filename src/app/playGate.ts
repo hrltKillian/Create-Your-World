@@ -33,6 +33,8 @@ export class PlayGate {
   private playing = true;
   /** A screen closed and the mouse is not captured again yet: play goes on, a refusal prompts. */
   private relocking = false;
+  /** The pause menu is up: only its Resume plays again (a late lock granted meanwhile is let go). */
+  private menuPaused = false;
 
   constructor(
     layer: HTMLElement,
@@ -55,8 +57,8 @@ export class PlayGate {
     void layoutLoaded.then(() => setClickToPlayControls(click, controlsText(input)));
     this.setPlaying(false);
     pointer.onChange = (locked) => {
-      if (locked && this.screenOpen) {
-        // A lock asked for before a screen opened again: the screen keeps the mouse free.
+      if (locked && (this.screenOpen || this.menuPaused)) {
+        // A lock asked for before a screen opened again or the game paused: the mouse stays free.
         pointer.exit();
       } else if (locked) {
         this.relocking = false;
@@ -65,8 +67,8 @@ export class PlayGate {
       } else if (this.relocking) {
         // The lock asked for when a screen closed (or by a click on the prompt) was refused.
         showResumePrompt(click);
-      } else if (!this.screenOpen) {
-        // Esc while playing (the game released the mouse itself to show a screen: no pause).
+      } else if (!this.screenOpen && !this.menuPaused) {
+        // Esc while playing (not the game releasing the mouse for a screen or the pause menu).
         this.setPlaying(false);
         click.hidden = true;
         this.events.paused();
@@ -117,6 +119,7 @@ export class PlayGate {
 
   /** The pause menu opens: no ticks, no keys, the mouse free and the overlay out of the way. */
   pause(): void {
+    this.menuPaused = true;
     this.relocking = false;
     this.setPlaying(false);
     if (this.click) this.click.hidden = true;
@@ -128,6 +131,7 @@ export class PlayGate {
    * it is captured (`playing()`); without Pointer Lock at once.
    */
   resume(): void {
+    this.menuPaused = false;
     const pointer = this.input.pointer;
     if (pointer) pointer.request();
     else {

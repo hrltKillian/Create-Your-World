@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
+import { consuming, NO_USE } from './consume.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory } from './inventory.ts';
@@ -42,21 +43,13 @@ export interface InteractionState {
   useCooldown: number;
   /** Secondary was down last tick (gates toggle on the press only). */
   useHeld: boolean;
-  /** The action the held secondary started (consume.ts): NO_USE, −1 a sip, else the item id. */
+  /**
+   * The held secondary's action while it runs (consume.ts): NO_USE, −1 a sip, else the item id;
+   * back to NO_USE as soon as it stops (released, another hand or target).
+   */
   useItem: number;
   /** Ticks it has been held for (an item eaten or drunk, a sip). */
   useTicks: number;
-}
-
-/** `InteractionState.useItem` when secondary holds no action. */
-export const NO_USE = -2;
-
-/**
- * Eating or drinking: secondary held on the item or the sip it started (consume.ts). The player
- * then moves at `balance.consume.moveFactor` of the speed and cannot sprint.
- */
-export function consuming(player: Readonly<PlayerState>): boolean {
-  return player.input.secondary && player.interaction.useItem !== NO_USE;
 }
 
 export function createInteraction(): InteractionState {

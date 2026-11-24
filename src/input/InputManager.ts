@@ -53,7 +53,7 @@ export class InputManager {
   private dragging = false;
   /** Crouched by a toggle press (crouchToggle); a release of every key stands up again. */
   private crouched = false;
-  /** Forward pressed twice in a row: sprint while it stays held. */
+  /** Forward pressed twice in a row: sprint while it stays held (released with its last key). */
   private readonly sprintLatch = new SprintLatch();
 
   constructor(element: HTMLElement, options: InputOptions) {
@@ -73,9 +73,7 @@ export class InputManager {
   /** True while an action's key is held (or forced by automation). */
   isDown(action: Action): boolean {
     if (this.isForced(action)) return true;
-    if (!this.enabled) return false;
-    for (const code of this.bindings[action]) if (this.down.has(code)) return true;
-    return false;
+    return this.enabled && this.keyHeld(action);
   }
 
   /** +1 while `plus` is held, −1 while `minus` is, 0 for both or neither. */
@@ -170,6 +168,12 @@ export class InputManager {
     this.crouched = false;
   };
 
+  /** True while a key bound to the action is physically down. */
+  private keyHeld(action: Action): boolean {
+    for (const code of this.bindings[action]) if (this.down.has(code)) return true;
+    return false;
+  }
+
   private isForced(action: Action): boolean {
     return (this.forced.get(action) ?? 0) > 0;
   }
@@ -187,6 +191,12 @@ export class InputManager {
       }
     }
     this.down.add(code);
+  }
+
+  /** A key or button goes up: the double-tap sprint ends with the last forward key held. */
+  private lift(code: string): void {
+    this.down.delete(code);
+    if (!this.keyHeld('forward')) this.sprintLatch.release();
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
@@ -210,7 +220,7 @@ export class InputManager {
   }
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
-    this.down.delete(event.code);
+    this.lift(event.code);
   };
 
   private readonly onMouseDown = (event: MouseEvent): void => {
@@ -223,7 +233,7 @@ export class InputManager {
   };
 
   private readonly onMouseUp = (event: MouseEvent): void => {
-    this.down.delete(`Mouse${event.button}`);
+    this.lift(`Mouse${event.button}`);
     if (event.button === 0) this.dragging = false;
   };
 

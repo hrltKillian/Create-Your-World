@@ -150,4 +150,25 @@ describe('PlayGate', () => {
     expect(input.enabled).toBe(false);
     expect(gate.canOpenScreen()).toBe(false);
   });
+
+  it('keeps the pause menu when a lock asked for as a screen closed is granted after the pause', () => {
+    const { gate, pointer, input, session, events, openScreen } = setup();
+    openScreen();
+    gate.closeScreen();
+    // Esc again before the browser answers: the pause menu opens, and the late lock is let go.
+    gate.pause();
+    const exits = pointer.exits;
+    pointer.answer(true);
+    expect(pointer.exits).toBe(exits + 1);
+    pointer.answer(false);
+    expect(session.paused).toBe(true);
+    expect(input.enabled).toBe(false);
+    expect(events).toEqual({ paused: 0, playing: 1 });
+    // Only Resume plays again.
+    gate.resume();
+    pointer.answer(true);
+    expect(session.paused).toBe(false);
+    expect(input.enabled).toBe(true);
+    expect(events).toEqual({ paused: 0, playing: 2 });
+  });
 });

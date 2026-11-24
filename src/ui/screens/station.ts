@@ -45,8 +45,6 @@ export class StationScreen {
   private readonly flame: HTMLElement;
   private readonly bar: HTMLElement;
   private readonly keepLit: HTMLButtonElement;
-  /** The toggle's state as the simulation last showed it. */
-  private kept = false;
   private station: StationDef | null = null;
   /** What the process list was drawn with (redrawn when either changes). */
   private shownProcess = '';
@@ -66,7 +64,8 @@ export class StationScreen {
     this.bar = h('span', { class: 'station-bar' }, h('span', { class: 'station-bar-fill' }));
     this.keepLit = menuButton('keep-lit', t('station.keepLit'), () => {
       deps.actions.click();
-      deps.actions.send({ type: 'station.keepLit', on: !this.kept });
+      // A flip in the simulation: the state shown here may be a refresh behind (UiBridge).
+      deps.actions.send({ type: 'station.keepLit' });
     });
     this.keepLit.classList.add('station-keep-lit');
     this.element.append(
@@ -152,7 +151,6 @@ export class StationScreen {
     this.flame.style.setProperty('--flame', String(status.flame));
     this.flame.classList.toggle('lit', status.lit);
     this.bar.style.setProperty('--progress', String(status.progress));
-    this.kept = status.keepLit;
     this.keepLit.classList.toggle('on', status.keepLit);
     this.keepLit.setAttribute('aria-pressed', String(status.keepLit));
     if (status.process !== this.shownProcess || this.art.icons !== this.shownIcons)

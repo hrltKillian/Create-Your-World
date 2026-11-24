@@ -333,9 +333,9 @@ describe('stations in the world', () => {
     const s = setup();
     s.put(0, 65, -2, 'block:campfire[lit=0]');
     s.give('item:broadleaf_log', 2);
-    const keep = (on: boolean): Command => ({ type: 'station.keepLit', on });
+    const keep: Command = { type: 'station.keepLit' };
     // Nothing open: refused.
-    expect(rejections(s.send(keep(true)))).toEqual(['not open']);
+    expect(rejections(s.send(keep))).toEqual(['not open']);
     const def = registry.crafting.station('station:campfire')!;
     s.send(open(0, 65, -2), { type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) });
     const fire = s.entity<StationEntity>(0, 65, -2)!;
@@ -343,7 +343,7 @@ describe('stations in the world', () => {
     s.step(30);
     expect(fire).toMatchObject({ lit: false, keepLit: false, burnTicksLeft: 0 });
     expect(s.block(0, 65, -2)).toBe('block:campfire[lit=0]');
-    expect(rejections(s.send(keep(true)))).toEqual([]);
+    expect(rejections(s.send(keep))).toEqual([]);
     s.step(1);
     expect(fire).toMatchObject({ lit: true, keepLit: true });
     expect(s.block(0, 65, -2)).toBe('block:campfire[lit=1]');
@@ -352,17 +352,19 @@ describe('stations in the world', () => {
     s.send({ type: 'container.close' });
     s.step(30);
     expect(fire.lit).toBe(true);
-    expect(rejections(s.send(keep(false)))).toEqual(['not open']);
-    s.send(open(0, 65, -2), keep(false));
+    expect(rejections(s.send(keep))).toEqual(['not open']);
+    s.send(open(0, 65, -2), keep);
     s.step(1);
     expect(fire).toMatchObject({ lit: false, keepLit: false });
     expect(s.block(0, 65, -2)).toBe('block:campfire[lit=0]');
+    // Two quick clicks (both in one tick) turn it on and off again.
+    s.send(keep, keep);
+    s.step(1);
+    expect(fire).toMatchObject({ lit: false, keepLit: false });
     // A kiln's fire only burns for its processes: no toggle.
     s.put(2, 65, -2, 'block:kiln[facing4=s,lit=0]');
     s.send(open(2, 65, -2));
-    expect(rejections(s.send(keep(true)))).toEqual(['invalid']);
-    expect(rejections(s.send({ type: 'station.keepLit', on: 1 } as unknown as Command))).toEqual([
-      'invalid',
-    ]);
+    expect(rejections(s.send(keep))).toEqual(['invalid']);
+    expect(s.entity<StationEntity>(2, 65, -2)!.keepLit).toBe(false);
   });
 });

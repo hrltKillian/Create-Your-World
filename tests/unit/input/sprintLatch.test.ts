@@ -32,6 +32,16 @@ describe('SprintLatch', () => {
     expect(latch.on).toBe(false);
   });
 
+  it('lets go on a release, which keeps the press for a double tap across it', () => {
+    const latch = new SprintLatch();
+    latch.press(0);
+    latch.press(100);
+    latch.release();
+    expect(latch.on).toBe(false);
+    latch.press(200);
+    expect(latch.on).toBe(true);
+  });
+
   it('never latches on the first press', () => {
     const latch = new SprintLatch();
     latch.press(0);

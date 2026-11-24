@@ -95,6 +95,26 @@ describe('InputManager', () => {
     expect(input.sample(look).sprint).toBe(false);
   });
 
+  it('forgets the double-tap sprint once forward is released: a forced forward walks', () => {
+    const at = (type: 'keydown' | 'keyup', timeStamp: number, code = 'KeyW') =>
+      win.dispatch(type, { code, key: code, repeat: false, timeStamp });
+    at('keydown', 1000);
+    at('keyup', 1150);
+    at('keydown', 1300);
+    expect(input.sample(look).sprint).toBe(true);
+    at('keyup', 1450);
+    input.force('forward', 5);
+    expect(input.sample(look)).toMatchObject({ forward: 1, sprint: false });
+    // Another forward key still held keeps the sprint the double tap latched, until it goes up.
+    input.bindings = { ...DEFAULT_BINDINGS, forward: ['KeyW', 'ArrowUp'] };
+    at('keydown', 1600, 'ArrowUp');
+    at('keydown', 1700);
+    at('keyup', 1800);
+    expect(input.sample(look).sprint).toBe(true);
+    at('keyup', 1900, 'ArrowUp');
+    expect(input.sample(look)).toMatchObject({ forward: 1, sprint: false });
+  });
+
   it('holds forced actions for a number of ticks', () => {
     input.force('forward', 2);
     expect(input.sample(look).forward).toBe(1);

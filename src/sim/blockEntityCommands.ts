@@ -51,7 +51,7 @@ export function applyBlockEntityCommand(
       break;
     }
     case 'station.keepLit': {
-      const refusal = keepLit(sim, player, command.on);
+      const refusal = toggleKeepLit(sim, player);
       if (refusal) reject(out, playerId, command.type, refusal);
       break;
     }
@@ -59,14 +59,14 @@ export function applyBlockEntityCommand(
 }
 
 /**
- * Turns the open station's « Keep burning » on or off (its fire then burns, while it has fuel,
+ * Turns the open station's « Keep burning » on or off (kept, its fire burns while it has fuel
  * without a process); returns the refusal, if any.
  */
-function keepLit(sim: Simulation, player: PlayerState, on: boolean): string | null {
+function toggleKeepLit(sim: Simulation, player: PlayerState): string | null {
   const entity = openedEntity(sim, player);
   if (entity?.kind !== 'station') return 'not open';
   if (sim.registry.crafting.station(entity.station)?.keepLit !== true) return 'invalid';
-  entity.keepLit = on;
+  entity.keepLit = !entity.keepLit;
   return null;
 }
 

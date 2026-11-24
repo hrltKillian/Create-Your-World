@@ -843,6 +843,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
   | Secondaire (clic droit) | bloc interactif (station, coffre, porte, natte) → consommer l'objet tenu (maintenu `consume.seconds`) → remplir un récipient ou boire sur un liquide → poser |
   | Accroupi + secondaire   | force la pose, par exemple contre un coffre                                                                                                                  |
   - Maintenir le clic gauche ≥ 0,5 s **sur une créature** donne une attaque chargée, appliquée au relâchement.
+  - Pendant qu'on mange ou boit, on avance à ×`consume.moveFactor` (0,4) et sans sprint ; une autre main ou une autre cible arrête l'action jusqu'au prochain appui (M12).
   - Sur un bloc, maintenir mine ; si la cible change pendant le maintien, la progression repart de zéro.
 - **Casser** :
   - `t = dureté × 1,5 / vitesse de l'outil` si le type d'outil correspond ; sinon vitesse 1 ;
@@ -902,8 +903,8 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 **Stations de transformation**
 
-- Ce sont des entités de bloc avec entrées, combustible, sortie, `burnTicksLeft`, `progressTicks` et un état `lit` qui pilote lumière et chaleur.
-- Le feu de camp brûle tant qu'il a du combustible ; four et bas fourneau ne brûlent que pendant un traitement.
+- Ce sont des entités de bloc avec entrées, combustible, sortie, `burnTicksLeft`, `progressTicks`, `keepLit` et un état `lit` qui pilote lumière et chaleur.
+- Une station ne brûle son combustible que pendant un traitement valide. Le feu de camp peut aussi rester allumé sans traitement : interrupteur « Keep burning » (`keepLit`, éteint par défaut, sauvegardé ; chaque commande `station.keepLit` l'inverse) (M12).
 - Sortie pleine → pause.
 - Hors du rayon de simulation, ou après un déchargement : rejeu tick par tick depuis `lastTick` à la ré-entrée, plafonné à 36 000 ticks.
 
@@ -1120,7 +1121,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
     - boutons ×1/×5/Max, file de 5 ;
     - « Requires: Workbench nearby ».
 - **Conteneur** : « Take all » / « Store all ».
-- **Station** : entrées, combustible (flamme), progression, sortie, procédés connus.
+- **Station** : entrées, combustible (flamme), progression, sortie, procédés connus ; l'interrupteur « Keep burning » du feu de camp (M12).
 - **Manipulation** : glisser-déposer en pointer events, clic droit pour diviser, Maj+clic pour transférer, chiffre au survol pour échanger.
 
 **Menus**
@@ -1183,6 +1184,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 | Jeter (Maj = pile entière) / caméra | KeyG / KeyV                                    | G / V             | G / V                           |
 | Debug / pause                       | F3, Backquote ou IntlBackslash / Escape        | F3 ou ` / Esc     | F3 (fn+F3 sur Mac) ou @ / Échap |
 
+- Saut maintenu : un saut à chaque retour au sol. Double appui sur « avancer » (≤ 300 ms) : sprint tant que la touche reste tenue (M12).
 - Jamais lié : Ctrl, Cmd, Alt, F5, F11, F12.
 - `contextmenu` empêché ; toutes les touches relâchées sur `blur`.
 - **Étiquettes**, par ordre de préférence :
@@ -1445,7 +1447,7 @@ export interface CreatureDef {
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RecipeDef`                   | key, category, station?, seconds, inputs [{item ou tag, count}], output {item, count}, known?: 'start', hintKey?                                                                                  |
 | `ProcessDef`                  | key, station, seconds, fuel: 'any' \| 'charcoal' \| 'none', inputs, output                                                                                                                        |
-| `StationDef`                  | key, inputSlots, fuelSlot, outputSlots, burns: 'whileFuel' \| 'whileProcessing'                                                                                                                   |
+| `StationDef`                  | key, inputSlots, fuelSlot, outputSlots, burns?: boolean, keepLit?: boolean                                                                                                                        |
 | `BiomeDef`                    | key, nameKey, rule {order, conditions sur C/E/M/T/H/X et h}, climate {dayC, nightC}, toxicity? {day, night}, surface, filler, liquid, tints, fog, ambience, features [{feature, weight}], hintKey |
 | `WorldgenDef`                 | seaLevel, bedrockY, deepStoneBelowY, magmaBelowY, splines C et E, échelles de bruit, bande de latitude {amplitude, period}, seuils des grottes                                                    |
 | `OreDef`                      | key, block, biomes, yRange, veinsPerSection, veinSize, replaces                                                                                                                                   |
@@ -2054,7 +2056,7 @@ Ce plan v2 répond à chacun d'eux.
   - Le menu pause ne s'ouvre qu'avec Échap en jeu, sans écran ouvert.
   - Tests unitaires de la porte (`playGate`) et cas d'autotest au clavier.
 - **Combustible** : toutes les stations ne brûlent que si une recette valide tourne.
-  - Le feu de camp gagne un interrupteur « Garder allumé (chaleur, lumière) », éteint par défaut : `StationEntity.keepLit`, commande `station.keepLit`, bouton sur l'écran Station.
+  - Le feu de camp gagne un interrupteur « Garder allumé (chaleur, lumière) », éteint par défaut : `StationEntity.keepLit`, commande `station.keepLit` (qui l'inverse), bouton sur l'écran Station.
   - Migration SAVE 6 : les feux déjà allumés le restent.
 - **Fichiers** : `sim/physics.ts`, `sim/player.ts`, `input/InputManager.ts`, `sim/stations.ts`, `packs/base/recipes.ts`, `ui/screens/station.ts`, `world/codec/migrations.ts`.
 - **Tests** :

@@ -77,12 +77,11 @@ export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
     case 'container.open':
       return validCell(c);
     case 'container.close':
+    case 'station.keepLit':
       return true;
     case 'container.move':
     case 'station.move':
       return validSlotMove(c);
-    case 'station.keepLit':
-      return typeof c.on === 'boolean';
   }
 }
 
