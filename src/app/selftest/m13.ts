@@ -79,12 +79,10 @@ function freshStack(app: App, count: number): { item: string; slot: number } {
   return { item, slot: slots[0]! };
 }
 
-/** An empty inventory slot (in the bag past the hotbar with `bag`), other than `besides`. */
-function emptySlot(app: App, besides = -1, bag = false): number {
+/** An empty inventory slot other than `besides`. */
+function emptySlot(app: App, besides = -1): number {
   const inventory = app.session!.player.inventory;
-  const slot = inventory.findIndex(
-    (stack, i) => stack === null && i !== besides && (!bag || i >= HOTBAR_SLOTS),
-  );
+  const slot = inventory.findIndex((stack, i) => stack === null && i !== besides);
   assert(slot >= 0, 'the inventory is full');
   return slot;
 }
