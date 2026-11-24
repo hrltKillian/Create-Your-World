@@ -126,7 +126,8 @@ export class ControlsScreen {
 
   private readonly onKey = (event: KeyboardEvent): void => {
     event.preventDefault();
-    event.stopPropagation();
+    // Not even the window's other listeners (pause, bag, debug) see it, wherever it was sent.
+    event.stopImmediatePropagation();
     // Keys the browser cannot name (some media keys) are not bindable.
     if (event.repeat || event.code === '') return;
     if (event.code === 'Escape' && this.waiting?.action !== 'pause') {

@@ -68,6 +68,13 @@ describe('SettingsScreen', () => {
     const s = setup();
     expect(checked(s, 'quality', ['low', 'medium', 'high'])).toEqual(['medium']);
     expect(checked(s, 'pixelRatio', ['0.75', '1', '1.5', '2'])).toEqual(['1.5']);
+    // Each resolution shows its own factor (not rounded to a whole number).
+    const labelOf = (input: FakeElement) =>
+      s.root.findAll((e) => e.tagName === 'LABEL' && e.findAll((i) => i === input).length > 0)[0];
+    const ratioLabels = ['0.75', '1', '1.5', '2'].map(
+      (value) => labelOf(s.field('pixelRatio', value))?.textContent,
+    );
+    expect(ratioLabels).toEqual(['×0.75', '×1', '×1.5', '×2']);
     expect(checked(s, 'crouch', ['hold', 'toggle'])).toEqual(['hold']);
     expect(s.field('particles').checked).toBe(true);
     expect(s.field('viewBob').checked).toBe(true);

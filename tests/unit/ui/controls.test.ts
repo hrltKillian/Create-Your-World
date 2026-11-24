@@ -42,10 +42,20 @@ function setup(bindings: KeyBindings = DEFAULT_BINDINGS) {
     backs: () => backs,
     slot,
     status: () => root.querySelector('.controls-status')!.textContent,
-    /** A key pressed while the page has the focus (the screen listens on the window). */
+    /**
+     * A key pressed while the page has the focus (the screen listens on the window); true when the
+     * screen kept it from every other listener, the window's own included.
+     */
     key: (code: string, repeat = false) => {
       let stopped = false;
-      win.dispatch('keydown', { code, key: code, repeat, stopPropagation: () => (stopped = true) });
+      const stopImmediatePropagation = () => (stopped = true);
+      win.dispatch('keydown', {
+        code,
+        key: code,
+        repeat,
+        stopPropagation() {},
+        stopImmediatePropagation,
+      });
       return stopped;
     },
     /** A mouse press on an element: the window's capture listener first, then the element's. */

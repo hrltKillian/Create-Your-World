@@ -47,9 +47,14 @@ async function onSettingsScreen(app: App, body: () => Promise<void> | void): Pro
 }
 
 /** A key pressed and released (the game and the screens listen on the window). */
+/**
+ * A key pressed as the keyboard sends it: at the focused element, so the window's capture
+ * listeners (the Key bindings screen waiting for a key) come before its others (the pause key).
+ */
 function press(code: string, key = code): void {
+  const target = document.activeElement ?? document.body;
   for (const type of ['keydown', 'keyup'] as const)
-    window.dispatchEvent(new KeyboardEvent(type, { code, key, bubbles: true, cancelable: true }));
+    target.dispatchEvent(new KeyboardEvent(type, { code, key, bubbles: true, cancelable: true }));
 }
 
 /** A key slot's button on the Key bindings screen (`jump:0`…). */

@@ -78,7 +78,7 @@ export class SettingsScreen {
     const resolution = segmented(
       'pixelRatio',
       PIXEL_RATIOS,
-      (n) => t('settings.pixelRatio.value', { n: fmtNumber(n) }),
+      (n) => t('settings.pixelRatio.value', { n: fmtNumber(n, decimalsOf(n)) }),
       (pixelRatio) => patch({ pixelRatio }),
     );
     const particles = checkbox('particles', 'settings.particles', (on) => patch({ particles: on }));
@@ -216,4 +216,10 @@ function percentSlider(
   const percents = { min: range.min * 100, max: range.max * 100, step: PERCENT_STEP };
   const control = slider(name, t(labelKey), percents, percent, (value) => input(value / 100));
   return { element: control.element, set: (factor) => control.set(Math.round(factor * 100)) };
+}
+
+/** Decimals that show a value such as 0.75 or 1.5 whole (0 for whole numbers, at most 2). */
+function decimalsOf(n: number): number {
+  if (Number.isInteger(n)) return 0;
+  return Number.isInteger(n * 10) ? 1 : 2;
 }
