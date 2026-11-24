@@ -22,3 +22,8 @@ export function lookVector(yaw: number, pitch: number, out: Vec3): Vec3 {
   out.z = -Math.cos(yaw) * cp;
   return out;
 }
+
+/** Yaw of a direction on the ground plane (lookVector's convention: 0 looks towards −z). */
+export function yawOf(dx: number, dz: number): number {
+  return Math.atan2(-dx, -dz);
+}

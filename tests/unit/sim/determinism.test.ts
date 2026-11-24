@@ -73,6 +73,18 @@ describe('simulation determinism', () => {
     expect(json.hash).toBe(local.hash);
   });
 
+  it('gives the same hash on two runs of the wanderMineBuild bot, also through JSON', () => {
+    const run = (serialize: boolean) =>
+      runBot({ registry, seed: 'det-m', ticks: 1500, bot: 'wanderMineBuild', serialize });
+    const a = run(false);
+    expect(run(false)).toEqual(a);
+    expect(run(true).hash).toBe(a.hash);
+    // On the way it mined, built and picked up what it mined.
+    expect(a.broken).toBeGreaterThan(0);
+    expect(a.placed).toBeGreaterThan(0);
+    expect(a.pickedUp).toBeGreaterThan(0);
+  });
+
   it('gives the same hash for mining, placing and item drops, also through JSON', () => {
     const a = interactionRun(false);
     expect(interactionRun(false)).toBe(a);

@@ -1,8 +1,9 @@
 /**
  * Headless runner (plain Node, no build).
  *   npm run headless -- --ping
- *   npm run headless -- --seed=42 --ticks=3000 --bot=wander [--world=flat|arena] [--rd=2] [--serialize]
- * Prints one JSON line: {hash, tps, columns, census, ...}.
+ *   npm run headless -- --seed=42 --ticks=9000 --bot=wanderMineBuild [--world=flat|arena] [--rd=2] [--serialize]
+ * `--bot` is one of BOT_KINDS (wander by default). Prints one JSON line: {hash, tps, columns,
+ * deaths, respawns, broken, placed, pickedUp, consumed, census, ...}.
  */
 import { parseArgs } from 'node:util';
 import { basePack } from '../src/content/packs/base/index.ts';
@@ -53,7 +54,8 @@ if (values.seed !== undefined) {
   const rd = Number(values.rd);
   if (!Number.isInteger(ticks) || ticks < 0) fail(`--ticks must be a whole number`);
   if (!Number.isInteger(rd) || rd < 1 || rd > 10) fail(`--rd must be 1–10`);
-  if (!BOT_KINDS.includes(values.bot as BotKind)) fail(`--bot must be one of ${BOT_KINDS}`);
+  if (!BOT_KINDS.includes(values.bot as BotKind))
+    fail(`--bot must be one of ${BOT_KINDS.join('|')}`);
   if (!['default', 'flat', 'arena'].includes(values.world))
     fail(`--world must be default|flat|arena`);
   const registry = buildRegistry(basePack);
@@ -80,6 +82,10 @@ if (values.seed !== undefined) {
       pos: [result.x, result.y, result.z].map((v) => Math.round(v * 100) / 100),
       deaths: result.deaths,
       respawns: result.respawns,
+      broken: result.broken,
+      placed: result.placed,
+      pickedUp: result.pickedUp,
+      consumed: result.consumed,
       census: result.census,
     }),
   );
@@ -89,7 +95,6 @@ if (values.seed !== undefined) {
 console.log(
   JSON.stringify({
     ok: true,
-    usage:
-      'npm run headless -- --ping | --seed=42 --ticks=3000 --bot=wander [--world=flat] [--rd=2]',
+    usage: `npm run headless -- --ping | --seed=42 --ticks=3000 --bot=${BOT_KINDS.join('|')} [--world=flat] [--rd=2]`,
   }),
 );
