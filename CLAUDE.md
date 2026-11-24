@@ -2,6 +2,8 @@
 
 Original voxel survival-adventure sandbox for the browser (Chrome first). The full spec is
 `docs/conception.md` (in French): follow it, milestone by milestone (M0–M11).
+Plan v2 (after the first playtest: decisions 15–21, milestones M12–M21) is its last part,
+« Plan v2 » (`# Plan v2` in `docs/conception.md`).
 
 ## Commands
 
