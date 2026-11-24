@@ -76,12 +76,22 @@ function wholeIn(value: unknown, min: number, max: number, fallback: number): nu
 }
 
 /**
- * Whether a saved position lies inside the world: within its border and its height, a jump from
- * the top layer included (2 blocks of air above it).
+ * Whether a saved position lies inside the world: within its border and its height (`top`: by
+ * default a jump from the top layer, 2 blocks of air above it).
  */
-export function insideWorld(p: { readonly x: number; readonly y: number; readonly z: number }) {
-  return insideBorder(p.x, p.z) && p.y >= 0 && p.y <= WORLD_HEIGHT + 2;
+export function insideWorld(
+  p: { readonly x: number; readonly y: number; readonly z: number },
+  top = WORLD_HEIGHT + 2,
+) {
+  return insideBorder(p.x, p.z) && p.y >= 0 && p.y <= top;
 }
+
+/**
+ * The highest saved drop kept as is: a stack thrown at a jump's apex from the top layer rises to
+ * about WORLD_HEIGHT + 3.03 (feet + 1.26, eye 1.62 - 0.3, then vy up to 5). Anything higher is
+ * crafted and brought down to it; normal play round-trips unchanged, so a resumed run matches.
+ */
+export const DROP_CEILING = WORLD_HEIGHT + 4;
 
 /** A saved speed, never faster than a fall. */
 const speed = (v: number) => Math.max(-PHYSICS.terminal, Math.min(PHYSICS.terminal, v));
@@ -93,12 +103,13 @@ const speed = (v: number) => Math.max(-PHYSICS.terminal, Math.min(PHYSICS.termin
 function readBody(
   body: { x: number; y: number; z: number; vx: number; vy: number; vz: number },
   saved: unknown,
+  top?: number,
 ): boolean {
   assignFields(body, saved);
   body.vx = speed(body.vx);
   body.vy = speed(body.vy);
   body.vz = speed(body.vz);
-  return insideWorld(body);
+  return insideWorld(body, top);
 }
 
 export function playerRecord(worldId: string, player: Readonly<PlayerState>): PlayerRecord {
@@ -271,10 +282,9 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
     return null;
   if (!isWhole(saved.count, 1) || !isPoint(saved.body)) return null;
   const body: DropBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
-  // A drop thrown at a jump's apex from the top layer flies a little higher than a player: brought
-  // down to the top of the world (it falls back onto the top layer), never lost.
-  const savedBody = { ...saved.body, y: Math.min(saved.body.y, WORLD_HEIGHT + 2) };
-  if (!readBody(body, savedBody)) return null;
+  // A thrown drop flies higher than a player: only a crafted height is brought down, never lost.
+  const savedBody = { ...saved.body, y: Math.min(saved.body.y, DROP_CEILING) };
+  if (!readBody(body, savedBody, DROP_CEILING)) return null;
   const drop: ItemDropState = {
     kind: 'itemDrop',
     id: saved.id,

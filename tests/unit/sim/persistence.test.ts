@@ -10,7 +10,13 @@ import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persis
 import { PHYSICS } from '../../../src/sim/physics.ts';
 import type { PlayerState } from '../../../src/sim/player.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
-import { dropRecord, playerRecord, readDrop, readPlayer } from '../../../src/sim/saveRecords.ts';
+import {
+  DROP_CEILING,
+  dropRecord,
+  playerRecord,
+  readDrop,
+  readPlayer,
+} from '../../../src/sim/saveRecords.ts';
 import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
@@ -169,9 +175,12 @@ describe('save records', () => {
       readDrop({ kind: 'itemDrop', id: 2, item: 'item:dirt', count: 1, body }, registry);
     expect(drop(fast)!.body).toMatchObject({ vx: terminal, vy: -terminal, vz: terminal });
     expect(drop({ x: 1e15, y: 70, z: 0 })).toBeNull();
-    // Thrown at a jump's apex from the top layer: brought down within reach of it, not lost.
-    expect(drop({ x: 0, y: WORLD_HEIGHT + 2.6, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 2);
-    expect(drop({ x: 0, y: 1e9, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 2);
+    // Thrown at a jump's apex from the top layer (it rises to about WORLD_HEIGHT + 3): restored as
+    // saved, so a resumed run matches; only an absurd height is brought down to DROP_CEILING.
+    expect(drop({ x: 0, y: WORLD_HEIGHT + 2.6, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 2.6);
+    expect(drop({ x: 0, y: WORLD_HEIGHT + 3.03, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 3.03);
+    expect(drop({ x: 0, y: 1e9, z: 0 })!.body.y).toBe(DROP_CEILING);
+    expect(DROP_CEILING).toBe(WORLD_HEIGHT + 4);
   });
 });
 
