@@ -1,6 +1,7 @@
 import type { RawTables } from '../../content/registry.ts';
 import type { CreatureDef } from '../../content/schema.ts';
 import { lookVector, type Vec3 } from '../../core/angles.ts';
+import { centreY } from '../../core/creatures.ts';
 import { createRayHit, RAY_OPAQUE, raycast } from '../../world/raycast.ts';
 import type { VoxelWorld } from '../../world/VoxelWorld.ts';
 import { type CreatureState, eyeY, isAlert } from '../creatures.ts';
@@ -182,7 +183,7 @@ export function refreshSenses(sim: Simulation, c: CreatureState, def: CreatureDe
   const cy = eyeY(c, def);
   const d = distanceTo(c, player);
   const canSee = player === target && d <= def.senses.sight && inFieldOfView(c, def, b.x, b.z);
-  const cos = viewCos(player, c.body.x, c.body.y + def.hitbox[1] / 2, c.body.z);
+  const cos = viewCos(player, c.body.x, centreY(c.body.y, def.hitbox[1]), c.body.z);
   if (!canSee && cos < IN_VIEW_COS) return;
   if (d > SIGHT_LIMIT) return;
   if (!lineOfSight(sim.world, sim.registry.tables, c.body.x, cy, c.body.z, b.x, eye, b.z)) return;

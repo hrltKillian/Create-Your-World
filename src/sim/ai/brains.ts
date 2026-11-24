@@ -1,4 +1,5 @@
 import type { CreatureBrain, CreatureDef } from '../../content/schema.ts';
+import { feetCell } from '../../core/creatures.ts';
 import { effectiveLight, skyOf } from '../../world/light.ts';
 import { ticksOf } from '../clock.ts';
 import { type CreatureState, isGone } from '../creatures.ts';
@@ -107,7 +108,7 @@ function fleeLight(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTi
   let bestX = c.body.x;
   let bestZ = c.body.z;
   let best = 16;
-  const y = Math.floor(c.body.y + 0.01);
+  const y = feetCell(c.body.y);
   for (let i = 0; i < 8; i++) {
     const angle = (i * Math.PI) / 4;
     const x = c.body.x + Math.cos(angle) * 6;

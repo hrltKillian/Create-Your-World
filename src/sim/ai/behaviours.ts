@@ -1,4 +1,5 @@
 import type { CreatureDef, CreatureSound } from '../../content/schema.ts';
+import { centreY, feetCell } from '../../core/creatures.ts';
 import { hash32, hashUnit } from '../../core/hash.ts';
 import { effectiveLight } from '../../world/light.ts';
 import { ticksOf } from '../clock.ts';
@@ -91,7 +92,7 @@ export function voice(
 ): void {
   const sfx = def.sounds[sound];
   if (sfx)
-    out.push({ type: 'sound', sfx, x: c.body.x, y: c.body.y + def.hitbox[1] / 2, z: c.body.z });
+    out.push({ type: 'sound', sfx, x: c.body.x, y: centreY(c.body.y, def.hitbox[1]), z: c.body.z });
 }
 
 /** Effective light of the cell a body's feet stand in. */
@@ -100,7 +101,7 @@ export function lightAt(
   at: { readonly x: number; readonly y: number; readonly z: number },
   daylight: number,
 ): number {
-  const packed = sim.world.getLight(Math.floor(at.x), Math.floor(at.y + 0.01), Math.floor(at.z));
+  const packed = sim.world.getLight(Math.floor(at.x), feetCell(at.y), Math.floor(at.z));
   return effectiveLight(packed, daylight);
 }
 
@@ -122,10 +123,10 @@ export function plan(
   if (ai.searches <= 0) return false;
   ai.searches--;
   request.fromX = Math.floor(c.body.x);
-  request.fromY = Math.floor(c.body.y + 0.01);
+  request.fromY = feetCell(c.body.y);
   request.fromZ = Math.floor(c.body.z);
   request.toX = Math.floor(x);
-  request.toY = Math.floor(y + 0.01);
+  request.toY = feetCell(y);
   request.toZ = Math.floor(z);
   request.clearance = Math.ceil(def.hitbox[1]);
   request.lightLimit = shunLight ? (def.traits?.lightAversion ?? NO_LIGHT_LIMIT) : NO_LIGHT_LIMIT;

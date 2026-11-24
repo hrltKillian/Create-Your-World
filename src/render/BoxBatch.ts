@@ -133,6 +133,11 @@ export class BoxBatch {
     return this.count;
   }
 
+  /** Boxes that still fit this frame (`add` drops any past the capacity). */
+  get room(): number {
+    return this.capacity - this.count;
+  }
+
   /** Starts a frame: instances are positioned relative to (x, y, z), usually the camera section. */
   begin(x: number, y: number, z: number): void {
     this.count = 0;

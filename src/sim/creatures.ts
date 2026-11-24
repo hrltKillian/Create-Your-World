@@ -1,5 +1,6 @@
 import type { Registry } from '../content/registry.ts';
 import type { CreatureDef } from '../content/schema.ts';
+import { CREATURE_EYE_SHARE } from '../core/creatures.ts';
 import { hashUnit } from '../core/hash.ts';
 import { blockToColumn, columnKey } from '../world/coords.ts';
 import { COLUMN_LIT } from './ColumnPipeline.ts';
@@ -204,7 +205,7 @@ export function unparkCreatures(sim: Simulation, cx: number, cz: number): void {
 
 /** Height of a creature's eyes (sight lines and blows start there). */
 export function eyeY(c: Readonly<CreatureState>, def: CreatureDef): number {
-  return c.body.y + def.hitbox[1] * 0.8;
+  return c.body.y + def.hitbox[1] * CREATURE_EYE_SHARE;
 }
 
 /** Squared horizontal distance to the nearest player (Infinity without players). */

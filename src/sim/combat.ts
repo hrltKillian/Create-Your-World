@@ -1,5 +1,5 @@
 import type { CreatureDef } from '../content/schema.ts';
-import { DYING_TICKS } from '../core/creatures.ts';
+import { centreY, DYING_TICKS } from '../core/creatures.ts';
 import { hash32 } from '../core/hash.ts';
 import { BRAIN, setMode, voice } from './ai/behaviours.ts';
 import { alarm } from './ai/brains.ts';
@@ -223,7 +223,7 @@ function die(
   out.push({ type: 'creatureDied', id: c.id, creature: def.key, attacker, x: b.x, y: b.y, z: b.z });
   const table = sim.registry.loot(def.loot);
   if (!table) return;
-  const y = b.y + def.hitbox[1] / 2;
+  const y = centreY(b.y, def.hitbox[1]);
   rollLoot(table, hash32(sim.ctx.seedHash, c.id, sim.tick), (item, count) =>
     spawnDrop(sim, { item, count }, b.x, y, b.z),
   );

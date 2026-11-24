@@ -31,8 +31,8 @@ export interface PlayFrame {
 
 /**
  * Everything drawn during play on top of the chunks: the world BoxBatch (avatar, held item in
- * third person, creatures, item drops, break particles), the block overlays and the first-person
- * hand view. It reacts to the simulation's interaction and combat events.
+ * third person, item drops, break particles, then creatures), the block overlays and the
+ * first-person hand view. It reacts to the simulation's interaction and combat events.
  */
 export class PlayView {
   readonly batch: BoxBatch;
@@ -85,9 +85,11 @@ export class PlayView {
       blockToColumn(pose.z) * SECTION_SIZE,
     );
     this.entities.drawPlayer(frame.player, frame.alpha, frame.dt, frame.avatarVisible);
-    this.creatures.drawAll(this.sim.entities, frame.alpha, frame.dt);
     this.drops.drawAll(this.sim.entities, pose.x, pose.y, pose.z, frame.alpha, frame.dt);
     this.particles.update(frame.dt);
+    // Creatures last: they share the room the bounded drops and particles leave, nearest first.
+    const reach = this.view.reach;
+    this.creatures.drawAll(this.sim.entities, pose.x, pose.z, reach, frame.alpha, frame.dt);
     this.batch.end();
     this.overlay.update(frame.targets);
     const light = this.sim.world.getLight(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z));

@@ -124,10 +124,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     stop a blow (`blowReach`), the hitbox test `creatureOnRay` shared with `app/ClientAim.ts`,
     whose `creature` the HUD names); no placement or closing gate into a player or a creature
     (`bodyInCell`, sim/placement.ts); blows sound `sounds.combat.hit`/`hurt`; the
-    dying time `DYING_TICKS` (`core/creatures.ts`, shared with the renderer); drawn by
-    `render/CreatureView.ts` (posed models, glow, red flash, death fall and shrink) animated by
-    `render/creatureRig.ts` (`animateCreature`: gait legs, wind-up, look, hit freeze); BoxBatch
-    boxes take `glow` and `flash`; spawns, departures (`departs`: every rule of who leaves, each
+    dying time `DYING_TICKS` and the body geometry `CREATURE_EYE_SHARE`, `centreY`, `feetCell`
+    (`core/creatures.ts`, shared with the renderer); drawn by `render/CreatureView.ts` (posed
+    models, glow, red flash, death fall and shrink; only within the render distance `WorldView.reach`
+    of the camera, drawn last into the batch's `room`, the nearest first: `nthSmallest`,
+    `render/nearest.ts`, shared with DropView) animated by `render/creatureRig.ts`
+    (`animateCreature`: gait legs, wind-up, look, hit freeze of the pose only); BoxBatch boxes take
+    `glow` and `flash`; spawns, departures (`departs`: every rule of who leaves, each
     tick from `stepCreatures`), herds and `sim.spawnLog`
     `sim/spawning.ts` (`SPAWN`; `sim.rules`: `hostiles`, `spawns` (off in flat and arena worlds
     unless asked: dev `?spawns=0|1`), `graceTicks` (`?grace=`)); the effective light

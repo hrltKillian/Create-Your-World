@@ -6,6 +6,7 @@ import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { BoxBatch } from './BoxBatch.ts';
 import { drawItem, type ItemModel } from './itemModels.ts';
+import { nthSmallest } from './nearest.ts';
 
 /** Drops within this distance of the camera are drawn in detail (blocks)… */
 const DETAIL_DISTANCE = 8;
@@ -80,7 +81,7 @@ export class DropView {
     entities.forEach(this.measure);
     this.detailLimit =
       this.nearCount > MAX_DETAILED
-        ? nthSmallest(this.near, this.nearCount, MAX_DETAILED)
+        ? nthSmallest(this.near, this.nearCount, MAX_DETAILED, sorted)
         : DETAIL_DISTANCE * DETAIL_DISTANCE;
     this.detailed = 0;
     entities.forEach(this.draw);
@@ -125,19 +126,5 @@ export class DropView {
   }
 }
 
-/** The n-th smallest of the first `count` values (1-based), by insertion into a sorted prefix. */
+/** Scratch of `nthSmallest`: the nearest detailed drops, sorted. */
 const sorted = new Float64Array(MAX_DETAILED);
-function nthSmallest(values: Float64Array, count: number, n: number): number {
-  let size = 0;
-  for (let i = 0; i < count; i++) {
-    const v = values[i]!;
-    if (size === n && v >= sorted[n - 1]!) continue;
-    let j = size < n ? size++ : n - 1;
-    while (j > 0 && sorted[j - 1]! > v) {
-      sorted[j] = sorted[j - 1]!;
-      j--;
-    }
-    sorted[j] = v;
-  }
-  return sorted[n - 1]!;
-}

@@ -1,6 +1,7 @@
 import type { RawTables, Registry } from '../content/registry.ts';
 import type { WeaponDef } from '../content/schema.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
+import { centreY } from '../core/creatures.ts';
 import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { unawareOf } from './ai/senses.ts';
@@ -105,7 +106,7 @@ function attack(
   wearWeapon(sim, player, out);
   const sfx = sim.registry.pack.sounds?.combat.hit;
   if (sfx)
-    out.push({ type: 'sound', sfx, x: c.body.x, y: c.body.y + def.hitbox[1] / 2, z: c.body.z });
+    out.push({ type: 'sound', sfx, x: c.body.x, y: centreY(c.body.y, def.hitbox[1]), z: c.body.z });
 }
 
 /** A held weapon that wears (a tool) loses one use per blow landed. */
