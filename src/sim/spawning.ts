@@ -317,13 +317,16 @@ function trySpawn(
   const group = Math.min(wanted, room);
   let herd = -1;
   for (let m = 0; m < group; m++) {
-    // The first one on the candidate, the others close by on the same kind of spot.
+    // The first one on the candidate, the others close by on the same kind of spot: under the
+    // sky or not as it is, inside the border.
     const mx = m === 0 ? x : x + Math.floor((hashUnit(h, 10 + m) - 0.5) * 2 * SPAWN.herdSpread);
     const mz = m === 0 ? z : z + Math.floor((hashUnit(h, 20 + m) - 0.5) * 2 * SPAWN.herdSpread);
-    if (sim.columnState(toColumn(mx), toColumn(mz)) < COLUMN_LIT) continue;
+    if (!insideBorder(mx, mz) || sim.columnState(toColumn(mx), toColumn(mz)) < COLUMN_LIT) continue;
     const my = m === 0 ? y : floorBelow(sim, mx, mz, y + 1, 3);
     if (my < 0 || nearAPlayer(sim, mx + 0.5, mz + 0.5)) continue;
-    const memberLight = effectiveLight(sim.world.getLight(mx, my, mz), daylightAt(hour));
+    const memberPacked = sim.world.getLight(mx, my, mz);
+    if (skyOf(memberPacked) > 0 !== underSky) continue;
+    const memberLight = effectiveLight(memberPacked, daylightAt(hour));
     if (memberLight > (picked.spawn!.maxLight ?? MAX_LIGHT)) continue;
     const c = spawnCreature(sim, def, mx + 0.5, my, mz + 0.5, herd, cave);
     herd = c.herd;

@@ -1045,6 +1045,7 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
   - « Regardé » = à moins de 30° du regard, avec ligne de vue.
 - **A\*** :
   - 8 directions sans couper les coins ; monte 1 bloc, descend ≤ 3 ;
+  - nage : un nœud flotte dans la cellule du haut d'un liquide (surcoût 1) ; un nageur qui flotte (pas de bloc solide sous sa cellule) remonte sur une berge jusqu'à 1 bloc au-dessus de la surface (saut de sortie du corps), mais dans un liquide posé sur le sol il ne monte qu'1 bloc, comme à terre (jamais par-dessus un mur de 2) ; un chemin n'y descend que si le mouvement inverse existe : 1 bloc depuis une colonne solide, ou 2 dans un liquide où il flotte depuis une colonne solide jusqu'à sa cellule du haut (pas depuis un ponton, un pont ou une berge creusée) : une créature n'entre jamais dans une eau dont elle ne peut sortir ;
   - tas typé et table de nœuds à estampilles de 16 384 entrées ;
   - ≤ 600 nœuds développés par recherche et ≤ 2 recherches par tick ; si le budget est épuisé, chemin partiel vers le nœud au meilleur h ;
   - recalcul si la cible bouge de plus de 2 cellules, ou tous les 20 ticks ;

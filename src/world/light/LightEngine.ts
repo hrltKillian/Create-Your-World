@@ -42,7 +42,8 @@ export interface LightBox {
  *
  * - Seams: when a column arrives, each border with a loaded face neighbour is compared and the
  *   cells that can light the other side feed the seam queues, drained under a node budget. When it
- *   goes, the neighbours' border light that may have come from it is taken out as for an edit.
+ *   goes, the neighbours' border light that may have come from it is taken out as for an edit,
+ *   resolved at once and not reported for remeshing.
  * - Edits: `edited` takes the cell's light out; `flush` runs the removal pass (FIFO), then the
  *   re-add pass, to completion. Emitters, sky edges and the top layer (under the full sky above
  *   the world) get their light back in the re-add pass.
@@ -112,8 +113,11 @@ export class LightEngine {
 
   /**
    * Forgets a column; its neighbours' seams with it are no longer analysed, and the light that may
-   * have come through it into them is taken out (resolved by the next `flush`), so it cannot come
-   * back through the seams when the column returns.
+   * have come through it into them is taken out at once, so it cannot come back through the seams
+   * when the column returns. It is not reported in `changed`: that light reaches at most 14 blocks
+   * into the 3×3 columns around the gone one, which all lose MESHABLE with it and are meshed anew
+   * when they show again. Called with no edit pending (after the tick's `flush`), which it would
+   * resolve unreported too.
    */
   removeColumn(cx: number, cz: number): void {
     const gone = this.slots.get(cx, cz);
@@ -127,6 +131,7 @@ export class LightEngine {
     }
     this.slots.remove(cx, cz);
     this.seams[slotOf(cx, cz)] = 0;
+    this.resolve();
   }
 
   /** All 4 borders of the column were compared with loaded neighbours. */
@@ -182,12 +187,17 @@ export class LightEngine {
     box.y1 = Number.NEGATIVE_INFINITY;
     box.z1 = Number.NEGATIVE_INFINITY;
     this.tracking = true;
+    this.resolve();
+    this.tracking = false;
+    return box.x1 >= box.x0;
+  }
+
+  /** The removal passes, then the re-add passes, to completion. */
+  private resolve(): void {
     this.unflood(this.removeSky, this.addSky, SKY_SHIFT);
     this.unflood(this.removeBlock, this.addBlock, BLOCK_SHIFT);
     this.flood(this.addSky, SKY_SHIFT, Number.POSITIVE_INFINITY);
     this.flood(this.addBlock, BLOCK_SHIFT, Number.POSITIVE_INFINITY);
-    this.tracking = false;
-    return box.x1 >= box.x0;
   }
 
   /** Spreads seam light for at most `budget` nodes; returns the nodes processed. */
@@ -229,7 +239,8 @@ export class LightEngine {
    * Takes out the light that `a` (about to go) may have given the border of `b`, its neighbour in
    * direction `d`: a channel exactly one step (1 + filter) below `a`'s side. As in `edited`, the
    * cell is cleared and queued for removal with its old level, and queued for the re-add pass,
-   * which gives it its own light back (an emitter, a top cell). The next `flush` resolves it.
+   * which gives it its own light back (an emitter, a top cell). `removeColumn` resolves it at once,
+   * unreported.
    */
   private forgetSeam(a: Column, b: Column, d: number): void {
     const slotB = slotOf(b.cx, b.cz);

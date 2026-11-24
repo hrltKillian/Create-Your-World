@@ -12,6 +12,7 @@ import type { SimEvent } from '../../../src/sim/events.ts';
 import { PHYSICS } from '../../../src/sim/physics.ts';
 import { creatureRecord, readCreature } from '../../../src/sim/saveRecords.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
+import { grazeAroundPool } from '../../helpers/pools.ts';
 import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
@@ -203,6 +204,95 @@ describe('creatures', () => {
     };
     expect(run(false)).toBe(66);
     expect(run(true)).toBe(65);
+  });
+
+  it('a Trotter that walked into water climbs back out onto the bank, from shallow or deep water', () => {
+    // Pools flush with the ground (feet at 65): 1 and 3 deep from the bank, 9 deep from the middle.
+    const cases: [depth: number, x: number][] = [
+      [1, 40.5],
+      [3, 40.5],
+      [9, 48.5],
+    ];
+    for (const [depth, x] of cases) {
+      const s = world(`swim-${depth}`);
+      s.fill(40, 65 - depth, -6, 56, 64, 6, 'block:fresh_water');
+      const id = s.sim.nextEntityId;
+      s.send({ type: 'debug.spawn', creature: 'creature:trotter', x, y: 64, z: 0.5 });
+      const c = s.sim.entities.get(id) as CreatureState;
+      const dry = () => c.body.x < 40 || c.body.x > 57 || Math.abs(c.body.z) > 7;
+      for (let t = 0; t < 3600 && !dry(); t++) s.step(1);
+      expect(dry(), `${depth} deep`).toBe(true);
+      expect(c.body.y, `${depth} deep`).toBeGreaterThanOrEqual(65);
+    }
+  });
+
+  it('a Trotter in a pool whose surface is one block below the bank climbs out onto it', () => {
+    // Ground feet at 65; the pool's top cell at 63 (2 or 3 deep: it floats), y 64 dug out over it.
+    for (const depth of [2, 3]) {
+      const s = world(`sunken-${depth}`);
+      s.fill(40, 64, -6, 56, 64, 6, 'block:air');
+      s.fill(40, 64 - depth, -6, 56, 63, 6, 'block:fresh_water');
+      const id = s.sim.nextEntityId;
+      s.send({ type: 'debug.spawn', creature: 'creature:trotter', x: 40.5, y: 63, z: 0.5 });
+      const c = s.sim.entities.get(id) as CreatureState;
+      const dry = () => c.body.x < 40 || c.body.x > 57 || Math.abs(c.body.z) > 7;
+      for (let t = 0; t < 3600 && !dry(); t++) s.step(1);
+      expect(dry(), `${depth} deep`).toBe(true);
+      expect(c.body.y, `${depth} deep`).toBeGreaterThanOrEqual(65);
+    }
+  });
+
+  it('Trotters grazing around sunken pools are never trapped in them', () => {
+    // A pool's surface one block below the bank (they may swim in and out) or two (they never
+    // enter): none in the water for 75 s on end (the long run: tests/slow/pools.slow.ts).
+    for (const top of [63, 62]) {
+      const s = world(`pool-rim-${top}`);
+      const result = grazeAroundPool(s, top, 3000, 1500);
+      expect(result.trapped, `top ${top}`).toBe(0);
+      if (top === 62) expect(result.entered, 'the 2-below pool is never entered').toBe(0);
+    }
+  });
+
+  it('a Trotter on a dock one block above a pool it could not leave never drops into it', () => {
+    // Banks 2 above the surface (top cell 62); planks on the surface at x 40..48, z ±1 (feet 64).
+    for (const k of [0, 1]) {
+      const s = world(`dock-${k}`);
+      s.fill(40, 63, -6, 56, 64, 6, 'block:air');
+      s.fill(40, 59, -6, 56, 62, 6, 'block:fresh_water');
+      s.fill(40, 63, -1, 48, 63, 1, 'block:planks');
+      const id = s.sim.nextEntityId;
+      s.send({ type: 'debug.spawn', creature: 'creature:trotter', x: 46.5, y: 64, z: -0.5 });
+      const c = s.sim.entities.get(id) as CreatureState;
+      for (let t = 0; t < 1200; t++) {
+        s.step(1);
+        const b = c.body;
+        const wet = b.x > 40 && b.x < 57 && Math.abs(b.z) < 7 && b.y < 63.9;
+        expect(wet, `world ${k}, tick ${t}`).toBe(false);
+      }
+    }
+  });
+
+  it('water lying on the ground never lifts a creature over a wall 2 high', () => {
+    // A stone ring 2 high around the player and one layer of water on the ground outside it.
+    for (const [creature, hour] of [
+      ['creature:prowler', 23],
+      ['creature:trotter', 12],
+    ] as const) {
+      const s = world(`wall-${creature}`, hour);
+      s.send({ type: 'debug.god', on: true });
+      s.fill(-4, 65, -4, 4, 66, 4, 'block:stone');
+      s.fill(-3, 65, -3, 3, 66, 3, 'block:air');
+      s.fill(-9, 65, -9, 9, 65, -5, 'block:fresh_water');
+      const bodies = [-1.5, 1.5].map((x) => {
+        const id = s.sim.nextEntityId;
+        s.send({ type: 'debug.spawn', creature, x: x + 0.5, y: 65, z: -6.5 });
+        return (s.sim.entities.get(id) as CreatureState).body;
+      });
+      for (let t = 0; t < 600; t++) {
+        s.step(1);
+        for (const b of bodies) expect(b.y, `${creature} tick ${t}`).toBeLessThan(66.9);
+      }
+    }
   });
 
   it("a Shellback's brow plate stops 60 % of a blow from the front", () => {

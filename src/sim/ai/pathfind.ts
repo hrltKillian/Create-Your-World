@@ -1,4 +1,4 @@
-import { FLAG_SOLID, type RawTables } from '../../content/registry.ts';
+import { COLLISION_LIQUID, FLAG_SOLID, type RawTables } from '../../content/registry.ts';
 import type { Column } from '../../world/Column.ts';
 import { localIndex, SECTION_BITS, SECTION_MASK, WORLD_HEIGHT } from '../../world/coords.ts';
 import { effectiveLight } from '../../world/light.ts';
@@ -6,10 +6,16 @@ import type { VoxelWorld } from '../../world/VoxelWorld.ts';
 
 /*
  * A* on the block grid (docs « Créatures et combat », A*). A node is the cell a creature's feet
- * stand in: its `clearance` cells are free and the cell below is solid. Moves: 8 directions
- * without cutting corners (diagonals stay level), one block up (with head room to hop), or a drop
- * of at most 3 blocks. Unloaded columns count as solid, so paths never enter them; cells of
- * effective light ≥ `lightLimit` are forbidden (light-shy creatures).
+ * stand in: its `clearance` cells are free and the cell below is solid, or the top cell of a
+ * liquid, where a swimming body floats (each such node costs `SWIM_COST` more, so paths keep to dry
+ * land when they can). Moves: 8 directions without cutting corners (diagonals stay level), one
+ * block up (with head room to hop), or a drop of at most 3 blocks. A swimmer afloat (no solid cell
+ * under its liquid cell) also climbs out onto a bank one block above the surface (two blocks up: the
+ * climb-out hop of creatureBody.ts); in a liquid lying on the ground it climbs one block, as on land.
+ * A path drops into a liquid only where the reverse move leads back: one block down from a solid
+ * column, or two into a liquid it floats in with the column left solid down to its top cell (no
+ * dock, bridge or undercut bank). Unloaded columns count as solid, so paths never enter them;
+ * cells of effective light ≥ `lightLimit` are forbidden (light-shy creatures).
  *
  * Fixed budgets and zero allocation per search: a typed binary heap and a table of 16 384 nodes
  * stamped by search (a node of an older search reads as absent), at most 600 nodes expanded. When
@@ -55,6 +61,8 @@ const DIAGONAL = Math.SQRT2;
 /** Extra cost of a hop onto a step, and per block dropped. */
 const STEP_UP_COST = 0.5;
 const DROP_COST = 0.25;
+/** Extra cost of a node held up by a liquid (swimming). */
+const SWIM_COST = 1;
 
 const stamp = new Uint32Array(SIZE);
 const keys = new Int32Array(SIZE);
@@ -116,9 +124,44 @@ function lightOk(x: number, y: number, z: number): boolean {
   return effectiveLight(packed, req.daylight) < req.lightLimit;
 }
 
-/** A body may stand with its feet in the cell. */
-function standable(x: number, y: number, z: number): boolean {
-  return clear(x, y, z) && solid(x, y - 1, z) && lightOk(x, y, z);
+function liquid(x: number, y: number, z: number): boolean {
+  if (y < 0 || y >= WORLD_HEIGHT) return false;
+  const c = columnAt(x, z);
+  return (
+    c !== undefined &&
+    tables.collision[c.getBlock(x & SECTION_MASK, y, z & SECTION_MASK)] === COLLISION_LIQUID
+  );
+}
+
+/**
+ * Extra cost of a body held with its feet in the cell: `SWIM_COST` in a liquid's top cell, 0 on
+ * solid ground; −1: nothing holds it (air, or deep in a liquid it rises out of).
+ */
+function floorCost(x: number, y: number, z: number): number {
+  if (liquid(x, y, z)) return liquid(x, y + 1, z) ? -1 : SWIM_COST;
+  return solid(x, y - 1, z) ? 0 : -1;
+}
+
+/** A swimmer in the liquid's top cell (x, y, z) floats: no solid cell under it (2-up climb out). */
+function afloat(x: number, y: number, z: number): boolean {
+  return !solid(x, y - 1, z);
+}
+
+/**
+ * Whether a swimmer whose feet dropped `d` blocks from (x, y, z) into the liquid's top cell of
+ * (nx, nz) can get back: level (d 0), a step onto the solid cell under the one left (d 1), or a
+ * climb out of a liquid it floats in onto a column solid down to its top cell (d 2).
+ */
+function swimBack(x: number, y: number, z: number, nx: number, nz: number, d: number): boolean {
+  if (d === 0) return true;
+  if (d > 2 || (d === 2 && !afloat(nx, y - 2, nz))) return false;
+  for (let k = 1; k <= d; k++) if (!solid(x, y - k, z)) return false;
+  return true;
+}
+
+/** Extra cost of a body standing (or floating) with its feet in the cell; −1: it cannot. */
+function standCost(x: number, y: number, z: number): number {
+  return clear(x, y, z) && lightOk(x, y, z) ? floorCost(x, y, z) : -1;
 }
 
 function keyOf(x: number, y: number, z: number): number {
@@ -204,22 +247,34 @@ function expandStraight(
   from: number,
 ): void {
   if (clear(nx, y, nz)) {
-    if (solid(nx, y - 1, nz)) {
-      if (lightOk(nx, y, nz)) relax(nx, y, nz, g + 1, from);
-      return;
-    }
-    for (let d = 1; d <= ASTAR.maxDrop; d++) {
-      if (solid(nx, y - d, nz)) return;
-      if (solid(nx, y - d - 1, nz)) {
-        if (lightOk(nx, y - d, nz)) relax(nx, y - d, nz, g + 1 + DROP_COST * d, from);
+    for (let d = 0; d <= ASTAR.maxDrop; d++) {
+      if (d > 0 && solid(nx, y - d, nz)) return;
+      const floor = floorCost(nx, y - d, nz);
+      if (floor === SWIM_COST && !swimBack(x, y, z, nx, nz, d)) return;
+      if (floor >= 0) {
+        if (lightOk(nx, y - d, nz)) relax(nx, y - d, nz, g + 1 + DROP_COST * d + floor, from);
         return;
       }
     }
     return;
   }
   // A step: the neighbour's floor is one higher, with room to hop above the body here.
-  if (solid(nx, y, nz) && standable(nx, y + 1, nz) && !solid(x, y + req.clearance, z))
-    relax(nx, y + 1, nz, g + 1 + STEP_UP_COST, from);
+  if (!solid(nx, y, nz) || solid(x, y + req.clearance, z)) return;
+  const stand = standCost(nx, y + 1, nz);
+  if (stand >= 0) {
+    relax(nx, y + 1, nz, g + 1 + STEP_UP_COST + stand, from);
+    return;
+  }
+  // A floating swimmer's climb out onto a bank one block above the surface, with head room.
+  if (
+    floorCost(x, y, z) !== SWIM_COST ||
+    !afloat(x, y, z) ||
+    !solid(nx, y + 1, nz) ||
+    solid(x, y + req.clearance + 1, z)
+  )
+    return;
+  const bank = standCost(nx, y + 2, nz);
+  if (bank >= 0) relax(nx, y + 2, nz, g + 1 + 2 * STEP_UP_COST + bank, from);
 }
 
 /**
@@ -282,8 +337,9 @@ export function findPath(
     // Diagonals stay level and need both corner cells free: they never cut a corner.
     for (let dx = -1; dx <= 1; dx += 2) {
       for (let dz = -1; dz <= 1; dz += 2) {
-        if (clear(x + dx, y, z) && clear(x, y, z + dz) && standable(x + dx, y, z + dz))
-          relax(x + dx, y, z + dz, g + DIAGONAL, slot);
+        if (!clear(x + dx, y, z) || !clear(x, y, z + dz)) continue;
+        const stand = standCost(x + dx, y, z + dz);
+        if (stand >= 0) relax(x + dx, y, z + dz, g + DIAGONAL + stand, slot);
       }
     }
   }

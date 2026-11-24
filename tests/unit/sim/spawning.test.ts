@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { COLUMN_LIT } from '../../../src/sim/ColumnPipeline.ts';
-import { type CreatureState, isHostile } from '../../../src/sim/creatures.ts';
+import { type CreatureState, isHostile, removeCreature } from '../../../src/sim/creatures.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash } from '../../../src/sim/persistence.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
-import { SPAWN } from '../../../src/sim/spawning.ts';
+import { SPAWN, stepSpawning } from '../../../src/sim/spawning.ts';
 import { blockToColumn, columnKey } from '../../../src/world/coords.ts';
+import { skyOf } from '../../../src/world/light.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle } from '../../helpers/save.ts';
 import { createTestSim, playerTestSim } from '../../helpers/simHarness.ts';
@@ -70,6 +71,40 @@ describe('spawning', () => {
       expect(s.sim.spawnLog).toEqual([]);
       expect(hostiles(s)).toEqual([]);
     }
+  });
+
+  it('places every member of a group on the same kind of spot as the first: never in a closed room', () => {
+    const s = spawnWorld('rooms', 12, 0, false);
+    // Strips along z: x % 4 = 0 open ground, 1 and 3 walls 2 high, 2 a room closed at both ends,
+    // all under a roof at y 67. Herd members land up to 3 blocks from an open candidate.
+    const r = 62;
+    for (let x = -r; x <= r; x++) {
+      const m = ((x % 4) + 4) % 4;
+      if (m === 0) continue;
+      if (m === 2) {
+        s.fill(x, 65, -r, x, 66, -r, 'block:stone');
+        s.fill(x, 65, r, x, 66, r, 'block:stone');
+      } else s.fill(x, 65, -r, x, 66, r, 'block:stone');
+      s.fill(x, 67, -r, x, 67, r, 'block:stone');
+    }
+    expect(skyOf(s.sim.world.getLight(30, 65, 30))).toBe(0);
+    let spawned = 0;
+    const wrong: string[] = [];
+    for (let k = 1; k <= 200; k++) {
+      s.sim.tick = k * SPAWN.herdEveryTicks;
+      const before = new Set(s.sim.entities.keys());
+      stepSpawning(s.sim);
+      for (const c of creatures(s)) {
+        if (before.has(c.id)) continue;
+        spawned++;
+        const { x, y, z } = c.body;
+        const sky = skyOf(s.sim.world.getLight(Math.floor(x), Math.floor(y), Math.floor(z)));
+        if (sky > 0 === c.cave) wrong.push(`${c.creature} ${x},${y},${z}`);
+      }
+      for (const c of creatures(s)) removeCreature(s.sim, c.id);
+    }
+    expect(spawned).toBeGreaterThan(50);
+    expect(wrong).toEqual([]);
   });
 
   it('keeps to the caps: 3 + day / 2 surface hostiles, 3 creatures per column at a spawn', () => {
