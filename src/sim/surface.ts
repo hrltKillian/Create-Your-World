@@ -1,3 +1,4 @@
+import { COLLISION_FULL, COLLISION_NONE } from '../content/registry.ts';
 import {
   columnKey,
   localIndex,
@@ -21,6 +22,28 @@ export function surfaceAt(sim: Simulation, x: number, z: number): number {
   const ground = surfaceY(sim.ctx, x, z);
   const saved = sim.edits.get(columnKey(toColumn(x), toColumn(z)));
   return saved ? savedSurface(saved, toLocal(x), toLocal(z), ground, sim.world.air) : ground;
+}
+
+/**
+ * Collision of the cell (x, y, z) (a `RawTables.collision` value), resolved at once like
+ * `surfaceAt`: the block of a loaded column, else of its saved section, else the generated ground
+ * below the analytic height (full) and air above it (decorations aside).
+ */
+export function collisionAt(sim: Simulation, x: number, y: number, z: number): number {
+  const { world } = sim;
+  const tables = sim.registry.tables;
+  if (world.heightAt(x, z) >= 0) return tables.collision[world.getBlock(x, y, z)]!;
+  const saved = sim.edits.get(columnKey(toColumn(x), toColumn(z)));
+  const section = saved?.find((s) => s.sy === Math.floor(y / SECTION_SIZE));
+  if (section) {
+    const ly = y - section.sy * SECTION_SIZE;
+    const state =
+      section.blocks === null
+        ? section.uniformBlock
+        : section.blocks[localIndex(toLocal(x), ly, toLocal(z))]!;
+    return tables.collision[state]!;
+  }
+  return y < surfaceY(sim.ctx, x, z) ? COLLISION_FULL : COLLISION_NONE;
 }
 
 /**

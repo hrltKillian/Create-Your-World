@@ -1022,10 +1022,10 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
 
 **Mort**
 
-- L'inventaire va dans un **Abandoned Pack** permanent, dans la cellule libre la plus proche des pieds (≤ 2 blocs, le haut d'abord ; jamais à travers la roche). Il est enregistré dans `graves[]` du joueur, donc son marqueur sur la boussole survit au rechargement.
+- L'inventaire va dans un **Abandoned Pack** permanent, dans la cellule libre la plus proche des pieds (≤ 2 pas de cellule en cellule sans collision depuis les pieds, le haut d'abord ; jamais à travers la roche). Il est enregistré dans `graves[]` du joueur, donc son marqueur sur la boussole survit au rechargement.
 - L'écran de mort affiche la cause (`death.cause.*`).
 - Réapparition :
-  - à la natte, sinon au sol du point d'apparition (ou de la colonne la plus proche dont le sol n'a pas été creusé sous sa hauteur : jamais au-dessus d'un puits), en mode chargement si c'est loin ;
+  - à la natte, sinon au point d'apparition tant qu'on peut s'y tenir (sol solide dessous, pieds et tête libres) ; sinon sur la première cellule où l'on tient à ±2 blocs de sa hauteur, dans sa colonne puis dans les plus proches (jamais au-dessus d'un puits, ni sur un toit ou une canopée) ; sinon au fond de la fosse creusée dessous ; en mode chargement si c'est loin ;
   - santé 60, faim 50, soif 50 ;
   - statut « Weakened » (−20 % de dégâts) pendant 2 min, et 5 s sans être ciblé.
 
@@ -1069,7 +1069,7 @@ Armures (valeur d'armure) : tunique et jambières de cuir 2 et 1, pièces de bro
   - armure : `dégâts × 20/(20 + A)` ;
   - recul : 6 + 3 m/s × (1 − résistance) ;
   - invulnérabilité : joueur 15 ticks, créatures 8 ;
-  - attaques télégraphiées et esquivables (portée + 0,3 et ligne de vue au moment de l'impact) ;
+  - attaques télégraphiées et esquivables (portée + 0,3 et ligne de vue au moment de l'impact : seules les boîtes de collision coupent la ligne, un coup passe au-dessus d'un feu de camp ou d'un coffre) ;
   - marqueur d'impact et arcs indiquant la direction des dégâts.
 
 | Arme                                    | Dégâts        | Recharge | Portée |

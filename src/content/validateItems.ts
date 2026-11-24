@@ -149,8 +149,9 @@ export function checkWeapon(weapon: WeaponDef, path: string, add: AddIssue): voi
   for (const field of ['damage', 'cooldown', 'reach'] as const)
     if (!positive(weapon[field])) add(`${path}.${field}`, 'must be > 0');
   if (!(weapon.knockback >= 0)) add(`${path}.knockback`, 'must be ≥ 0');
-  if (weapon.durability !== undefined && !positive(weapon.durability))
-    add(`${path}.durability`, 'must be > 0');
+  const uses = weapon.durability;
+  if (uses !== undefined && (!isCount(uses, 1) || uses > MAX_DURABILITY))
+    add(`${path}.durability`, `must be an integer 1–${MAX_DURABILITY}`);
 }
 
 function checkTiers(pack: ContentPack, add: AddIssue): void {

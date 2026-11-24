@@ -274,6 +274,60 @@ describe('death', () => {
     expect(s.player.survival.health).toBeCloseTo(b.respawn.health, 0);
   });
 
+  it('comes back inside a hut roofed over the spawn, near or far, not on its roof', () => {
+    const s = playerTestSim({ seed: 'respawn-roof' });
+    const { x, y, z } = s.sim.spawn;
+    const [bx, bz] = [Math.floor(x), Math.floor(z)];
+    s.fill(bx - 3, y, bz - 3, bx + 3, y + 3, bz + 3, 'block:planks');
+    s.fill(bx - 2, y, bz - 2, bx + 2, y + 2, bz + 2, 'block:air');
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(eventsOf(s.send({ type: 'player.respawn' }), 'respawned')).toMatchObject([{ x, y, z }]);
+    // Dying far away: the hut's column is unloaded, read from its saved sections.
+    s.send({ type: 'debug.teleport', x: 3000.5, y: 120, z: 0.5 });
+    s.step(40);
+    expect(s.sim.world.heightAt(bx, bz)).toBe(-1);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(eventsOf(s.send({ type: 'player.respawn' }), 'respawned')).toMatchObject([{ x, y, z }]);
+  });
+
+  it('comes back beside a pillar built on the spawn, on the ground', () => {
+    const s = playerTestSim({ seed: 'respawn-pillar' });
+    const { x, y, z } = s.sim.spawn;
+    s.fill(Math.floor(x), y, Math.floor(z), Math.floor(x), y + 25, Math.floor(z), 'block:stone');
+    s.send({ type: 'debug.teleport', x: x + 3, y, z });
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    const [back] = eventsOf(s.send({ type: 'player.respawn' }), 'respawned');
+    expect(back!.y).toBe(y);
+    expect(Math.abs(back!.x - x) + Math.abs(back!.z - z)).toBeLessThanOrEqual(2);
+  });
+
+  it('comes back under a canopy over the spawn, on the ground (seed 37)', () => {
+    const s = playerTestSim({ seed: '37', worldType: 'default' });
+    const { x, y, z } = s.sim.spawn;
+    expect(s.sim.world.heightAt(Math.floor(x), Math.floor(z))).toBeGreaterThan(y);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(eventsOf(s.send({ type: 'player.respawn' }), 'respawned')).toMatchObject([{ x, y, z }]);
+  });
+
+  it('never leaves the pack in a sealed pocket beyond the rock', () => {
+    const s = playerTestSim({ seed: 'pack-pocket' });
+    s.fill(-3, 65, -3, 3, 70, 3, 'block:stone');
+    s.fill(0, 65, 0, 0, 66, 0, 'block:air');
+    s.put(2, 65, 0, 'block:air');
+    s.put(0, 64, -2, 'block:air');
+    for (let death = 0; death < 3; death++) {
+      if (death > 0) s.send({ type: 'player.respawn' });
+      s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });
+      s.give('item:dirt', 1);
+      s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    }
+    // The third death finds no cell it could reach: its dirt lies on the ground.
+    expect(s.player.graves).toEqual([FEET, { ...FEET, y: 66 }]);
+    expect(s.block(2, 65, 0)).toBe('block:air');
+    const lying = [...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop');
+    expect(lying).toHaveLength(1);
+  });
+
   it('stacks a second pack above the first when dying on the same spot', () => {
     const s = playerTestSim({ seed: 'two-deaths' });
     s.give('item:dirt', 5);

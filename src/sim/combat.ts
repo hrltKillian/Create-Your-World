@@ -136,8 +136,8 @@ const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: 
 
 /**
  * A creature's blow at a player lands unless the player dodged (out of reach + 0.3, or out of
- * sight: a block with collision on the line, glass and closed gates included) or was hit moments
- * ago. Returns whether it landed.
+ * sight: a collision box on the line, glass and closed gates included, not a low block the line
+ * passes over) or was hit moments ago. Returns whether it landed.
  */
 export function strike(
   sim: Simulation,

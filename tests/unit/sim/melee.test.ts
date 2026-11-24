@@ -334,6 +334,19 @@ describe("a creature's blow", () => {
     expect(s.player.survival.health).toBe(100);
   });
 
+  it.each(['block:campfire[lit=1]', 'block:chest[facing4=n]', 'block:glowbloom_lantern'])(
+    'a low %s on the line lets a Prowler’s blow over it land',
+    (state) => {
+      const s = world(`low-block-${state}`);
+      const prowler = registry.creature('creature:prowler')!;
+      const c = place(s, 'creature:prowler', 0.5, -1.6);
+      c.modeTicks = 600;
+      s.put(0, 65, -1, state);
+      expect(strike(s.sim, c, prowler, s.player, [])).toBe(true);
+      expect(s.player.survival.health).toBeLessThan(100);
+    },
+  );
+
   it('a creature is invulnerable for 8 ticks after a blow', () => {
     const s = world('creature-invulnerable');
     const c = trotter(s, true);

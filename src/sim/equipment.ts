@@ -110,13 +110,17 @@ export function wearFilters(registry: Registry, player: PlayerState, out: SimEve
   }
 }
 
-/** A creature's hit landed: every worn piece but a filter loses a use, and one worn out is gone. */
+/**
+ * A creature's hit landed: every worn piece of this pack but a filter loses a use, and one worn out
+ * is gone (an unknown item kept from another pack is left as it is).
+ */
 export function wearGear(registry: Registry, player: PlayerState, out: SimEvent[]): void {
   const equipment = player.equipment;
   let changed = false;
   for (let i = 0; i < equipment.length; i++) {
     const stack = equipment[i];
-    if (!stack || registry.item(stack.item)?.wear?.airFilter !== undefined) continue;
+    const wear = stack && registry.item(stack.item)?.wear;
+    if (!wear || wear.airFilter !== undefined) continue;
     spendUses(registry, equipment, i, 1);
     changed = true;
   }

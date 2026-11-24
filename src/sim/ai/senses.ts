@@ -77,8 +77,8 @@ const sight = createRayHit();
 /**
  * Whether nothing opaque lies between two points (two points of one cell included): the voxel walk
  * of world/raycast.ts along the segment, stopped by opaque blocks only (creatures see through
- * glass, plants and water). With `RAY_SOLID`, stopped by every block with collision instead (a
- * blow: glass, foliage and closed gates shield). Unloaded cells block.
+ * glass, plants and water). With `RAY_SOLID`, stopped by the collision boxes of blocks instead (a
+ * blow: glass, foliage and closed gates shield, a blow passes over a campfire or a chest). Unloaded cells block.
  */
 export function lineOfSight(
   world: VoxelWorld,

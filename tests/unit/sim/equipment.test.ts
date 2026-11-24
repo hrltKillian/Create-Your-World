@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { WEAR_SLOTS } from '../../../src/content/schema.ts';
 import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { type Contact, type Gear, touch, wornGear } from '../../../src/sim/environment.ts';
-import { wearFilters } from '../../../src/sim/equipment.ts';
+import { wearFilters, wearGear } from '../../../src/sim/equipment.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { toolWear } from '../../../src/sim/mining.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -132,5 +132,27 @@ describe('equipment', () => {
     s.send({ type: 'equip.move', from: 0 });
     touch(registry, s.sim.world, s.player, contact);
     expect(contact.toxicity).toBe(0);
+  });
+});
+
+describe('gear wear', () => {
+  it('wears the worn gear of the pack on a hit, never an unknown item kept from another pack', () => {
+    const s = playerTestSim({ seed: 'gear-wear' });
+    s.give('item:fur_coat');
+    s.send({ type: 'equip.move', from: 0 });
+    const coat = WEAR_SLOTS.indexOf('body');
+    const uses = registry.item('item:fur_coat')!.wear!.durability;
+    const kept = { item: 'item:unknown', count: 1, original: 'oldpack:item/mithril_boots' };
+    const feet = WEAR_SLOTS.indexOf('feet');
+    s.player.equipment[feet] = { ...kept };
+    const out: SimEvent[] = [];
+    wearGear(registry, s.player, out);
+    expect(s.player.equipment[coat]!.durability).toBe(uses - 1);
+    expect(s.player.equipment[feet]).toEqual(kept);
+    s.player.equipment[coat] = null;
+    out.length = 0;
+    wearGear(registry, s.player, out);
+    expect(s.player.equipment[feet]).toEqual(kept);
+    expect(out).toEqual([]);
   });
 });

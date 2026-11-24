@@ -1,4 +1,10 @@
-import { FLAG_REPLACEABLE, type Registry } from '../content/registry.ts';
+import {
+  COLLISION_LIQUID,
+  COLLISION_NONE,
+  FLAG_REPLACEABLE,
+  FLAG_SOLID,
+  type Registry,
+} from '../content/registry.ts';
 import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
 import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
@@ -13,7 +19,7 @@ import { addItem, addToRange, type Inventory, type ItemStack } from './inventory
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { surfaceAt } from './surface.ts';
+import { collisionAt, surfaceAt } from './surface.ts';
 import { addEffect, createSurvival } from './survival.ts';
 
 /*
@@ -28,7 +34,7 @@ import { addEffect, createSurvival } from './survival.ts';
  * grave block in the pack) spills on the ground.
  */
 
-/** How far a pack looks for a free cell (Manhattan, from the feet) and a respawn for ground. */
+/** How far a pack looks for a free cell (steps from the feet) and a respawn for ground (rings). */
 const PACK_REACH = 2;
 const SPAWN_RINGS = 4;
 
@@ -86,11 +92,21 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
   return stacks;
 }
 
+/** The steps a pack takes from cell to cell, up first, down last. */
+const PACK_STEPS: readonly (readonly [number, number, number])[] = [
+  [0, 1, 0],
+  [-1, 0, 0],
+  [1, 0, 0],
+  [0, 0, -1],
+  [0, 0, 1],
+  [0, -1, 0],
+];
+
 /**
  * Leaves an Abandoned Pack holding `slots` and the `worn` items in the free cell (air or
- * replaceable, with no block entity) nearest the feet, up first (Manhattan, within PACK_REACH: a
- * doorway or a torch at the feet sends it beside them, never up through rock); returns its cell,
- * or null without one.
+ * replaceable, with no block entity) nearest the feet: a breadth-first walk from the feet through
+ * cells without collision, up first, at most PACK_REACH steps (a doorway or a torch at the feet
+ * sends it beside them, never through rock); returns its cell, or null without one.
  */
 function leavePack(
   sim: Simulation,
@@ -103,27 +119,34 @@ function leavePack(
 ): BlockCell | null {
   const { registry, world } = sim;
   if (registry.grave < 0) return null;
-  const cx = Math.floor(x);
-  const cy = Math.floor(y);
-  const cz = Math.floor(z);
-  for (let d = 0; d <= PACK_REACH; d++)
-    for (let dy = d; dy >= -d; dy--) {
-      const r = d - Math.abs(dy);
-      for (let dx = -r; dx <= r; dx++) {
-        // The cells at distance d: dz is ±(r − |dx|), once when that is 0.
-        const rz = r - Math.abs(dx);
-        for (let dz = -rz; dz <= rz; dz += Math.max(1, 2 * rz)) {
-          const px = cx + dx;
-          const py = cy + dy;
-          const pz = cz + dz;
-          if (py < 0 || py >= WORLD_HEIGHT || !packFits(sim, px, py, pz)) continue;
-          editBlock(world, sim.light, px, py, pz, registry.grave, out);
-          const entity = { kind: 'grave' as const, x: px, y: py, z: pz, slots, worn };
-          sim.blockEntities.set(cellKey(px, py, pz), entity);
-          return { x: px, y: py, z: pz };
-        }
+  const feet = { x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) };
+  const seen = new Set([cellKey(feet.x, feet.y, feet.z)]);
+  let ring: BlockCell[] = [feet];
+  for (let d = 0; d <= PACK_REACH && ring.length > 0; d++) {
+    for (const cell of ring)
+      if (packFits(sim, cell.x, cell.y, cell.z)) {
+        editBlock(world, sim.light, cell.x, cell.y, cell.z, registry.grave, out);
+        sim.blockEntities.set(cellKey(cell.x, cell.y, cell.z), {
+          kind: 'grave',
+          ...cell,
+          slots,
+          worn,
+        });
+        return cell;
       }
-    }
+    const next: BlockCell[] = [];
+    for (const cell of ring)
+      for (const [dx, dy, dz] of PACK_STEPS) {
+        const step = { x: cell.x + dx, y: cell.y + dy, z: cell.z + dz };
+        const key = cellKey(step.x, step.y, step.z);
+        if (step.y < 0 || step.y >= WORLD_HEIGHT || seen.has(key)) continue;
+        seen.add(key);
+        const state = world.getBlock(step.x, step.y, step.z);
+        if (state !== world.outside && (registry.tables.flags[state]! & FLAG_SOLID) === 0)
+          next.push(step);
+      }
+    ring = next;
+  }
   return null;
 }
 
@@ -135,23 +158,44 @@ function packFits(sim: Simulation, x: number, y: number, z: number): boolean {
   return free && !sim.blockEntities.has(cellKey(x, y, z));
 }
 
+/** Heights a respawn tries in a column, from the spawn's: the same, then up or down 1, then 2. */
+const SPAWN_BAND = [0, 1, -1, 2, -2];
+
 /**
- * Where a player with no bedroll comes back: on the ground of the spawn's column, or of the
- * nearest column (a fixed spiral) whose ground was not dug below the spawn's height; on the floor
- * of a pit dug all around, so no fall awaits.
+ * Where a player with no bedroll comes back: at the spawn while they can stand there, else on the
+ * first cell they can stand on within SPAWN_BAND of its height in the spawn's column, then in the
+ * nearest columns (a fixed spiral): never over a shaft, nor on a roof or a canopy over it. Last, on
+ * the floor of a pit dug all around, so no fall awaits.
  */
 function spawnPoint(sim: Simulation): { x: number; y: number; z: number } {
   const { x, y, z } = sim.spawn;
   const bx = Math.floor(x);
   const bz = Math.floor(z);
-  let point = { x, y: surfaceAt(sim, bx, bz), z };
+  let point: { x: number; y: number; z: number } | null = null;
   spiral(SPAWN_RINGS, (dx, dz) => {
-    const ground = surfaceAt(sim, bx + dx, bz + dz);
-    if (ground < y) return false;
-    point = { x: x + dx, y: ground, z: z + dz };
-    return true;
+    for (const dy of SPAWN_BAND)
+      if (standable(sim, bx + dx, y + dy, bz + dz)) {
+        point = { x: x + dx, y: y + dy, z: z + dz };
+        return true;
+      }
+    return false;
   });
-  return point;
+  if (point) return point;
+  for (let floor = y - 3; floor > 0; floor--)
+    if (standable(sim, bx, floor, bz)) return { x, y: floor, z };
+  return { x, y: surfaceAt(sim, bx, bz), z };
+}
+
+/** Whether a player fits with their feet in cell (x, y, z): ground under them, feet and head free. */
+function standable(sim: Simulation, x: number, y: number, z: number): boolean {
+  if (y < 1 || y + 1 >= WORLD_HEIGHT) return false;
+  const ground = collisionAt(sim, x, y - 1, z);
+  return (
+    ground !== COLLISION_NONE &&
+    ground !== COLLISION_LIQUID &&
+    collisionAt(sim, x, y, z) === COLLISION_NONE &&
+    collisionAt(sim, x, y + 1, z) === COLLISION_NONE
+  );
 }
 
 /** The Respawn command of a dead player (refused while alive). */
