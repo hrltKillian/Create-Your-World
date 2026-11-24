@@ -239,7 +239,8 @@ export class LightEngine {
    * Takes out the light that `a` (about to go) may have given the border of `b`, its neighbour in
    * direction `d`: a channel exactly one step (1 + filter) below `a`'s side. As in `edited`, the
    * cell is cleared and queued for removal with its old level, and queued for the re-add pass,
-   * which gives it its own light back (an emitter, a top cell). The next `flush` resolves it.
+   * which gives it its own light back (an emitter, a top cell). `removeColumn` resolves it at once,
+   * unreported.
    */
   private forgetSeam(a: Column, b: Column, d: number): void {
     const slotB = slotOf(b.cx, b.cz);

@@ -8,7 +8,8 @@ import { PHYSICS } from './physics.ts';
 /**
  * Creature bodies: a box of the creature's hitbox against the voxels (collision.ts), gravity,
  * buoyancy, acceleration towards the speed its brain wants, and a hop onto a one-block step it
- * walks into (its paths climb one block), from the ground or out of a liquid onto its bank.
+ * walks into (its paths climb one block), from the ground, or out of a liquid onto a bank at most
+ * one block above the surface.
  * Zero allocation.
  */
 export const CREATURE_BODY = {
@@ -32,9 +33,20 @@ function setAabb(b: CreatureBody, width: number, height: number): void {
 }
 
 /**
+ * Rising speed that lifts the feet `bankClearance` over a bank one block above the surface the
+ * body floats at (its feet's cell + 2: the swimmer's climb out of ai/pathfind.ts). The ticks apply
+ * gravity before moving, which loses about v·dt/2 of height: v = g·dt/2 + √((g·dt/2)² + 2·g·h).
+ */
+function climbOutSpeed(feet: number): number {
+  const rise = Math.floor(feet) + 2 + PHYSICS.bankClearance - feet;
+  const half = (PHYSICS.gravity * TICK_SECONDS) / 2;
+  return half + Math.sqrt(half * half + 2 * PHYSICS.gravity * rise);
+}
+
+/**
  * One tick of a creature body towards the horizontal velocity (`wantX`, `wantZ`) when `steer`
  * (else it slides: knocked back or falling over). Walking into a wall on the ground or swimming
- * with `climb` hops (a one-block step, a bank). Returns whether a wall stopped it.
+ * with `climb` hops (a one-block step, a bank at most one block above the surface). Returns whether a wall stopped it.
  */
 export function stepCreatureBody(
   world: VoxelWorld,
@@ -93,7 +105,7 @@ export function stepCreatureBody(
   b.y += dy;
   b.z += dz;
   if (blocked && climb && steer && (b.onGround || wet)) {
-    b.vy = PHYSICS.jump;
+    b.vy = wet ? climbOutSpeed(b.y) : PHYSICS.jump;
     b.onGround = false;
   }
   return blocked;

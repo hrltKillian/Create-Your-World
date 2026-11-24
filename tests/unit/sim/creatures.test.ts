@@ -225,6 +225,62 @@ describe('creatures', () => {
     }
   });
 
+  it('a Trotter in a pool whose surface is one block below the bank climbs out onto it', () => {
+    // Ground feet at 65; the pool's top cell at 63 (1 or 3 deep), y 64 dug out over it.
+    for (const depth of [1, 3]) {
+      const s = world(`sunken-${depth}`);
+      s.fill(40, 64, -6, 56, 64, 6, 'block:air');
+      s.fill(40, 64 - depth, -6, 56, 63, 6, 'block:fresh_water');
+      const id = s.sim.nextEntityId;
+      s.send({ type: 'debug.spawn', creature: 'creature:trotter', x: 40.5, y: 63, z: 0.5 });
+      const c = s.sim.entities.get(id) as CreatureState;
+      const dry = () => c.body.x < 40 || c.body.x > 57 || Math.abs(c.body.z) > 7;
+      for (let t = 0; t < 3600 && !dry(); t++) s.step(1);
+      expect(dry(), `${depth} deep`).toBe(true);
+      expect(c.body.y, `${depth} deep`).toBeGreaterThanOrEqual(65);
+    }
+  });
+
+  it('Trotters grazing around sunken pools are never trapped in them', () => {
+    // A pool's surface one block below the bank (they may swim in and out) or two (they never
+    // enter): 6 worlds × 4 Trotters on its rim, none in the water for 2 minutes on end.
+    let trapped = 0;
+    let entered = 0;
+    for (let k = 0; k < 6; k++) {
+      const s = world(`pool-rim-${k}`);
+      const top = k < 3 ? 63 : 62;
+      s.fill(30, top + 1, -8, 50, 64, 8, 'block:air');
+      s.fill(30, top - 2, -8, 50, top, 8, 'block:fresh_water');
+      const rim: [number, number][] = [
+        [28.5, 0.5],
+        [52.5, 0.5],
+        [40.5, 10.5],
+        [40.5, -9.5],
+      ];
+      const trotters = rim.map(([x, z]) => {
+        const id = s.sim.nextEntityId;
+        s.send({ type: 'debug.spawn', creature: 'creature:trotter', x, y: 'surface', z });
+        return { c: s.sim.entities.get(id) as CreatureState, wetSince: -1 };
+      });
+      for (let t = 0; t < 9000; t += 20) {
+        s.step(20);
+        for (const tr of trotters) {
+          const b = tr.c.body;
+          const inPool = b.x > 30 && b.x < 51 && Math.abs(b.z) < 9 && b.y < 64.5;
+          if (!inPool) tr.wetSince = -1;
+          else if (tr.wetSince < 0) {
+            tr.wetSince = t;
+            entered++;
+            expect(top, 'only the climbable pool is entered').toBe(63);
+          }
+        }
+      }
+      for (const tr of trotters) if (tr.wetSince >= 0 && 9000 - tr.wetSince > 2400) trapped++;
+    }
+    expect(trapped).toBe(0);
+    expect(entered).toBeGreaterThan(0);
+  });
+
   it("a Shellback's brow plate stops 60 % of a blow from the front", () => {
     const s = world('front');
     const shellback = place(s, 'creature:shellback', 0.5, -20.5);

@@ -6,11 +6,14 @@ import type { VoxelWorld } from '../../world/VoxelWorld.ts';
 
 /*
  * A* on the block grid (docs « Créatures et combat », A*). A node is the cell a creature's feet
- * stand in: its `clearance` cells are free and the cell below is solid, or a liquid it floats on
- * (each such node costs `SWIM_COST` more, so paths keep to dry land when they can). Moves: 8 directions
- * without cutting corners (diagonals stay level), one block up (with head room to hop), or a drop
- * of at most 3 blocks. Unloaded columns count as solid, so paths never enter them; cells of
- * effective light ≥ `lightLimit` are forbidden (light-shy creatures).
+ * stand in: its `clearance` cells are free and the cell below is solid, or the top cell of a
+ * liquid, where a swimming body floats (each such node costs `SWIM_COST` more, so paths keep to dry
+ * land when they can). Moves: 8 directions without cutting corners (diagonals stay level), one
+ * block up (with head room to hop), or a drop of at most 3 blocks. A swimmer also climbs out onto a
+ * bank one block above the surface (two blocks up: the climb-out hop of creatureBody.ts), and a
+ * path drops into a liquid only when its surface is at most one block below the cell it leaves, so
+ * that hop always leads back out. Unloaded columns count as solid, so paths never enter them;
+ * cells of effective light ≥ `lightLimit` are forbidden (light-shy creatures).
  *
  * Fixed budgets and zero allocation per search: a typed binary heap and a table of 16 384 nodes
  * stamped by search (a node of an older search reads as absent), at most 600 nodes expanded. When
@@ -58,6 +61,9 @@ const STEP_UP_COST = 0.5;
 const DROP_COST = 0.25;
 /** Extra cost of a node held up by a liquid (swimming). */
 const SWIM_COST = 1;
+/** Deepest drop into a liquid's top cell: its surface one block below the cell left (a bank a
+ * swimmer climbs back onto). */
+const MAX_SWIM_DROP = 2;
 
 const stamp = new Uint32Array(SIZE);
 const keys = new Int32Array(SIZE);
@@ -128,10 +134,13 @@ function liquid(x: number, y: number, z: number): boolean {
   );
 }
 
-/** Extra cost of a body held with its feet in the cell (0 on solid ground); −1: nothing holds it. */
+/**
+ * Extra cost of a body held with its feet in the cell: `SWIM_COST` in a liquid's top cell, 0 on
+ * solid ground; −1: nothing holds it (air, or deep in a liquid it rises out of).
+ */
 function floorCost(x: number, y: number, z: number): number {
-  if (solid(x, y - 1, z)) return 0;
-  return liquid(x, y - 1, z) ? SWIM_COST : -1;
+  if (liquid(x, y, z)) return liquid(x, y + 1, z) ? -1 : SWIM_COST;
+  return solid(x, y - 1, z) ? 0 : -1;
 }
 
 /** Extra cost of a body standing (or floating) with its feet in the cell; −1: it cannot. */
@@ -225,6 +234,7 @@ function expandStraight(
     for (let d = 0; d <= ASTAR.maxDrop; d++) {
       if (d > 0 && solid(nx, y - d, nz)) return;
       const floor = floorCost(nx, y - d, nz);
+      if (floor === SWIM_COST && d > MAX_SWIM_DROP) return;
       if (floor >= 0) {
         if (lightOk(nx, y - d, nz)) relax(nx, y - d, nz, g + 1 + DROP_COST * d + floor, from);
         return;
@@ -235,7 +245,19 @@ function expandStraight(
   // A step: the neighbour's floor is one higher, with room to hop above the body here.
   if (!solid(nx, y, nz) || solid(x, y + req.clearance, z)) return;
   const stand = standCost(nx, y + 1, nz);
-  if (stand >= 0) relax(nx, y + 1, nz, g + 1 + STEP_UP_COST + stand, from);
+  if (stand >= 0) {
+    relax(nx, y + 1, nz, g + 1 + STEP_UP_COST + stand, from);
+    return;
+  }
+  // A swimmer's climb out onto a bank one block above the surface, with head room for the hop.
+  if (
+    floorCost(x, y, z) !== SWIM_COST ||
+    !solid(nx, y + 1, nz) ||
+    solid(x, y + req.clearance + 1, z)
+  )
+    return;
+  const bank = standCost(nx, y + 2, nz);
+  if (bank >= 0) relax(nx, y + 2, nz, g + 1 + 2 * STEP_UP_COST + bank, from);
 }
 
 /**

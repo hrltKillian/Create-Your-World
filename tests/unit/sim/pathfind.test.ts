@@ -192,3 +192,37 @@ describe('A* pathfinding', () => {
     expect(cells.at(-1)).toEqual([20, 64, 0]);
   });
 });
+
+describe('A* around sunken pools', () => {
+  const water = registry.defaultState('block:fresh_water');
+  /** A pool over x 2..8, z ±`half` whose top water cell is `top`, dug in stone down from the floor. */
+  function pool(top: number, half = 10): VoxelWorld {
+    const world = flatWorld();
+    for (let x = 1; x <= 9; x++)
+      for (let z = -half - 1; z <= half + 1; z++)
+        for (let y = top - 3; y <= 63; y++) {
+          const inside = x >= 2 && x <= 8 && Math.abs(z) <= half && y >= top - 2;
+          world.setBlock(x, y, z, !inside ? STONE : y <= top ? water : registry.air);
+        }
+    return world;
+  }
+  const inPool = ([x, y]: [number, number, number]) => x >= 2 && x <= 8 && y < 64;
+
+  it('swims across a pool whose surface is a block below the bank and climbs out onto the bank', () => {
+    const from: [number, number, number] = [0, 64, 0];
+    const cells = search(pool(62), query(from, [10, 64, 0]));
+    expect(lastSearch.reached).toBe(true);
+    expect(cells.filter(inPool).every(([, y]) => y === 62)).toBe(true);
+    // The climb out: from the water's top cell straight onto the bank, two up.
+    const out = cells.findIndex(([x]) => x === 9);
+    expect(cells[out - 1]).toEqual([8, 62, 0]);
+    expect(cells[out]).toEqual([9, 64, 0]);
+  });
+
+  it('never enters a pool whose surface is two blocks below the bank: it could not climb out', () => {
+    const from: [number, number, number] = [0, 64, 0];
+    const cells = search(pool(61, 30), query(from, [10, 64, 0]));
+    expect(cells.some(inPool)).toBe(false);
+    expectWalkable(cells, from);
+  });
+});
