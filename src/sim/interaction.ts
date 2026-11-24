@@ -252,7 +252,7 @@ function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 
 /**
  * Opens or closes a gate, both halves of a tall one (closing is refused while a player or a
- * creature stands in it).
+ * creature stands in it), with the pack's door sounds (its place sound without them).
  */
 function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const registry = sim.registry;
@@ -273,7 +273,8 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
     const partner = registry.withState(sim.world.getBlock(x, other, z), 'open', value);
     editBlock(sim.world, sim.light, x, other, z, partner, out);
   }
-  const sfx = registry.blockSfx(next, 'place');
+  const door = registry.pack.sounds?.door;
+  const sfx = door ? door[value === '1' ? 'open' : 'close'] : registry.blockSfx(next, 'place');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
 }
 

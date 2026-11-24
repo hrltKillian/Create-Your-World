@@ -251,7 +251,10 @@ export function stepPlayer(
   move.crouch = input.crouch;
   move.yaw = input.yaw;
   const result = stepBody(body, move, world, registry.tables, dt, stepResult);
-  if (result.jumped) spendStamina(player, STAMINA.jump);
+  if (result.jumped) {
+    spendStamina(player, STAMINA.jump);
+    out.push({ type: 'playerJumped', playerId: player.playerId });
+  }
   const moving = Math.abs(body.vx) + Math.abs(body.vz) > 0.1;
   player.sprinting = result.sprinting && moving;
   if (player.sprinting) spendStamina(player, STAMINA.sprintPerSecond * dt);

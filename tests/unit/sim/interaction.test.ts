@@ -218,11 +218,15 @@ describe('placement', () => {
     s.give('item:dirt', 5);
     s.put(0, 65, -2, 'block:gate[facing4=s,open=0,half=lower]');
     const gate: ClientTarget = { x: 0, y: 65, z: -2, face: 4 };
+    s.events.length = 0;
     s.tick(13, { secondary: true, target: gate });
     expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=1,half=lower]');
     s.tick(1, { secondary: false, target: gate });
     s.tick(1, { secondary: true, target: gate });
     expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=0,half=lower]');
+    // The pack's door sounds, not the place sound.
+    const door = basePack.sounds!.door;
+    expect(eventsOf(s.events, 'sound').map((e) => e.sfx)).toEqual([door.open, door.close]);
     expect(countItem(s.player.inventory, 'item:dirt')).toBe(5);
     s.tick(1, { secondary: false, target: gate });
     s.tick(1, { secondary: true, crouch: true, target: gate });

@@ -1,4 +1,5 @@
 import type { ContentPack } from '../../schema.ts';
+import { ambienceSfx } from './ambienceSfx.ts';
 import { balance } from './balance.ts';
 import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
@@ -14,6 +15,7 @@ import { items } from './items.ts';
 import { loot } from './loot.ts';
 import { models } from './models.ts';
 import { objectives } from './objectives.ts';
+import { playerSfx } from './playerSfx.ts';
 import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
@@ -82,7 +84,7 @@ export const basePack: ContentPack = {
   balance,
   objectives,
   sounds,
-  sfx: [...sfx, ...creatureSfx],
+  sfx: [...sfx, ...playerSfx, ...ambienceSfx, ...creatureSfx],
   worldgen,
   biomes,
   features,

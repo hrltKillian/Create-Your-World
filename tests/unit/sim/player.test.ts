@@ -59,6 +59,17 @@ describe('player in the simulation', () => {
     expect(player.stamina).toBeCloseTo(before - STAMINA.jump, 5);
   });
 
+  it('reports a jump once when it leaves the ground, then its landing', () => {
+    const { tick, events } = world();
+    events.length = 0;
+    tick(30, { jump: true });
+    const types = events.map((e) => e.type).filter((t) => t.startsWith('player'));
+    // Held, the jump starts again on landing: each jump is followed by its landing.
+    expect(types[0]).toBe('playerJumped');
+    expect(types[1]).toBe('playerLanded');
+    expect(types.filter((t) => t === 'playerJumped').length).toBeLessThanOrEqual(2);
+  });
+
   it('teleports onto the surface and refuses debug commands when disabled', () => {
     const allowed = world();
     allowed.host.send({ type: 'debug.teleport', x: 100.5, y: 'surface', z: -40.5 });

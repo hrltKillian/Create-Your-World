@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
 import { Game, type GameHost } from '../../../src/app/Game.ts';
 import type { FrameStats } from '../../../src/app/perf.ts';
-import type { AudioEngine } from '../../../src/audio/AudioEngine.ts';
+import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { WorkerPool } from '../../../src/platform/WorkerPool.ts';
 import { lockWorld } from '../../../src/platform/worldLock.ts';
@@ -23,7 +23,8 @@ const input = {
 };
 /** Columns never arrive: the world stays on its loading screen, which is enough here. */
 const pool = { size: 1, run: () => new Promise(() => {}) };
-const audio = { setVolumes: () => {}, setListener: () => {}, playUi: () => {} };
+/** Muted: no AudioContext under Node, the plays only logged. */
+const audio = new AudioEngine([], { muted: true });
 
 /** A Game over stand-ins (no WebGL, workers or sound) in a fake page, saving into `storage`. */
 function setup() {
@@ -40,7 +41,7 @@ function setup() {
     workers: pool as unknown as WorkerPool,
     view: createTestWorldView().view,
     input: input as unknown as InputManager,
-    audio: audio as unknown as AudioEngine,
+    audio,
     layers: [],
     layoutLoaded: Promise.resolve(),
     frames: { span: () => {} } as unknown as FrameStats,

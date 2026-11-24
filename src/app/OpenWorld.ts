@@ -1,5 +1,4 @@
 import type { AudioEngine } from '../audio/AudioEngine.ts';
-import { AudioCues } from '../audio/cues.ts';
 import type { Registry } from '../content/registry.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { SaveBackend } from '../platform/IdbStorage.ts';
@@ -17,6 +16,7 @@ import type { WorldInfo } from '../sim/persistence.ts';
 import { h } from '../ui/h.ts';
 import { crosshair } from '../ui/hud/crosshair.ts';
 import { hintBar } from '../ui/screens/hint.ts';
+import { AudioBridge } from './AudioBridge.ts';
 import type { BootParams } from './bootParams.ts';
 import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
@@ -63,6 +63,8 @@ export class OpenWorld {
   readonly inventory: InventoryUi | null = null;
   /** The survival HUD and the death screen (none with the free camera). */
   readonly hud: HudBridge | null = null;
+  /** Event cues, ambience, the underwater low-pass and the body's sounds. */
+  readonly sounds: AudioBridge;
   private readonly lock: WorldLock;
   private readonly input: InputManager;
   private readonly events: GateEvents;
@@ -91,8 +93,9 @@ export class OpenWorld {
     // `?time=` and `?freezeTime=1` set the clock through its debug commands (dev builds only).
     if (params.time !== null) host.send({ type: 'debug.setTime', hours: params.time });
     if (params.freezeTime) host.send({ type: 'debug.freezeTime', frozen: true });
-    const cues = new AudioCues(audio, registry.pack.sounds?.pickup);
-    session.listeners.push((event) => cues.onEvent(event));
+    const sounds = new AudioBridge(audio, host.view);
+    this.sounds = sounds;
+    session.listeners.push((event) => sounds.onEvent(event));
 
     this.saves = new SaveManager({
       storage: deps.backend.storage,
@@ -139,6 +142,7 @@ export class OpenWorld {
   frame(dt: number): CameraPose {
     const session = this.session;
     const pose = session.frame(dt);
+    this.sounds.frame(dt, pose);
     this.inventory?.bridge.frame(dt);
     this.hud?.frame(dt);
     this.cross.classList.toggle('hidden', session.rig.mode === 'third' || this.freecam !== null);
@@ -184,6 +188,7 @@ export class OpenWorld {
    */
   async close(): Promise<void> {
     this.saves.stop();
+    this.sounds.dispose();
     this.inventory?.dispose();
     this.gate?.dispose();
     this.layer.remove();

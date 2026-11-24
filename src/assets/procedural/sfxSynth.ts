@@ -21,11 +21,12 @@ export function renderSfx(def: SfxDef, sampleRate = SFX_SAMPLE_RATE): Promise<Au
   return ctx.startRendering();
 }
 
-/** Source → filter → envelope → destination, for one layer. */
+/** Source → filter → envelope (attack, hold, decay) → destination, for one layer. */
 function addLayer(ctx: OfflineAudioContext, layer: SfxLayer, seed: number): void {
   const start = layer.delay ?? 0;
   const peak = start + layer.attack;
-  const end = peak + layer.decay;
+  const held = peak + (layer.hold ?? 0);
+  const end = held + layer.decay;
   let source: AudioScheduledSourceNode;
   if (layer.source === 'noise') {
     const buffer = ctx.createBuffer(1, Math.ceil((end - start) * ctx.sampleRate), ctx.sampleRate);
@@ -45,6 +46,7 @@ function addLayer(ctx: OfflineAudioContext, layer: SfxLayer, seed: number): void
   const envelope = ctx.createGain();
   envelope.gain.setValueAtTime(0, start);
   envelope.gain.linearRampToValueAtTime(layer.gain, peak);
+  if (held > peak) envelope.gain.setValueAtTime(layer.gain, held);
   envelope.gain.exponentialRampToValueAtTime(layer.gain * SILENCE, end);
   let tail: AudioNode = source;
   if (layer.filter) {

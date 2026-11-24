@@ -5,6 +5,7 @@ import type {
   BlockDef,
   BlockKey,
   BlockShape,
+  BlockSounds,
   Box16,
   ContentPack,
   CreatureDef,
@@ -236,7 +237,7 @@ export class Registry {
   }
 
   /** Sound of a gameplay action on a block, from its sound material (none without bindings). */
-  blockSfx(stateId: number, action: 'break' | 'hit' | 'place'): SfxKey | undefined {
+  blockSfx(stateId: number, action: keyof BlockSounds): SfxKey | undefined {
     return this.pack.sounds?.blocks[this.blockDef(stateId).sound][action];
   }
 

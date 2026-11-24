@@ -1,0 +1,95 @@
+import { describe, expect, it } from 'vitest';
+import { AudioBridge, LIT_RADIUS, litSounds } from '../../../src/app/AudioBridge.ts';
+import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
+import { EYE_HEIGHT } from '../../../src/core/player.ts';
+import type { CameraPose } from '../../../src/render/WorldView.ts';
+import { HOUR_TICKS } from '../../../src/sim/time.ts';
+import { registry } from '../../helpers/registry.ts';
+import { playerTestSim } from '../../helpers/simHarness.ts';
+
+const sounds = registry.pack.sounds!;
+
+/** A flat world (grass at y 64, the player at 0.5, 65, 0.5) heard by a muted engine. */
+function setup() {
+  const s = playerTestSim({ seed: 'audio' });
+  let clock = 0;
+  const audio = new AudioEngine(registry.pack.sfx ?? [], { muted: true, now: () => clock });
+  const bridge = new AudioBridge(audio, s.host.view);
+  const pose: CameraPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
+  /** `n` frames of 1/60 s heard from the player's eye, the events of the ticks before first. */
+  const frames = (n: number) => {
+    for (let i = 0; i < n; i++) {
+      for (const event of s.events) bridge.onEvent(event);
+      s.events.length = 0;
+      const b = s.player.body;
+      pose.x = b.x;
+      pose.y = b.y + EYE_HEIGHT;
+      pose.z = b.z;
+      clock += 1000 / 60;
+      bridge.frame(1 / 60, pose);
+      audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
+    }
+  };
+  frames(1);
+  return { s, audio, bridge, frames, heard: (key: string) => audio.log().includes(key) };
+}
+
+describe('AudioBridge', () => {
+  it('steps on the grass while walking, jumps and lands', () => {
+    const { s, frames, heard } = setup();
+    for (let i = 0; i < 30; i++) {
+      s.tick(2, { forward: 1 });
+      frames(1);
+    }
+    expect(heard(registry.blockSfx(s.sim.world.getBlock(0, 64, -5), 'step')!)).toBe(true);
+    s.tick(1, { jump: true });
+    s.tick(25);
+    frames(1);
+    expect(heard(sounds.player.jump)).toBe(true);
+    expect(heard(sounds.player.land)).toBe(true);
+  });
+
+  it('crackles near a lit campfire, within the scan radius only', () => {
+    const { s, frames, heard } = setup();
+    s.put(LIT_RADIUS + 3, 65, 0, 'block:campfire[lit=1]');
+    frames(60);
+    expect(heard(sounds.lit['station:campfire']!)).toBe(false);
+    s.put(3, 65, 0, 'block:campfire[lit=1]');
+    frames(60);
+    expect(heard(sounds.lit['station:campfire']!)).toBe(true);
+  });
+
+  it('plays the loop of the place, crossfades to the night one and muffles under water', () => {
+    const { s, audio, bridge, frames } = setup();
+    frames(200);
+    const day = audio.ambience();
+    expect(day).toHaveLength(1);
+    expect(day[0]!.gain).toBe(1);
+    s.sim.time.ticks = 22 * HOUR_TICKS;
+    frames(60);
+    expect(audio.ambience()).toHaveLength(2);
+    frames(200);
+    const night = audio.ambience();
+    expect(night).toHaveLength(1);
+    expect(night[0]!.key).not.toBe(day[0]!.key);
+    s.fill(-1, 65, -1, 1, 67, 1, 'block:fresh_water');
+    frames(1);
+    expect(audio.underwater()).toBe(true);
+    bridge.dispose();
+    expect(audio.underwater()).toBe(false);
+    expect(audio.ambience()).toEqual([]);
+  });
+});
+
+describe('litSounds', () => {
+  it('gives the lit states of the bound stations their sound, every other state none', () => {
+    const keys: string[] = [];
+    const table = litSounds(registry, keys);
+    const lit = registry.stateId('block:campfire[lit=1]');
+    const unlit = registry.stateId('block:campfire[lit=0]');
+    expect(keys[table[lit]!]).toBe(sounds.lit['station:campfire']);
+    expect(table[unlit]).toBe(-1);
+    expect(table[registry.air]).toBe(-1);
+    expect(new Set(keys)).toEqual(new Set(Object.values(sounds.lit)));
+  });
+});

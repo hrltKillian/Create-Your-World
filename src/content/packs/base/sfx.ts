@@ -1,7 +1,6 @@
-import type { SfxDef, SfxKey, SfxLayer, SfxSource, SoundMaterial } from '../../schema.ts';
+import type { BlockSounds, SfxDef, SfxSource, SoundMaterial } from '../../schema.ts';
+import { type Filter, noise, tone } from './sfxParts.ts';
 import { sounds } from './sounds.ts';
-
-type Filter = NonNullable<SfxLayer['filter']>;
 
 /** How a material sounds: the colour of its noise, an optional resonance and its crunch. */
 interface MaterialVoice {
@@ -55,48 +54,37 @@ const VOICES: Readonly<Record<SoundMaterial, MaterialVoice>> = {
 /** Gap between two crunch grains (s). */
 const GRAIN_GAP = 0.045;
 
-const noise = (filter: Filter, gain: number, decay: number, delay = 0, pitch = 1): SfxLayer => ({
-  source: 'noise',
-  filter: { ...filter, freq: filter.freq * pitch },
-  gain,
-  attack: 0.003,
-  decay,
-  delay,
-});
-
-const tone = (
-  source: SfxSource,
-  from: number,
-  to: number,
-  gain: number,
-  decay: number,
-  delay = 0,
-): SfxLayer => ({ source, freq: [from, to], gain, attack: 0.002, decay, delay });
-
-/** Break (long, with crunch), hit (short, brighter) and place (a low thud) of one material. */
-function materialSfx(
-  keys: { readonly break: SfxKey; readonly hit: SfxKey; readonly place: SfxKey },
-  voice: MaterialVoice,
-): SfxDef[] {
+/**
+ * Break (long, with crunch), hit (short, brighter), place (a low thud) and step (a soft scuff,
+ * one grain of crunch for the crunchy ones) of one material.
+ */
+function materialSfx(keys: BlockSounds, voice: MaterialVoice): SfxDef[] {
   const { filter, body } = voice;
   const broken = [noise(filter, 0.55, voice.length)];
   for (let g = 1; g <= voice.grains; g++)
     broken.push(noise(filter, 0.3, 0.05, g * GRAIN_GAP, 1 + g * 0.1));
   const hit = [noise(filter, 0.35, 0.05, 0, 1.25)];
   const place = [noise(filter, 0.4, 0.08, 0, 0.8), tone('sine', 150, 90, 0.35, 0.07)];
+  const step = [noise(filter, 0.22, 0.06, 0, 0.9), tone('sine', 120, 80, 0.12, 0.05)];
+  if (voice.grains > 1) step.push(noise(filter, 0.12, 0.03, GRAIN_GAP * 0.6, 1.15));
   if (body) {
     broken.push(tone(body.source, body.freq, body.freq * 0.85, 0.3, body.ring));
     hit.push(tone(body.source, body.freq * 1.1, body.freq, 0.22, body.ring * 0.4));
     place.push(tone(body.source, body.freq * 0.9, body.freq * 0.8, 0.25, body.ring * 0.6));
+    step.push(tone(body.source, body.freq * 0.8, body.freq * 0.7, 0.08, body.ring * 0.3));
   }
   return [
     { key: keys.break, layers: broken },
     { key: keys.hit, layers: hit },
     { key: keys.place, layers: place },
+    { key: keys.step, layers: step },
   ];
 }
 
-/** Synthesis recipes of every bound sound (rendered once at startup, never sampled). */
+/**
+ * Synthesis recipes (never sampled) of the blocks' sounds, the pickup, the click and the blows of
+ * combat; the other one-shots are in playerSfx.ts, the loops in ambienceSfx.ts.
+ */
 export const sfx: readonly SfxDef[] = [
   ...(Object.keys(VOICES) as SoundMaterial[]).flatMap((m) =>
     materialSfx(sounds.blocks[m], VOICES[m]),
