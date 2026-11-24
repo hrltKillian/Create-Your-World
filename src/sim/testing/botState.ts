@@ -19,7 +19,10 @@ export const JUMP_AFTER = 3;
 
 export interface BotState extends Target {
   task: Task;
-  /** Tick the task (or its acting phase) started: its first tick releases the use buttons. */
+  /**
+   * Tick the task (or its acting phase: a climb, a search within reach) started: its first tick
+   * releases the use buttons and jump, so each starts with a press (a held jump jumps only once).
+   */
   start: number;
   until: number;
   yaw: number;
@@ -90,9 +93,12 @@ export function startWalk(s: BotState, tick: number, yaw: number, ticks: number)
   s.pitch = 0;
 }
 
-/** This tick's input: the task's buttons, which its first tick releases (eating starts on a press). */
+/**
+ * This tick's input: the task's buttons, which its first tick releases (eating starts on a press,
+ * a climb on a fresh jump).
+ */
 export function input(s: BotState, tick: number, buttons: number): InputCommand {
-  const held = tick > s.start ? buttons : buttons & ~(PRIMARY | SECONDARY);
+  const held = tick > s.start ? buttons : buttons & ~(PRIMARY | SECONDARY | JUMP);
   return {
     type: 'input',
     forward: (held & FORWARD) !== 0 ? 1 : (held & BACK) !== 0 ? -1 : 0,

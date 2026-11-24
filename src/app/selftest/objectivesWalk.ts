@@ -10,14 +10,16 @@ import { needsGeneratedFixedPlayer } from './survivalScenes.ts';
 /**
  * M11 « Fait quand »: a scripted run (teleports and real actions through `__game`'s automation)
  * does each objective in order. The walk of sim/testing/objectiveWalk.ts in the generated world
- * with fixed steps (?seed=7&rd=4&fixedStep=1), driven by walkAutomation.ts (the hook's helpers):
- * teleports, debug gives and fills, crafts queued as the Logbook does, stations placed (secondary
- * held at the floor the view aims at) and fed through their screens, a sip at a pool, a night
- * held out in a cabin, journeys to the biomes of the raw items (findBiome), a creature killed for
- * its loot. After each objective the HUD's panel shows the next one, and the compass its point
- * when it has one. It needs a player who has done no objective: after earlier suites of the boot
- * did some (m9 under `?selftest=all`), it walks in a new world of the same seed. It leaves a cabin
- * at the spawn and the clock a day on.
+ * with fixed steps (?seed=7&rd=4&fixedStep=1), driven by walkAutomation.ts (the hook's helpers:
+ * the view turned to a point, primary, secondary or forward held): the items an objective names
+ * broken out of the world with the right tool and walked onto (ores in their biome, found by
+ * findBiome), a creature struck down with a spear for its loot, crafts queued as the Logbook does,
+ * stations placed and fed through their screens, a sip at a pool, a cabin built block by block
+ * and a night held out in it; debug commands only stage the rest (docs M11 « Retenu à
+ * l'intégration »). After each objective the HUD's panel shows the next one, and the compass its
+ * point when it has one. It needs a player who has done no objective: after earlier suites of the
+ * boot did some (m9 under `?selftest=all`), it walks in a new world of the same seed. It leaves a
+ * cabin at the spawn and the clock a day on.
  * tests/unit/sim/objectiveWalk.test.ts runs the same walk on an inline simulation of seed 7.
  */
 

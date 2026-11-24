@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PITCH_LIMIT } from '../../../src/core/angles.ts';
 import { HOTBAR_SLOTS } from '../../../src/core/player.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { tidy } from '../../../src/sim/testing/botNeeds.ts';
@@ -180,12 +181,41 @@ describe('how the bot looks after itself', () => {
     expect(consumed(s)).toContain('item:berries');
   });
 
-  it('climbs out of a pit with the blocks it carries', () => {
+  /** A player at the bottom of a 4-deep pit (1 × 1) with 16 dirt. */
+  function inPit(): PlayerSim {
     const s = playerTestSim({ seed: 'pit' });
     s.fill(0, FLAT_SURFACE - 3, 0, 0, FLAT_SURFACE, 0, 'block:air');
     s.send({ type: 'debug.teleport', x: 0.5, y: FLAT_SURFACE - 3, z: 0.5 });
     s.give('item:dirt', 16);
-    expect(drive(s, 1200)).toBeGreaterThanOrEqual(FLAT_SURFACE + 1);
+    return s;
+  }
+
+  it('climbs out of a pit with the blocks it carries', () => {
+    expect(drive(inPit(), 1200)).toBeGreaterThanOrEqual(FLAT_SURFACE + 1);
+  });
+
+  it('jumps in every climb, also one that starts while a stuck walk holds jump', () => {
+    const s = inPit();
+    const bot = createBot('wanderMineBuild', 'bots', s.sim);
+    const commands: Command[] = [];
+    // Jumps per climb: a climb is a run of ticks looking straight down.
+    const jumps: number[] = [];
+    let climbing = false;
+    for (let i = 0; i < 1200 && s.player.body.y < FLAT_SURFACE + 1; i++) {
+      bot.next(s.player, s.host.view.tick(), commands);
+      const input = commands.find((c) => c.type === 'input');
+      for (const command of commands) s.host.send(command);
+      commands.length = 0;
+      s.events.length = 0;
+      s.host.advance(1, s.events);
+      const climb = input?.pitch === -PITCH_LIMIT;
+      if (climb && !climbing) jumps.push(0);
+      climbing = climb;
+      if (climb) jumps[jumps.length - 1]! += eventsOf(s.events, 'playerJumped').length;
+    }
+    expect(s.player.body.y).toBeGreaterThanOrEqual(FLAT_SURFACE + 1);
+    expect(jumps.length).toBeGreaterThan(0);
+    expect(jumps).not.toContain(0);
   });
 
   it('digs its way out of a hole under a ceiling, with nothing to climb with', () => {

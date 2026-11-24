@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { blockItemKey } from '../../../src/content/items.ts';
 import { anglesTo } from '../../../src/core/angles.ts';
 import { COLUMN_LIT } from '../../../src/sim/ColumnPipeline.ts';
-import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
+import { type Command, type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
+import type { SimEvent } from '../../../src/sim/events.ts';
 import { eyeHeight } from '../../../src/sim/physics.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
 import { type WalkPort, walkObjectives } from '../../../src/sim/testing/objectiveWalk.ts';
@@ -11,9 +13,10 @@ import { registry } from '../../helpers/registry.ts';
 /*
  * The objectives walk (sim/testing/objectiveWalk.ts) on an inline simulation of the browser
  * walk's world (?seed=7, the generated world, no natural spawns): every objective of the pack is
- * done in chain order, with the game's own commands, and an objective done out of its turn fails
- * the walk. The browser case (selftest/objectivesWalk.ts) drives the same walk through `__game`'s
- * automation.
+ * done in chain order with the game's own actions (« téléports et actions réelles »: the items the
+ * objectives name that the world yields are broken out of it and picked up, the creature's struck
+ * down, the cabin built block by block), and an objective done out of its turn fails the walk. The
+ * browser case (selftest/objectivesWalk.ts) drives the same walk through `__game`'s automation.
  */
 
 /** The browser walk's seed and search radius (selftest/support.ts SEARCH_RADIUS). */
@@ -34,9 +37,13 @@ function inlinePort(seed: string) {
     spawns: false,
   });
   const player = sim.addPlayer(1, VIEW_RADIUS);
+  // What the walk sent (but its input) and what came of it.
+  const sent: Command[] = [];
+  const seen: SimEvent[] = [];
   const step = (ticks: number) => {
     for (let i = 0; i < ticks; i++) {
       host.advance(1, events);
+      seen.push(...events);
       events.length = 0;
     }
   };
@@ -59,16 +66,23 @@ function inlinePort(seed: string) {
   const port: WalkPort = {
     view: host.view,
     send: (command) => {
+      if (command.type !== 'input') sent.push(command);
       host.send(command);
       step(1);
     },
     step,
-    use: async (slot, at, ticks) => {
+    hold: async (action, slot, at, ticks, until) => {
       const b = player.body;
       const { yaw, pitch } = anglesTo({ x: b.x, y: b.y + eyeHeight(b), z: b.z }, at);
-      const input: InputCommand = { ...NEUTRAL_INPUT, yaw, pitch, slot, secondary: true };
-      for (let i = 0; i < ticks; i++) port.send(input);
-      port.send({ ...input, secondary: false });
+      const free: InputCommand = { ...NEUTRAL_INPUT, yaw, pitch, slot };
+      const held: InputCommand = {
+        ...free,
+        primary: action === 'primary',
+        secondary: action === 'secondary',
+        forward: action === 'forward' ? 1 : 0,
+      };
+      for (let i = 0; i < ticks && !until?.(); i++) port.send(held);
+      port.send(free);
     },
     travel: async (x, y, z) => {
       port.send({ type: 'debug.teleport', x, y, z });
@@ -76,7 +90,30 @@ function inlinePort(seed: string) {
       step(5);
     },
   };
-  return { sim, player, port };
+  return { sim, player, port, sent, seen };
+}
+
+/** Every item an objective names. */
+const NAMED = new Set<string>(registry.pack.objectives!.flatMap((o) => o.condition.items ?? []));
+
+/**
+ * The items an objective names that the world yields: a block that no recipe or process makes
+ * drops it (its own item, or its loot), or a creature leaves it.
+ */
+function worldItems(): string[] {
+  const made = (item: string) =>
+    registry.crafting.recipes.some((r) => r.output.item === item) ||
+    registry.crafting.processes.some((p) => p.output.item === item);
+  const inLoot = (key: string, item: string) =>
+    registry.loot(key)?.entries.some((e) => e.item === item) ?? false;
+  return [...NAMED].filter(
+    (item) =>
+      registry.blocks.some(
+        (b) =>
+          !made(blockItemKey(b.key)) &&
+          (b.drops === 'self' ? blockItemKey(b.key) === item : inLoot(b.drops, item)),
+      ) || (registry.pack.creatures ?? []).some((c) => inLoot(c.loot, item)),
+  );
 }
 
 describe('objectives walk', () => {
@@ -86,6 +123,35 @@ describe('objectives walk', () => {
     const chain = registry.pack.objectives!.map((o) => o.key);
     expect(done).toEqual(chain);
     expect(player.survival.dead).toBe(false);
+  }, 60_000);
+
+  it('takes the named items from the world, strikes the creature, builds the cabin', async () => {
+    const { player, port, sent, seen } = inlinePort(SEED);
+    await walkObjectives(port, { searchRadius: SEARCH_RADIUS });
+    const mine = (e: SimEvent) => 'playerId' in e && e.playerId === player.playerId;
+    // Nothing an objective names is given, and no creature dies by command.
+    const given = sent.flatMap((c) => (c.type === 'debug.give' ? [c.item] : []));
+    expect(given.filter((item) => NAMED.has(item))).toEqual([]);
+    expect(sent.filter((c) => c.type === 'debug.killCreature')).toEqual([]);
+    // What the world yields was picked up from the ground (broken out of it, or loot).
+    const picked = new Set(
+      seen.flatMap((e) => (e.type === 'itemPickedUp' && mine(e) ? [e.item] : [])),
+    );
+    const world = worldItems();
+    expect(world.length).toBeGreaterThan(0);
+    for (const item of world) expect(picked, item).toContain(item);
+    // The creature that leaves an item fell to the player's blows.
+    const kills = seen.filter((e) => e.type === 'creatureDied' && e.attacker === player.id);
+    expect(kills.length).toBeGreaterThan(0);
+    // The cabin's walls, roof and door went in by secondary (72 blocks of the wall, one door).
+    const placed = (block: string) =>
+      seen.filter(
+        (e) => e.type === 'blockPlaced' && mine(e) && registry.blockDef(e.state).key === block,
+      ).length;
+    const wall = registry.pack.worldgen!.stone;
+    const door = registry.blocks.find((b) => b.placement?.tall === 2)!.key;
+    expect(placed(wall)).toBeGreaterThanOrEqual(70);
+    expect(placed(door)).toBe(1);
   }, 60_000);
 
   it('fails when the check does an objective out of its turn', async () => {

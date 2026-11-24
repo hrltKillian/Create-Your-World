@@ -6,7 +6,7 @@ import { frameOrFail, look, press, sendAndStep, teleport, waitForChunks } from '
 /**
  * The objectives walk (sim/testing/objectiveWalk.ts) in the browser (M11): its port over the play
  * session, driven by the automation helpers the debug hook and the selftests share (commands
- * applied with a tick, fixed steps, the view turned and secondary pressed as the mouse would,
+ * applied with a tick, fixed steps, the view turned and a button or a key held as the player would,
  * teleports that wait for the meshed world). selftest/objectivesWalk.ts runs it.
  */
 
@@ -22,14 +22,15 @@ export function walkPort(app: App): WalkPort {
     view: session.host.view,
     send: (command) => sendAndStep(app, command),
     step: (ticks) => session.step(ticks),
-    use: async (slot, at, ticks) => {
+    hold: async (action, slot, at, ticks, until) => {
       app.input!.slot = slot;
       // The eye follows the body on frames: place it, turn the view, then let the aim follow.
       await frameOrFail();
       const { yaw, pitch } = anglesTo(session.rig.eye, at);
       look(app, yaw, pitch);
       await frameOrFail();
-      press(app, 'secondary', ticks);
+      // One tick at a time: the action stays held from one press to the next.
+      for (let i = 0; i < ticks && !until?.(); i++) press(app, action, 1);
       session.step(1);
     },
     travel: async (x, y, z) => {

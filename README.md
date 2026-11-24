@@ -160,9 +160,15 @@ of them:
   With `npm run bench` and the pane visible, open
   `http://localhost:4174/?seed=42&storage=memory&mute=1&quality=medium&bench=walk` (or `cave`,
   `dig`, `load`, `fly`): the `BENCH` banner shows the result. `npm run e2e:perf` runs them all.
-- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m11` does the 15 objectives in order through
-  real actions (crafts, stations placed and fed, a sip, a cabin, a night, journeys to the tundra,
-  desert and marsh, a Prowler hunted) while the HUD follows. `await __game.bot.run()` lets the
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m11` does the 15 objectives in order while
+  the HUD follows. The items an objective names come from the world by real actions: plant fiber,
+  sticks and flint are broken out of tall grass, foliage and gravel, the ores are mined in the
+  tundra, desert and marsh, the Prowler Sinew is taken from a Prowler struck down with a spear, and
+  the cabin is built block by block, door included; crafts, stations, the sip and the night are the
+  game's own too. Debug commands only stage the rest: the home pad, the pool and the hunting pit
+  (`debug.fill`), a source block beside the player when none is near, the materials no objective
+  names (`debug.give`: logs, stone, clay, peat, copper ore, hides, fur, resin), the Prowler and the
+  night of the hunt, teleports between stands. `await __game.bot.run()` lets the
   wanderMineBuild bot play 5 minutes (quick with `?fixedStep=1`, the camera following) and reports
   `errors: []`. `?selftest=all` runs every suite.
 

@@ -250,9 +250,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     asks to respawn while dead; `wanderBot`; wanderMineBuild in `wanderMineBuild.ts` with
     `botSenses.ts`, `botState.ts`, `botNeeds.ts`); the browser driver `app/botDriver.ts` (`pilot`,
     `driveBot`; `GameSession.pilot` replaces the keyboard input each tick); the objectives walk
-    `sim/testing/objectiveWalk.ts` (`walkObjectives`; `walkPort.ts`, `walkSupplies.ts`), its browser
-    port `app/walkAutomation.ts` (`walkObjectivesHere`); view angles to a point `anglesTo` and a yaw
-    `yawOf` (`core/angles.ts`);
+    `sim/testing/objectiveWalk.ts` (`walkObjectives`: the pad, the cabin built with secondary, the
+    sip, the night; `walkPort.ts` with `hold(action, slot, at, ticks, until?)`; `walkSupplies.ts`:
+    crafts, processes, stations, then the world for the items an objective names: `walkGather.ts`
+    (sources found or staged, ores in their biome, the hunt in a pit), `walkHands.ts` (break with
+    the best tool, place, pick up, strike) and `walkReach.ts` (stands and aims along the sim's own
+    ray)), its browser port `app/walkAutomation.ts` (`walkObjectivesHere`); view angles to a point
+    `anglesTo` and a yaw `yawOf` (`core/angles.ts`);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
     with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
     `litWorld`/`edit` for light, `generate`/`blockIn`/`biomeIndex`/`findColumn` in `gen.ts`);

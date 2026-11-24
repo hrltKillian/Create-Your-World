@@ -15,6 +15,9 @@ export interface Point {
 
 export type Cell = Point;
 
+/** What the walk holds down: mining or a blow, a placement or a use, a step forward. */
+export type HoldAction = 'primary' | 'secondary' | 'forward';
+
 export interface WalkPort {
   readonly view: SimView;
   /** Sends a command of the local player and applies it, with one tick. */
@@ -22,10 +25,16 @@ export interface WalkPort {
   /** Runs `ticks` ticks. */
   step(ticks: number): void;
   /**
-   * Holds secondary for `ticks` ticks with a hotbar slot selected and the view on a point, then
-   * lets it go for a tick.
+   * Holds an action for `ticks` ticks (fewer once `until` holds, tested before each one) with a
+   * hotbar slot selected and the view on a point, then lets it go for a tick.
    */
-  use(slot: number, at: Point, ticks: number): Promise<void>;
+  hold(
+    action: HoldAction,
+    slot: number,
+    at: Point,
+    ticks: number,
+    until?: () => boolean,
+  ): Promise<void>;
   /** Teleports the player (feet at `y`, or on the ground) and waits until the place is loaded. */
   travel(x: number, y: number | 'surface', z: number): Promise<void>;
 }

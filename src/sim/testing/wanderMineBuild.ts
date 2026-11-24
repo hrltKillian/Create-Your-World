@@ -124,6 +124,8 @@ function unstick(
   if (slot >= 0 && headroom(senses, b) && (walledIn(senses, b) || rng.chance(CLIMB_CHANCE))) {
     s.climb = rng.intRange(20, 45);
     s.slot = slot;
+    // A stuck walk holds jump, and only a fresh press jumps: the climb's first tick lets go.
+    s.start = tick;
   } else if (s.task === 'seek') giveUp(s, rng, tick);
   else if (rng.chance(DIG_CHANCE)) {
     begin(s, 'dig', tick, DIG_TICKS);
