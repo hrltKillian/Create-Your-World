@@ -54,7 +54,9 @@ import { deserializeTime, serializeTime } from './time.ts';
  * Persistence of a simulation (docs « Sauvegarde »): snapshots of its persistent state as store
  * records, and a simulation rebuilt from them. Persistent = world meta (seed, clock, entity ids,
  * spawn), players, and for each column its persisted sections, item drops, creatures (never the
- * hostile ones), block entities (chests, stations) and whether it placed a herd. Light, meshes,
+ * hostile ones; parked with an unloaded column or not), block entities (chests, stations) and
+ * whether it placed a herd. A restored world holds every saved creature; those of the columns not
+ * loaded by its first tick leave with them (spawning.ts `departs`). Light, meshes,
  * untouched terrain and the streaming state are rebuilt: saved
  * sections go back to the edit store, and generation lays them over the terrain (the « Colonne déjà
  * modifiée » path).
@@ -120,21 +122,24 @@ export function columnDigest(
 
 /**
  * Saved entities by column key, in entity (id) order: item drops and the creatures that are not
- * hostile nor leaving, dormant ones included.
+ * hostile nor leaving, dormant and parked ones included.
  */
 function entitiesByColumn(sim: Simulation): Map<number, EntityRecord[]> {
   const out = new Map<number, EntityRecord[]>();
-  for (const entity of sim.entities.values()) {
+  const add = (entity: Entity): void => {
     let record: EntityRecord;
     if (entity.kind === 'itemDrop') record = dropRecord(entity);
-    else if (entity.kind !== 'creature' || isGone(entity)) continue;
-    else if (isHostile(creatureDef(sim, entity))) continue;
+    else if (entity.kind !== 'creature' || isGone(entity)) return;
+    else if (isHostile(creatureDef(sim, entity))) return;
     else record = creatureRecord(entity);
     const key = columnKey(blockToColumn(entity.body.x), blockToColumn(entity.body.z));
     const list = out.get(key);
     if (list) list.push(record);
     else out.set(key, [record]);
-  }
+  };
+  sim.entities.forEach(add);
+  for (const parked of sim.parked.values()) parked.forEach(add);
+  for (const list of out.values()) list.sort((a, b) => a.id - b.id);
   return out;
 }
 
@@ -329,7 +334,9 @@ async function restoreColumn(
     for (const data of Array.isArray(column.entities) ? column.entities : []) {
       const kind = (data as Partial<EntityRecord> | null)?.kind;
       const entity =
-        kind === 'creature' ? readCreature(data, sim.registry) : readDrop(data, sim.registry);
+        kind === 'creature'
+          ? readCreature(data, sim.registry, sim.tick)
+          : readDrop(data, sim.registry);
       if (entity) entities.push(entity);
     }
     if (column.herds === true) sim.herdColumns.add(key);

@@ -108,7 +108,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `weapon`), the hostile grace `balance.creatures.spawnGraceTicks`;
   - creatures in the sim: records `sim/creatures.ts` (`CreatureState` in `sim.entities`, `mode`
     and timers, `spawnCreature`, `isAlert` (the stealth rule), `isGone`, `reachGap`,
-    `hostileNear`, `dormant`), bodies `sim/creatureBody.ts`; `sim/ai/`: senses `senses.ts`
+    `hostileNear`, `dormant`; `parkCreature`/`unparkCreatures`: the creatures of an unloaded column
+    wait in `sim.parked`, saved with it, and come back in id order when it loads), bodies
+    `sim/creatureBody.ts`; `sim/ai/`: senses `senses.ts`
     (`NOISE`, `noiseOf`, `targetable`, `unawareOf` (stealth), `lineOfSight` (the raycast with
     `RAY_OPAQUE`), `refreshSenses` every 10 ticks), the five brains `brains.ts` (`think`, `alarm` when hurt), what they are made of
     `behaviours.ts` (`BRAIN` numbers, `plan` (≤ 2 A* a tick), `graze`, `flee`, `fight`, `windUp`),
@@ -125,12 +127,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
     dying time `DYING_TICKS` (`core/creatures.ts`, shared with the renderer); drawn by
     `render/CreatureView.ts` (posed models, glow, red flash, death fall and shrink) animated by
     `render/creatureRig.ts` (`animateCreature`: gait legs, wind-up, look, hit freeze); BoxBatch
-    boxes take `glow` and `flash`; spawns, despawns, herds and `sim.spawnLog`
+    boxes take `glow` and `flash`; spawns, departures (`departs`: every rule of who leaves, each
+    tick from `stepCreatures`), herds and `sim.spawnLog`
     `sim/spawning.ts` (`SPAWN`; `sim.rules`: `hostiles`, `spawns` (off in flat and arena worlds
     unless asked: dev `?spawns=0|1`), `graceTicks` (`?grace=`)); the effective light
     `effectiveLight` (`world/light.ts`); `debug.spawn` places one (facing the player),
-    `debug.killCreature` kills one (a death with its loot); `creatureCensus` (sim/creatures.ts)
-    counts the living ones (the hook, `runBot` and the headless runner); `SimView.spawnLog`;
+    `debug.killCreature` kills one not already dying, burrowing too (a death with its loot);
+    `creatureCensus` (sim/creatures.ts) counts the living ones (the hook, `runBot` and the headless
+    runner); `SimView.spawnLog`;
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
     `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
@@ -268,14 +272,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - M10 hook entries (version 10): `entities.spawn(creature, x, y | 'surface', z)` (`debug.spawn`,
   applied at once without a tick, facing the player; returns the id, null when refused),
   `entities.list()` (`{ id, creature, x, y, z, yaw, health, mode, target, sees, watched, herd,
-  cave }`, dying ones too), `entities.kill(id)` (`debug.killCreature`: it falls over, its loot
-  drops), `entities.census()` (the living: `total`, `surfaceHostiles`, `caveHostiles`,
-  `byCreature`), `entities.spawnLog()` (hostile spawns: tick, creature, feet, effective light,
-  cave); `perf.benchmark('mobs', seconds = 10)`: 25 creatures of every kind around the player, the
-  clock frozen at 23:00 and the player immune, a 60-tick warm-up, then the simulation tick alone
-  (`GameSession.tickMs`): `{ creatures, ticks, tickMedian, tickP95, tickMax }`; the clock, the
-  immunity, the toxicity and the creature count are put back (the creatures are killed: their
-  loot stays).
+  cave }`, dying ones too), `entities.kill(id)` (`debug.killCreature`, burrowing ones too: it
+  falls over, its loot drops), `entities.census()` (the living: `total`, `surfaceHostiles`,
+  `caveHostiles`, `byCreature`), `entities.spawnLog()` (hostile spawns: tick, creature, feet,
+  effective light, cave); `perf.benchmark('mobs', seconds = 10)`: 25 creatures of every kind
+  around the player, the clock frozen at 23:00 and the player immune, a 60-tick warm-up, then the
+  simulation tick alone (`GameSession.tickMs`): `{ creatures, ticks, tickMedian, tickP95,
+  tickMax }`; the clock, the immunity, the toxicity and the creature count are put back (the
+  creatures are killed: their loot stays).
 - Creature checks (`selftest/m10.ts`, `e2e/creatures.spec.ts`), two setups since the creature
   rules are fixed when a world opens: `?worldType=flat&fixedStep=1&selftest=m0,m10` (the Prowler
   hunt, stealthy and plain spear blows on Trotters trapped in pits, a Trotter's loot, the mobs

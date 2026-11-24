@@ -51,11 +51,12 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     }),
   },
   // 4 → 5 (M10): columns keep their creatures among their entities, and whether their first
-  // generation placed a herd (none did before: their next load may place one).
+  // generation placed a herd. A stored column had its first generation long ago (it was edited or
+  // held items since): it counts as having had its herd, so none lands on the player's builds.
   {
     world: (record) => record,
     player: (record) => record,
-    column: (record) => ({ ...record, herds: false }),
+    column: (record) => ({ ...record, herds: true }),
   },
 ];
 

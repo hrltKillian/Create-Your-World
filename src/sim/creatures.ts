@@ -1,7 +1,7 @@
 import type { Registry } from '../content/registry.ts';
 import type { CreatureDef } from '../content/schema.ts';
 import { hashUnit } from '../core/hash.ts';
-import { blockToColumn } from '../world/coords.ts';
+import { blockToColumn, columnKey } from '../world/coords.ts';
 import { COLUMN_LIT } from './ColumnPipeline.ts';
 import { bodyHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
@@ -10,9 +10,9 @@ import type { Entity, Simulation } from './Simulation.ts';
 /*
  * Creatures (docs « Créatures et combat », « Entités »): plain JSON entity records in
  * `sim.entities`, the state of their brain included. Hostiles are never saved; the others are
- * saved with the column they stand in (saveRecords.ts). Their senses, brains and paths are in
- * `ai/`, their body in creatureBody.ts, their blows in combat.ts, their comings and goings in
- * spawning.ts.
+ * saved with the column they stand in (saveRecords.ts), and leave the simulation with it while it
+ * is unloaded (`sim.parked`). Their senses, brains and paths are in `ai/`, their body in
+ * creatureBody.ts, their blows in combat.ts, their comings and goings in spawning.ts.
  */
 
 /**
@@ -37,7 +37,10 @@ export type CreatureMode = (typeof CREATURE_MODES)[number];
 
 /** Most cells a creature keeps of a planned path (it plans again at least every 20 ticks). */
 export const PATH_MAX = 32;
-/** Creatures farther than this from every player stand still (hostiles there are despawned). */
+/**
+ * Creatures farther than this from every player stand still, and hostiles there leave (docs
+ * « Disparition »: beyond 96 blocks).
+ */
 export const ACTIVE_RADIUS = 96;
 /** A new creature stands still this long: its senses look around before it decides anything. */
 const SETTLE_TICKS = 15;
@@ -173,6 +176,30 @@ export function spawnCreature(
 export function removeCreature(sim: Simulation, id: number): void {
   sim.entities.delete(id);
   sim.spatial.remove(id);
+}
+
+/** A creature of an unloaded column leaves the simulation with it, kept in `sim.parked`. */
+export function parkCreature(sim: Simulation, c: CreatureState): void {
+  const key = columnKey(blockToColumn(c.body.x), blockToColumn(c.body.z));
+  const parked = sim.parked.get(key);
+  if (parked) parked.push(c);
+  else sim.parked.set(key, [c]);
+  removeCreature(sim, c.id);
+}
+
+/**
+ * The creatures parked with a column come back when it loads again. The entities stay in id order,
+ * the order a restored world adds them in, so that a world plays on alike after a reload.
+ */
+export function unparkCreatures(sim: Simulation, cx: number, cz: number): void {
+  const key = columnKey(cx, cz);
+  const parked = sim.parked.get(key);
+  if (!parked) return;
+  sim.parked.delete(key);
+  const entities = [...sim.entities.values(), ...parked].sort((a, b) => a.id - b.id);
+  sim.entities.clear();
+  for (const entity of entities) sim.entities.set(entity.id, entity);
+  for (const c of parked) sim.spatial.update(c.id, c.body.x, c.body.z);
 }
 
 /** Height of a creature's eyes (sight lines and blows start there). */

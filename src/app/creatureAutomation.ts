@@ -1,4 +1,4 @@
-import { type CreatureCensus, creatureCensus, isGone } from '../sim/creatures.ts';
+import { type CreatureCensus, creatureCensus } from '../sim/creatures.ts';
 import type { SpawnLogEntry } from '../sim/spawning.ts';
 import type { App } from './App.ts';
 import { sendNow } from './automation.ts';
@@ -33,16 +33,17 @@ export function placeCreature(
 }
 
 /**
- * Kills a creature now (`debug.killCreature`): it falls over and drops its loot, then is removed
- * after its dying time. Returns false when there is no such living creature.
+ * Kills a creature now (`debug.killCreature`), burrowing away or not: it falls over and drops its
+ * loot, then is removed after its dying time. Returns false when there is no such living creature
+ * (none, or one already dying).
  */
 export function killCreature(app: App, id: number): boolean {
   const view = app.session?.host.view;
   const before = view?.entities.get(id);
-  if (before?.kind !== 'creature' || isGone(before)) return false;
+  if (before?.kind !== 'creature' || before.mode === 'dying') return false;
   sendNow(app, { type: 'debug.killCreature', id });
   const after = view?.entities.get(id);
-  return after?.kind !== 'creature' || isGone(after);
+  return after?.kind !== 'creature' || after.mode === 'dying';
 }
 
 /** What one creature is doing, as automation reads it. */
@@ -63,7 +64,10 @@ export interface CreatureView {
   readonly cave: boolean;
 }
 
-/** Every creature record (dying and burrowing ones too), oldest first; null without a world. */
+/**
+ * Every creature in the simulation (dying and burrowing ones too, not those parked with an unloaded
+ * column), oldest first; null without a world.
+ */
 export function creatureList(app: App): CreatureView[] | null {
   const view = app.session?.host.view;
   if (!view) return null;

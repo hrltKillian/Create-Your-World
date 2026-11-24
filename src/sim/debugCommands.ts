@@ -10,13 +10,14 @@ import {
 } from '../world/coords.ts';
 import { surfaceY } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
+import { setMode } from './ai/behaviours.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
 import { forgetCell } from './blockRemoval.ts';
 import { hurtCreature } from './combat.ts';
 import { finite, reject, validCell } from './commandRules.ts';
 import type { DebugCommand, DebugStat } from './commands.ts';
-import { isGone, spawnCreature } from './creatures.ts';
+import { spawnCreature } from './creatures.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack } from './inventory.ts';
@@ -56,10 +57,13 @@ export function applyDebugCommand(
   }
   if (command.type === 'debug.killCreature') {
     const c = sim.entities.get(command.id);
-    if (c?.kind !== 'creature' || isGone(c)) reject(out, playerId, command.type, 'no creature');
+    if (c?.kind !== 'creature' || c.mode === 'dying')
+      reject(out, playerId, command.type, 'no creature');
     else {
-      // All its health, whatever its armour or a recent blow (no attacker, no knockback).
+      // All its health, whatever its armour, a recent blow or its burrowing away (no attacker, no
+      // knockback): it dies where it is.
       c.invulnerable = 0;
+      if (c.mode === 'burrow') setMode(c, 'idle');
       hurtCreature(sim, c, c.health, c.body.x, c.body.z, 0, -1, out);
     }
     return;

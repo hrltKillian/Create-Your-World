@@ -14,7 +14,7 @@ import { stepCombat } from './combat.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyCraftCommand, stepCrafting } from './craftQueue.ts';
-import type { CreatureState } from './creatures.ts';
+import { type CreatureState, unparkCreatures } from './creatures.ts';
 import { respawn, stepDeaths } from './death.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
@@ -104,6 +104,11 @@ export class Simulation implements ColumnSink {
   readonly edits = new EditStore();
   /** Columns whose first generation placed a herd (saved: no second herd when they load again). */
   readonly herdColumns = new Set<number>();
+  /**
+   * Creatures of the unloaded columns by column key, out of `entities` (saved with their column,
+   * back when it loads: `parkCreature`, `unparkCreatures`).
+   */
+  readonly parked = new Map<number, CreatureState[]>();
   /** The last hostile spawns (tests; not saved). */
   readonly spawnLog: SpawnLogEntry[] = [];
   private readonly columns: ColumnPipeline;
@@ -131,7 +136,10 @@ export class Simulation implements ColumnSink {
       options.source,
       { seed: this.seed, worldType: this.worldType },
       options.maxInFlight,
-      (column) => placeHerds(this, column),
+      (column) => {
+        unparkCreatures(this, column.cx, column.cz);
+        placeHerds(this, column);
+      },
     );
     options.source.connect(this);
   }

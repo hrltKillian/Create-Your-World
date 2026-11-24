@@ -162,8 +162,8 @@ describe('save versions', () => {
     expect(player.objectives).toEqual(['objective:gather', 'objective:tools']);
     // Version 4 adds the drink: not had yet.
     expect(player.drank).toBe(false);
-    // Version 5: no column has placed a herd yet.
-    expect(sim.herdColumns.size).toBe(0);
+    // Version 5: its stored column counts as having placed its herd.
+    expect(sim.herdColumns.size).toBe(fixture(3).columns.length);
     settle(sim);
     step(30);
     // The game runs on: thirst drains, the effect counts down, the temperature drifts back.
@@ -191,9 +191,10 @@ describe('save versions', () => {
       null,
       { item: 'item:waxed_boots', count: 1, durability: 210 },
     ]);
-    // Version 5: no column has placed a herd yet.
-    expect(sim.herdColumns.size).toBe(0);
-    expect(migrate('column', { entities: [] }, 4)).toEqual({ entities: [], herds: false });
+    // Version 5: a stored column had its first generation long ago (it was edited since), so it
+    // counts as having placed its herd: none lands on the player's builds.
+    expect([...sim.herdColumns]).toEqual([columnKey(0, 0)]);
+    expect(migrate('column', { entities: [] }, 4)).toEqual({ entities: [], herds: true });
   });
 
   it('upgrades a version 3 pack and player: nothing worn apart, no drink had', () => {

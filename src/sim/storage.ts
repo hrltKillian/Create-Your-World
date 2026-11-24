@@ -81,6 +81,10 @@ export interface PlayerRecord {
   readonly objectives: readonly string[];
   /** Has drunk at least once (from save version 4). */
   readonly drank: boolean;
+  /** A fight in progress: loud, invulnerable and weapon cooldown ticks left (save version 5). */
+  readonly fightTicks: number;
+  readonly invulnerable: number;
+  readonly attackCooldown: number;
 }
 
 /** An item drop as saved with its column (its render interpolation is not kept). */

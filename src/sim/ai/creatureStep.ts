@@ -1,9 +1,10 @@
 import type { CreatureDef } from '../../content/schema.ts';
 import { ticksOf } from '../clock.ts';
 import { stepCreatureBody } from '../creatureBody.ts';
-import { type CreatureState, creatureDef, dormant, isGone, removeCreature } from '../creatures.ts';
+import { type CreatureState, creatureDef, dormant, isGone } from '../creatures.ts';
 import type { SimEvent } from '../events.ts';
 import type { Simulation } from '../Simulation.ts';
+import { departs } from '../spawning.ts';
 import { daylightAt, hourOf, phaseOf } from '../time.ts';
 import { type AiTick, BRAIN, headsStraight, setMode } from './behaviours.ts';
 import { think } from './brains.ts';
@@ -14,8 +15,8 @@ import { distanceTo, refreshSenses, SENSE_TICKS, targetOf } from './senses.ts';
  * Tick steps 5 and 6 for creatures (docs « Ordre d'un tick »): timers, a sight test every 10
  * ticks, a thought every 3 (both staggered by id), then movement (steering along the path, or
  * straight at the target) and physics. At most 2 A* searches run per tick. Creatures in unlit
- * columns or far from every player stand still; the dying and burrowing ones leave when their time
- * is up. Zero allocation.
+ * columns or far from every player stand still (dormant); who leaves, and when, is `departs`
+ * (spawning.ts). Zero allocation.
  */
 
 /** Turn rate (radians per tick). */
@@ -45,15 +46,14 @@ export function stepCreatures(sim: Simulation, out: SimEvent[]): void {
     c.prevY = b.y;
     c.prevZ = b.z;
     c.prevYaw = c.yaw;
-    if (dormant(sim, c)) continue;
-    if (c.modeTicks > 0) c.modeTicks--;
-    if (c.cooldown > 0) c.cooldown--;
-    if (c.invulnerable > 0) c.invulnerable--;
-    if (isGone(c) && c.modeTicks === 0) {
-      removeCreature(sim, c.id);
-      continue;
+    const active = !dormant(sim, c);
+    if (active) {
+      if (c.modeTicks > 0) c.modeTicks--;
+      if (c.cooldown > 0) c.cooldown--;
+      if (c.invulnerable > 0) c.invulnerable--;
     }
     const def = creatureDef(sim, c);
+    if (departs(sim, c, def, active) || !active) continue;
     const slot = sim.tick + c.id;
     if (slot % SENSE_TICKS === 0) refreshSenses(sim, c, def);
     if (slot % BRAIN.thinkTicks === 0) think(sim, c, def, ai, out);
@@ -193,7 +193,13 @@ function move(sim: Simulation, c: CreatureState, def: CreatureDef): void {
   }
   const steer = c.invulnerable === 0 && !isGone(c);
   const charging = c.mode === 'charge';
-  if (!charging) separate(sim, c, def);
+  // A charge ignores the others: no push, never the one `separate` left for another creature.
+  if (charging) {
+    push[0] = 0;
+    push[1] = 0;
+  } else {
+    separate(sim, c, def);
+  }
   const wantX = (speed > 0 ? headX * speed : 0) + push[0]!;
   const wantZ = (speed > 0 ? headZ * speed : 0) + push[1]!;
   const tables = sim.registry.tables;

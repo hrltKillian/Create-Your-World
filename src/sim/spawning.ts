@@ -18,10 +18,10 @@ import { solidCell } from './collision.ts';
 import {
   type CreatureState,
   creatureDef,
-  dormant,
   isGone,
   isHostile,
   nearestPlayer2,
+  parkCreature,
   removeCreature,
   spawnCreature,
 } from './creatures.ts';
@@ -36,8 +36,9 @@ import { daylightAt, dayOf, hourOf, phaseOf } from './time.ts';
  * fits the cell (biome, time, effective light, caps) appears there with its group. Hostiles need
  * an effective light ≤ 4, a world with hostiles and the grace period over; the other creatures
  * come back at most once a minute. Herds are placed when a column is first generated (the column
- * is then saved). Hostiles leave beyond 96 blocks, or 48 after 30 s out of view, and never in an
- * unloaded column. Every draw is a hash of the world seed and the tick: nothing to save.
+ * is then saved). Departures (`departs`, every tick): hostiles leave beyond 96 blocks, or 48 after
+ * 30 s out of view; the others leave with their column while it is unloaded. Every draw is a hash
+ * of the world seed and the tick: nothing to save.
  */
 
 export const SPAWN = {
@@ -63,8 +64,7 @@ export const SPAWN = {
   herdChance: 0.08,
   /** Herd members stand within this many blocks of its first one. */
   herdSpread: 3,
-  /** Hostiles leave beyond 96 blocks, or beyond 48 after 30 s out of view. */
-  despawnFar: 96,
+  /** Hostiles leave beyond ACTIVE_RADIUS (96 blocks), or beyond 48 after 30 s out of view. */
   despawnUnseen: 48,
   unseenTicks: 900,
   /** Kept entries of the spawn log. */
@@ -94,11 +94,9 @@ const SALT_HERD = 0x4e2d;
 /** Creatures counted around a player for the caps (filled by `countAround`). */
 const counts = { surface: 0, cave: 0, guards: 0, passive: 0 };
 
-/** Tick step 13: despawns, then (every 30 ticks) spawns around each living player. */
+/** Tick step 13: every 30 ticks, spawns around each living player. */
 export function stepSpawning(sim: Simulation): void {
-  if (sim.tick % SPAWN.everyTicks !== 0) return;
-  despawn(sim);
-  if (!sim.rules.spawns) return;
+  if (sim.tick % SPAWN.everyTicks !== 0 || !sim.rules.spawns) return;
   const herdTick = sim.tick % SPAWN.herdEveryTicks === 0;
   const hostiles = sim.rules.hostiles && sim.tick >= sim.rules.graceTicks;
   if (!herdTick && !hostiles) return;
@@ -109,17 +107,34 @@ export function stepSpawning(sim: Simulation): void {
   }
 }
 
-/** Hostiles far from every player, long out of view or in unloaded columns leave. */
-function despawn(sim: Simulation): void {
-  for (const c of sim.entities.values()) {
-    if (c.kind !== 'creature' || isGone(c) || !isHostile(creatureDef(sim, c))) continue;
-    const b = c.body;
-    const d2 = nearestPlayer2(sim, b.x, b.z);
-    const far = d2 > SPAWN.despawnFar * SPAWN.despawnFar;
-    const forgotten =
-      d2 > SPAWN.despawnUnseen * SPAWN.despawnUnseen && c.unseen >= SPAWN.unseenTicks;
-    if (far || forgotten || dormant(sim, c)) removeCreature(sim, c.id);
+/**
+ * Departures (docs « Disparition »), every tick for each creature, after the timers of an active
+ * one (`active`: not dormant); returns whether it left the simulation. A creature leaving (dying,
+ * burrowing) goes once its time is up, or at once out of the simulation. A hostile goes beyond 48
+ * blocks of every player after 30 s out of view, or out of the simulation: beyond ACTIVE_RADIUS
+ * (96 blocks) or in a column that is not lit. The others wait out of the simulation, and leave with
+ * their column while it is unloaded (`parkCreature`: saved with it, back when it loads).
+ */
+export function departs(
+  sim: Simulation,
+  c: CreatureState,
+  def: CreatureDef,
+  active: boolean,
+): boolean {
+  if (isGone(c) || isHostile(def)) {
+    if (active && (isGone(c) ? c.modeTicks > 0 : !forgotten(sim, c))) return false;
+    removeCreature(sim, c.id);
+    return true;
   }
+  if (active || sim.columnState(blockToColumn(c.body.x), blockToColumn(c.body.z)) > 0) return false;
+  parkCreature(sim, c);
+  return true;
+}
+
+/** A hostile beyond 48 blocks of every player after 30 s out of view. */
+function forgotten(sim: Simulation, c: Readonly<CreatureState>): boolean {
+  if (c.unseen < SPAWN.unseenTicks) return false;
+  return nearestPlayer2(sim, c.body.x, c.body.z) > SPAWN.despawnUnseen * SPAWN.despawnUnseen;
 }
 
 /** Counts the creatures that fill each cap around a player. */

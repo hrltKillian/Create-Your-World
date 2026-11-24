@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { COLUMN_LIT } from '../../../src/sim/ColumnPipeline.ts';
 import { type CreatureState, isHostile } from '../../../src/sim/creatures.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash } from '../../../src/sim/persistence.ts';
+import type { Simulation } from '../../../src/sim/Simulation.ts';
 import { SPAWN } from '../../../src/sim/spawning.ts';
 import { blockToColumn, columnKey } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -28,6 +30,15 @@ function creatures(s: Harness): CreatureState[] {
 
 const hostiles = (s: Harness) =>
   creatures(s).filter((c) => isHostile(registry.creature(c.creature)!));
+
+/** Places a creature on the ground (debug.spawn) and returns it. */
+function spawnAt(s: Harness, creature: string, x: number, z: number): CreatureState {
+  const id = s.sim.nextEntityId;
+  s.send({ type: 'debug.spawn', creature, x, y: 'surface', z });
+  const c = s.sim.entities.get(id);
+  if (c?.kind !== 'creature') throw new Error(`no ${creature} placed`);
+  return c;
+}
 
 describe('spawning', () => {
   it('spawns hostiles at night only where the effective light is 4 or less, away from torches', () => {
@@ -126,6 +137,34 @@ describe('spawning', () => {
     s.step(120);
     expect(s.sim.entities.has(prowler.id)).toBe(false);
   });
+
+  it('lets a hostile go beyond 96 blocks of every player, in a loaded and lit column too', () => {
+    const s = playerTestSim({ seed: 'far', viewRadius: 4 });
+    s.send({ type: 'debug.setTime', hours: 23 }, { type: 'debug.freezeTime', frozen: true });
+    const near = spawnAt(s, 'creature:prowler', 40.5, 0.5);
+    const far = spawnAt(s, 'creature:prowler', 60.5, 0.5);
+    // 86 and 106 blocks from the player now, both in columns still loaded and lit.
+    s.send({ type: 'debug.teleport', x: -45.5, y: 'surface', z: 0.5 });
+    s.step(SPAWN.everyTicks);
+    expect(s.sim.columnState(blockToColumn(far.body.x), 0)).toBeGreaterThanOrEqual(COLUMN_LIT);
+    expect(s.sim.entities.has(far.id)).toBe(false);
+    expect(s.sim.entities.has(near.id)).toBe(true);
+  });
+
+  it('lets creatures dying or burrowing away go out of the simulation too', () => {
+    const s = playerTestSim({ seed: 'leaving', viewRadius: 4 });
+    s.send({ type: 'debug.setTime', hours: 23 }, { type: 'debug.freezeTime', frozen: true });
+    const trotter = spawnAt(s, 'creature:trotter', 0.5, -6.5);
+    const prowler = spawnAt(s, 'creature:prowler', 4.5, -6.5);
+    s.send({ type: 'debug.killCreature', id: trotter.id });
+    prowler.mode = 'burrow';
+    prowler.modeTicks = 30;
+    // 384 blocks away: both stand out of the simulation (dormant) from the next tick.
+    s.send({ type: 'debug.teleport', x: 384.5, y: 'surface', z: 0.5 });
+    s.step(2);
+    expect(s.sim.entities.has(trotter.id)).toBe(false);
+    expect(s.sim.entities.has(prowler.id)).toBe(false);
+  });
 });
 
 describe('herds', () => {
@@ -161,6 +200,53 @@ describe('herds', () => {
     r.step(5);
     const after = [...r.sim.entities.values()].filter((e) => e.kind === 'creature');
     expect(after.map((c) => c.id)).toEqual(restored.map((c) => c.id));
+  });
+
+  it('leave with their column when it unloads, saved with it, and come back when it loads again', async () => {
+    const s = createTestSim({
+      seed: 'explore',
+      worldType: 'default',
+      hostiles: false,
+      allowDebug: true,
+    });
+    s.sim.addPlayer(1, 1);
+    settle(s.sim);
+    s.step(5);
+    const live = (sim: Simulation) =>
+      [...sim.entities.values()].flatMap((e) => (e.kind === 'creature' ? [e] : []));
+    const parked = (sim: Simulation) => [...sim.parked.values()].flat();
+    const ids = (list: readonly CreatureState[]) => list.map((c) => c.id).sort((a, b) => a - b);
+    /** Only the creatures of loaded columns stay in the simulation. */
+    const loadedOnly = (sim: Simulation) =>
+      live(sim).every((c) => sim.columnState(blockToColumn(c.body.x), blockToColumn(c.body.z)) > 0);
+    const home = ids(live(s.sim));
+    expect(home.length).toBeGreaterThan(0);
+    // Ten jumps of 160 blocks east: herds in some of the columns generated on the way.
+    for (let jump = 1; jump <= 10; jump++) {
+      s.host.send({ type: 'debug.teleport', x: jump * 160 + 0.5, y: 'surface', z: 0.5 });
+      settle(s.sim);
+      s.step(5);
+      expect(loadedOnly(s.sim)).toBe(true);
+    }
+    expect(parked(s.sim).length).toBeGreaterThan(live(s.sim).length);
+    expect(ids(parked(s.sim))).toEqual(expect.arrayContaining(home));
+    // Saved with their columns: a restored world holds them all, and parks them alike.
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+    const r = await restoreFrom(storage);
+    expect(persistentHash(r.sim)).toBe(persistentHash(s.sim));
+    settle(r.sim);
+    r.step(5);
+    expect(loadedOnly(r.sim)).toBe(true);
+    const all = (sim: Simulation) => ids([...live(sim), ...parked(sim)]);
+    expect(all(r.sim)).toEqual(all(s.sim));
+    // Back home, the herds there are back too, the entities still in id order.
+    s.host.send({ type: 'debug.teleport', x: 0.5, y: 'surface', z: 0.5 });
+    settle(s.sim);
+    s.step(5);
+    expect(ids(live(s.sim))).toEqual(expect.arrayContaining(home));
+    const order = [...s.sim.entities.keys()];
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it('carry their brains through a save: the restored world plays on exactly as the original', async () => {

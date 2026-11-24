@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { lineOfSight, unawareOf } from '../../../src/sim/ai/senses.ts';
-import { hurtCreature } from '../../../src/sim/combat.ts';
-import { type CreatureState, creatureCensus, isAlert } from '../../../src/sim/creatures.ts';
+import { ticksOf } from '../../../src/sim/clock.ts';
+import { COMBAT, hurtCreature } from '../../../src/sim/combat.ts';
+import {
+  type CreatureState,
+  creatureCensus,
+  isAlert,
+  PATH_MAX,
+} from '../../../src/sim/creatures.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
+import { PHYSICS } from '../../../src/sim/physics.ts';
 import { creatureRecord, readCreature } from '../../../src/sim/saveRecords.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -157,6 +164,20 @@ describe('creatures', () => {
     expect(s.player.survival.health).toBeCloseTo(100 - 12, 5);
   });
 
+  it('a charge keeps its heading while other creatures push each other apart', () => {
+    const s = world('charge-push');
+    // Two Trotters pressed together 40 blocks away, stepped before the Shellback (lower ids).
+    place(s, 'creature:trotter', 20.5, 20.5);
+    place(s, 'creature:trotter', 20.6, 20.5);
+    const shellback = place(s, 'creature:shellback', -10.5, -10.5);
+    Object.assign(shellback, { mode: 'charge', modeTicks: 30, yaw: 0, target: -1 });
+    s.step(10);
+    // Due north (−z), without a sideways drift.
+    expect(shellback.mode).toBe('charge');
+    expect(shellback.body.x).toBe(-10.5);
+    expect(shellback.body.z).toBeLessThan(-11.5);
+  });
+
   it('sees between two points of one cell; opaque blocks between two points block the sight', () => {
     const w = flatWorld();
     const t = registry.tables;
@@ -236,6 +257,15 @@ describe('creatures', () => {
     for (const id of [shellback.id, s.player.id, 9999])
       expect(rejections(s.send({ type: 'debug.killCreature', id }))).toHaveLength(1);
     expect(s.sim.entities.has(prowler.id)).toBe(true);
+    // Burrowing away, it is still alive: it dies where it is, its loot left.
+    prowler.mode = 'burrow';
+    prowler.modeTicks = 30;
+    const burrowed = s.send({ type: 'debug.killCreature', id: prowler.id });
+    expect(rejections(burrowed)).toEqual([]);
+    expect(eventsOf(burrowed, 'creatureDied')).toMatchObject([{ id: prowler.id, attacker: -1 }]);
+    expect(prowler.mode).toBe('dying');
+    // Dying: refused.
+    expect(rejections(s.send({ type: 'debug.killCreature', id: prowler.id }))).toHaveLength(1);
   });
 
   it('saves a creature record and reads it back as it was; hostile or unknown ones are dropped', () => {
@@ -247,7 +277,7 @@ describe('creatures', () => {
     const record = creatureRecord(trotter);
     expect(record).not.toHaveProperty('prevX');
     expect(JSON.parse(JSON.stringify(record))).toEqual(record);
-    const read = readCreature(record, registry)!;
+    const read = readCreature(record, registry, s.sim.tick)!;
     expect(read).toEqual({
       ...trotter,
       path: trotter.path.slice(0, trotter.pathLength * 3),
@@ -257,11 +287,44 @@ describe('creatures', () => {
       prevYaw: trotter.yaw,
     });
     const prowler = creatureRecord(place(s, 'creature:prowler', 5.5, -6.5));
-    expect(readCreature(prowler, registry)).toBeNull();
-    expect(readCreature({ ...record, creature: 'creature:gone' }, registry)).toBeNull();
-    expect(readCreature({ ...record, body: null }, registry)).toBeNull();
+    expect(readCreature(prowler, registry, s.sim.tick)).toBeNull();
+    expect(readCreature({ ...record, creature: 'creature:gone' }, registry, 0)).toBeNull();
+    expect(readCreature({ ...record, body: null }, registry, 0)).toBeNull();
     // A malformed field keeps its default; a bad path is dropped.
-    const odd = readCreature({ ...record, mode: 'dancing', path: [1, 'x', 2] }, registry)!;
+    const odd = readCreature({ ...record, mode: 'dancing', path: [1, 'x', 2] }, registry, 0)!;
     expect(odd).toMatchObject({ mode: 'idle', path: [], pathLength: 0 });
+  });
+
+  it('reads the counters, timers and ids of a creature record back within their ranges', () => {
+    const s = world('wild-records');
+    const def = registry.creature('creature:shagback')!;
+    const record = creatureRecord(place(s, 'creature:shagback', 0.5, -6.5));
+    const tick = s.sim.tick;
+    const path = { path: [1, 65, 1, 2, 65, 1], pathLength: 2 };
+    const read = (fields: object) =>
+      readCreature({ ...record, ...path, ...fields }, registry, tick);
+    // A crafted save must neither hang the path walk or a collision sweep nor freeze a creature.
+    expect(read({ pathStep: -1e300 })!.pathStep).toBe(0);
+    expect(read({ pathStep: 0.5 })!.pathStep).toBe(0);
+    // Past the path's end (a path dropped since): kept, unless past any path's end.
+    expect(read({ pathStep: 7 })!.pathStep).toBe(7);
+    expect(read({ pathStep: 1e9 })!.pathStep).toBe(PATH_MAX);
+    expect(read({ mode: 'windup', modeTicks: 0.5 })!.modeTicks).toBe(0);
+    const longest = read({ mode: 'windup', modeTicks: 1e9 })!.modeTicks;
+    expect(longest).toBeGreaterThan(0);
+    expect(longest).toBeLessThanOrEqual(ticksOf(60));
+    expect(read({ cooldown: 0.5 })!.cooldown).toBe(0);
+    expect(read({ cooldown: 1e9 })!.cooldown).toBe(ticksOf(def.attack!.cooldown));
+    expect(read({ invulnerable: 1e300 })!.invulnerable).toBe(COMBAT.creatureInvulnerableTicks);
+    expect(read({ planTick: tick + 1e6 })!.planTick).toBe(tick);
+    expect(read({ planTick: -5 })!.planTick).toBe(-1);
+    expect(read({ unseen: -3 })!.unseen).toBe(0);
+    expect(read({ target: -7 })!.target).toBe(-1);
+    expect(read({ herd: 0.5 })!.herd).toBe(record.id);
+    const fast = read({ body: { ...record.body, vx: 1e300, vy: -1e300, vz: 3 } })!.body;
+    expect([fast.vx, fast.vy, fast.vz]).toEqual([PHYSICS.terminal, -PHYSICS.terminal, 3]);
+    // Out of the world: dropped.
+    expect(read({ body: { ...record.body, y: 1e300 } })).toBeNull();
+    expect(read({ body: { ...record.body, x: 1e300 } })).toBeNull();
   });
 });
