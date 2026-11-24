@@ -139,8 +139,8 @@ export class Occlusion {
       const cell = queueCell[head]!;
       const entry = queueFace[head]!;
       head++;
-      const column = cell >> 3;
-      const sy = cell & 7;
+      const column = (cell / SECTIONS_PER_COLUMN) | 0;
+      const sy = cell % SECTIONS_PER_COLUMN;
       const dx = (column % SIDE) - MAX_REACH;
       const dz = ((column / SIDE) | 0) - MAX_REACH;
       const mask = entry === START ? ALL_CONNECTED : this.maskAt(masks, cell, dx, sy, dz);

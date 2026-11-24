@@ -1,5 +1,6 @@
 import { EYE_HEIGHT } from '../../core/player.ts';
 import { type FoundCave, findCave } from '../../world/gen/find.ts';
+import { isFlatWorld } from '../../world/gen/generateColumn.ts';
 import type { App } from '../App.ts';
 import { clock, framesFor, freezeTime, look, setTime, waitUntil } from '../automation.ts';
 import { god } from '../survivalAutomation.ts';
@@ -31,7 +32,9 @@ export const CAVE = {
 export function cavePose(app: App): FoundCave {
   const session = app.session;
   if (!session) throw new Error('No world session');
-  const cave = findCave(session.host.view.gen, session.spawn, CAVE.radius, CAVE.minDepth);
+  const gen = session.host.view.gen;
+  if (isFlatWorld(gen.worldType)) throw new Error('cave needs the generated world');
+  const cave = findCave(gen, session.spawn, CAVE.radius, CAVE.minDepth);
   if (!cave) throw new Error(`no cave pocket within ${CAVE.radius} blocks of the spawn`);
   return cave;
 }

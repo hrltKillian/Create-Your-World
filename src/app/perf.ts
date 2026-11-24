@@ -42,9 +42,8 @@ export class FrameStats {
 
   /** Call at the very start of the animation-loop callback. */
   frameStart(now: number): void {
-    if (this.lastFrame >= 0) {
-      this.intervals[this.cursor] = now - this.lastFrame;
-    }
+    // 0 (left out) after a reset: the slot must not keep the interval of WINDOW frames ago.
+    this.intervals[this.cursor] = this.lastFrame >= 0 ? now - this.lastFrame : 0;
     this.lastFrame = now;
     this.frameStartedAt = performance.now();
   }

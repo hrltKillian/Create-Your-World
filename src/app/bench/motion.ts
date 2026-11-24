@@ -40,15 +40,16 @@ export const WALK = {
   pitch: -0.1,
   /** Under this horizontal speed (m/s) on the ground the player is blocked: it jumps. */
   blockedSpeed: 0.5,
-  /** Blocked for this long (s) despite the jumps, it turns a quarter to the right. */
-  turnAfter: 1.5,
+  /** Every `checkEvery` s, a walk of less than `minProgress` blocks turns a quarter to the right. */
+  checkEvery: 1.5,
+  minProgress: 1,
 } as const;
 
 /**
  * The player walks for `seconds` of real ticks (the pane must be visible) from where it stands,
- * jumping onto steps and turning away from walls, with the world streaming around it; immune,
- * at noon. Frame statistics, and the blocks walked. The player, the clock and its immunity are
- * put back after.
+ * jumping onto steps (jump is a press: held only while blocked on the ground) and turning away
+ * from walls, with the world streaming around it; immune, at noon. Frame statistics, and the blocks
+ * walked. The player, the clock and its immunity are put back after.
  */
 export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
   const session = app.session;
@@ -63,20 +64,22 @@ export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
   let distance = 0;
   let lastX = body.x;
   let lastZ = body.z;
-  let blockedSince = -1;
+  let checkAt = 0;
+  let checkX = body.x;
+  let checkZ = body.z;
   const step = (t: number) => {
     distance += Math.hypot(body.x - lastX, body.z - lastZ);
     lastX = body.x;
     lastZ = body.z;
-    const blocked = body.onGround && Math.hypot(body.vx, body.vz) < WALK.blockedSpeed;
-    if (!blocked) blockedSince = -1;
-    else if (blockedSince < 0) blockedSince = t;
-    else if (t - blockedSince > WALK.turnAfter) {
-      yaw -= Math.PI / 2;
-      blockedSince = -1;
+    if (t - checkAt >= WALK.checkEvery) {
+      if (Math.hypot(body.x - checkX, body.z - checkZ) < WALK.minProgress) yaw -= Math.PI / 2;
+      checkAt = t;
+      checkX = body.x;
+      checkZ = body.z;
     }
     look(app, yaw, WALK.pitch);
-    // Up a step, or up to the surface of water.
+    // Up a step (released in the air, so the next step is a new press), or swimming up.
+    const blocked = body.onGround && Math.hypot(body.vx, body.vz) < WALK.blockedSpeed;
     if (blocked || body.inWater) input.force('jump', 2);
   };
   let frames: FrameResult;

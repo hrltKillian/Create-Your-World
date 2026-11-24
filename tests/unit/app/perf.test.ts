@@ -36,6 +36,10 @@ describe('frame statistics', () => {
     expect(stats.lastWork()).toBe(7);
     expect(stats.lastInterval()).toBe(20);
     expect(stats.frameTotal()).toBe(3);
+    // After a hidden tab, the first interval is unknown.
+    stats.resetClock();
+    frames(stats, [4]);
+    expect(stats.lastInterval()).toBe(0);
   });
 
   it('times every subsystem of a frame of play; the open world’s rest is the UI', () => {
