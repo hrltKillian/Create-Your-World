@@ -165,6 +165,7 @@ export class InputManager {
     this.down.clear();
     this.latched.clear();
     this.edges.clear();
+    this.sprintLatch.forget();
     this.dragging = false;
     this.crouched = false;
   };

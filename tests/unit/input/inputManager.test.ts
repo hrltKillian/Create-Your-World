@@ -88,6 +88,11 @@ describe('InputManager', () => {
     at('keyup', 5100);
     at('keydown', 5400);
     expect(input.sample(look).sprint).toBe(false);
+    // Keys released in between (a screen opened): no double tap across it.
+    at('keyup', 6000);
+    input.releaseAll();
+    at('keydown', 6100);
+    expect(input.sample(look).sprint).toBe(false);
   });
 
   it('holds forced actions for a number of ticks', () => {

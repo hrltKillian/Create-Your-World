@@ -18,4 +18,10 @@ export class SprintLatch {
     this.on = time - this.last <= DOUBLE_TAP_MS;
     this.last = time;
   }
+
+  /** Forgets the last press (keys released: a screen opened, the focus lost). */
+  forget(): void {
+    this.on = false;
+    this.last = Number.NEGATIVE_INFINITY;
+  }
 }
