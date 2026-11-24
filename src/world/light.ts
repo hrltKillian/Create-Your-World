@@ -28,3 +28,11 @@ export function blockOf(packed: number): number {
 export function passLight(level: number, filter: number, skyDown: boolean): number {
   return skyDown && level === MAX_LIGHT && filter === 0 ? MAX_LIGHT : level - 1 - filter;
 }
+
+/**
+ * Effective light of a packed value (docs « Éclairage », the rule of spawns and light-shy
+ * creatures): `max(block, floor(sky × daylight))`.
+ */
+export function effectiveLight(packed: number, daylight: number): number {
+  return Math.max(blockOf(packed), Math.floor(skyOf(packed) * daylight));
+}

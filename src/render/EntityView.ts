@@ -29,7 +29,7 @@ interface Tracked {
   lastZ: number;
 }
 
-/** Draws entities as posed box models into the BoxBatch (players for now, creatures from M10). */
+/** Draws players as posed box models into the BoxBatch (creatures: CreatureView). */
 export class EntityView {
   private readonly batch: BoxBatch;
   private readonly world: VoxelWorld;
@@ -53,6 +53,7 @@ export class EntityView {
     swimming: false,
     pitch: 0,
     striking: false,
+    charging: false,
     dt: 0,
   };
   private readonly addBox = (i: number, box: Matrix4): void => {
@@ -79,7 +80,8 @@ export class EntityView {
 
   /**
    * Animates a player and, when `visible`, adds its boxes and its held item to the batch. The
-   * right arm takes the strike pose while the player holds the primary button.
+   * right arm takes the strike pose while the player holds the primary button (cocked while an
+   * attack charges).
    */
   drawPlayer(player: Readonly<PlayerState>, alpha: number, dt: number, visible: boolean): void {
     const model = this.avatar;
@@ -104,6 +106,7 @@ export class EntityView {
     motion.swimming = b.inWater;
     motion.pitch = player.pitch;
     motion.striking = player.input.primary;
+    motion.charging = player.charge >= 0;
     motion.dt = dt;
     animate(tracked.rig, motion);
     if (visible) {

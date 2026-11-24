@@ -7,8 +7,10 @@ import type {
   BlockShape,
   Box16,
   ContentPack,
+  CreatureDef,
   ItemDef,
   LootTableDef,
+  ModelDef,
   RenderPass,
   SfxKey,
   StateProp,
@@ -140,6 +142,8 @@ export class Registry {
   private readonly stateIndex: ReadonlyMap<string, number>;
   private readonly itemIndex: ReadonlyMap<string, number>;
   private readonly lootIndex: ReadonlyMap<string, LootTableDef>;
+  private readonly creatureIndex: ReadonlyMap<string, CreatureDef>;
+  private readonly modelIndex: ReadonlyMap<string, ModelDef>;
   private readonly defaults: Uint16Array;
   private readonly withStateMemo = new Map<StateProp, Map<string, Int32Array>>();
 
@@ -167,6 +171,8 @@ export class Registry {
     this.itemIndex = new Map(this.items.map((item, i) => [item.key, i]));
     this.itemTables = buildItemTables(pack, this.items, (key) => this.defaultState(key));
     this.lootIndex = new Map((pack.loot ?? []).map((table) => [table.key, table]));
+    this.creatureIndex = new Map((pack.creatures ?? []).map((def) => [def.key, def]));
+    this.modelIndex = new Map((pack.models ?? []).map((model) => [model.key, model]));
     this.crafting = new Crafting(pack, this.items);
   }
 
@@ -218,6 +224,15 @@ export class Registry {
 
   loot(key: string): LootTableDef | undefined {
     return this.lootIndex.get(key);
+  }
+
+  /** A creature by key; undefined for one the pack lacks (a saved unknown creature is ignored). */
+  creature(key: string): CreatureDef | undefined {
+    return this.creatureIndex.get(key);
+  }
+
+  model(key: string): ModelDef | undefined {
+    return this.modelIndex.get(key);
   }
 
   /** Sound of a gameplay action on a block, from its sound material (none without bindings). */

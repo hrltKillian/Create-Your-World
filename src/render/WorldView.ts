@@ -55,6 +55,11 @@ export class WorldView {
   /** Clear colour: the fog colour, so the far edge of the world melts into it. */
   private readonly background = new Color();
   private readonly fog = new Fog(0, 0, 1);
+  /**
+   * Horizontal reach of the render distance, RD·32 blocks: the fog ends 8 blocks short of it, and
+   * creatures farther from the camera are not drawn (CreatureView).
+   */
+  reach = 0;
   /** Fog range of the render distance (above water). */
   private fogNear = 0;
   private fogFar = 1;
@@ -128,6 +133,7 @@ export class WorldView {
   /** Fog and far plane follow the render distance (in columns). */
   setRenderDistance(renderDistance: number): void {
     const reach = renderDistance * 32;
+    this.reach = reach;
     this.fogNear = reach * 0.55;
     this.fogFar = reach - 8;
     this.camera.far = reach + 48;

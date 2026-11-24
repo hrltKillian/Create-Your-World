@@ -1,4 +1,10 @@
-import { COLLISION_LIQUID, FLAG_SOLID, PASS_NONE, type RawTables } from '../content/registry.ts';
+import {
+  COLLISION_LIQUID,
+  FLAG_OPAQUE,
+  FLAG_SOLID,
+  PASS_NONE,
+  type RawTables,
+} from '../content/registry.ts';
 import type { VoxelWorld } from './VoxelWorld.ts';
 
 /** Result of a voxel raycast. Reused between calls (no allocation). */
@@ -15,12 +21,21 @@ export interface RayHit {
   state: number;
 }
 
-/** What stops a ray: targetable blocks (drawn, not liquid), the same plus liquids, or solids. */
+/**
+ * What stops a ray: targetable blocks (drawn, not liquid), the same plus liquids, solids, or
+ * opaque blocks.
+ */
 export const RAY_TARGET = 0;
 export const RAY_TARGET_LIQUIDS = 1;
-/** Blocks with collision, and unloaded columns (camera probes). */
+/** Blocks with collision, and unloaded columns (camera probes, the reach of a blow). */
 export const RAY_SOLID = 2;
-export type RayMode = typeof RAY_TARGET | typeof RAY_TARGET_LIQUIDS | typeof RAY_SOLID;
+/** Opaque blocks, and unloaded columns (creatures' lines of sight: glass and plants let it by). */
+export const RAY_OPAQUE = 3;
+export type RayMode =
+  | typeof RAY_TARGET
+  | typeof RAY_TARGET_LIQUIDS
+  | typeof RAY_SOLID
+  | typeof RAY_OPAQUE;
 
 export function createRayHit(): RayHit {
   return { hit: false, x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, distance: 0, state: 0 };
@@ -62,12 +77,14 @@ export function raycast(
   let ny = 0;
   let nz = 0;
   let t = 0;
+  // Solid and opaque rays stop on a flag (and in unloaded columns), target rays on drawn blocks.
+  const flag = mode === RAY_SOLID ? FLAG_SOLID : mode === RAY_OPAQUE ? FLAG_OPAQUE : 0;
   out.hit = false;
   while (t <= maxDistance) {
     const state = world.getBlock(x, y, z);
     const stops =
-      mode === RAY_SOLID
-        ? (tables.flags[state]! & FLAG_SOLID) !== 0 || state === world.outside
+      flag !== 0
+        ? (tables.flags[state]! & flag) !== 0 || state === world.outside
         : state !== world.outside &&
           tables.pass[state] !== PASS_NONE &&
           (mode === RAY_TARGET_LIQUIDS || tables.collision[state] !== COLLISION_LIQUID);

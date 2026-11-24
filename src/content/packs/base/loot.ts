@@ -1,11 +1,8 @@
-import type { CreatureDef, LootTableDef } from '../../schema.ts';
-import type { PackI18nKey } from './i18n.en.ts';
-
-type PackCreature = CreatureDef & { readonly nameKey: PackI18nKey };
+import type { LootTableDef } from '../../schema.ts';
 
 /**
- * Loot tables: block drops, structure chests and creatures. Each roll draws one entry by weight,
- * or nothing with the `empty` weight.
+ * Loot tables: block drops, structure chests and creatures. Each roll draws one entry not drawn
+ * yet by weight, or nothing with the `empty` weight.
  */
 export const loot = [
   // Breaking turf yields the soil under it.
@@ -98,7 +95,7 @@ export const loot = [
       { item: 'item:crystal_shard', count: [1, 2], weight: 1 },
     ],
   },
-  // Creatures (docs « Créatures et combat », Butin).
+  // Creatures (docs « Créatures et combat », Butin): a Trotter always leaves meat and hide.
   {
     key: 'loot:trotter',
     rolls: [2, 2],
@@ -129,37 +126,3 @@ export const loot = [
     entries: [{ item: 'item:shell_plate', count: [1, 2], weight: 1 }],
   },
 ] as const satisfies readonly LootTableDef[];
-
-/** Creatures and their loot; hostile ones only live in worlds with hostiles (M10 brings them). */
-export const creatures = [
-  {
-    key: 'creature:trotter',
-    nameKey: 'creature.trotter',
-    category: 'passive',
-    loot: 'loot:trotter',
-  },
-  {
-    key: 'creature:shagback',
-    nameKey: 'creature.shagback',
-    category: 'defensive',
-    loot: 'loot:shagback',
-  },
-  {
-    key: 'creature:prowler',
-    nameKey: 'creature.prowler',
-    category: 'hostile',
-    loot: 'loot:prowler',
-  },
-  {
-    key: 'creature:swarmling',
-    nameKey: 'creature.swarmling',
-    category: 'hostile',
-    loot: 'loot:swarmling',
-  },
-  {
-    key: 'creature:shellback',
-    nameKey: 'creature.shellback',
-    category: 'territorial',
-    loot: 'loot:shellback',
-  },
-] as const satisfies readonly PackCreature[];

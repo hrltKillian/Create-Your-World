@@ -291,6 +291,8 @@ export class Game {
       allowDebug: __DEBUG_HOOK__,
       worldType: this.host.params.worldType,
       viewRadius: this.renderDistance(),
+      spawns: this.host.params.spawns ?? undefined,
+      graceTicks: this.host.params.grace ?? undefined,
     };
   }
 

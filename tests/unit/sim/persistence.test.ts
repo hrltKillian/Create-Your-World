@@ -7,6 +7,7 @@ import { countItem, INVENTORY_SLOTS } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
+import type { PlayerState } from '../../../src/sim/player.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
 import { dropRecord, playerRecord, readDrop, readPlayer } from '../../../src/sim/saveRecords.ts';
 import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
@@ -63,6 +64,7 @@ describe('memory storage', () => {
       payload: new Uint8Array([0]),
       entities: [],
       blockEntities: [],
+      herds: false,
       lastTick: 0,
     });
     const storage = new MemoryStorage();
@@ -205,6 +207,57 @@ describe('restoring a world', () => {
     expect(persistentHash(resumed.sim)).toBe(persistentHash(straight.sim));
   });
 
+  it('gives the same persistent state after save, reload and resume in the middle of a fight', async () => {
+    /**
+     * Noon in the flat world: the player strikes a Shagback and takes its blow; a Trotter comes
+     * within earshot of the fight, and the player strikes again.
+     */
+    const start = () => {
+      const s = flatSim('fight-save');
+      send(s, { type: 'debug.setTime', hours: 12 });
+      send(s, { type: 'debug.freezeTime', frozen: true });
+      const id = s.sim.nextEntityId;
+      send(s, {
+        type: 'debug.spawn',
+        creature: 'creature:shagback',
+        x: 0.5,
+        y: 'surface',
+        z: -1.8,
+      });
+      const shagback = s.sim.entities.get(id)!;
+      const player = s.sim.players.get(1)!;
+      /** Primary pressed one tick and released the next, aimed at the middle of the Shagback. */
+      const blow = () => {
+        const p = player.body;
+        const dx = shagback.body.x - p.x;
+        const dz = shagback.body.z - p.z;
+        const dy = shagback.body.y + 0.75 - (p.y + 1.62);
+        const aim = { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)) };
+        s.tick(1, { ...aim, primary: true });
+        s.tick(1, aim);
+      };
+      blow();
+      s.events.length = 0;
+      for (let i = 0; i < 300 && !s.events.some((e) => e.type === 'playerHurt'); i++) s.step();
+      send(s, { type: 'debug.spawn', creature: 'creature:trotter', x: 9.5, y: 'surface', z: 0.5 });
+      blow();
+      return { s, player };
+    };
+    const straight = start();
+    const first = start();
+    const fight = (p: PlayerState) => [p.fightTicks, p.attackCooldown, p.invulnerable];
+    for (const value of fight(first.player)) expect(value).toBeGreaterThan(0);
+    const storage = new MemoryStorage();
+    await saveTo(storage, first.s.sim);
+    const resumed = await restoreFrom(storage);
+    expect(fight(resumed.sim.players.get(1)!)).toEqual(fight(first.player));
+    expect(persistentHash(resumed.sim)).toBe(persistentHash(first.s.sim));
+    settle(resumed.sim);
+    straight.s.step(90);
+    resumed.step(90);
+    expect(persistentHash(resumed.sim)).toBe(persistentHash(straight.s.sim));
+  });
+
   it('picks up competing drops in the same order after a reload (same hash)', async () => {
     /** One free slot, and two drops of other items at the player's feet once their delay ends. */
     const start = () => {
@@ -308,7 +361,7 @@ describe('restoring a world', () => {
     // Saved again, the items go back to their own key; the block stays unknown.
     const again = snapshotSim(r.sim, TEST_WORLD, new Map());
     expect(again.players[0]!.inventory[0]).toEqual({ item: 'item:relic', count: 3 });
-    expect(again.columns[0]!.entities[0]!.item).toBe('item:relic');
+    expect(again.columns[0]!.entities[0]).toMatchObject({ item: 'item:relic' });
     const [section] = unpackSections(again.columns[0]!.payload, (id) => id);
     expect(section!.blocks![localIndex(2, 2, 2)]).toBe(registry.unknownBlock);
   });

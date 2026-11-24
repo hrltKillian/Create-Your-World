@@ -175,6 +175,71 @@
   --arc: var(--c-danger);
 }
 
+/* ---- Centre: hit marker and damage arcs ---- */
+
+.combat-marks {
+  position: absolute;
+  inset: 0;
+}
+
+/* Four short ticks around the crosshair (the corners of a ring), not a cross through it. */
+.hit-marker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--c-ink) 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, var(--c-ink) 45% 55%, transparent 55%);
+  mask-image: radial-gradient(circle, transparent 6px, #000 7px 11px, transparent 11.5px);
+  opacity: 0;
+}
+
+.hit-marker.play {
+  animation: hud-hit 0.24s ease-out both;
+}
+
+@keyframes hud-hit {
+  from {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* A red arc on the ring around the crosshair, turned towards where the blow came from. */
+.damage-arc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 190px;
+  height: 190px;
+  margin: -95px 0 0 -95px;
+  border-radius: 50%;
+  background: conic-gradient(from -24deg, var(--c-danger) 0 48deg, transparent 0);
+  mask-image: radial-gradient(circle, transparent 84px, #000 86px 93px, transparent 95px);
+  transform: rotate(var(--a, 0rad));
+  opacity: 0;
+}
+
+.damage-arc.play {
+  animation: hud-damage 1.2s ease-out both;
+}
+
+@keyframes hud-damage {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* ---- Bottom left: vials, thermometer, breath ---- */
 
 .hud-vitals {

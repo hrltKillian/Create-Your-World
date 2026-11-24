@@ -1,3 +1,4 @@
+import { hostileNear } from './creatures.ts';
 import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
@@ -7,17 +8,19 @@ import { dayOf, hourOf, nextHour, withinHours } from './time.ts';
 
 /*
  * Sleeping on a bedroll (docs « Sommeil »): secondary on it between 19:30 and 05:00, in an
- * enclosed shelter, with no hostile creature within 16 blocks (creatures arrive with M10). The
+ * enclosed shelter, with no hostile creature within 16 blocks (`sleep.hostileRadius`). The
  * player then lies on it (`sleeping`); the rule is `allPlayersSleeping`: once every living,
  * active player lies on a bedroll, the clock skips to 06:00, each sleeper pays a night's hunger
  * and thirst and wakes with that bedroll as their respawn point (until it is broken). Moving,
- * taking damage, dying, leaving the shelter or the end of the night gets a sleeper up again.
+ * taking damage, dying, leaving the shelter, a hostile coming near or the end of the night gets
+ * a sleeper up again.
  */
 
 /** HUD hints of a refused or pending sleep (engine i18n keys). */
 export const SLEEP_NIGHT_HINT = 'hint.sleepNight';
 export const SLEEP_SHELTER_HINT = 'hint.sleepShelter';
 export const SLEEP_WAIT_HINT = 'hint.sleepWait';
+export const SLEEP_HOSTILES_HINT = 'hint.sleepHostiles';
 
 /** Whether the clock stands within the sleeping hours. */
 function sleepingHours(sim: Simulation): boolean {
@@ -46,11 +49,21 @@ export function sleepOn(
     hint(SLEEP_SHELTER_HINT);
     return;
   }
+  if (hostileNearBody(sim, player)) {
+    hint(SLEEP_HOSTILES_HINT);
+    return;
+  }
   player.sleeping = { x, y, z, health: player.survival.health };
   // The shelter is sampled again this tick, before the sleepers are checked: stepSleep alone ends
   // the night, once the other sleepers' commands of this tick have been applied too.
   player.survival.sampleTicks = 1;
   if (!allPlayersSleeping(sim)) hint(SLEEP_WAIT_HINT);
+}
+
+/** Whether a hostile creature stands within the sleep radius of a player. */
+function hostileNearBody(sim: Simulation, player: PlayerState): boolean {
+  const body = player.body;
+  return hostileNear(sim, body.x, body.y, body.z, sim.registry.pack.balance.sleep.hostileRadius);
 }
 
 /** Whether a player takes part in the sleep rule: alive and in a lit column. */
@@ -86,14 +99,14 @@ function wake(sim: Simulation, out: SimEvent[]): void {
   }
 }
 
-/** Whether something got a sleeper up: moving, damage, death, the shelter or the night gone. */
+/** Whether something got a sleeper up: moving, damage, death, the shelter, a hostile, morning. */
 function disturbed(sim: Simulation, player: PlayerState): boolean {
   const bed = player.sleeping!;
   const s = player.survival;
   const input = player.input;
   if (s.dead || s.health < bed.health) return true;
   if (input.forward !== 0 || input.strafe !== 0 || input.jump) return true;
-  return s.shelter !== 'enclosed' || !sleepingHours(sim);
+  return s.shelter !== 'enclosed' || !sleepingHours(sim) || hostileNearBody(sim, player);
 }
 
 /**

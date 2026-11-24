@@ -11,10 +11,7 @@ type AddIssue = (path: string, message: string) => void;
 
 const isCount = (v: number, min: number) => Number.isInteger(v) && v >= min;
 
-/**
- * Stations and the blocks that are stations, recipes, processes, creatures and the loot tables of
- * structure chests.
- */
+/** Stations and the blocks that are stations, recipes, processes and the loot of structure chests. */
 export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssue): void {
   const stations = checkStations(pack, add);
   const inputs = (path: string, list: readonly Ingredient[]) => {
@@ -63,7 +60,6 @@ export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssu
     inputs(`${path}.inputs`, process.inputs);
     output(`${path}.output`, process.output);
   });
-  checkCreatures(pack, refs, add);
   checkStructureLoot(pack, refs, add);
 }
 
@@ -98,20 +94,6 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
       add(`${path}.states`, 'a processing station needs the "lit" state');
   });
   return stations;
-}
-
-function checkCreatures(pack: ContentPack, refs: ItemRefs, add: AddIssue): void {
-  const keys = new Set<string>();
-  (pack.creatures ?? []).forEach((creature, i) => {
-    const path = `creatures[${i}]`;
-    if (!creature.key.startsWith('creature:'))
-      add(`${path}.key`, `"${creature.key}" must start with "creature:"`);
-    if (keys.has(creature.key)) add(`${path}.key`, `duplicate creature "${creature.key}"`);
-    keys.add(creature.key);
-    if (pack.strings[creature.nameKey] === undefined)
-      add(`${path}.nameKey`, `no string for "${creature.nameKey}"`);
-    if (!refs.loot.has(creature.loot)) add(`${path}.loot`, `unknown loot table "${creature.loot}"`);
-  });
 }
 
 /** Loot tables of structure chests: a legend character placing a container block. */

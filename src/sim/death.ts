@@ -37,6 +37,8 @@ export function stepDeaths(sim: Simulation, out: SimEvent[]): void {
 
 function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   stopMining(player, out);
+  // A charge held at death is dropped (no blow at the respawn, no arm drawn back meanwhile).
+  player.charge = -1;
   if (player.opened) closeBlockEntity(player, out);
   player.sleeping = null;
   const stacks = carried(sim.registry, player);

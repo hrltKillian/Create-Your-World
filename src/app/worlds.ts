@@ -34,6 +34,10 @@ export interface WorldDeps {
   readonly allowDebug: boolean;
   readonly worldType: WorldType;
   readonly viewRadius: number;
+  /** Creatures spawn (dev `?spawns=`; default: generated worlds only). */
+  readonly spawns?: boolean;
+  /** Ticks without hostile spawns (dev `?grace=`; default: the pack's). */
+  readonly graceTicks?: number;
 }
 
 /**
@@ -139,6 +143,9 @@ export async function createWorld(deps: WorldDeps, world: NewWorld): Promise<Wor
     source: deps.source,
     maxInFlight: deps.maxInFlight,
     allowDebug: deps.allowDebug,
+    hostiles: world.hostiles,
+    spawns: deps.spawns,
+    graceTicks: deps.graceTicks,
   });
   sim.addPlayer(PLAYER_ID, deps.viewRadius);
   const info: WorldInfo = {
@@ -161,6 +168,8 @@ export async function loadWorld(deps: WorldDeps, id: string): Promise<WorldSlot>
       source: deps.source,
       maxInFlight: deps.maxInFlight,
       allowDebug: deps.allowDebug,
+      spawns: deps.spawns,
+      graceTicks: deps.graceTicks,
     };
     const restored = await restoreSim(deps.storage, id, options, deps.deflater);
     if (!restored) throw new WorldOpenError('error.world.missing');

@@ -5,12 +5,14 @@ import {
   type ItemDef,
   type ItemKey,
   WEAR_SLOTS,
+  type WeaponDef,
 } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
 const MAX_STACK = 999;
 const MAX_DURABILITY = 65_535;
+const MAX_LOOT_ENTRIES = 31;
 
 const isCount = (v: number, min: number) => Number.isInteger(v) && v >= min;
 const positive = (v: number) => Number.isFinite(v) && v > 0;
@@ -121,12 +123,7 @@ function checkUses(
   const ref = (at: string, key: ItemKey | undefined) => {
     if (key !== undefined && !items.has(key)) add(at, `unknown item "${key}"`);
   };
-  const weapon = item.weapon;
-  if (weapon) {
-    for (const field of ['damage', 'cooldown', 'reach'] as const)
-      if (!positive(weapon[field])) add(`${path}.weapon.${field}`, 'must be > 0');
-    if (!(weapon.knockback >= 0)) add(`${path}.weapon.knockback`, 'must be ≥ 0');
-  }
+  if (item.weapon) checkWeapon(item.weapon, `${path}.weapon`, add);
   const wear = item.wear;
   if (wear) {
     if (!WEAR_SLOTS.includes(wear.slot)) add(`${path}.wear.slot`, `unknown slot "${wear.slot}"`);
@@ -145,6 +142,13 @@ function checkUses(
     if (empty && (empty.contents !== 'empty' || empty.charges !== container.charges))
       add(`${path}.container.emptyAs`, 'must be an empty container with the same charges');
   }
+}
+
+/** Melee numbers of an item, or of the bare hand (the balance). */
+export function checkWeapon(weapon: WeaponDef, path: string, add: AddIssue): void {
+  for (const field of ['damage', 'cooldown', 'reach'] as const)
+    if (!positive(weapon[field])) add(`${path}.${field}`, 'must be > 0');
+  if (!(weapon.knockback >= 0)) add(`${path}.knockback`, 'must be ≥ 0');
 }
 
 function checkTiers(pack: ContentPack, add: AddIssue): void {
@@ -172,7 +176,11 @@ function checkLoot(pack: ContentPack, itemKeys: ReadonlySet<string>, add: AddIss
     const [min, max] = table.rolls;
     if (!isCount(min, 0) || !isCount(max, min))
       add(`${path}.rolls`, 'must be integers 0 ≤ min ≤ max');
-    if (table.entries.length === 0) add(`${path}.entries`, 'needs at least one entry');
+    // Draws never repeat an entry (a bit mask of 31 entries at most: sim/loot.ts).
+    if (table.entries.length === 0 || table.entries.length > MAX_LOOT_ENTRIES)
+      add(`${path}.entries`, `needs 1–${MAX_LOOT_ENTRIES} entries`);
+    else if (max > table.entries.length)
+      add(`${path}.rolls`, 'draws more often than it has entries');
     if (table.empty !== undefined && !(table.empty >= 0)) add(`${path}.empty`, 'must be ≥ 0');
     table.entries.forEach((entry, e) => {
       const epath = `${path}.entries[${e}]`;

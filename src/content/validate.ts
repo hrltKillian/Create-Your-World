@@ -8,6 +8,7 @@ import {
 } from './schema.ts';
 import { validateBalance } from './validateBalance.ts';
 import { validateCrafting } from './validateCrafting.ts';
+import { validateCreatures } from './validateCreatures.ts';
 import { validateItems } from './validateItems.ts';
 import { validateObjectives } from './validateObjectives.ts';
 import { validateSounds } from './validateSounds.ts';
@@ -54,10 +55,10 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   const blockKeys = validateBlocks(pack, textures, add);
   validateBindings(pack, blockKeys, add);
   validateWorld(pack, blockKeys, add);
-  validateModels(pack, textures.keys, add);
   validateDevScene(pack, blockKeys, add);
   validateArena(pack, blockKeys, add);
   const items = validateItems(pack, blockKeys, textures.keys, add);
+  validateCreatures(pack, textures.keys, items.loot, add);
   validateCrafting(pack, items, add);
   validateObjectives(pack, items, add);
   validateSounds(pack, add);
@@ -209,28 +210,6 @@ function validateBindings(pack: ContentPack, blockKeys: ReadonlySet<string>, add
   (bindings.spawnBiomes ?? []).forEach((key, i) => {
     if (!biomeKeys.has(key)) add(`manifest.bindings.spawnBiomes[${i}]`, `unknown biome "${key}"`);
   });
-}
-
-/** Model parts (textures, parents, extents) and the avatar model binding. */
-function validateModels(pack: ContentPack, textureKeys: ReadonlySet<string>, add: AddIssue): void {
-  const modelKeys = new Set<string>();
-  (pack.models ?? []).forEach((model, i) => {
-    modelKeys.add(model.key);
-    const names = new Set(model.parts.map((p) => p.name));
-    model.parts.forEach((part, k) => {
-      const path = `models[${i}].parts[${k}]`;
-      if (!textureKeys.has(part.texture))
-        add(`${path}.texture`, `unknown texture "${part.texture}"`);
-      if (part.parent && !names.has(part.parent))
-        add(`${path}.parent`, `unknown part "${part.parent}"`);
-      if (part.from.some((v, a) => !(v < part.to[a]!)))
-        add(path, 'from must be below to on every axis');
-    });
-  });
-  const avatar = pack.manifest.bindings.avatarModel;
-  if (avatar && !modelKeys.has(avatar)) {
-    add('manifest.bindings.avatarModel', `unknown model "${avatar}"`);
-  }
 }
 
 /** Blocks named by the developer test scene. */

@@ -7,6 +7,7 @@ import { STAMINA } from '../sim/player.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import { dayOf, hourOf } from '../sim/time.ts';
 import { clockText } from '../ui/hud/clock.ts';
+import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
 import type { HudEffect } from '../ui/hud/effects.ts';
 import { Hud } from '../ui/hud/hud.ts';
@@ -22,10 +23,10 @@ const REFRESH_SECONDS = 0.1;
 /**
  * Keeps the survival HUD in step with the local player: the compass and the pickup lines every
  * frame, the rest at 10 Hz and at once after the player's objective, death and respawn events.
- * Shows the day's banners, the biome entered, the sleep fade, the objective lines and the items
- * picked up, and runs the death screen: it takes the open screen's place (the mouse stays free)
- * and Respawn, a click, captures the mouse again. The screen follows `survival.dead`, so a world
- * saved dead opens on it.
+ * Shows the day's banners, the biome entered, the sleep fade, the objective lines, the items
+ * picked up, the hit marker and the damage arcs, and runs the death screen: it takes the open
+ * screen's place (the mouse stays free) and Respawn, a click, captures the mouse again. The screen
+ * follows `survival.dead`, so a world saved dead opens on it.
  */
 export class HudBridge {
   readonly hud: Hud;
@@ -92,11 +93,18 @@ export class HudBridge {
 
   private onEvent(event: SimEvent): void {
     const hud = this.hud;
+    const player = this.session.player;
     if (event.type === 'sunset') hud.banner.show(t('hud.sunset'));
     else if (event.type === 'nightSurvived')
       hud.banner.show(t('hud.nightSurvived', { n: event.night }));
-    if (!('playerId' in event) || event.playerId !== this.session.player.playerId) return;
+    else if (event.type === 'creatureHurt' && event.attacker === player.id) hud.combat.hit();
+    if (!('playerId' in event) || event.playerId !== player.playerId) return;
     switch (event.type) {
+      case 'playerHurt': {
+        const b = player.body;
+        hud.combat.hurt(damageBearing(b.x, b.z, this.session.rig.yaw, event.x, event.z));
+        break;
+      }
       case 'objectiveDone': {
         const done = this.session.host.view.registry.pack.objectives?.find(
           (objective) => objective.key === event.objective,
@@ -153,15 +161,19 @@ export class HudBridge {
     if (biome) this.hud.biome.show(t(biome.def.nameKey));
   }
 
-  /** The aimed block's name and hint (nothing while dead). */
+  /** The aimed creature's name, or the aimed block's name and hint (nothing while dead). */
   private updateTarget(): void {
-    const hit = this.session.aim.hit;
+    const { hit, creature } = this.session.aim;
     const player = this.session.player;
-    if (!hit.hit || player.survival.dead) {
+    const registry = this.session.host.view.registry;
+    if (player.survival.dead || (!creature && !hit.hit)) {
       this.hud.target.update(null, null);
       return;
     }
-    const registry = this.session.host.view.registry;
+    if (creature) {
+      this.hud.target.update(t(registry.creature(creature.creature)!.nameKey), null);
+      return;
+    }
     const stack = player.inventory[this.input.slot];
     const item = stack ? registry.itemId(stack.item) : -1;
     const line = targetText(registry, hit.state, item, this.input.keyLabel('secondary'));

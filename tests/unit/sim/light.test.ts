@@ -48,7 +48,16 @@ describe('light in the simulation', () => {
     const source = new InlineColumnSource(registry);
     const spec = { seed: 'light-lit', worldType: 'default' } as const;
     const edits = new EditStore();
-    const pipeline = new ColumnPipeline(world, registry.air, light, edits, source, spec, 1000);
+    const pipeline = new ColumnPipeline(
+      world,
+      registry.air,
+      light,
+      edits,
+      source,
+      spec,
+      1000,
+      () => {},
+    );
     source.connect({ deliver: (r) => pipeline.deliver(r), requestFailed: () => {} });
     const out: SimEvent[] = [];
     pipeline.setView(1, 16, 16, 2);

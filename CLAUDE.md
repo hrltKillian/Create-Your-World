@@ -97,7 +97,47 @@ They never override the rules above (determinism, zero allocations in hot loops,
     processes and stations by key, `matches` for item-or-tag ingredients, `burnSeconds` for the
     fuel rules, `revealed` for the Logbook reveal; station slot layout `fuelSlotOf`,
     `outputSlotOf`, `stationSlotCount`); loot rolls `sim/loot.ts` (`rollLoot`, with the `empty`
-    share); the progression proof `content/reachability.ts` (`reachable(pack, { hostiles })`);
+    share; a roll set never draws an entry twice); the progression proof `content/reachability.ts`
+    (`reachable(pack, { hostiles })`);
+  - creature content (docs « Créatures et combat »): `content/packs/base/creatures.ts` (`CreatureDef`,
+    `content/creatureSchema.ts`: category, brain, telegraphed attack, senses (`hearing` scales the
+    player's noise radii), the traits that parametrise the brains, spawn entries,
+    `HOSTILE_MAX_LIGHT`); box models and skins `creatureModels.ts` (legs named by `GAIT_LEGS`,
+    `emissive` parts glow, `stride` in rad/block), voices `creatureSfx.ts` (`voicesOf`);
+    `registry.creature(key)`/`registry.model(key)`; the bare hand `balance.combat.hand` (items carry
+    `weapon`), the hostile grace `balance.creatures.spawnGraceTicks`;
+  - creatures in the sim: records `sim/creatures.ts` (`CreatureState` in `sim.entities`, `mode`
+    and timers, `spawnCreature`, `isAlert` (the stealth rule), `isGone`, `reachGap`,
+    `hostileNear`, `dormant`; `parkCreature`/`unparkCreatures`: the creatures of an unloaded column
+    wait in `sim.parked`, saved with it, and come back in id order when it loads), bodies
+    `sim/creatureBody.ts`; `sim/ai/`: senses `senses.ts`
+    (`NOISE`, `noiseOf`, `targetable`, `unawareOf` (stealth), `lineOfSight` (the raycast with
+    `RAY_OPAQUE`), `refreshSenses` every 10 ticks), the five brains `brains.ts` (`think`, `alarm` when hurt), what they are made of
+    `behaviours.ts` (`BRAIN` numbers, `plan` (≤ 2 A* a tick), `graze`, `flee`, `fight`, `windUp`),
+    A* `pathfind.ts` (`findPath`, `ASTAR` budgets, `lastSearch`), tick steps 5–6
+    `creatureStep.ts` (swarmer zigzag, wall stun); tick step 8 `sim/combat.ts`
+    (`COMBAT`, `strike` a creature's blow, `hurtCreature` with front armour, knockback and loot,
+    `armorFactor`, `escalation`, `frontFactor`); the player's attacks at tick step 7
+    `sim/melee.ts` (`MELEE`, `stepMelee`: primary on a creature in reach before mining, the blow on
+    the release, charged after 15 ticks held (`player.charge`, `attackCooldown`), `meleeDamage`,
+    `meleeKnockback`, `weaponOf`, `meleeTarget`: creatures are tested first, only solid blocks
+    stop a blow (`blowReach`), the hitbox test `creatureOnRay` shared with `app/ClientAim.ts`,
+    whose `creature` the HUD names); no placement or closing gate into a player or a creature
+    (`bodyInCell`, sim/placement.ts); blows sound `sounds.combat.hit`/`hurt`; the
+    dying time `DYING_TICKS` and the body geometry `CREATURE_EYE_SHARE`, `centreY`, `feetCell`
+    (`core/creatures.ts`, shared with the renderer); drawn by `render/CreatureView.ts` (posed
+    models, glow, red flash, death fall and shrink; only within the render distance `WorldView.reach`
+    of the camera, drawn last into the batch's `room`, the nearest first: `nthSmallest`,
+    `render/nearest.ts`, shared with DropView) animated by `render/creatureRig.ts`
+    (`animateCreature`: gait legs, wind-up, look, hit freeze of the pose only); BoxBatch boxes take
+    `glow` and `flash`; spawns, departures (`departs`: every rule of who leaves, each
+    tick from `stepCreatures`), herds and `sim.spawnLog`
+    `sim/spawning.ts` (`SPAWN`; `sim.rules`: `hostiles`, `spawns` (off in flat and arena worlds
+    unless asked: dev `?spawns=0|1`), `graceTicks` (`?grace=`)); the effective light
+    `effectiveLight` (`world/light.ts`); `debug.spawn` places one (facing the player),
+    `debug.killCreature` kills one not already dying, burrowing too (a death with its loot);
+    `creatureCensus` (sim/creatures.ts) counts the living ones (the hook, `runBot` and the headless
+    runner); `SimView.spawnLog`;
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `countMatching`/`takeMatching` for item-or-tag ingredients,
     `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's, gear's wear, a
@@ -112,7 +152,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
     heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
-    stamina limits, timed effects (`addEffect`) and tick step 11 `stepSurvival` in
+    stamina limits, timed effects (`addEffect`, `hasEffect`) and tick step 11 `stepSurvival` in
     `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
     `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
@@ -137,11 +177,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `objectiveDone`, the keys in `player.objectives`);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
     `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
-    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners) and the
-    death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them (compass every frame, the
-    rest at 10 Hz) and hands the gate over to the death screen; what needs the sim's rules
-    (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass `sunBearing`/
-    `aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
+    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners
+    (`replay` restarts a `.play` animation), `CombatMarks` (`#hud-hit`, `#hud-damage`,
+    `damageBearing`)) and the death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them
+    (compass every frame, the rest at 10 Hz) and hands the gate over to the death screen; what needs
+    the sim's rules (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass
+    `sunBearing`/`aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
@@ -163,7 +204,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
-    `kill`, `god`, `equip`, `shelterHere`, `playerStats`): `app/survivalAutomation.ts`;
+    `kill`, `god`, `equip`, `shelterHere`, `playerStats`): `app/survivalAutomation.ts`; its
+    creature part (`placeCreature`, `killCreature`, `creatureList`, `census`, `spawnLog`, applied
+    at once without a tick): `app/creatureAutomation.ts`; the benchmarks (`flyBenchmark`,
+    `mobsBenchmark` and its scene `MOBS`, timed by `GameSession.tickMs`): `app/benchmarks.ts`;
   - headless simulations: `sim/testing/` (`createInlineSim`, `runBot`, bots);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
     with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
@@ -180,7 +224,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `timing=0` (selftests skip wall-clock thresholds and stretch waits; set by e2e on CI), `mute`
   (sounds are still logged), `skipMenu` (a new world, no menu), `world=<id>` (opens a saved world),
   `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`, `time` (hour 0–24 of the
-  world clock), `freezeTime` — more arrive with later milestones.
+  world clock), `freezeTime`, `spawns=0|1` (natural creature spawns and herds; by default only in
+  generated worlds, never in selftests unless given), `grace` (ticks without hostile spawns,
+  `grace=0`) — more arrive with later milestones.
 - Player checks: `?worldType=flat&fixedStep=1&selftest=m3,m4,m5`; `__game.input.press(action, ticks)`
   steps the simulation in fixed-step mode. Without `noLock` the game stays paused until a click.
 - M4 hook entries: `player.inventory()`/`give(item, count)`, `world.setBlock(x, y, z, stateKey)`,
@@ -226,6 +272,24 @@ They never override the rules above (determinism, zero allocations in hot loops,
   at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
   wearable on, a worn item 32–36 off), `world.shelter()` (the test at the player's head, now);
   `ui.text(selector)` reads the HUD (`#hud-clock`, `#hud-effects`…).
+- M10 hook entries (version 10): `entities.spawn(creature, x, y | 'surface', z)` (`debug.spawn`,
+  applied at once without a tick, facing the player; returns the id, null when refused),
+  `entities.list()` (`{ id, creature, x, y, z, yaw, health, mode, target, sees, watched, herd,
+  cave }`, dying ones too), `entities.kill(id)` (`debug.killCreature`, burrowing ones too: it
+  falls over, its loot drops), `entities.census()` (the living: `total`, `surfaceHostiles`,
+  `caveHostiles`, `byCreature`), `entities.spawnLog()` (hostile spawns: tick, creature, feet,
+  effective light, cave); `perf.benchmark('mobs', seconds = 10)`: 25 creatures of every kind
+  around the player, the clock frozen at 23:00 and the player immune, a 60-tick warm-up, then the
+  simulation tick alone (`GameSession.tickMs`): `{ creatures, ticks, tickMedian, tickP95,
+  tickMax }`; the clock, the immunity, the toxicity and the creature count are put back (the
+  creatures are killed: their loot stays).
+- Creature checks (`selftest/m10.ts`, `e2e/creatures.spec.ts`), two setups since the creature
+  rules are fixed when a world opens: `?worldType=flat&fixedStep=1&selftest=m0,m10` (the Prowler
+  hunt, stealthy and plain spear blows on Trotters trapped in pits, a Trotter's loot, the mobs
+  benchmark; the spawn cases skipped) and, for the spawn cases (none at noon, at least 3 hostiles
+  by night in the dark and beyond Manhattan 9 of the torches; the combat cases skipped),
+  `?worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0&selftest=m0,m10`. Creatures and the spear
+  come from the pack's data (the stalker, the grazer, the weapon that reaches farthest).
 - Survival checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m9` (`selftest/m9.ts`, its scenes in
   `selftest/survivalScenes.ts`; `e2e/survival.spec.ts`): the generated world with fixed steps; the
   tundra and the marsh are the coldest biome by night and the most toxic one by day, the cabin, pads
@@ -250,9 +314,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `dragSlot`) and `saveNow`/`reloadWorld`, shared by `debugHook.ts` and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
   `needsGeneratedPlayer`, `needsIdb`, `standAt` (flat surface by default), `aimAt` (a block's side,
-  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `PLAY_SCENES`, `SETTLE_MS`,
-  `SEARCH_RADIUS`, `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large
-  suite (`selftest/m4.ts` … `m9.ts`), and every suite ends with `noErrorsCase()`.
+  or a low block's top), `lookAt`, `slotsAt`, `arenaOf`, `stateKey`, `emitterOf` and
+  `TORCH_LIGHT` (the torch without naming it), `PLAY_SCENES`, `SETTLE_MS`, `SEARCH_RADIUS`,
+  `readClock`/`keepingClock` and `drawsCase` (≤ 400 draws), one file per large suite
+  (`selftest/m4.ts` … `m10.ts`), and every suite ends with `noErrorsCase()`.
 
 ## Originality checklist
 
@@ -260,3 +325,11 @@ No 3×3 crafting grid and no 9-slot hotbar (we use 8); no heart or drumstick ico
 sun and moon; our own palette, grass and crack styles; human-proportioned avatar; the Prowler is
 low and four-legged with amber eyes; debug overlay styled as our own panel; no block, item or
 creature names from the reference games; synthesized sounds.
+
+Creatures (reviewed at M10): five of our own, Trotter, Shagback, Prowler, Swarmling, Shellback,
+with original behaviours (a grazer that bolts, a six-legged herd that defends itself, a light-shy
+stalker slowed by the player's gaze, zigzagging toxic packs, an armoured rammer); box models with
+our own skins on the block patterns and procedural gaits (four or six legs); the Prowler low
+and four-legged with emissive amber eyes (`tests/unit/content/creatures.test.ts`); synthesized
+voices; loot and weapons named by us (Prowler Sinew, Flint Spear…); a hit marker and damage arcs
+in our HUD style.

@@ -77,7 +77,7 @@ export const WORLD_BOXES = 8192;
 export const HAND_BOXES = 64;
 
 /**
- * Every small box of a scene (avatar, item drops, held items, particles, later creatures) in one
+ * Every small box of a scene (avatar, creatures, item drops, held items, particles) in one
  * InstancedMesh: one draw call. Instance transforms are written relative to an origin near the
  * camera, so far from the world centre Float32 matrices keep their precision. Instances are
  * rewritten every frame and only the written range is uploaded.
@@ -89,6 +89,7 @@ export class BoxBatch {
   private readonly texOrigins: InstancedBufferAttribute;
   private readonly texSizes: InstancedBufferAttribute;
   private readonly tints: InstancedBufferAttribute;
+  private readonly effects: InstancedBufferAttribute;
   private readonly capacity: number;
   private count = 0;
   private originX = 0;
@@ -105,6 +106,7 @@ export class BoxBatch {
     this.texOrigins = this.attribute(geometry, 'aTexOrigin', 4);
     this.texSizes = this.attribute(geometry, 'aTexSize', 3);
     this.tints = this.attribute(geometry, 'aTints', 4);
+    this.effects = this.attribute(geometry, 'aFx', 2);
     const material = new ShaderMaterial({
       vertexShader: boxVertex,
       fragmentShader: boxFragment,
@@ -131,6 +133,11 @@ export class BoxBatch {
     return this.count;
   }
 
+  /** Boxes that still fit this frame (`add` drops any past the capacity). */
+  get room(): number {
+    return this.capacity - this.count;
+  }
+
   /** Starts a frame: instances are positioned relative to (x, y, z), usually the camera section. */
   begin(x: number, y: number, z: number): void {
     this.count = 0;
@@ -143,9 +150,10 @@ export class BoxBatch {
 
   /**
    * Adds a unit box given its world matrix (absolute coordinates), skin and light (0–1 each).
-   * Boxes past the capacity are dropped.
+   * `glow` 1 draws it at full brightness whatever the light (a creature's eyes); `flash` (0–1)
+   * tints it red (a creature just hurt). Boxes past the capacity are dropped.
    */
-  add(world: Matrix4, skin: BoxSkin, sky: number, block: number): void {
+  add(world: Matrix4, skin: BoxSkin, sky: number, block: number, glow = 0, flash = 0): void {
     if (this.count >= this.capacity) return;
     const i = this.count++;
     const m = this.mesh.instanceMatrix.array as Float32Array;
@@ -161,6 +169,7 @@ export class BoxBatch {
     this.texOrigins.setXYZW(i, skin.ox, skin.oy, skin.oz, skin.sprite ? 1 : 0);
     this.texSizes.setXYZ(i, skin.sx, skin.sy, skin.sz);
     this.tints.setXYZW(i, skin.sideTint, skin.topTint, skin.bottomTint, skin.cutout ? 1 : 0);
+    this.effects.setXY(i, glow, flash);
   }
 
   /** Uploads only the instances written this frame. */
@@ -173,6 +182,7 @@ export class BoxBatch {
     BoxBatch.upload(this.texOrigins, this.count);
     BoxBatch.upload(this.texSizes, this.count);
     BoxBatch.upload(this.tints, this.count);
+    BoxBatch.upload(this.effects, this.count);
   }
 
   dispose(): void {

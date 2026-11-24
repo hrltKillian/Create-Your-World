@@ -10,11 +10,14 @@ import {
 } from '../world/coords.ts';
 import { surfaceY } from '../world/gen/generateColumn.ts';
 import type { SavedSection } from '../world/protocol.ts';
+import { setMode } from './ai/behaviours.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { openBlockEntity } from './blockEntityCommands.ts';
 import { forgetCell } from './blockRemoval.ts';
+import { hurtCreature } from './combat.ts';
 import { finite, reject, validCell } from './commandRules.ts';
 import type { DebugCommand, DebugStat } from './commands.ts';
+import { spawnCreature } from './creatures.ts';
 import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack } from './inventory.ts';
@@ -46,6 +49,23 @@ export function applyDebugCommand(
   if (command.type === 'debug.freezeTime') {
     if (typeof command.frozen === 'boolean') sim.time.frozen = command.frozen;
     else reject(out, playerId, command.type, 'invalid');
+    return;
+  }
+  if (command.type === 'debug.spawn') {
+    spawn(sim, playerId, command, out);
+    return;
+  }
+  if (command.type === 'debug.killCreature') {
+    const c = sim.entities.get(command.id);
+    if (c?.kind !== 'creature' || c.mode === 'dying')
+      reject(out, playerId, command.type, 'no creature');
+    else {
+      // All its health, whatever its armour, a recent blow or its burrowing away (no attacker, no
+      // knockback): it dies where it is.
+      c.invulnerable = 0;
+      if (c.mode === 'burrow') setMode(c, 'idle');
+      hurtCreature(sim, c, c.health, c.body.x, c.body.z, 0, -1, out);
+    }
     return;
   }
   const player = sim.players.get(playerId);
@@ -90,6 +110,29 @@ function setStat(sim: Simulation, player: PlayerState, stat: DebugStat, value: n
   if (!GAUGES.includes(stat)) return false;
   player.survival[stat] = clampGauge(stat, value, sim.registry.pack.balance);
   return true;
+}
+
+/** Places a creature (in a loaded column, inside the world), facing the player who asked. */
+function spawn(
+  sim: Simulation,
+  playerId: number,
+  c: Extract<DebugCommand, { type: 'debug.spawn' }>,
+  out: SimEvent[],
+): void {
+  const def = typeof c.creature === 'string' ? sim.registry.creature(c.creature) : undefined;
+  const y = c.y === 'surface' ? 0 : c.y;
+  if (!def) reject(out, playerId, c.type, 'unknown creature');
+  else if (!finite(c.x, y, c.z) || !insideBorder(c.x, c.z))
+    reject(out, playerId, c.type, 'invalid');
+  else if (!sim.world.getColumn(toColumn(Math.floor(c.x)), toColumn(Math.floor(c.z))))
+    reject(out, playerId, c.type, 'not loaded');
+  else {
+    const creature = spawnCreature(sim, def, c.x, teleportY(sim, c.x, c.y, c.z), c.z);
+    const player = sim.players.get(playerId);
+    if (!player) return;
+    creature.yaw = Math.atan2(c.x - player.body.x, c.z - player.body.z);
+    creature.prevYaw = creature.yaw;
+  }
 }
 
 /** Largest debug.give at once. */

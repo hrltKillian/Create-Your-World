@@ -1,8 +1,9 @@
 import type { BalanceDef } from '../../schema.ts';
 
 /**
- * Survival numbers of the base pack (docs « Survie », « Joueur », « Eau potable »). An idle player
- * empties hunger in 25 min and thirst in 16 min, then dies of thirst after about 21.6 min.
+ * Survival numbers of the base pack (docs « Survie », « Joueur », « Eau potable », « Créatures et
+ * combat »). An idle player empties hunger in 25 min and thirst in 16 min, then dies of thirst
+ * after about 21.6 min.
  */
 export const balance: BalanceDef = {
   health: {
@@ -84,4 +85,6 @@ export const balance: BalanceDef = {
     weakenedDamage: 0.8,
     untargetedSec: 5,
   },
+  creatures: { spawnGraceTicks: 5400 },
+  combat: { hand: { damage: 2, cooldown: 0.4, reach: 3, knockback: 1 } },
 };

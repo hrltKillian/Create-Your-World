@@ -109,6 +109,7 @@ export const en = {
   'death.cause.drowning': 'Drowned',
   'death.cause.fall': 'Fell from too high',
   'death.cause.contact': 'Hurt by something you touched',
+  'death.cause.creature': 'Brought down by a creature',
   'death.cause.unknown': 'Your journey ended',
   'death.pack':
     'What you carried waits in an Abandoned Pack where you fell: the compass shows the way.',
@@ -119,6 +120,7 @@ export const en = {
   'hint.sleepNight': 'You can only sleep at night',
   'hint.sleepShelter': 'You need a closed shelter to sleep',
   'hint.sleepWait': 'You lie down: the night passes once everyone sleeps',
+  'hint.sleepHostiles': 'You cannot rest with hostile creatures nearby',
   'slot.worn': '{name} · {left}/{max} uses left',
   'bag.title': 'Bag',
   'bag.close': '{key} or Esc to close',

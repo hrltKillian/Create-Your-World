@@ -162,6 +162,8 @@ describe('save versions', () => {
     expect(player.objectives).toEqual(['objective:gather', 'objective:tools']);
     // Version 4 adds the drink: not had yet.
     expect(player.drank).toBe(false);
+    // Version 5: its stored column counts as having placed its herd.
+    expect(sim.herdColumns.size).toBe(fixture(3).columns.length);
     settle(sim);
     step(30);
     // The game runs on: thirst drains, the effect counts down, the temperature drifts back.
@@ -189,6 +191,10 @@ describe('save versions', () => {
       null,
       { item: 'item:waxed_boots', count: 1, durability: 210 },
     ]);
+    // Version 5: a stored column had its first generation long ago (it was edited since), so it
+    // counts as having placed its herd: none lands on the player's builds.
+    expect([...sim.herdColumns]).toEqual([columnKey(0, 0)]);
+    expect(migrate('column', { entities: [] }, 4)).toEqual({ entities: [], herds: true });
   });
 
   it('upgrades a version 3 pack and player: nothing worn apart, no drink had', () => {
@@ -203,5 +209,30 @@ describe('save versions', () => {
     const column = migrate('column', { blockEntities: [grave, chest] }, 3);
     expect(column.blockEntities).toEqual([{ ...grave, worn: [] }, chest]);
     expect(migrate('player', { playerId: 1 }, 3)).toEqual({ playerId: 1, drank: false });
+  });
+
+  it('loads the v5 fixture: a herd of Trotters, one hurt and fleeing, a Shagback, a herd flag', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(5), removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const creatures = [...sim.entities.values()].filter((e) => e.kind === 'creature');
+    expect(creatures.map((c) => [c.id, c.creature])).toEqual([
+      [2, 'creature:trotter'],
+      [3, 'creature:trotter'],
+      [4, 'creature:shagback'],
+    ]);
+    const [fleeing, calm] = creatures;
+    expect(fleeing).toMatchObject({ health: 7, mode: 'flee', target: 1, herd: 2 });
+    expect(fleeing).toMatchObject({
+      pathLength: 4,
+      pathStep: 1,
+      path: [5, 65, -6, 6, 65, -6, 7, 65, -6, 8, 65, -6],
+    });
+    expect(calm).toMatchObject({ health: 12, mode: 'idle', herd: 2 });
+    expect([...sim.herdColumns]).toEqual([columnKey(0, 0)]);
+    settle(sim);
+    step(30);
+    // It runs on east along its path, away from the player.
+    expect(fleeing!.body.x).toBeGreaterThan(7);
   });
 });

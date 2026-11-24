@@ -35,6 +35,20 @@ describe('boot params', () => {
     expect(parseBootParams('', true)).toMatchObject({ time: null, freezeTime: false });
   });
 
+  it('reads the creature spawns and grace period, null when absent or malformed', () => {
+    expect(parseBootParams('?spawns=1&grace=0', true)).toMatchObject({ spawns: true, grace: 0 });
+    expect(parseBootParams('?spawns=0&grace=900', true)).toMatchObject({
+      spawns: false,
+      grace: 900,
+    });
+    expect(parseBootParams('?grace=-1', true).grace).toBeNull();
+    expect(parseBootParams('?grace=soon', true).grace).toBeNull();
+    expect(parseBootParams('', true)).toMatchObject({ spawns: null, grace: null });
+    // Selftests run without creatures unless they ask for them.
+    expect(parseBootParams('?selftest=m9', true).spawns).toBe(false);
+    expect(parseBootParams('?selftest=m10&spawns=1', true).spawns).toBe(true);
+  });
+
   it('ignores every parameter in production', () => {
     expect(parseBootParams('?seed=42&forceNoWebGL=1', false)).toEqual(DEFAULT_BOOT_PARAMS);
   });

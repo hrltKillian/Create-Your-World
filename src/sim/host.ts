@@ -8,6 +8,7 @@ import { stationNear } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
 import type { Entity, Simulation } from './Simulation.ts';
+import type { SpawnLogEntry } from './spawning.ts';
 import { stateHash } from './stateHash.ts';
 import type { TimeState } from './time.ts';
 
@@ -20,8 +21,10 @@ export interface SimView {
   /** Read-only generation context (analytic biome and height queries, golden hashes). */
   readonly gen: GenContext;
   readonly playerId: number;
-  /** Every entity (players, item drops) by id, in a deterministic order. */
+  /** Every entity (players, item drops, creatures) by id, in a deterministic order. */
   readonly entities: ReadonlyMap<number, Readonly<Entity>>;
+  /** The last hostile spawns, oldest first (automation and tests). */
+  readonly spawnLog: readonly Readonly<SpawnLogEntry>[];
   tick(): number;
   /** The world clock (time of day, day count, frozen). */
   time(): Readonly<TimeState>;
@@ -57,6 +60,7 @@ function makeView(sim: Simulation, playerId: number): SimView {
     gen: sim.ctx,
     playerId,
     entities: sim.entities,
+    spawnLog: sim.spawnLog,
     tick: () => sim.tick,
     time: () => sim.time,
     hash: () => stateHash(sim),

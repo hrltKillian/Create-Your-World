@@ -5,13 +5,16 @@ import { findSpawn } from '../world/gen/spawn.ts';
 import { LightEngine } from '../world/light/LightEngine.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
+import { stepCreatures } from './ai/creatureStep.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import { applyBlockEntityCommand, checkOpened } from './blockEntityCommands.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
 import { TICK_SECONDS } from './clock.ts';
+import { stepCombat } from './combat.ts';
 import { reject, validInput, validView } from './commandRules.ts';
 import { type Command, NEUTRAL_INPUT, type StampedCommand } from './commands.ts';
 import { applyCraftCommand, stepCrafting } from './craftQueue.ts';
+import { type CreatureState, unparkCreatures } from './creatures.ts';
 import { respawn, stepDeaths } from './death.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
@@ -27,6 +30,7 @@ import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
 import { stepSleep } from './sleep.ts';
 import { SpatialHash } from './spatialHash.ts';
+import { placeHerds, type SpawnLogEntry, stepSpawning } from './spawning.ts';
 import { stepStations } from './stations.ts';
 import { stepSurvival } from './survival.ts';
 import { clockEvents, createTime, stepTime, type TimeState } from './time.ts';
@@ -48,17 +52,30 @@ export interface SimOptions {
   readonly allowDebug?: boolean;
   /** Spawn point of a saved world (otherwise searched for: findSpawn). */
   readonly spawn?: { readonly x: number; readonly y: number; readonly z: number };
+  /** Hostile creatures spawn (the world's rule; default true). */
+  readonly hostiles?: boolean;
+  /** Creatures spawn and herds are placed (default: generated worlds only, not the test ones). */
+  readonly spawns?: boolean;
+  /** No hostile spawns before this tick (default: the pack's `creatures.spawnGraceTicks`). */
+  readonly graceTicks?: number;
 }
 
-/** Every entity record of the world (creatures join the union in M10). */
-export type Entity = PlayerState | ItemDropState;
+/** What creatures may do in a world (spawning.ts). */
+export interface CreatureRules {
+  readonly hostiles: boolean;
+  readonly spawns: boolean;
+  readonly graceTicks: number;
+}
+
+/** Every entity record of the world. */
+export type Entity = PlayerState | ItemDropState | CreatureState;
 
 /**
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
- * the state and the tick order, and delegates column streaming, players, interaction, item drops,
- * inventory, equipment, block entities (chests, stations, packs), craft queues, survival, deaths,
- * sleep, objectives and debug commands.
+ * the state and the tick order, and delegates column streaming, players, interaction, creatures
+ * (AI, combat, spawning), item drops, inventory, equipment, block entities (chests, stations,
+ * packs), craft queues, survival, deaths, sleep, objectives and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -69,6 +86,7 @@ export class Simulation implements ColumnSink {
   readonly ctx: GenContext;
   readonly spawn: { readonly x: number; readonly y: number; readonly z: number };
   readonly allowDebug: boolean;
+  readonly rules: CreatureRules;
   /** Players by connection id. */
   readonly players = new Map<number, PlayerState>();
   /** Every entity by id, in insertion order (deterministic iteration). */
@@ -84,6 +102,15 @@ export class Simulation implements ColumnSink {
   readonly time: TimeState = createTime();
   /** Edited sections of the unloaded columns. */
   readonly edits = new EditStore();
+  /** Columns whose first generation placed a herd (saved: no second herd when they load again). */
+  readonly herdColumns = new Set<number>();
+  /**
+   * Creatures of the unloaded columns by column key, out of `entities` (saved with their column,
+   * back when it loads: `parkCreature`, `unparkCreatures`).
+   */
+  readonly parked = new Map<number, CreatureState[]>();
+  /** The last hostile spawns (tests; not saved). */
+  readonly spawnLog: SpawnLogEntry[] = [];
   private readonly columns: ColumnPipeline;
   private readonly commands: StampedCommand[] = [];
 
@@ -92,6 +119,11 @@ export class Simulation implements ColumnSink {
     this.worldType = options.worldType ?? 'default';
     this.registry = options.registry;
     this.allowDebug = options.allowDebug ?? false;
+    this.rules = {
+      hostiles: options.hostiles ?? true,
+      spawns: options.spawns ?? this.worldType === 'default',
+      graceTicks: options.graceTicks ?? options.registry.pack.balance.creatures.spawnGraceTicks,
+    };
     this.world = new VoxelWorld(options.registry.air, options.registry.unknownBlock);
     this.light = new LightEngine(options.registry.tables);
     this.ctx = createGenContext(this.seed, this.registry, this.worldType);
@@ -104,6 +136,10 @@ export class Simulation implements ColumnSink {
       options.source,
       { seed: this.seed, worldType: this.worldType },
       options.maxInFlight,
+      (column) => {
+        unparkCreatures(this, column.cx, column.cz);
+        placeHerds(this, column);
+      },
     );
     options.source.connect(this);
   }
@@ -172,7 +208,10 @@ export class Simulation implements ColumnSink {
     return this.columnState(blockToColumn(body.x), blockToColumn(body.z)) >= COLUMN_LIT;
   }
 
-  /** One fixed tick (1/30 s), in the order of docs/conception.md « Ordre d'un tick ». */
+  /**
+   * One fixed tick (1/30 s), in the order of docs/conception.md « Ordre d'un tick »; each player
+   * moves and interacts (steps 4, 6, 7) before the creatures think and move (5, 6) and fight (8).
+   */
   step(out: SimEvent[]): void {
     // This tick's events start here (survival reacts to the edits).
     const first = out.length;
@@ -187,6 +226,8 @@ export class Simulation implements ColumnSink {
       this.track(player);
       stepInteraction(this, player, out);
     }
+    stepCreatures(this, out);
+    stepCombat(this, out);
     // Block entities, craft queues and timed states.
     for (const player of this.players.values()) {
       checkOpened(this, player, out);
@@ -195,6 +236,7 @@ export class Simulation implements ColumnSink {
     stepStations(this, out);
     stepSurvival(this, out, first);
     stepItemDrops(this, out);
+    stepSpawning(this);
     stepDeaths(this, out);
     stepSleep(this, out);
     clockEvents(clock, this.time.ticks, out);
@@ -308,6 +350,8 @@ export class Simulation implements ColumnSink {
       case 'debug.setTime':
       case 'debug.freezeTime':
       case 'debug.open':
+      case 'debug.spawn':
+      case 'debug.killCreature':
         if (this.allowDebug) applyDebugCommand(this, playerId, command, out);
         else reject(out, playerId, command.type, 'debug disabled');
         break;

@@ -4,11 +4,14 @@ import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
 import { stationBlocks } from './blocksStations.ts';
 import { undergroundBlocks } from './blocksUnderground.ts';
+import { creatureModels, creatureSkins } from './creatureModels.ts';
+import { creatureSfx } from './creatureSfx.ts';
+import { creatures } from './creatures.ts';
 import { strings } from './i18n.en.ts';
 import { consumableIcons, containerIcons, equipmentIcons } from './iconsGear.ts';
 import { materialIcons, toolIcons } from './iconsTools.ts';
 import { items } from './items.ts';
-import { creatures, loot } from './loot.ts';
+import { loot } from './loot.ts';
 import { models } from './models.ts';
 import { objectives } from './objectives.ts';
 import { processes, recipes, stations } from './recipes.ts';
@@ -35,7 +38,7 @@ export const basePack: ContentPack = {
     },
   },
   blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks],
-  // Icons and cracks go last so that block texture layers keep their indices.
+  // Icons, cracks and creature skins go last so that block texture layers keep their indices.
   textures: [
     ...textures,
     ...toolIcons,
@@ -44,6 +47,7 @@ export const basePack: ContentPack = {
     ...consumableIcons,
     ...containerIcons,
     ...crackTextures,
+    ...creatureSkins,
   ],
   strings,
   tints: { grass: '#7fb04f', foliage: '#5f9a3e', water: '#3f76c4' },
@@ -78,11 +82,11 @@ export const basePack: ContentPack = {
   balance,
   objectives,
   sounds,
-  sfx,
+  sfx: [...sfx, ...creatureSfx],
   worldgen,
   biomes,
   features,
   ores,
   structures,
-  models,
+  models: [...models, ...creatureModels],
 };

@@ -1,5 +1,6 @@
 import type { Registry } from '../../content/registry.ts';
 import type { WorldType } from '../../world/gen/generateColumn.ts';
+import { type CreatureCensus, creatureCensus } from '../creatures.ts';
 import { stateHash } from '../stateHash.ts';
 import { type BotKind, createBot } from './bots.ts';
 import { createInlineSim } from './inlineSim.ts';
@@ -30,6 +31,7 @@ export interface BotRunResult {
   readonly deaths: number;
   readonly respawns: number;
   readonly alive: boolean;
+  readonly census: CreatureCensus;
 }
 
 /**
@@ -69,5 +71,6 @@ export function runBot(options: BotRunOptions): BotRunResult {
     deaths,
     respawns,
     alive: !player.survival.dead,
+    census: creatureCensus(sim.entities, options.registry),
   };
 }

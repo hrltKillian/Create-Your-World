@@ -196,6 +196,16 @@ export async function aimAt(app: App, { x, y, z }: Cell, height?: number): Promi
   );
 }
 
+/** A torch's light (« torche 14 »; m5, and the spawn rule of m10). */
+export const TORCH_LIGHT = 14;
+
+/** The block state that emits `level` (the torch, found without naming content). */
+export function emitterOf(app: App, level: number): number {
+  const state = app.registry!.tables.emit.indexOf(level);
+  assert(state >= 0, `no block state emits light ${level}`);
+  return state;
+}
+
 /** Text key of a block state (`#id` for an unknown id), for fills and messages. */
 export function stateKey(app: App, state: number): string {
   return app.registry!.states[state]?.key ?? `#${state}`;

@@ -1,6 +1,7 @@
 import type { BalanceDef, ObjectiveDef } from '../../content/schema.ts';
 import { h } from '../h.ts';
 import { DeathScreen } from '../screens/death.ts';
+import { CombatMarks } from './combatMarks.ts';
 import { Compass } from './compass.ts';
 import { EffectList } from './effects.ts';
 import { Flash } from './flash.ts';
@@ -13,10 +14,11 @@ import { Vitals } from './vitals.ts';
 
 /**
  * The survival HUD of a play session (docs « Interface », original layout): vignettes under
- * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc beside
- * the crosshair; the compass, the clock and the target name at the top centre; objectives at the
- * top right; effects on the right; the day's banners, the biome's name on entering it and the
- * sleep fade; and the death screen. Built once; `app/HudBridge.ts` refreshes it.
+ * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc, the
+ * hit marker and the damage arcs around the crosshair; the compass, the clock and the target name
+ * at the top centre; objectives at the top right; effects on the right; the day's banners, the
+ * biome's name on entering it and the sleep fade; and the death screen. Built once;
+ * `app/HudBridge.ts` refreshes it.
  */
 export class Hud {
   /** Everything but the death screen (no pointer events). */
@@ -24,6 +26,7 @@ export class Hud {
   readonly vignettes = new Vignettes();
   readonly vitals: Vitals;
   readonly stamina = new StaminaArc();
+  readonly combat = new CombatMarks();
   readonly compass = new Compass();
   readonly clock: HTMLElement;
   readonly target = new TargetLine();
@@ -46,6 +49,7 @@ export class Hud {
       this.vignettes.element,
       h('div', { class: 'hud-top' }, this.compass.element, this.clock, this.target.element),
       this.stamina.element,
+      this.combat.element,
       this.vitals.element,
       this.pickups.element,
       h('div', { class: 'hud-right' }, this.objectives.element, this.effects.element),

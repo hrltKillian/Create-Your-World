@@ -236,14 +236,14 @@ export class SaveManager {
   }
 
   /**
-   * A write is sent: its columns are (about to be) stored with their drops and block entities, the
-   * removed gone.
+   * A write is sent: its columns are (about to be) stored with their entities, block entities and
+   * herd flag, the removed gone.
    */
   private sending(batch: SaveBatch): void {
     for (const column of batch.columns)
       this.stored.set(
         columnKey(column.cx, column.cz),
-        columnDigest(column.entities, column.blockEntities),
+        columnDigest(column.entities, column.blockEntities, column.herds),
       );
     for (const { cx, cz } of batch.removed) this.stored.delete(columnKey(cx, cz));
   }

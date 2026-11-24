@@ -1,13 +1,14 @@
 import { CUTOUT_ALPHA } from './voxel.glsl.ts';
 
 /**
- * Instanced boxes (avatar, items, drops, particles): three texture-array layers (sides, top,
- * bottom) with their tints, a light value and a texture mapping per box. Face UVs follow the chunk
- * shader's convention, from the box's place in texture space (`aTexOrigin.xyz` + position ×
+ * Instanced boxes (avatar, creatures, items, drops, particles): three texture-array layers (sides,
+ * top, bottom) with their tints, a light value and a texture mapping per box. Face UVs follow the
+ * chunk shader's convention, from the box's place in texture space (`aTexOrigin.xyz` + position ×
  * `aTexSize`), so a box cut from a block shows the same pixels as the block. Sprite boxes
  * (`aTexOrigin.w` = 1, items extruded from an icon) sample the icon plane on every face, staying
  * inside their own pixels, so their edges take the colour of the border pixels. `aTints` holds the
- * side, top and bottom tints (linear RGB packed as 0xRRGGBB) and the alpha mode (1: cutout).
+ * side, top and bottom tints (linear RGB packed as 0xRRGGBB) and the alpha mode (1: cutout). `aFx`
+ * holds the glow (1: full brightness, a creature's eyes) and the red flash of a hurt creature.
  */
 
 export const boxVertex = /* glsl */ `
@@ -16,10 +17,12 @@ in vec2 aLight;
 in vec4 aTexOrigin;
 in vec3 aTexSize;
 in vec4 aTints;
+in vec2 aFx;
 out vec2 vUv;
 flat out float vLayer;
 flat out vec3 vTint;
 flat out float vCutout;
+flat out vec2 vFx;
 out vec2 vLight;
 out vec3 vNormal;
 #include <fog_pars_vertex>
@@ -48,6 +51,7 @@ void main() {
   else vUv = vec2(-t.x, t.y);
   vTint = unpackTint(tint);
   vCutout = aTints.w;
+  vFx = aFx;
   vLight = aLight;
   vNormal = normalize(mat3(modelMatrix * instanceMatrix) * normal);
   vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
@@ -70,6 +74,7 @@ in vec2 vUv;
 flat in float vLayer;
 flat in vec3 vTint;
 flat in float vCutout;
+flat in vec2 vFx;
 in vec2 vLight;
 in vec3 vNormal;
 #include <fog_pars_fragment>
@@ -90,9 +95,10 @@ void main() {
     lightCurve(vLight.y) * uTorchTint * uFlicker
   );
   light = max(light, vec3(uMinLight));
-  // Simple directional shading so the boxes read as volumes.
+  // Simple directional shading so the boxes read as volumes; glowing boxes ignore both.
   float shade = 0.72 + 0.28 * max(dot(vNormal, normalize(vec3(0.3, 1.0, 0.45))), 0.0);
-  gl_FragColor = vec4(base * light * shade, 1.0);
+  vec3 lit = mix(base * light * shade, base, vFx.x);
+  gl_FragColor = vec4(mix(lit, vec3(0.85, 0.08, 0.05), vFx.y * 0.6), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>

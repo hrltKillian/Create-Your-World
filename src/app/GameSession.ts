@@ -46,7 +46,7 @@ export class GameSession {
   /** Avatar, drops, particles, block overlays and the hand view. */
   readonly play: PlayView;
   readonly entities: EntityView;
-  /** The block under the crosshair and the placement ghost, from the client's eye. */
+  /** The creature or block under the crosshair and the placement ghost, from the client's eye. */
   readonly aim: ClientAim;
   /** The local player's live (read-only) state, from the host's view. */
   readonly player: Readonly<PlayerState>;
@@ -54,6 +54,8 @@ export class GameSession {
   loading = true;
   /** performance.now() when the session was created (loading-time measurements). */
   readonly startedAt = performance.now();
+  /** Wall time of the last simulation tick alone, in ms (the mobs benchmark). */
+  tickMs = 0;
   private readonly view: WorldView;
   private readonly input: InputManager;
   private readonly freecam: FreeCam | null;
@@ -97,7 +99,7 @@ export class GameSession {
     });
     this.play = new PlayView(view, this.host.view);
     this.entities = this.play.entities;
-    this.aim = new ClientAim(this.host.view.world, registry, this.player);
+    this.aim = new ClientAim(this.host.view.world, registry, this.player, this.host.view.entities);
     // Puts the eye at the spawn before the first frame, so the first ticks aim from there.
     this.rig.update(this.player, 1, this.host.view.world, registry.tables, 0);
     this.playFrame = {
@@ -246,7 +248,9 @@ export class GameSession {
       this.updateAim();
       this.host.send(this.input.sample(this.rig, this.aim.target()));
     }
+    const t0 = performance.now();
     this.host.advance(1, this.events);
+    this.tickMs = performance.now() - t0;
     this.input.tickForced();
   }
 
@@ -280,7 +284,7 @@ export class GameSession {
     this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
   }
 
-  /** The block under the crosshair from the interpolated eye, and the placement ghost. */
+  /** The creature or block under the crosshair from the interpolated eye, and the ghost. */
   private updateAim(): void {
     const rig = this.rig;
     this.aim.update(rig.eye, rig.yaw, rig.pitch, this.input.slot, this.input.isDown('crouch'));

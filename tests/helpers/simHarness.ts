@@ -79,12 +79,18 @@ export interface PlayerTestSimOptions {
   readonly registry?: Registry;
   /** Accept debug.* commands (default: true; `give` and `put` need them). */
   readonly allowDebug?: boolean;
+  /** Render distance of player 1 (columns; default 2). */
+  readonly viewRadius?: number;
+  /** Creature rules (natural spawns are off in the flat world by default). */
+  readonly spawns?: boolean;
+  readonly graceTicks?: number;
+  readonly hostiles?: boolean;
 }
 
 /**
- * A test simulation (debug commands allowed by default) where player 1 has joined (view radius 2)
- * and stood for 60 ticks while its world loaded, with the command helpers of `withPlayer`; `events`
- * is empty.
+ * A test simulation (debug commands allowed by default) where player 1 has joined (view radius 2
+ * by default) and stood for 60 ticks while its world loaded, with the command helpers of
+ * `withPlayer`; `events` is empty.
  */
 export function playerTestSim(options: PlayerTestSimOptions) {
   const harness = withTicks(
@@ -95,7 +101,7 @@ export function playerTestSim(options: PlayerTestSimOptions) {
       allowDebug: options.allowDebug ?? true,
     }),
   );
-  harness.sim.addPlayer(1, 2);
+  harness.sim.addPlayer(1, options.viewRadius ?? 2);
   harness.step(60);
   harness.events.length = 0;
   return withPlayer(harness);
