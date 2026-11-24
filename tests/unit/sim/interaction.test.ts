@@ -280,6 +280,27 @@ describe('placement', () => {
     expect(run(true)).toBe(0);
   });
 
+  it('secondary still uses or replaces a non-solid block in front of a creature', () => {
+    const s = setup();
+    s.give('item:dirt', 5);
+    // An open gate, a Trotter just behind it (outside the gate's cell): the press closes the gate.
+    s.put(0, 65, -2, 'block:gate[facing4=s,open=1,half=lower]');
+    s.put(0, 66, -2, 'block:gate[facing4=s,open=1,half=upper]');
+    spawnAt(s, 'creature:trotter', 0.5, -2.5);
+    // The view goes through the gate's cell into the Trotter's body, within the hand's reach.
+    const pitch = Math.atan2(65.5 - (65 + eyeHeight(s.player.body)), 2.8);
+    s.tick(1, { secondary: true, pitch, target: { x: 0, y: 65, z: -2, face: 4 } });
+    expect(rejections(s.events)).toEqual([]);
+    expect(s.block(0, 65, -2)).toBe('block:gate[facing4=s,open=0,half=lower]');
+    // Tall grass in front of a Trotter: the held block replaces the grass.
+    const t = setup();
+    t.give('item:dirt', 5);
+    t.put(0, 65, -2, 'block:tall_grass');
+    spawnAt(t, 'creature:trotter', 0.5, -2.5);
+    t.tick(1, { secondary: true, pitch, target: { x: 0, y: 65, z: -2, face: 4 } });
+    expect(t.block(0, 65, -2)).toBe('block:dirt');
+  });
+
   it('falls back to its own ray when the client target is hidden', () => {
     const s = setup();
     s.give('item:dirt', 5);

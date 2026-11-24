@@ -103,6 +103,15 @@ describe('client aim at creatures', () => {
     expect(aim.target()).toMatchObject({ x: 0, y: 65, z: -1 });
   });
 
+  it('outlines an open gate in front of a creature, which a blow would still hit', () => {
+    const { s, c, eye, pitch, aim } = scene(-2.5);
+    s.put(0, 65, -2, 'block:gate[facing4=s,open=1,half=lower]');
+    s.put(0, 66, -2, 'block:gate[facing4=s,open=1,half=upper]');
+    aim.update(eye, 0, pitch, 0, false);
+    expect(aim.creature?.id).toBe(c.id);
+    expect(aim.target()).toMatchObject({ x: 0, z: -2 });
+  });
+
   it('a creature out of the held weapon’s reach is not aimed at; a spear reaches it', () => {
     const { s, c, eye, pitch, aim } = scene(-3.5);
     aim.update(eye, 0, pitch, 0, false);

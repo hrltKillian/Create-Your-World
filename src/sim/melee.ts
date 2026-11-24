@@ -176,11 +176,12 @@ export function creatureOnRay(
 /**
  * The creature a player's blow would hit now: the first whose hitbox the view ray from the
  * simulation's eye enters within the held weapon's reach and before any solid block (blowReach),
- * else undefined.
+ * else undefined. `at.distance` gets how far along the ray it is entered.
  */
 export function meleeTarget(
   sim: Simulation,
   player: Readonly<PlayerState>,
+  at: { distance: number },
 ): CreatureState | undefined {
   const b = player.body;
   const ey = b.y + eyeHeight(b);
@@ -196,6 +197,7 @@ export function meleeTarget(
     best = c as CreatureState;
     bestT = t;
   }
+  at.distance = bestT;
   return best;
 }
 

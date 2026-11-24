@@ -39,26 +39,28 @@ import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
 const BROKEN = 1 - 1e-9;
 
-/** Scratch aim and placement (no allocation per tick). */
+/** Scratch aim, aimed creature and placement (no allocation per tick). */
 const hit = createRayHit();
+const creatureAt = { distance: 0 };
 const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 
 /**
  * One tick of a player's interaction with the world (docs/conception.md « Priorité des actions »).
- * Creatures are tested first (« Ciblage »): one in the weapon's reach takes the aim off the block
- * behind it. Primary attacks a creature in reach (melee.ts), else mines the aimed block while held.
- * Secondary uses an interactive block on the press (toggles a gate, opens a chest or station,
- * sleeps on a bedroll, takes back an Abandoned Pack), else eats, drinks or fills while held
- * (consume.ts), else places the held block, again every 6 ticks while held; crouching forces the
- * placement.
+ * Creatures are tested first (« Ciblage »): primary attacks a creature in reach, only solid blocks
+ * stopping the blow (melee.ts), else mines the aimed block while held. Secondary acts on the aimed
+ * block unless a creature in reach stands in front of it: it uses an interactive block on the
+ * press (toggles a gate, opens a chest or station, sleeps on a bedroll, takes back an Abandoned
+ * Pack), else eats, drinks or fills while held (consume.ts), else places the held block, again
+ * every 6 ticks while held; crouching forces the placement.
  */
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
-  const creature = meleeTarget(sim, player);
-  const status = creature ? AIM_NONE : aim(sim.world, sim.registry.tables, player, hit);
+  const creature = meleeTarget(sim, player, creatureAt);
+  const status = aim(sim.world, sim.registry.tables, player, hit);
   const attacking = stepMelee(sim, player, creature, out);
   if (player.input.primary && status === AIM_HIT && !attacking) mine(sim, player, out);
   else stopMining(player, out);
-  useButton(sim, player, status, out);
+  const shielded = creature !== undefined && creatureAt.distance < hit.distance;
+  useButton(sim, player, shielded ? AIM_NONE : status, out);
 }
 
 /** Selected hotbar item id (−1: empty hand). */

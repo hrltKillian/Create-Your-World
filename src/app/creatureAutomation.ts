@@ -27,9 +27,11 @@ export function placeCreature(
   let last = 0;
   for (const id of view.entities.keys()) last = Math.max(last, id);
   sendNow(app, { type: 'debug.spawn', creature, x, y, z });
+  // The newest one: a parked creature of that kind may come back in the same pump, older.
+  let found: number | null = null;
   for (const [id, entity] of view.entities)
-    if (id > last && entity.kind === 'creature' && entity.creature === creature) return id;
-  return null;
+    if (id > last && entity.kind === 'creature' && entity.creature === creature) found = id;
+  return found;
 }
 
 /**

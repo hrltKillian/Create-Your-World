@@ -14,16 +14,18 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 const dir: Vec3 = { x: 0, y: 0, z: 0 };
 
 /**
- * Client-side targeting, every frame, from the interpolated eye: the creature a blow would hit
- * (creatures are tested first, as the simulation does), else the block under the crosshair
- * (outline, and the target sent with the next input command) and where secondary would place the
- * held block (the ghost), planned with the simulation's own placement rules.
+ * Client-side targeting, every frame, from the interpolated eye, with the simulation's rules: the
+ * creature a blow would hit (creatures are tested first; only solid blocks stop a blow), and the
+ * block under the crosshair unless that creature stands in front of it (outline, and the target
+ * sent with the next input command) with where secondary would place the held block (the ghost).
  */
 export class ClientAim {
-  /** The block under the crosshair (`hit` false: none, or a creature is aimed at). */
+  /** The block under the crosshair (`hit` false: none, or an aimed creature stands in front). */
   readonly hit = createRayHit();
   /** The creature in the held weapon's reach under the crosshair (its name shows on the HUD). */
   creature: Readonly<CreatureState> | undefined;
+  /** How far along the view the aimed creature is entered. */
+  private creatureDistance = 0;
   /**
    * The planned placement; `state` −1 when secondary would place nothing, `upper` −1 unless it is
    * a tall block (door) whose upper half goes in the cell above.
@@ -55,11 +57,8 @@ export class ClientAim {
     this.ghost.state = -1;
     this.ghost.upper = -1;
     this.creature = this.aimedCreature(eye, slot);
-    if (this.creature) {
-      hit.hit = false;
-      return;
-    }
     raycast(this.world, tables, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, REACH, hit);
+    if (this.creature && this.creatureDistance < hit.distance) hit.hit = false;
     if (!hit.hit || usesAimedBlock(this.registry, hit.state, crouch)) return;
     const stack = this.player.inventory[slot];
     const item = stack ? this.registry.itemId(stack.item) : -1;
@@ -90,6 +89,7 @@ export class ClientAim {
       best = e as Readonly<CreatureState>;
       bestT = t;
     }
+    this.creatureDistance = bestT;
     return best;
   }
 }
