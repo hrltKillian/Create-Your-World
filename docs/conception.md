@@ -1788,6 +1788,11 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - la carte des commandes s'affiche au premier lancement ; les indices contextuels apparaissent (premier E, premier minage, premier crépuscule) ;
   - vérification rapide dans Safari (installé) : si le comportement est identique, il est supporté ; sinon, je note les écarts et ne les corrige que s'ils sont simples ;
   - ta partie test de 10 min (et `?bench=walk` sur un M1 ou un PC à GPU intégré, si tu en as un).
+- **Retenu à l'intégration** :
+  - les specs e2e sont `boot`, `selftest`, `saves` et `input`, plus `perf` (bench, en local) ;
+  - `selftest.spec.ts` lance `?selftest=all` dans 8 configurations (scène de test ; monde généré en temps réel, en caméra libre, en pas fixes avec IndexedDB ; monde plat avec IndexedDB, sans IndexedDB, avec apparitions naturelles ; arène) : aucun échec, et chaque cas doit avoir tourné, non sauté, dans au moins une ;
+  - un cas appartient à sa configuration par `scenes` et `skip` ; m7 finit sur l'écran Worlds, donc les cas de jeu suivants sautent dans ce démarrage ; le parcours des objectifs repart d'un nouveau monde de la même graine si des objectifs sont déjà faits ;
+  - le bot `wanderMineBuild` de 5 min tourne en pas fixes dans `boot.spec.ts`, en local seulement (trop long en rendu logiciel) ; la CI joue la minute du cas m11.
 
 ## Vérification
 
