@@ -23,7 +23,7 @@ import { openedEntity } from './screens.ts';
  */
 
 export const CRAFT_QUEUE = 5;
-/** Most crafts one command queues (the Logbook's Max button). */
+/** Most crafts one command queues (the Logbook's Max button), and one entry holds. */
 export const MAX_CRAFT_COUNT = 100;
 
 /** A queue entry: `count` crafts of a recipe, with the ingredients still reserved for them. */
@@ -43,11 +43,11 @@ export function noteSeen(registry: Registry, seen: Record<string, true>, item: s
 
 /**
  * Most crafts one queue entry holds: what makes one stack of the recipe's output (at least one
- * craft).
+ * craft, at most MAX_CRAFT_COUNT: what a save keeps of an entry).
  */
 export function entryCrafts(registry: Registry, recipe: RecipeDef): number {
   const { item, count } = recipe.output;
-  return Math.max(1, Math.floor(registry.maxStack(item) / count));
+  return Math.min(MAX_CRAFT_COUNT, Math.max(1, Math.floor(registry.maxStack(item) / count)));
 }
 
 /** Crafts of a recipe a queue still takes: room in its entries, then in the free entries. */

@@ -4,7 +4,7 @@ import type { Ingredient, ProcessDef, RecipeDef, StationDef } from '../../conten
 import { type WorkbenchEntity, withinReach } from '../blockEntities.ts';
 import { ticksOf } from '../clock.ts';
 import { OPEN_SLOTS_BASE } from '../commands.ts';
-import { queueRoom } from '../craftQueue.ts';
+import { MAX_CRAFT_COUNT, queueRoom } from '../craftQueue.ts';
 import { countMatching } from '../inventory.ts';
 import { STATION_REACH } from '../objectives.ts';
 import { moveClicks, shiftClick } from './slotMoves.ts';
@@ -142,7 +142,7 @@ export abstract class Supplies extends Gathering {
       return queue().length === 0;
     };
     for (let left = crafts; left > 0; ) {
-      const count = Math.min(left, queueRoom(this.registry, queue(), recipe));
+      const count = Math.min(left, MAX_CRAFT_COUNT, queueRoom(this.registry, queue(), recipe));
       this.port.send({ type: 'craft.enqueue', recipe: recipe.key, count });
       if (queue().length === 0)
         throw new Error(`${recipe.key} × ${count} was refused (queue empty after enqueue)`);

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_STACK } from '../../../src/content/items.ts';
-import { CRAFT_QUEUE, entryCrafts, noteSeen, queueRoom } from '../../../src/sim/craftQueue.ts';
+import { basePack } from '../../../src/content/packs/base/index.ts';
+import { buildRegistry } from '../../../src/content/registry.ts';
+import {
+  CRAFT_QUEUE,
+  entryCrafts,
+  MAX_CRAFT_COUNT,
+  noteSeen,
+  queueRoom,
+} from '../../../src/sim/craftQueue.ts';
 import { addItem, countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -138,6 +146,10 @@ describe('craft queue', () => {
     expect(queueRoom(registry, s.player.craft, registry.crafting.recipe('recipe:planks')!)).toBe(
       (CRAFT_QUEUE - 1) * cap - 4,
     );
+    // Never more than a save keeps of an entry, however large the stack.
+    const items = basePack.items!.map((i) => (i.key === 'item:cord' ? { ...i, maxStack: 999 } : i));
+    const big = buildRegistry({ ...basePack, items });
+    expect(entryCrafts(big, big.crafting.recipe('recipe:cord')!)).toBe(MAX_CRAFT_COUNT);
   });
 
   it('reveals a recipe once one of its ingredients has been seen (tags included)', () => {
