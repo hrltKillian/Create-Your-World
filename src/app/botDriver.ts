@@ -23,8 +23,16 @@ export interface Piloting {
   stop(): void;
 }
 
-/** Hands a session's player to a bot of `kind` (its random stream from `seed`) until `stop()`. */
-export function pilot(session: GameSession, kind: BotKind, seed: string): Piloting {
+/**
+ * Hands a session's player to a bot of `kind` (its random stream from `seed`) until `stop()`. The
+ * camera, and the hotbar through `keys` (the InputManager's selected slot), follow what it does.
+ */
+export function pilot(
+  session: GameSession,
+  kind: BotKind,
+  seed: string,
+  keys?: { slot: number },
+): Piloting {
   const player = session.player;
   const bot = createBot(kind, seed, session.host.view);
   const commands: Command[] = [];
@@ -32,9 +40,10 @@ export function pilot(session: GameSession, kind: BotKind, seed: string): Piloti
   const listen = (event: SimEvent) => tallyEvent(tally, event, player.playerId);
   session.listeners.push(listen);
   session.pilot = (host) => {
-    // The camera looks where the bot looked on the last tick.
+    // The camera looks where the bot looked on the last tick, the hotbar shows its slot.
     session.rig.yaw = player.yaw;
     session.rig.pitch = player.pitch;
+    if (keys) keys.slot = player.input.slot;
     sendBotCommands(host, bot, player, commands);
   };
   return {
@@ -77,7 +86,7 @@ export async function driveBot(
   const start = view.tick();
   const end = start + Math.round(seconds * TICKS_PER_SECOND);
   const deadline = performance.now() + seconds * 2000 + 10_000;
-  const run = pilot(session, kind, session.seed);
+  const run = pilot(session, kind, session.seed, app.input ?? undefined);
   try {
     while (view.tick() < end) {
       if (app.params.fixedStep) session.step(Math.min(FRAME_TICKS, end - view.tick()));

@@ -63,7 +63,8 @@ describe('the browser bot driver', () => {
     const { session, sent } = createSession();
     session.step(30);
     const listeners = session.listeners.length;
-    const run = pilot(session, 'wanderMineBuild', 'pilot');
+    const keys = { slot: 2 };
+    const run = pilot(session, 'wanderMineBuild', 'pilot', keys);
     // A twin bot fed the same player state at the same moments sends the same commands.
     const twin = createBot('wanderMineBuild', 'pilot', session.host.view);
     const expected: Command[] = [];
@@ -74,10 +75,11 @@ describe('the browser bot driver', () => {
       session.step(1);
       expect(sent.filter((c) => c.type !== 'client.view')).toEqual(expected);
     }
-    // The camera looks where the bot looked on the last tick but one.
-    const yaw = session.player.yaw;
+    // The camera and the hotbar follow the bot's input of the tick before.
+    const { yaw, slot } = session.player.input;
     session.step(1);
     expect(session.rig.yaw).toBe(yaw);
+    expect(keys.slot).toBe(slot);
     run.stop();
     expect(session.listeners).toHaveLength(listeners);
     session.step(1);
