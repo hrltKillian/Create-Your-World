@@ -199,10 +199,12 @@ describe('crafting validation', () => {
       ];
       processes[2]!.output = { item: 'item:nope', count: 1 };
       p.stations!.find((s) => s.key === 'station:bloomery')!.fuelSlot = false;
+      p.stations!.find((s) => s.key === 'station:workbench')!.keepLit = true;
       p.creatures![0]!.loot = 'loot:nope';
     });
     const paths = validatePack(pack).map((i) => i.path);
     const bloomery = basePack.stations!.findIndex((s) => s.key === 'station:bloomery');
+    const bench = basePack.stations!.findIndex((s) => s.key === 'station:workbench');
     expect(paths).toEqual(
       expect.arrayContaining([
         'recipes[0].inputs[0].item',
@@ -215,6 +217,7 @@ describe('crafting validation', () => {
         'processes[1].inputs',
         'processes[2].output.item',
         `stations[${bloomery}]`,
+        `stations[${bench}].keepLit`,
         'creatures[0].loot',
       ]),
     );
