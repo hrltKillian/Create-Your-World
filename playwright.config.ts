@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const CI = Boolean(process.env.CI);
+/** `npm run e2e:perf`: the perf spec on the bench build (local only; the other specs skip it). */
+const PERF = Boolean(process.env.PERF);
+const DEV_URL = 'http://localhost:5173';
+const BENCH_URL = 'http://localhost:4174';
 
 /**
  * Smoke tests driving the in-browser selftests. Locally they use the installed Google Chrome
@@ -16,7 +20,7 @@ export default defineConfig({
   retries: CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: PERF ? BENCH_URL : DEV_URL,
     viewport: { width: 1280, height: 720 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -33,10 +37,8 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !CI,
-    timeout: 120_000,
-  },
+  // Only the server the run needs: the plain e2e never builds the bench build.
+  webServer: PERF
+    ? { command: 'npm run bench', url: BENCH_URL, reuseExistingServer: true, timeout: 300_000 }
+    : { command: 'npm run dev', url: DEV_URL, reuseExistingServer: !CI, timeout: 120_000 },
 });
