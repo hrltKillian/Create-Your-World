@@ -69,9 +69,36 @@ function assignFields<T extends object>(target: T, saved: unknown): T {
   return target;
 }
 
-/** A saved whole number within [min, max] (cut down to max), else `fallback`. */
+/** A saved whole number within [min, max] (cut down to max, a safe integer), else `fallback`. */
 function wholeIn(value: unknown, min: number, max: number, fallback: number): number {
-  return isWhole(value, min) ? Math.min(value, max) : fallback;
+  const whole = typeof value === 'number' && Number.isInteger(value) && value >= min;
+  return whole ? Math.min(value, max, Number.MAX_SAFE_INTEGER) : fallback;
+}
+
+/**
+ * Whether a saved position lies inside the world: within its border and its height, a jump from
+ * the top layer included (2 blocks of air above it).
+ */
+export function insideWorld(p: { readonly x: number; readonly y: number; readonly z: number }) {
+  return insideBorder(p.x, p.z) && p.y >= 0 && p.y <= WORLD_HEIGHT + 2;
+}
+
+/** A saved speed, never faster than a fall. */
+const speed = (v: number) => Math.max(-PHYSICS.terminal, Math.min(PHYSICS.terminal, v));
+
+/**
+ * Reads a saved body onto `body` (its position and speeds), and returns whether it lies inside the
+ * world. Speeds are cut to a fall's: a crafted one must not make the collision sweep endless.
+ */
+function readBody(
+  body: { x: number; y: number; z: number; vx: number; vy: number; vz: number },
+  saved: unknown,
+): boolean {
+  assignFields(body, saved);
+  body.vx = speed(body.vx);
+  body.vy = speed(body.vy);
+  body.vz = speed(body.vz);
+  return insideWorld(body);
 }
 
 export function playerRecord(worldId: string, player: Readonly<PlayerState>): PlayerRecord {
@@ -146,12 +173,12 @@ function readSeen(data: unknown): Record<string, true> {
   return seen;
 }
 
-/** A saved block cell, or null unless its coordinates are whole and inside the world's height. */
+/** A saved block cell, or null unless its coordinates are whole and inside the world. */
 function readCell(data: unknown): BlockCell | null {
   const { x, y, z } = (data ?? {}) as Partial<Record<keyof BlockCell, unknown>>;
   if (!isWhole(x, -Infinity) || !isWhole(y, 0) || y >= WORLD_HEIGHT || !isWhole(z, -Infinity))
     return null;
-  return { x, y, z };
+  return insideBorder(x, z) ? { x, y, z } : null;
 }
 
 /**
@@ -174,7 +201,8 @@ function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
 
 /**
  * The player of a (migrated) record, or null without a valid connection and entity id. Its
- * position defaults to the spawn point; it holds still until its first command.
+ * position defaults to the spawn point (also for a body out of the world); it holds still until
+ * its first command.
  */
 export function readPlayer(
   data: unknown,
@@ -185,7 +213,11 @@ export function readPlayer(
   if (!isWhole(saved.playerId, 0) || !isWhole(saved.id, 1)) return null;
   const { x, y, z } = spawn;
   const player = createPlayer(saved.playerId, x, y, z, 6, registry.pack.balance, saved.id);
-  assignFields(player.body, saved.body);
+  if (!readBody(player.body, saved.body)) {
+    player.body.x = x;
+    player.body.y = y;
+    player.body.z = z;
+  }
   const { yaw, pitch, stamina, exhausted, restTicks, viewRadius } = saved;
   assignFields(player, { yaw, pitch, stamina, exhausted, restTicks, viewRadius });
   player.prevX = player.body.x;
@@ -233,14 +265,14 @@ export function dropRecord(drop: Readonly<ItemDropState>): DropRecord {
   return record;
 }
 
-/** The drop of a (migrated) record, or null if it is malformed. */
+/** The drop of a (migrated) record, or null if it is malformed or out of the world. */
 export function readDrop(data: unknown, registry: Registry): ItemDropState | null {
   const saved = (data ?? {}) as Partial<DropRecord>;
   if (saved.kind !== 'itemDrop' || !isWhole(saved.id, 1) || typeof saved.item !== 'string')
     return null;
   if (!isWhole(saved.count, 1) || !isPoint(saved.body)) return null;
   const body: DropBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
-  assignFields(body, saved.body);
+  if (!readBody(body, saved.body)) return null;
   const drop: ItemDropState = {
     kind: 'itemDrop',
     id: saved.id,
@@ -267,9 +299,6 @@ export function creatureRecord(c: Readonly<CreatureState>): CreatureRecord {
 /** No timed mode lasts a minute (a walk, the longest, lasts 10 s): a saved timer is cut to it. */
 const MODE_TICKS_MAX = ticksOf(60);
 
-/** A saved speed, never faster than a fall. */
-const speed = (v: number) => Math.max(-PHYSICS.terminal, Math.min(PHYSICS.terminal, v));
-
 /**
  * The creature of a (migrated) record, or null when it is malformed, out of the world, of a
  * creature the pack lacks, or hostile (hostiles are never saved). `tick` is the world's.
@@ -285,11 +314,7 @@ export function readCreature(
   const def = registry.creature(saved.creature);
   if (!def || isHostile(def) || !isPoint(saved.body)) return null;
   const body: CreatureBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
-  assignFields(body, saved.body);
-  if (!insideBorder(body.x, body.z) || body.y < 0 || body.y > WORLD_HEIGHT) return null;
-  body.vx = speed(body.vx);
-  body.vy = speed(body.vy);
-  body.vz = speed(body.vz);
+  if (!readBody(body, saved.body)) return null;
   const path = Array.isArray(saved.path) ? saved.path.slice(0, PATH_MAX * 3) : [];
   const cells = path.every((v) => isWhole(v, -Infinity)) ? Math.floor(path.length / 3) : 0;
   const c: CreatureState = {

@@ -3,9 +3,9 @@
  * field is used only once it has the shape the game expects.
  */
 
-/** An integer of at least `min`. */
+/** An integer of at least `min`, small enough to count on (a safe integer: `n + 1 !== n`). */
 export function isWhole(value: unknown, min: number): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= min;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= min;
 }
 
 export function isFiniteNumber(value: unknown): value is number {

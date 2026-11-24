@@ -7,6 +7,7 @@ import { countItem, INVENTORY_SLOTS } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
+import { PHYSICS } from '../../../src/sim/physics.ts';
 import type { PlayerState } from '../../../src/sim/player.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
 import { dropRecord, playerRecord, readDrop, readPlayer } from '../../../src/sim/saveRecords.ts';
@@ -141,6 +142,31 @@ describe('save records', () => {
       thrower: -1,
       body: { ...spawn, vx: 0, onGround: false },
     });
+  });
+
+  it('keep crafted speeds, positions, cells and ids within the world', () => {
+    const spawn = { x: 1, y: 70, z: 3 };
+    const fast = { x: 5, y: 70, z: 5, vx: 1e13, vy: -1e13, vz: 1e13 };
+    const cells = { respawn: { x: 2e15, y: 10, z: 0 }, graves: [{ x: 0, y: 1, z: -2e15 }, spawn] };
+    const player = readPlayer({ playerId: 1, id: 2, body: fast, ...cells }, registry, spawn)!;
+    const terminal = PHYSICS.terminal;
+    expect(player.body).toMatchObject({ x: 5, vx: terminal, vy: -terminal, vz: terminal });
+    expect(player.respawn).toBeNull();
+    expect(player.graves).toEqual([spawn]);
+    for (const body of [
+      { x: 1e15, y: 70, z: 0 },
+      { x: 0, y: -3, z: 0 },
+      { x: 0, y: 1e9, z: 0 },
+    ]) {
+      const far = readPlayer({ playerId: 1, id: 2, body }, registry, spawn)!;
+      expect(far.body).toMatchObject(spawn);
+      expect(far.prevX).toBe(spawn.x);
+    }
+    expect(readPlayer({ playerId: 1, id: 2 ** 60 }, registry, spawn)).toBeNull();
+    const drop = (body: object) =>
+      readDrop({ kind: 'itemDrop', id: 2, item: 'item:dirt', count: 1, body }, registry);
+    expect(drop(fast)!.body).toMatchObject({ vx: terminal, vy: -terminal, vz: terminal });
+    expect(drop({ x: 1e15, y: 70, z: 0 })).toBeNull();
   });
 });
 
@@ -403,5 +429,20 @@ describe('restoring a world', () => {
     const damaged = new MemoryStorage();
     await damaged.write({ ...batch, world: { ...batch.world, saveVersion: undefined as never } });
     await expect(restoreFrom(damaged)).rejects.toThrow(CorruptRecordError);
+  });
+
+  it('calls a world record with a spawn out of the world or an endless counter damaged', async () => {
+    const batch = snapshotSim(flatSim('crafted').sim, TEST_WORLD, new Map());
+    const crafted = [
+      { spawn: { x: 1e15, y: 70, z: 0 } },
+      { spawn: { x: 0, y: -1, z: 0 } },
+      { tick: 1e300 },
+      { nextEntityId: 2 ** 60 },
+    ];
+    for (const fields of crafted) {
+      const storage = new MemoryStorage();
+      await storage.write({ ...batch, world: { ...batch.world, ...fields } });
+      await expect(restoreFrom(storage)).rejects.toThrow('Corrupt world record');
+    }
   });
 });

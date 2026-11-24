@@ -20,7 +20,8 @@ interface Pending {
 
 /**
  * The saves in IndexedDB: main-thread proxy of io.worker, which owns the database and deflate-raw
- * (docs « Workers »). Requests carry an id and their answers come back in order. Written column
+ * (docs « Workers »). Requests carry an id; database answers come back in order, codec answers
+ * (deflate, inflate) in order among themselves, never holding a write back. Written column
  * payloads are transferred to the worker: a batch is not read again once written.
  */
 export class IdbStorage implements Storage, Deflater {

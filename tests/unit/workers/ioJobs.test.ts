@@ -97,7 +97,8 @@ describe('io jobs', () => {
       { id: 2, op: 'open' },
       { id: 3, op: 'inflate', bytes: new Uint8Array([0xff, 0xff]) },
     );
-    const replies = await io.settled(3);
+    // By id: the inflate runs on the codec queue, beside the database requests.
+    const replies = (await io.settled(3)).sort((a, b) => a.id - b.id);
     expect(replies[0]).toEqual({
       id: 1,
       ok: false,
@@ -107,5 +108,29 @@ describe('io jobs', () => {
     expect(replies[1]).toEqual({ id: 2, ok: true, value: true });
     expect(replies[2]).toMatchObject({ id: 3, ok: false, name: 'Error' });
     expect(opens).toBe(2);
+  });
+
+  it('runs a write without waiting behind the deflate jobs sent before it', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const slow = {
+      ...zlibDeflater,
+      deflate: async (raw: Uint8Array) => {
+        await held;
+        return raw;
+      },
+    };
+    const io = ioWorker({ deflater: slow });
+    io.send(
+      { id: 1, op: 'deflate', bytes: new Uint8Array([1]) },
+      { id: 2, op: 'deflate', bytes: new Uint8Array([2]) },
+      { id: 3, op: 'write', batch: BATCH },
+    );
+    // The page-hide flush lands while the autosave's deflates still run.
+    expect((await io.settled(1))[0]).toMatchObject({ id: 3, ok: true });
+    release();
+    expect((await io.settled(3)).map((r) => r.id)).toEqual([3, 1, 2]);
   });
 });

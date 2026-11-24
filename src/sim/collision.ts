@@ -16,6 +16,12 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 /** Slack so that touching faces neither block a move nor count as an overlap. */
 const EPSILON = 1e-4;
 
+/**
+ * Longest move of one sweep (blocks): far above any speed of the game (terminal speed covers under
+ * two blocks a tick), it bounds the cells a crafted speed could make the sweep read.
+ */
+const MAX_MOVE = 16;
+
 /** The box being moved and tested. */
 export const aabb = new Float64Array(6);
 const boxes = new Float64Array(6 * 8);
@@ -73,16 +79,18 @@ function overlapsAabb(o: number, skip: number): boolean {
 }
 
 /**
- * Moves the AABB along one axis by `delta`, stopping at the first collision. Sweeps every cell the
- * move covers, so nothing is tunnelled through. Returns the distance actually moved.
+ * Moves the AABB along one axis by `delta` (at most MAX_MOVE), stopping at the first collision.
+ * Sweeps every cell the move covers, so nothing is tunnelled through. Returns the distance actually
+ * moved.
  */
 export function moveAxis(
   world: VoxelWorld,
   tables: RawTables,
   axis: number,
-  delta: number,
+  wanted: number,
 ): number {
-  if (delta === 0) return 0;
+  if (wanted === 0) return 0;
+  const delta = Math.max(-MAX_MOVE, Math.min(MAX_MOVE, wanted));
   for (let a = 0; a < 3; a++) {
     lo[a] = aabb[a]!;
     hi[a] = aabb[a + 3]!;

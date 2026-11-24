@@ -92,6 +92,11 @@ export class PauseScreen {
     for (const button of this.buttons) button.disabled = busy;
   }
 
+  /** Whether the failure of Save & quit shows. */
+  failedShown(): boolean {
+    return !this.failed.hidden;
+  }
+
   /** Shows (or hides) that Save & quit failed, with Retry and Quit without saving. */
   setFailed(failed: boolean): void {
     this.failed.hidden = !failed;

@@ -153,6 +153,15 @@ describe('save & quit', () => {
     expect(s.game.state).toBe('paused');
   });
 
+  it('leaves the pause menu and its focus alone on a save while no Save & quit failed', async () => {
+    const s = setup();
+    const { open } = await pausedWorld(s);
+    // render() focuses the first control of the screen: a keyboard user's place would be lost.
+    const render = vi.spyOn(s.game.menus as unknown as { render(): void }, 'render');
+    expect(await open.saves.save()).toBe(true);
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it('quits without saving once the last save failed, and saves no more', async () => {
     const s = setup();
     const { id } = await pausedWorld(s);

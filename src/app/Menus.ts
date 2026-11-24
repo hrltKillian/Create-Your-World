@@ -176,8 +176,12 @@ export class Menus {
     if (quitting) this.pause.setStatus('save.status.saving');
   }
 
-  /** A later save went through: the failure box of a failed Save & quit goes away. */
+  /**
+   * A later save went through: the failure box of a failed Save & quit goes away. Without one,
+   * nothing changes (a render would move the focus of a keyboard user).
+   */
   clearQuitFailed(): void {
+    if (!this.pause.failedShown()) return;
     this.pause.setFailed(false);
     this.render();
   }

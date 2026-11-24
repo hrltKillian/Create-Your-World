@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { aabb, moveAxis } from '../../../src/sim/collision.ts';
 import {
   createBody,
   type MoveInput,
@@ -349,5 +350,20 @@ describe('raycast', () => {
     expect(wet.z).toBe(-2);
     const inside = raycast(world, registry.tables, 0.5, 63.5, 0.5, 0, -1, 0, 4, createRayHit());
     expect([inside.nx, inside.ny, inside.nz]).toEqual([0, 0, 0]);
+  });
+});
+
+describe('collision sweep', () => {
+  it('reads a bounded number of cells for a crafted speed', () => {
+    const world = flatWorld();
+    let reads = 0;
+    const getBlock = world.getBlock.bind(world);
+    world.getBlock = (x, y, z) => {
+      reads++;
+      return getBlock(x, y, z);
+    };
+    aabb.set([0.2, 64, 0.2, 0.8, 65.8, 0.8]);
+    expect(moveAxis(world, registry.tables, 0, 1e5)).toBeLessThanOrEqual(16);
+    expect(reads).toBeLessThan(200);
   });
 });

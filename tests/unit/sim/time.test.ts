@@ -103,6 +103,7 @@ describe('time of day', () => {
     expect(deserializeTime(undefined)).toEqual(createTime());
     expect(deserializeTime({ ticks: -5, frozen: 'yes' })).toEqual(createTime());
     expect(deserializeTime({ ticks: 1.5 })).toEqual(createTime());
+    expect(deserializeTime({ ticks: 1e300 })).toEqual(createTime());
   });
 
   it('runs at tick step 3 of the simulation and obeys debug.setTime and debug.freezeTime', () => {
