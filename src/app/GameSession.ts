@@ -73,6 +73,8 @@ export class GameSession {
   private paused = false;
   /** Client systems that react to the simulation's events besides rendering (UI, audio). */
   readonly listeners: ((event: SimEvent) => void)[] = [];
+  /** Sends each tick's commands instead of the keyboard and mouse (the bot driver), or null. */
+  pilot: ((host: SimHost) => void) | null = null;
 
   constructor(
     options: SessionOptions,
@@ -243,7 +245,8 @@ export class GameSession {
 
   private tick(): void {
     this.sendView();
-    if (!this.freecam) {
+    if (this.pilot) this.pilot(this.host);
+    else if (!this.freecam) {
       // The view may have turned since the last frame (automation steps several ticks at once).
       this.updateAim();
       this.host.send(this.input.sample(this.rig, this.aim.target()));
