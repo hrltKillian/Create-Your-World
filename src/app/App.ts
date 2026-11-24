@@ -5,7 +5,6 @@ import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/reg
 import type { ContentPack } from '../content/schema.ts';
 import { setLogSink } from '../core/log.ts';
 import { addStrings } from '../i18n/i18n.ts';
-import { DEFAULT_BINDINGS } from '../input/bindings.ts';
 import { InputManager } from '../input/InputManager.ts';
 import { type CapabilityReport, detectCapabilities } from '../platform/capabilities.ts';
 import { openSaveBackend } from '../platform/IdbStorage.ts';
@@ -38,7 +37,6 @@ export const MILESTONE = 11;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
-const DEBUG_KEYS: ReadonlySet<string> = new Set(DEFAULT_BINDINGS.debug);
 /** Seconds between two refreshes of the debug overlay. */
 const OVERLAY_REFRESH = 0.25;
 /** Drawing buffer used by benchmarks (a 13-inch laptop at DPR 1.5), independent of the pane. */
@@ -139,6 +137,7 @@ export class App {
       this.workers = new WorkerPool(workerCount(navigator.hardwareConcurrency));
       this.workers.onFatal = (reason) => this.fail(new Error(reason));
       this.renderer = new Renderer(this.root, {
+        // The game then caps it at the Resolution setting (`setPixelRatio`), or `?quality=`'s.
         maxPixelRatio: QUALITY_PRESETS[this.params.quality ?? DEFAULT_QUALITY].pixelRatio,
         // The bench build always renders at a fixed size so fill cost does not depend on the pane.
         fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
@@ -215,6 +214,7 @@ export class App {
         frames: this.frames,
         touchOnly: report.touchOnly,
         xray: () => this.debugView === 'xray',
+        setPixelRatio: (cap) => this.renderer!.setMaxPixelRatio(cap),
         runLoop: (frame) => this.runSceneLoop(frame),
         stopLoop: () => this.stopLoop(),
         shown: () => this.resolveReady(),
@@ -293,14 +293,16 @@ export class App {
   }
 
   /**
-   * The debug overlay (the caller places its element), toggled with the debug keys (not while
-   * typing in a menu field: IntlBackslash is @ on a Mac AZERTY), and the `?view=` debug view.
+   * The debug overlay (the caller places its element), toggled with the debug keys as bound now
+   * (not while typing in a menu field: IntlBackslash is @ on a Mac AZERTY), and the `?view=`
+   * debug view.
    */
   private mountDebug(): DebugOverlay {
     const overlay = new DebugOverlay(this.params.debug);
     this.overlay = overlay;
     window.addEventListener('keydown', (event) => {
-      if (DEBUG_KEYS.has(event.code) && !(event.target instanceof HTMLInputElement)) {
+      const keys = this.input?.bindings.debug;
+      if (keys?.includes(event.code) && !(event.target instanceof HTMLInputElement)) {
         event.preventDefault();
         overlay.toggle();
       }

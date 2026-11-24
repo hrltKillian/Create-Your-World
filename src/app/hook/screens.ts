@@ -1,5 +1,5 @@
 import { i18nMissing } from '../../i18n/i18n.ts';
-import type { Settings } from '../../platform/settings.ts';
+import { patchSettings, type SettingsPatch } from '../../platform/settings.ts';
 import type { App } from '../App.ts';
 import { click, dragSlot, hotbarView, openBlock, reloadWorld, saveNow } from '../automation.ts';
 import { onboardingState, restartOnboarding } from '../onboardingAutomation.ts';
@@ -65,11 +65,15 @@ export function settingsHook(app: App) {
   return {
     /** The settings in use (as stored under `cyw.settings.v1`); null in developer scenes. */
     get: () => app.game?.settings ?? null,
-    /** Changes settings like the Settings screen does (applied at once and stored). */
-    set: (patch: Partial<Settings>) => {
+    /**
+     * Changes settings like the Settings screen does (applied at once and stored); `volumes` and
+     * `bindings` change one entry at a time, and every field is checked as when it is read back
+     * (a bad value gets its default). Returns the settings in use.
+     */
+    set: (patch: SettingsPatch) => {
       const game = app.game;
       if (!game) return null;
-      game.changeSettings({ ...game.settings, ...patch });
+      game.changeSettings(patchSettings(game.settings, patch));
       return game.settings;
     },
   };

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_BINDINGS } from '../../../src/input/bindings.ts';
 import { InputManager } from '../../../src/input/InputManager.ts';
 import { FakeTarget, installFakeWindow, removeFakeWindow } from '../../helpers/fakeTarget.ts';
 
@@ -76,5 +77,63 @@ describe('InputManager', () => {
     expect(input.sample(look).forward).toBe(1);
     input.tickForced();
     expect(input.sample(look).forward).toBe(0);
+  });
+
+  it('follows the bindings set at any time, with labels for the new keys', () => {
+    input.bindings = { ...DEFAULT_BINDINGS, jump: ['KeyJ'], forward: ['ArrowUp'] };
+    key('keydown', 'Space', ' ');
+    key('keyup', 'Space', ' ');
+    expect(input.sample(look).jump).toBe(false);
+    key('keydown', 'KeyJ', 'j');
+    key('keydown', 'ArrowUp', 'ArrowUp');
+    const command = input.sample(look);
+    expect(command.jump).toBe(true);
+    expect(command.forward).toBe(1);
+    expect(input.keyLabel('jump')).toBe('J');
+  });
+
+  it('crouches while held, or on and off with each press in toggle mode', () => {
+    key('keydown', 'KeyC', 'c');
+    expect(input.sample(look).crouch).toBe(true);
+    key('keyup', 'KeyC', 'c');
+    expect(input.sample(look).crouch).toBe(false);
+
+    input.crouchToggle = true;
+    key('keydown', 'KeyC', 'c');
+    key('keyup', 'KeyC', 'c');
+    expect(input.sample(look).crouch).toBe(true);
+    expect(input.sample(look).crouch).toBe(true);
+    key('keydown', 'KeyC', 'c');
+    expect(input.sample(look).crouch).toBe(false);
+    key('keyup', 'KeyC', 'c');
+    // Automation still holds it for some ticks; a release of every key stands up.
+    input.force('crouch', 1);
+    expect(input.sample(look).crouch).toBe(true);
+    input.tickForced();
+    key('keydown', 'KeyC', 'c');
+    input.releaseAll();
+    expect(input.sample(look).crouch).toBe(false);
+  });
+
+  it("cancels a bound key's browser action, but not the pause key's or a shortcut's", () => {
+    const prevented: string[] = [];
+    const press = (code: string, extra: Record<string, unknown> = {}) =>
+      win.dispatch('keydown', {
+        code,
+        key: code,
+        repeat: false,
+        ...extra,
+        preventDefault: () => prevented.push(code),
+      });
+    press('Space');
+    press('Tab');
+    press('Escape');
+    press('KeyQ');
+    press('KeyW', { ctrlKey: true });
+    press('KeyE', { metaKey: true });
+    expect(prevented).toEqual(['Space', 'Tab']);
+    input.bindings = { ...DEFAULT_BINDINGS, drop: ['Slash'] };
+    press('Slash');
+    expect(prevented).toEqual(['Space', 'Tab', 'Slash']);
   });
 });

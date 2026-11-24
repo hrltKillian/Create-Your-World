@@ -20,7 +20,28 @@ export type Action =
   | 'debug'
   | 'pause';
 
-export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
+/** Every action, in the order the Key bindings screen lists them. */
+export const ACTIONS: readonly Action[] = [
+  'forward',
+  'back',
+  'left',
+  'right',
+  'jump',
+  'sprint',
+  'crouch',
+  'primary',
+  'secondary',
+  'inventory',
+  'drop',
+  'camera',
+  'debug',
+  'pause',
+];
+
+/** The codes bound to each action. An action keeps as many key slots as its default has. */
+export type KeyBindings = Readonly<Record<Action, readonly string[]>>;
+
+export const DEFAULT_BINDINGS: KeyBindings = {
   forward: ['KeyW'],
   back: ['KeyS'],
   left: ['KeyA'],
@@ -56,12 +77,68 @@ export const RESERVED_CODES: ReadonlySet<string> = new Set([
   'F12',
 ]);
 
-export function actionForCode(
-  bindings: Readonly<Record<Action, readonly string[]>>,
-  code: string,
-): Action | null {
-  for (const [action, codes] of Object.entries(bindings) as [Action, readonly string[]][]) {
-    if (codes.includes(code)) return action;
-  }
+/** Mouse buttons an action can take: left, middle and right (the side buttons navigate back). */
+export const MOUSE_CODES: readonly string[] = ['Mouse0', 'Mouse1', 'Mouse2'];
+
+/** A code an action may take: a key or a MOUSE_CODES button, never a reserved or a hotbar key. */
+export function bindable(code: string): boolean {
+  if (code.startsWith('Mouse')) return MOUSE_CODES.includes(code);
+  return (
+    /^[A-Z][A-Za-z0-9]{0,31}$/.test(code) &&
+    !RESERVED_CODES.has(code) &&
+    !HOTBAR_CODES.includes(code)
+  );
+}
+
+export function actionForCode(bindings: KeyBindings, code: string): Action | null {
+  for (const action of ACTIONS) if (bindings[action].includes(code)) return action;
   return null;
+}
+
+/** What a rebinding did: the new bindings, or why it was refused. */
+export type Rebinding =
+  | { readonly ok: true; readonly bindings: KeyBindings }
+  | { readonly ok: false; readonly reason: 'reserved' }
+  | { readonly ok: false; readonly reason: 'taken'; readonly by: Action };
+
+/**
+ * Binds `code` to key slot `slot` of `action`. A conflict is refused, never swapped: a code that
+ * another slot (of any action) holds stays there, so no key moves unless the player moves it, and
+ * Esc never lands on another action by a swap.
+ */
+export function rebind(
+  bindings: KeyBindings,
+  action: Action,
+  slot: number,
+  code: string,
+): Rebinding {
+  const codes = bindings[action];
+  if (slot < 0 || slot >= codes.length || !bindable(code)) return { ok: false, reason: 'reserved' };
+  if (codes[slot] === code) return { ok: true, bindings };
+  const by = actionForCode(bindings, code);
+  if (by) return { ok: false, reason: 'taken', by };
+  return { ok: true, bindings: { ...bindings, [action]: codes.with(slot, code) } };
+}
+
+/**
+ * Bindings from stored data: an action keeps its stored codes when they are bindable and as many
+ * as its default's, else it gets its default. A code bound twice gives the defaults.
+ */
+export function readBindings(data: unknown): KeyBindings {
+  const stored = (data ?? {}) as Partial<Record<Action, unknown>>;
+  const out = {} as Record<Action, readonly string[]>;
+  const seen = new Set<string>();
+  for (const action of ACTIONS) {
+    const value = stored[action];
+    const valid =
+      Array.isArray(value) &&
+      value.length === DEFAULT_BINDINGS[action].length &&
+      value.every((code) => typeof code === 'string' && bindable(code));
+    out[action] = valid ? [...(value as string[])] : DEFAULT_BINDINGS[action];
+    for (const code of out[action]) {
+      if (seen.has(code)) return DEFAULT_BINDINGS;
+      seen.add(code);
+    }
+  }
+  return out;
 }

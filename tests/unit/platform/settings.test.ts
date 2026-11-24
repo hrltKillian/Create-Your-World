@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_BINDINGS } from '../../../src/input/bindings.ts';
 import {
   DEFAULT_SETTINGS,
   loadSettings,
+  PIXEL_RATIOS,
+  patchSettings,
+  QUALITIES,
+  qualityOf,
+  RENDER_DISTANCES,
   readSettings,
   SETTINGS_KEY,
   type Settings,
   type SettingsStore,
   saveSettings,
+  withQuality,
   writeSettings,
 } from '../../../src/platform/settings.ts';
+import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../../../src/render/quality.ts';
 
 /** An in-memory `localStorage`. */
 function memoryStore(): SettingsStore & { readonly data: Map<string, string> } {
@@ -33,9 +41,25 @@ const blocked: SettingsStore = {
 const CUSTOM: Settings = {
   renderDistance: 10,
   fov: 92,
+  pixelRatio: 0.75,
+  particles: false,
+  viewBob: false,
   sensitivity: 1.35,
   invertY: true,
+  crouch: 'toggle',
+  bindings: { ...DEFAULT_BINDINGS, jump: ['KeyJ'], inventory: ['KeyI', 'Tab'], pause: ['KeyP'] },
   volumes: { master: 0.5, effects: 0.25, ambience: 0, ui: 0.75 },
+  uiScale: 1.25,
+};
+
+/** What M7 to M10 stored: the fields before M11 only. */
+const OLDER = {
+  version: 1,
+  renderDistance: 8,
+  fov: 90,
+  sensitivity: 2,
+  invertY: true,
+  volumes: { master: 0.4, effects: 0.5, ambience: 0.6, ui: 0.7 },
 };
 
 describe('settings', () => {
@@ -45,6 +69,13 @@ describe('settings', () => {
     expect(JSON.parse(store.data.get(SETTINGS_KEY)!)).toMatchObject({ version: 1, fov: 92 });
     expect(loadSettings(store)).toEqual(CUSTOM);
     expect(readSettings(JSON.parse(writeSettings(DEFAULT_SETTINGS)))).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('loads settings stored before the M11 fields, with their defaults', () => {
+    const store = memoryStore();
+    store.setItem(SETTINGS_KEY, JSON.stringify(OLDER));
+    const { version: _, ...older } = OLDER;
+    expect(loadSettings(store)).toEqual({ ...DEFAULT_SETTINGS, ...older });
   });
 
   it('gives the defaults without saved settings, for bad JSON and for another version', () => {
@@ -68,17 +99,58 @@ describe('settings', () => {
       version: 1,
       renderDistance: 7,
       fov: 140.4,
+      pixelRatio: 3,
+      particles: 'off',
+      viewBob: 0,
       sensitivity: 0.01,
       invertY: 'yes',
+      crouch: 'sticky',
+      bindings: { ...DEFAULT_BINDINGS, jump: ['AltLeft'], drop: ['KeyQ'] },
       volumes: { master: 2, effects: -1, ambience: 'loud' },
+      uiScale: 9,
     });
     expect(settings).toEqual({
-      renderDistance: DEFAULT_SETTINGS.renderDistance,
+      ...DEFAULT_SETTINGS,
       fov: 100,
       sensitivity: 0.25,
-      invertY: false,
+      bindings: { ...DEFAULT_BINDINGS, drop: ['KeyQ'] },
       volumes: { master: 1, effects: 0, ambience: 1, ui: 1 },
+      uiScale: 1.5,
     });
     expect(readSettings({ version: 1, fov: 61.6 }).fov).toBe(62);
+    expect(readSettings({ version: 1, uiScale: 0.1 }).uiScale).toBe(0.75);
+  });
+
+  it('starts on the Medium preset; each preset is a choice of the screen and found again', () => {
+    expect(qualityOf(DEFAULT_SETTINGS)).toBe(DEFAULT_QUALITY);
+    for (const quality of QUALITIES) {
+      const preset = QUALITY_PRESETS[quality];
+      expect(RENDER_DISTANCES).toContain(preset.renderDistance);
+      expect(PIXEL_RATIOS).toContain(preset.pixelRatio);
+      const settings = withQuality(CUSTOM, quality);
+      expect(settings).toEqual({ ...CUSTOM, ...preset });
+      expect(qualityOf(settings)).toBe(quality);
+    }
+    // A render distance no preset has: none.
+    expect(qualityOf({ ...withQuality(CUSTOM, 'high'), renderDistance: 10 })).toBeNull();
+  });
+
+  it('patches settings like the debug hook: volumes and bindings by entry, each field checked', () => {
+    const patched = patchSettings(CUSTOM, {
+      fov: 70,
+      volumes: { ui: 0.1 },
+      bindings: { drop: ['KeyQ'] },
+    });
+    expect(patched).toEqual({
+      ...CUSTOM,
+      fov: 70,
+      volumes: { ...CUSTOM.volumes, ui: 0.1 },
+      bindings: { ...CUSTOM.bindings, drop: ['KeyQ'] },
+    });
+    expect(patchSettings(CUSTOM, { renderDistance: 5 }).renderDistance).toBe(
+      DEFAULT_SETTINGS.renderDistance,
+    );
+    // A key another action holds: the bindings go back to the defaults.
+    expect(patchSettings(CUSTOM, { bindings: { drop: ['KeyJ'] } }).bindings).toBe(DEFAULT_BINDINGS);
   });
 });

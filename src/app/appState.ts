@@ -52,7 +52,7 @@ export function nextState(state: AppState, event: AppEvent): AppState | null {
 }
 
 /** Menu screens: 'main' and 'pause' are roots (main menu, pause menu), the others open on top. */
-export type MenuScreen = 'main' | 'worlds' | 'newWorld' | 'settings' | 'pause';
+export type MenuScreen = 'main' | 'worlds' | 'newWorld' | 'settings' | 'controls' | 'pause';
 
 /** The stack of open menu screens (Esc and Back go down one). */
 export class MenuNav {

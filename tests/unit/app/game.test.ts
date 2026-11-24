@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
+import { type BootParams, DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
 import { Game, type GameHost } from '../../../src/app/Game.ts';
 import type { FrameStats } from '../../../src/app/perf.ts';
 import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
+import { DEFAULT_BINDINGS, type KeyBindings } from '../../../src/input/bindings.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
+import { KeyLabels } from '../../../src/input/keyLabels.ts';
+import { DEFAULT_SETTINGS, SETTINGS_KEY, writeSettings } from '../../../src/platform/settings.ts';
 import type { WorkerPool } from '../../../src/platform/WorkerPool.ts';
 import { lockWorld } from '../../../src/platform/worldLock.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
@@ -12,10 +15,13 @@ import { registry } from '../../helpers/registry.ts';
 import { RecordingStorage, zlibDeflater } from '../../helpers/save.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
 
-/** The input, as far as the menus, the pause and the free camera touch it. */
+/** The input, as far as the menus, the pause, the settings and the free camera touch it. */
 const input = {
   sensitivity: 1,
   invertY: false,
+  crouchToggle: false,
+  bindings: DEFAULT_BINDINGS as KeyBindings,
+  labels: new KeyLabels(),
   enabled: false,
   pointer: false,
   slot: 0,
@@ -27,16 +33,17 @@ const pool = { size: 1, run: () => new Promise(() => {}) };
 const audio = new AudioEngine([], { muted: true });
 
 /** A Game over stand-ins (no WebGL, workers or sound) in a fake page, saving into `storage`. */
-function setup() {
+function setup(params: Partial<BootParams> = {}) {
   const win = installFakeWindow();
   const storage = new RecordingStorage();
   const failures: unknown[] = [];
+  const pixelRatios: number[] = [];
   let loop: ((dt: number) => void) | null = null;
   const root = document.createElement('div');
   const host: GameHost = {
     root,
     // The free camera plays without click-to-play or the bag (no Pointer Lock under Node).
-    params: { ...DEFAULT_BOOT_PARAMS, freecam: true, worldType: 'flat', rd: 2 },
+    params: { ...DEFAULT_BOOT_PARAMS, freecam: true, worldType: 'flat', rd: 2, ...params },
     registry,
     workers: pool as unknown as WorkerPool,
     view: createTestWorldView().view,
@@ -47,6 +54,7 @@ function setup() {
     frames: { span: () => {} } as unknown as FrameStats,
     touchOnly: false,
     xray: () => false,
+    setPixelRatio: (cap) => pixelRatios.push(cap),
     runLoop: (frame) => {
       loop = frame;
     },
@@ -64,6 +72,7 @@ function setup() {
     storage,
     failures,
     win,
+    pixelRatios,
     root: root as unknown as FakeElement,
     running: () => loop !== null,
     failedShown: () => !pauseMenu.querySelector('.pause-failed')!.hidden,
@@ -164,5 +173,114 @@ describe('save & quit', () => {
     expect(s.failedShown()).toBe(false);
     s.storage.failure = null;
     expect(await s.game.saveAndQuit()).toBe(true);
+  });
+});
+
+/** A key pressed while playing or in the menus (the game listens on the window). */
+function press(s: ReturnType<typeof setup>, code: string) {
+  const event = { code, key: code, repeat: false, defaultPrevented: false, stopPropagation() {} };
+  s.win.dispatch('keydown', event);
+}
+
+describe('settings', () => {
+  beforeEach(() => installFakeDom());
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    removeFakeWindow();
+    removeFakeDom();
+  });
+
+  it('applies the settings at once and again to each world it opens', async () => {
+    const s = setup();
+    expect(s.pixelRatios).toEqual([DEFAULT_SETTINGS.pixelRatio]);
+    const bindings = { ...DEFAULT_BINDINGS, jump: ['KeyJ'] };
+    s.game.changeSettings({
+      ...DEFAULT_SETTINGS,
+      pixelRatio: 0.75,
+      particles: false,
+      viewBob: false,
+      crouch: 'toggle',
+      bindings,
+      uiScale: 1.25,
+    });
+    expect(s.pixelRatios.at(-1)).toBe(0.75);
+    expect(input.bindings).toBe(bindings);
+    expect(input.crouchToggle).toBe(true);
+    expect(s.root.style.getPropertyValue('--ui-scale')).toBe('1.25');
+    expect(s.root.style.getPropertyValue('--ui-unscale')).toBe('0.8');
+
+    await s.game.createWorld({ name: 'Feel', seed: 'feel', hostiles: true });
+    const session = s.game.open!.session;
+    expect(session.play.particles.enabled).toBe(false);
+    expect(session.rig.viewBob).toBe(false);
+    s.game.changeSettings({ ...s.game.settings, particles: true, viewBob: true });
+    expect(session.play.particles.enabled).toBe(true);
+    expect(session.rig.viewBob).toBe(true);
+    s.game.changeSettings(DEFAULT_SETTINGS);
+    expect(input.crouchToggle).toBe(false);
+  });
+
+  it('takes the resolution and the particles of ?quality= over the settings', async () => {
+    const s = setup({ quality: 'low' });
+    s.game.changeSettings({ ...DEFAULT_SETTINGS, pixelRatio: 2, particles: true });
+    expect(s.pixelRatios.at(-1)).toBe(1);
+    await s.game.createWorld({ name: 'Low', seed: 'low', hostiles: true });
+    expect(s.game.open!.session.play.particles.enabled).toBe(false);
+  });
+
+  it('pauses on the pause key as rebound, and goes back a menu with it', async () => {
+    const s = setup();
+    s.game.changeSettings({
+      ...DEFAULT_SETTINGS,
+      bindings: { ...DEFAULT_BINDINGS, pause: ['KeyP'] },
+    });
+    await s.game.createWorld({ name: 'Pause', seed: 'pause', hostiles: true });
+    press(s, 'Escape');
+    expect(s.game.state).not.toBe('paused');
+    press(s, 'KeyP');
+    expect(s.game.state).toBe('paused');
+    s.button('settings').dispatch('click');
+    expect(s.game.menus.screen()).toBe('settings');
+    s.button('controls').dispatch('click');
+    expect(s.game.menus.screen()).toBe('controls');
+    press(s, 'KeyP');
+    expect(s.game.menus.screen()).toBe('settings');
+    s.game.changeSettings(DEFAULT_SETTINGS);
+  });
+
+  it('keeps a key rebound on Key bindings through the next change on Settings', () => {
+    const s = setup();
+    const menus = s.game.menus.element as unknown as FakeElement;
+    s.button('settings').dispatch('click');
+    s.button('controls').dispatch('click');
+    const jump = menus.findAll((e) => e.getAttribute('data-bind') === 'jump:0')[0]!;
+    jump.dispatch('click');
+    press(s, 'KeyJ');
+    expect(input.bindings.jump).toEqual(['KeyJ']);
+    expect(s.game.settings.bindings.jump).toEqual(['KeyJ']);
+    s.button('back').dispatch('click');
+    expect(s.game.menus.screen()).toBe('settings');
+    const box = menus.findAll((e) => e.getAttribute('name') === 'viewBob')[0]!;
+    (box as FakeElement & { checked: boolean }).checked = false;
+    box.dispatch('change');
+    expect(s.game.settings).toMatchObject({ viewBob: false, bindings: { jump: ['KeyJ'] } });
+    s.game.changeSettings(DEFAULT_SETTINGS);
+  });
+
+  it('reads the stored settings, but plays selftests and benchmarks on the defaults', () => {
+    const stored = {
+      ...DEFAULT_SETTINGS,
+      fov: 95,
+      bindings: { ...DEFAULT_BINDINGS, drop: ['KeyQ'] },
+    };
+    const text = writeSettings(stored);
+    vi.stubGlobal('localStorage', { getItem: () => text, setItem: () => {} });
+    expect(setup().game.settings).toEqual(stored);
+    removeFakeWindow();
+    expect(setup({ selftest: 'm11' }).game.settings).toBe(DEFAULT_SETTINGS);
+    removeFakeWindow();
+    expect(setup({ bench: 'walk' }).game.settings).toBe(DEFAULT_SETTINGS);
+    expect(localStorage.getItem(SETTINGS_KEY)).toBe(text);
   });
 });
