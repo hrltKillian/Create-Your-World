@@ -80,13 +80,19 @@ export function entitiesHook(app: App) {
 export function craftHooks(app: App) {
   return {
     craft: {
-      /** Queues `count` crafts of a recipe (its key) like the Logbook's buttons; checked by the sim. */
+      /**
+       * Queues `count` crafts of a recipe (its key) like the Logbook's buttons; checked by the sim
+       * (a workbench recipe needs its workbench open: `ui.open(x, y, z)`).
+       */
       enqueue: (recipe: string, count = 1) => craft(app, recipe, count),
       /** The craft queue: { recipe, count, progress 0–1 } per entry, the craft under way first. */
       queue: () => craftQueue(app),
     },
     container: {
-      /** A cell's chest or station: { kind, slots } (a station adds station, flame, progress, process). */
+      /**
+       * A cell's chest, station or workbench: { kind, slots } (a station adds station, flame,
+       * progress, process; a workbench station and its queue).
+       */
       contents: (x: number, y: number, z: number) => blockEntityContents(app, x, y, z),
     },
   };

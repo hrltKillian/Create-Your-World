@@ -15,6 +15,7 @@ import type { BagScreen } from '../../../src/ui/screens/bag.ts';
 import type { ContainerScreen } from '../../../src/ui/screens/container.ts';
 import type { LogbookState } from '../../../src/ui/screens/logbook.ts';
 import type { StationScreen, StationStatus } from '../../../src/ui/screens/station.ts';
+import type { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import { registry } from '../../helpers/registry.ts';
 
 /** A screen stand-in that records its updates. */
@@ -53,6 +54,7 @@ function setup(entity?: BlockEntity) {
   const bag = screen<[Inventory, LogbookState, Gear]>();
   const container = screen<[Inventory]>();
   const station = screen<[Inventory, StationStatus]>();
+  const workbench = screen<[Inventory, LogbookState]>();
   const input = { slot: 0 };
   const player = {
     playerId: 1,
@@ -67,7 +69,6 @@ function setup(entity?: BlockEntity) {
     registry,
     player: () => player,
     blockEntity: () => entity,
-    stationNear: () => true,
   };
   const bridge = new UiBridge(view as unknown as SimView, input as unknown as InputManager, {
     hotbar: hotbar as unknown as Hotbar,
@@ -75,8 +76,9 @@ function setup(entity?: BlockEntity) {
     bag: bag as unknown as BagScreen,
     container: container as unknown as ContainerScreen,
     station: station as unknown as StationScreen,
+    workbench: workbench as unknown as WorkbenchScreen,
   });
-  return { bridge, hotbar, bag, container, station, hint, input, player };
+  return { bridge, hotbar, bag, container, station, workbench, hint, input, player };
 }
 
 const FRAME = 1 / 60;
@@ -138,7 +140,9 @@ describe('UiBridge', () => {
     expect(gear).toMatchObject({ armor: 2, warmth: 10, cooling: 0 });
     // The simulation's own count: a tag ingredient counts every item carrying it.
     expect(logbook.source.owned('tag:log')).toBe(4);
-    expect(logbook.source.stationNear('station:workbench')).toBe(true);
+    // The hand recipes, with the room the player's own queue has.
+    expect(logbook.source.station).toBeUndefined();
+    expect(logbook.source.room(registry.crafting.recipe('recipe:cord')!)).toBe(5 * 64);
     expect(logbook.queue).toEqual([]);
   });
 
@@ -160,6 +164,29 @@ describe('UiBridge', () => {
       process: 'process:copper_ingot',
       keepLit: false,
     });
+  });
+
+  it("shows an open workbench's outputs and its Logbook: the bench's recipes and queue", () => {
+    const entry = { recipe: 'recipe:chest', count: 2, progressTicks: 45, reserved: [] };
+    const bench: BlockEntity = {
+      kind: 'workbench',
+      x: 0,
+      y: 0,
+      z: 0,
+      station: 'station:workbench',
+      slots: [{ item: 'item:chest', count: 1 }, null, null, null],
+      craft: [entry],
+      tick: 0,
+    };
+    const s = setup(bench);
+    s.workbench.open = true;
+    s.bridge.frame(FRAME);
+    const [slots, logbook] = s.workbench.updates[0]!;
+    expect(slots[OPEN_SLOTS_BASE]).toEqual({ item: 'item:chest', count: 1 });
+    expect(logbook.source.station).toBe('station:workbench');
+    expect(logbook.queue).toEqual([queueView(registry, entry)]);
+    // The bench's queue: the chest's entry takes 62 more, then 4 free entries of 64.
+    expect(logbook.source.room(registry.crafting.recipe('recipe:chest')!)).toBe(62 + 4 * 64);
   });
 
   it("shows its player's hints, translated, and keeps the hint line's clock running", () => {

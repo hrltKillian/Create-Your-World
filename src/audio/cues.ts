@@ -81,6 +81,10 @@ export class AudioCues {
       case 'nightSurvived':
         this.player.playLocal(s.clock.dawn);
         return;
+      case 'workbenchCrafted':
+        // The bench's own chime, heard around it.
+        this.player.play(s.craft, event.x + 0.5, event.y + 0.5, event.z + 0.5);
+        return;
     }
     if (!('playerId' in event) || event.playerId !== this.playerId) return;
     switch (event.type) {

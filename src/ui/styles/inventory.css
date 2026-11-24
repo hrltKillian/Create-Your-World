@@ -236,11 +236,6 @@
   white-space: nowrap;
 }
 
-.badge.near {
-  box-shadow: inset 0 0 0 1px rgba(232, 176, 74, 0.45);
-  color: var(--c-accent);
-}
-
 .button[disabled] {
   opacity: 0.35;
   cursor: default;

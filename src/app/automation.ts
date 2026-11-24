@@ -250,7 +250,10 @@ export function openBlock(app: App, x: number, y: number, z: number): void {
   sendAndStep(app, { type: 'debug.open', x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
 }
 
-/** Queues `count` crafts of a recipe, as the Logbook's buttons do; fixed-step sessions apply it now. */
+/**
+ * Queues `count` crafts of a recipe, as the Logbook's buttons do (a workbench recipe in the open
+ * workbench's queue); fixed-step sessions apply it now.
+ */
 export function craft(app: App, recipe: string, count: number): void {
   sendAndStep(app, { type: 'craft.enqueue', recipe, count });
 }
@@ -264,8 +267,9 @@ export function craftQueue(app: App): QueueView[] | null {
 
 /**
  * What the block entity of a cell holds: a chest's slots, an Abandoned Pack's slots and worn items
- * (`worn`, head to feet), or a station's (inputs, fuel, outputs) with its flame, progress and
- * process. Null when the cell has none (a generated chest gets one when it is first opened).
+ * (`worn`, head to feet), a workbench's outputs and queue (`queue`, as the Logbook shows it), or a
+ * station's (inputs, fuel, outputs) with its flame, progress and process. Null when the cell has
+ * none (a generated chest gets one when it is first opened, an older save's workbench too).
  */
 export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const view = app.session?.host.view;
@@ -274,6 +278,10 @@ export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const slots = serializeInventory(entity.slots);
   if (entity.kind === 'grave')
     return { kind: entity.kind, slots, worn: serializeInventory(entity.worn) };
+  if (entity.kind === 'workbench') {
+    const queue = entity.craft.map((entry) => queueView(view.registry, entry));
+    return { kind: entity.kind, station: entity.station, slots, queue };
+  }
   if (entity.kind !== 'station') return { kind: entity.kind, slots };
   return {
     kind: entity.kind,

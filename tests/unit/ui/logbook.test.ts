@@ -6,34 +6,35 @@ import {
   logbookRows,
   pipFilled,
   type RecipeRow,
+  stationRecipes,
 } from '../../../src/ui/logbook.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const MAX = 100;
 const crafting = registry.crafting;
 
-/** A player holding `owned` (by item or tag) who has seen those keys and `seen`. */
+/**
+ * A player holding `owned` (by item or tag) who has seen those keys and `seen`, at the Logbook of
+ * `station` (the Bag's by default), whose queue takes `room` crafts of anything.
+ */
 function source(
   owned: Record<string, number>,
   seen: readonly string[] = [],
-  near = false,
+  station?: string,
   room = MAX,
-): LogbookSource & { stationCalls: number } {
+): LogbookSource {
   const seenSet: Record<string, boolean> = {};
   for (const key of [...Object.keys(owned), ...seen]) seenSet[key] = true;
   return {
     crafting,
+    ...(station === undefined ? {} : { station }),
     seen: seenSet,
-    stationCalls: 0,
     owned: (ingredient) => owned[ingredient] ?? 0,
-    stationNear(_station) {
-      this.stationCalls++;
-      return near;
-    },
     room: () => room,
   };
 }
 
+const BENCH = 'station:workbench';
 const row = (rows: readonly RecipeRow[], key: string) => rows.find((r) => r.recipe.key === key)!;
 const keys = (rows: readonly RecipeRow[]) => rows.map((r) => r.recipe.key);
 
@@ -44,15 +45,16 @@ describe('Logbook', () => {
     const start = crafting.recipes.filter((r) => r.known === 'start').map((r) => r.key);
     expect(keys(rows)).toEqual(start);
     expect(rows.every((r) => !r.craftable && r.max === 0)).toBe(true);
-    expect(hiddenRecipes(empty)).toBe(crafting.recipes.length - start.length);
+    const byHand = crafting.recipes.filter((r) => r.station === undefined);
+    expect(hiddenRecipes(empty)).toBe(byHand.length - start.length);
   });
 
   it('reveals a recipe as soon as one of its ingredients has been seen', () => {
     const before = keys(logbookRows(source({}), MAX));
-    expect(before).not.toContain('recipe:chest');
-    const after = logbookRows(source({}, ['item:planks']), MAX);
-    expect(keys(after)).toContain('recipe:chest');
-    expect(hiddenRecipes(source({}, ['item:planks']))).toBeLessThan(hiddenRecipes(source({})));
+    expect(before).not.toContain('recipe:stone_shard');
+    const after = logbookRows(source({}, ['item:stone']), MAX);
+    expect(keys(after)).toContain('recipe:stone_shard');
+    expect(hiddenRecipes(source({}, ['item:stone']))).toBeLessThan(hiddenRecipes(source({})));
   });
 
   it('lists craftable recipes first, keeping pack order inside each group', () => {
@@ -85,17 +87,25 @@ describe('Logbook', () => {
     expect(row(logbookRows(source({ 'tag:log': 500 }), MAX), 'recipe:planks').max).toBe(MAX);
   });
 
-  it('needs the station of a station recipe nearby, looking each station up once', () => {
+  it("lists the hand recipes in the Bag and a station's at its workbench, counting what is left", () => {
     const items = { 'item:planks': 40, 'item:cord': 5, 'item:stick': 9 };
-    const far = source(items);
-    const farRows = logbookRows(far, MAX);
-    const chest = row(farRows, 'recipe:chest');
-    expect(chest.max).toBe(5);
-    expect(chest.stationOk).toBe(false);
-    expect(chest.craftable).toBe(false);
-    expect(far.stationCalls).toBe(1);
-    const near = row(logbookRows(source(items, [], true), MAX), 'recipe:chest');
-    expect(near.craftable).toBe(true);
+    const bag = source(items);
+    const bagRows = logbookRows(bag, MAX);
+    expect(bagRows.every((r) => r.recipe.station === undefined)).toBe(true);
+    expect(keys(bagRows)).not.toContain('recipe:chest');
+    const atBench = crafting.recipes.filter(
+      (r) => r.station === BENCH && crafting.revealed(r, bag.seen),
+    );
+    expect(stationRecipes(bag)).toEqual([{ station: BENCH, count: atBench.length }]);
+    const bench = source(items, [], BENCH);
+    const benchRows = logbookRows(bench, MAX);
+    expect(keys(benchRows).sort()).toEqual(atBench.map((r) => r.key).sort());
+    const chest = row(benchRows, 'recipe:chest');
+    expect([chest.max, chest.craftable]).toEqual([5, true]);
+    expect(stationRecipes(bench)).toEqual([]);
+    expect(hiddenRecipes(bench)).toBe(
+      crafting.recipes.filter((r) => r.station === BENCH).length - atBench.length,
+    );
   });
 
   it('turns the ×1, ×5 and Max buttons on only for what can be queued', () => {
@@ -110,7 +120,7 @@ describe('Logbook', () => {
     // The queue's room for the recipe caps every button: Max queues what still fits.
     const plenty = { 'item:plant_fiber': 99 };
     const roomFor = (room: number) =>
-      row(logbookRows(source(plenty, [], false, room), MAX), 'recipe:cord');
+      row(logbookRows(source(plenty, [], undefined, room), MAX), 'recipe:cord');
     expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(2)))).toEqual([1, 0, 2]);
     expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(0)))).toEqual([0, 0, 0]);
   });

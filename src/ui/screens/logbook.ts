@@ -12,6 +12,7 @@ import {
   logbookRows,
   pipFilled,
   type RecipeRow,
+  stationRecipes,
 } from '../logbook.ts';
 import type { ScreenActions } from '../slotBoard.ts';
 import { menuButton } from './menuParts.ts';
@@ -33,15 +34,18 @@ export interface LogbookState {
 export interface LogbookLimits {
   /** Queue entries (5). */
   readonly queue: number;
-  /** Most crafts one entry holds (the Max button). */
+  /** Most crafts one command queues (the Max button). */
   readonly maxCount: number;
 }
 
 /**
- * The Logbook (right of the Bag): tabs, the revealed recipes with craftable ones first, each with
- * its owned/required pips and station badge; the selected recipe's ingredients (with where an
- * unseen one is found), « Requires: Workbench nearby », the ×1/×5/Max buttons (on for what the
- * inventory pays for and the queue takes); then the queue of 5, whose entries cancel on a click. Rebuilt only when what it shows changes.
+ * The Logbook (the Bag's: the hand recipes and the player's queue; a Workbench's: its station's
+ * recipes and the bench's queue): tabs, the revealed recipes with craftable ones first, each with
+ * its owned/required pips; the selected recipe's ingredients (with where an unseen one is found)
+ * and the ×1/×5/Max buttons (on for what the inventory pays for and the queue takes); then the
+ * queue of 5, whose entries cancel on a click, and what is left: the recipes still to discover,
+ * and in the Bag the ones made at a station (« 3 more at the Workbench »). Rebuilt only when what
+ * it shows changes.
  */
 export class LogbookPanel {
   readonly element: HTMLElement;
@@ -87,11 +91,11 @@ export class LogbookPanel {
   update(state: LogbookState): void {
     this.state = state;
     const rows = logbookRows(state.source, this.limits.maxCount);
-    const hidden = hiddenRecipes(state.source);
-    const signature = this.signatureOf(rows, state.queue, hidden);
+    const footer = this.footerText(state.source);
+    const signature = this.signatureOf(rows, state.queue, footer);
     if (signature !== this.signature) {
       this.signature = signature;
-      this.render(rows, state.queue, hidden);
+      this.render(rows, state.queue, footer);
     }
     this.progress?.style.setProperty('--progress', String(state.queue[0]?.progress ?? 0));
   }
@@ -103,17 +107,26 @@ export class LogbookPanel {
   }
 
   /** Everything the panel shows but the progress bar. */
-  private signatureOf(rows: readonly RecipeRow[], queue: readonly QueueView[], hidden: number) {
-    const parts = [this.tab, this.selected, this.art.icons.length, hidden];
+  private signatureOf(rows: readonly RecipeRow[], queue: readonly QueueView[], footer: string) {
+    const parts = [this.tab, this.selected, this.art.icons.length, footer];
     for (const entry of queue) parts.push(entry.recipe, entry.count);
     for (const row of rows) {
-      parts.push(row.recipe.key, row.max, row.room, Number(row.stationOk));
+      parts.push(row.recipe.key, row.max, row.room);
       for (const pip of row.pips) parts.push(pip.owned, Number(pip.seen));
     }
     return parts.join('|');
   }
 
-  private render(rows: readonly RecipeRow[], queue: readonly QueueView[], hidden: number): void {
+  /** The recipes still to discover, then (in the Bag) those made at a station, by station. */
+  private footerText(source: LogbookSource): string {
+    const hidden = hiddenRecipes(source);
+    const parts = hidden > 0 ? [t('logbook.hidden', { n: hidden })] : [];
+    for (const { station, count } of stationRecipes(source))
+      parts.push(t('logbook.atStation', { n: count, station: this.stationName(station) }));
+    return parts.join(' · ');
+  }
+
+  private render(rows: readonly RecipeRow[], queue: readonly QueueView[], footer: string): void {
     this.tabs.replaceChildren(
       ...RECIPE_CATEGORIES.map((category) => this.tabButton(category, rows)),
     );
@@ -134,7 +147,7 @@ export class LogbookPanel {
     const entries: HTMLElement[] = [];
     for (let i = 0; i < this.limits.queue; i++) entries.push(this.queueEntry(queue[i], i));
     this.queue.replaceChildren(...entries);
-    this.footer.textContent = hidden > 0 ? t('logbook.hidden', { n: hidden }) : '';
+    this.footer.textContent = footer;
   }
 
   private tabButton(category: RecipeCategory, rows: readonly RecipeRow[]): HTMLElement {
@@ -182,7 +195,6 @@ export class LogbookPanel {
         h('span', { class: 'logbook-name' }, this.outputName(row)),
         h('span', { class: 'logbook-pips' }, ...row.pips.map((pip) => this.pip(pip))),
       ),
-      this.badge(row),
     );
   }
 
@@ -202,13 +214,6 @@ export class LogbookPanel {
     );
   }
 
-  /** The station badge (lit when the station stands near), or nothing for a hand recipe. */
-  private badge(row: RecipeRow): HTMLElement | null {
-    const station = row.recipe.station;
-    if (station === undefined) return null;
-    return h('span', { class: row.stationOk ? 'badge near' : 'badge' }, this.stationName(station));
-  }
-
   private stationName(key: string): string {
     const station = this.art.registry.crafting.station(key);
     return station ? t(station.nameKey) : key;
@@ -223,21 +228,14 @@ export class LogbookPanel {
         itemIcon(this.art, recipe.output.item),
         h('strong', null, this.outputName(row)),
         h('span', { class: 'logbook-time' }, t('logbook.seconds', { n: recipe.seconds })),
-        this.badge(row) ?? h('span', { class: 'badge near' }, t('logbook.byHand')),
       ),
       h('ul', { class: 'logbook-ingredients' }, ...row.pips.map((pip) => this.ingredient(pip))),
-    ];
-    if (!row.stationOk && recipe.station !== undefined) {
-      const station = this.stationName(recipe.station);
-      out.push(h('p', { class: 'logbook-requires' }, t('logbook.requires', { station })));
-    }
-    out.push(
       h(
         'div',
         { class: 'logbook-batches' },
         ...CRAFT_BATCHES.map((batch) => this.batchButton(batch, row)),
       ),
-    );
+    ];
     return out;
   }
 
@@ -291,7 +289,9 @@ export class LogbookPanel {
         attrs: { type: 'button', 'data-queue': String(index), title: t('logbook.cancel') },
         on: {
           click: () => {
-            this.actions.send({ type: 'craft.cancel', index });
+            // A station's Logbook shows the open workbench's queue.
+            const workbench = this.state?.source.station !== undefined;
+            this.actions.send({ type: 'craft.cancel', index, ...(workbench ? { workbench } : {}) });
             this.actions.click();
           },
         },

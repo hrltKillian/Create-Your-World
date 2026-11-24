@@ -28,9 +28,9 @@ export function uiHook(app: App) {
       return inventory.bag.isOpen();
     },
     /**
-     * Opens a screen; returns `screen()` after. No cell: the bag, like its key. A cell: its chest
-     * or station, like secondary on it (`debug.open`: within 5 blocks, no aim needed; applied at
-     * once in fixed steps, else on the next tick).
+     * Opens a screen; returns `screen()` after. No cell: the bag, like its key. A cell: its chest,
+     * station or workbench, like secondary on it (`debug.open`: within 5 blocks, no aim needed;
+     * applied at once in fixed steps, else on the next tick).
      */
     open: (x?: number, y?: number, z?: number) => {
       const inventory = app.inventory;
@@ -51,8 +51,9 @@ export function uiHook(app: App) {
       return app.inventory?.screen() ?? null;
     },
     /**
-     * The open screen: 'death', 'bag' (with the Logbook), 'container' or 'station' over the world,
-     * a menu ('main', 'worlds', 'newWorld', 'settings', 'pause'), or null while playing.
+     * The open screen: 'death', 'bag' (with the Logbook), 'container', 'station' or 'workbench'
+     * (with its Logbook) over the world, a menu ('main', 'worlds', 'newWorld', 'settings',
+     * 'pause'), or null while playing.
      */
     screen: () =>
       (app.hud?.deathOpen() ? 'death' : null) ??

@@ -86,6 +86,13 @@ describe('AudioCues', () => {
     ]);
   });
 
+  it("chimes at a workbench's cell for each craft it makes", () => {
+    const { player, cues: c } = cues();
+    const made = { recipe: 'recipe:chest', item: 'item:chest', count: 1 };
+    c.onEvent({ type: 'workbenchCrafted', x: 6, y: 65, z: 0, ...made });
+    expect(player.calls).toEqual([{ key: sounds.craft, at: 'world', x: 6.5, pitch: 1 }]);
+  });
+
   it('sounds the stingers of dusk and dawn', () => {
     const { player, cues: c } = cues();
     c.onEvent({ type: 'sunset', day: 1 });

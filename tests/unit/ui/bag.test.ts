@@ -10,6 +10,7 @@ import { BagScreen } from '../../../src/ui/screens/bag.ts';
 import { ContainerScreen } from '../../../src/ui/screens/container.ts';
 import { LogbookPanel, type QueueView } from '../../../src/ui/screens/logbook.ts';
 import { StationScreen } from '../../../src/ui/screens/station.ts';
+import { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import type { ScreenDeps } from '../../../src/ui/slotBoard.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -40,17 +41,20 @@ const byAttr = (root: HTMLElement, name: string, value?: string) =>
 const slotNumbers = (root: HTMLElement) =>
   byAttr(root, 'data-slot').map((e) => Number(e.getAttribute('data-slot')));
 
-function logbookSource(owned: Record<string, number>): LogbookSource {
+/** A player holding `owned`, at the Bag's Logbook or at the workbench of `station`. */
+function logbookSource(owned: Record<string, number>, station?: string): LogbookSource {
   const seen: Record<string, boolean> = {};
   for (const key of Object.keys(owned)) seen[key] = true;
   return {
     crafting: registry.crafting,
+    ...(station === undefined ? {} : { station }),
     seen,
     owned: (ingredient) => owned[ingredient] ?? 0,
-    stationNear: () => false,
     room: () => MAX_CRAFT_COUNT,
   };
 }
+
+const BENCH = 'station:workbench';
 
 describe('BagScreen', () => {
   it('shows the close key as labelled when it opens (the layout map loads after boot)', () => {
@@ -158,15 +162,14 @@ describe('LogbookPanel', () => {
     ]);
   });
 
-  it('says which station a recipe needs, and shows where an unseen ingredient is found', () => {
+  it('counts the recipes made at the workbench, and shows where an unseen ingredient is found', () => {
     const { logbook, root } = panel();
     logbook.update({ source: logbookSource({ 'item:planks': 8 }), queue: [] });
     byAttr(root, 'data-tab', 'building')[0]!.dispatch('click');
-    byAttr(root, 'data-recipe', 'recipe:chest')[0]!.dispatch('click');
-    expect(fake(root).querySelector('.logbook-requires')?.textContent).toBe(
-      'Requires: Workbench nearby',
+    expect(byAttr(root, 'data-recipe', 'recipe:chest')).toEqual([]);
+    expect(fake(root).querySelector('.logbook-footer')?.textContent).toMatch(
+      /Still to discover: \d+ · 2 more at the Workbench$/,
     );
-    expect(fake(root).querySelector('.badge')?.textContent).toBe('Workbench');
     byAttr(root, 'data-tab', 'survival')[0]!.dispatch('click');
     byAttr(root, 'data-recipe', 'recipe:unfired_flask')[0]!.dispatch('click');
     expect(fake(root).querySelector('.logbook-hint')?.textContent).toBe(
@@ -186,6 +189,10 @@ describe('LogbookPanel', () => {
     expect(entries.filter((e) => e.className.includes('empty'))).toHaveLength(CRAFT_QUEUE - 2);
     byAttr(root, 'data-queue', '1')[0]!.dispatch('click');
     expect(sent).toEqual([{ type: 'craft.cancel', index: 1 }]);
+    // A workbench's Logbook shows the bench's queue: its entries cancel there.
+    logbook.update({ source: logbookSource({}, BENCH), queue });
+    byAttr(root, 'data-queue', '0')[0]!.dispatch('click');
+    expect(sent.at(-1)).toEqual({ type: 'craft.cancel', index: 0, workbench: true });
   });
 
   it('has a string for every tab, recipe and ingredient it can show', () => {
@@ -195,17 +202,55 @@ describe('LogbookPanel', () => {
       everything[item.key] = 1;
       for (const tag of item.tags ?? []) everything[tag] = 1;
     }
-    logbook.update({ source: logbookSource(everything), queue: [] });
     let shown = 0;
-    for (const category of RECIPE_CATEGORIES) {
-      byAttr(root, 'data-tab', category)[0]!.dispatch('click');
-      for (const row of byAttr(root, 'data-recipe')) {
-        row.dispatch('click');
-        shown++;
+    // The Bag's Logbook, then the workbench's.
+    for (const station of [undefined, BENCH]) {
+      logbook.update({ source: logbookSource(everything, station), queue: [] });
+      for (const category of RECIPE_CATEGORIES) {
+        byAttr(root, 'data-tab', category)[0]!.dispatch('click');
+        for (const row of byAttr(root, 'data-recipe')) {
+          row.dispatch('click');
+          shown++;
+        }
       }
     }
     expect(shown).toBe(registry.crafting.recipes.length);
     expect(i18nMissing()).toEqual([]);
+  });
+});
+
+describe('WorkbenchScreen', () => {
+  it('numbers its outputs from 64 beside its Logbook, which lists the bench recipes', () => {
+    const { screen } = deps();
+    const bench = new WorkbenchScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const def = registry.crafting.station(BENCH)!;
+    bench.open(def, 'Workbench');
+    const title = fake(bench.element).findAll((e) => e.tagName === 'H2')[0];
+    expect(title?.textContent).toBe('Workbench');
+    const outputs = fake(bench.element).querySelector('.workbench-outputs')!;
+    const base = OPEN_SLOTS_BASE;
+    expect(slotNumbers(outputs as unknown as HTMLElement)).toEqual([
+      base,
+      base + 1,
+      base + 2,
+      base + 3,
+    ]);
+    expect(slotNumbers(bench.element)).toHaveLength(BASE_INVENTORY_SLOTS + def.outputSlots);
+    const slots: Inventory = new Array(base + def.outputSlots).fill(null);
+    slots[base + 1] = { item: 'item:chest', count: 2 };
+    bench.update(slots, {
+      source: logbookSource({ 'item:planks': 8, 'item:cord': 1 }, BENCH),
+      queue: [],
+    });
+    byAttr(bench.element, 'data-tab', 'building')[0]!.dispatch('click');
+    const rows = byAttr(bench.element, 'data-recipe').map((e) => e.getAttribute('data-recipe'));
+    expect(rows[0]).toBe('recipe:chest');
+    expect(rows).not.toContain('recipe:workbench');
+    expect(byAttr(bench.element, 'data-slot', String(base + 1))[0]!.textContent).toContain('2');
+    // Opened again, its output views are made again (no duplicates).
+    bench.close();
+    bench.open(def, 'Workbench');
+    expect(slotNumbers(bench.element)).toHaveLength(BASE_INVENTORY_SLOTS + def.outputSlots);
   });
 });
 

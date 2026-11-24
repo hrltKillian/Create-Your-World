@@ -156,13 +156,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
     filled container's charges), `readStack`/`savedStack`); block entities `sim/blockEntities.ts`
     (`Simulation.blockEntities` by `cellKey`, `blockEntityAt` creates a generated chest with its
     `structureLootAt` loot, `removeBlockEntity` spills (and drops a pack's grave markers),
-    `withinReach`; kinds container, station, grave; a bedroll is `blockEntity: 'bed'` with no
-    record); their screens
+    `withinReach`; kinds container, station, workbench, grave; a bedroll is `blockEntity: 'bed'`
+    with no record); their screens
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
     `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`; a fire burns only while a process runs, or
     while `StationEntity.keepLit`: the campfire's « Keep burning » toggle, `StationDef.keepLit`,
-    command `station.keepLit`, no payload, flips it with that station open); the craft queue `sim/craftQueue.ts`
-    (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
+    command `station.keepLit`, no payload, flips it with that station open); the craft queues
+    `sim/craftQueue.ts` (`enqueueCraft`: a hand recipe in the player's queue, a station recipe in
+    the player's open workbench's, refused 'station' otherwise; entries merged up to one stack of
+    the output, `entryCrafts`/`queueRoom`; `progressCraft`, `cancelCraft` refunds the canceller,
+    `craft.cancel { index, workbench? }`; `noteSeen`); workbenches `sim/workbench.ts`
+    (`WorkbenchEntity`: station, 4 outputs, `craft` queue, `tick`; `stepWorkbench`/
+    `advanceWorkbench` from `stepStations`, catch-up included; full outputs pause; event
+    `workbenchCrafted`; broken: outputs and reservations spilled); durations `ticksOf`
+    (`sim/clock.ts`);
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
     heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
@@ -188,7 +195,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - objectives (docs « Objectifs jusqu'au fer »): the chain in data `content/packs/base/
     objectives.ts` (`ObjectiveDef`, `content/objectiveSchema.ts`: items seen, stations within
     crafting reach, an enclosed shelter, nights survived; a `compass` point), checked once a second
-    at tick step 16 (`stepObjectives`, `conditionHolds` in `sim/objectives.ts`; event
+    at tick step 16 (`stepObjectives`, `conditionHolds`, `stationNear`/`STATION_REACH` in
+    `sim/objectives.ts`; event
     `objectiveDone`, the keys in `player.objectives`);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
     `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
@@ -210,15 +218,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `app/OpenWorld.ts`; the menu layer: `app/Menus.ts`, its screens in `ui/screens/` with
     `menuButton`/`menuPanel`/`slider` in `ui/screens/menuParts.ts`; player settings
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
-  - slot screens (Bag with the Logbook, Container, Station): `app/inventoryUi.ts` opens and closes
-    them (the bag on its key, chests and stations on `blockEntityOpened`/`blockEntityClosed`; Esc
+  - slot screens (Bag with the Logbook, Container, Station, Workbench with its Logbook:
+    `ui/screens/workbench.ts`): `app/inventoryUi.ts` opens and closes them (the bag on its key,
+    chests, stations and workbenches on `blockEntityOpened`/`blockEntityClosed`; Esc
     or the key closes any screen back to play: `PlayGate.closeScreen()` captures the mouse again,
     else the light « Click to resume » `showResumePrompt` while the simulation runs; the pause
     menu opens only on Esc in play, `canPause`; `GameSession.isPaused()`),
     `app/UiBridge.ts` refreshes them (`queueView`, `stationStatus`); `ui/slotBoard.ts`
     (`SlotBoard`: drag and drop, hover caption, hotkeys; `ScreenDeps`), the gesture commands
     `ui/inventoryGestures.ts` (`SlotContext`: block entity slots from 32), the pure Logbook
-    `ui/logbook.ts` (`logbookRows`, `batchCount`); item and tag names and icons `ui/itemSlot.ts`
+    `ui/logbook.ts` (`logbookRows` of `LogbookSource.station`'s recipes, the hand ones by default;
+    `batchCount` within `room`; `stationRecipes`: « N more at the Workbench »); item and tag names and icons `ui/itemSlot.ts`
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
@@ -377,6 +387,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   held jump, the double tap, E and Esc as real key events at the focused element, a run while
   eating, the campfire's toggle clicked; in `?selftest=all` they run in the flat `forceNoIdb` boot
   (m7 leaves the IndexedDB one on the Worlds screen).
+- M13 workbench: `ui.screen()` also names `'workbench'` (`#screen-workbench`: its Logbook with the
+  bench's recipes and queue, whose entries cancel with `workbench: true`, and its outputs from
+  slot 64); `ui.open(x, y, z)` opens it; `craft.enqueue` of a bench recipe needs it open;
+  `container.contents` of a workbench adds `station` and `queue` (as `craft.queue()` shows one).
 - M12 hook entries (version 12): `container.contents` adds `keepLit` for a station; the Station
   screen's « Keep burning » toggle carries `data-action="keep-lit"` (`aria-pressed` shows what the
   simulation keeps).

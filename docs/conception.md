@@ -898,8 +898,9 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 - Un ingrédient inconnu s'affiche avec un indice, par exemple « Found in the frozen lands to the north ».
 - File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation. Une recette déjà dans la file s'ajoute à son entrée, jusqu'à une pile du résultat (`entryCrafts`), puis une nouvelle entrée s'ouvre : cinq ×1 font la même file qu'un ×5 (M13).
 - Temps de craft à la main dans les données : 1 à 3 s (Flint Hatchet : 2 s).
-- Établi à ≤ 4 blocs, vérifié à l'ajout grâce à un index spatial des stations.
-- Le résultat va dans l'inventaire, ou au sol s'il est plein.
+- Recettes à la main : file du joueur ; le résultat va dans l'inventaire, ou au sol s'il est plein.
+- Recettes d'établi (M13, décision 18) : l'établi est une entité de bloc (`blockEntity: 'workbench'`) avec sa file de 5 et 4 cases de sortie. Ajouter à sa file exige l'établi ouvert ; les ingrédients sont réservés sur le joueur qui ajoute, et rendus à celui qui annule (`craft.cancel { workbench: true }`). L'établi fabrique seul vers ses sorties, avec le rattrapage des stations ; des sorties pleines mettent la file en pause. Casser l'établi répand ses sorties et ses réservations.
+- Les objectifs qui demandent une station la cherchent à ≤ 4 blocs du joueur (`stationNear`).
 
 **Stations de transformation**
 
@@ -1116,10 +1117,11 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
   - à gauche, la silhouette et ses 5 emplacements, avec le détail des protections ;
   - au centre, le sac 6×4 et la barre ;
   - à droite, le **Logbook** :
-    - onglets, recettes faisables en premier ;
-    - pastilles possédé/requis, badge de station ;
+    - onglets, recettes à la main faisables en premier ;
+    - pastilles possédé/requis ;
     - boutons ×1/×5/Max, file de 5 ;
-    - « Requires: Workbench nearby ».
+    - « N more at the Workbench » pour les recettes d'établi révélées.
+- **Établi** (M13) : son Logbook (ses recettes et sa file), ses 4 cases de sortie, le sac et la barre.
 - **Conteneur** : « Take all » / « Store all ».
 - **Station** : entrées, combustible (flamme), progression, sortie, procédés connus ; l'interrupteur « Keep burning » du feu de camp (M12).
 - **Manipulation** : glisser-déposer en pointer events, clic droit pour diviser, Maj+clic pour transférer, chiffre au survol pour échanger.
