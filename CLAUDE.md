@@ -85,8 +85,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - controls (M12): a held jump jumps again on each landing (`jumpAndGravity`, `sim/physics.ts`:
     jump buffer and coyote time, never twice in the air); the double-tap sprint latch
     `input/sprintLatch.ts` (`SprintLatch`, `DOUBLE_TAP_MS`; `InputManager` sends `sprint: key ||
-    latch` while forward is held); eating or drinking slows the player (`consuming` in
-    `sim/player.ts`: × `balance.consume.moveFactor`, no sprint; `MoveInput.speedFactor`);
+    latch` while forward is held); eating or drinking slows the player (`consuming` and `NO_USE`
+    in `sim/consume.ts`: × `balance.consume.moveFactor`, no sprint; `MoveInput.speedFactor`);
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
     `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
     `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
@@ -161,7 +161,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sim/blockEntityCommands.ts`; station ticks and catch-up `sim/stations.ts` (`stepStation`,
     `advanceStation`, `SIM_RADIUS`, `MAX_REPLAY_TICKS`; a fire burns only while a process runs, or
     while `StationEntity.keepLit`: the campfire's « Keep burning » toggle, `StationDef.keepLit`,
-    command `station.keepLit` with that station open); the craft queue `sim/craftQueue.ts`
+    command `station.keepLit`, no payload, flips it with that station open); the craft queue `sim/craftQueue.ts`
     (`enqueueCraft`, `stationNear`, `noteSeen`); durations `ticksOf` (`sim/clock.ts`);
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
@@ -176,7 +176,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (survival.ts);
   - secondary held (docs « Priorité des actions »): interactive blocks in `sim/interaction.ts`
     (`usesAimedBlock`, `useAimed`), then `holdUse` in `sim/consume.ts` (eat or drink the held item,
-    `interaction.useItem`/`useTicks`: the action the press started), sips and fills in
+    `interaction.useItem`/`useTicks`: the action the press started, back to `NO_USE` once it
+    stops: another item in hand, an aimed interactive block, a release), sips and fills in
     `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
     (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`equip.move`: slots
     32–36, `wearSlotOf`, `wearFilters`); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,

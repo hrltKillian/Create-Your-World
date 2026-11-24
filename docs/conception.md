@@ -843,7 +843,7 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
   | Secondaire (clic droit) | bloc interactif (station, coffre, porte, natte) → consommer l'objet tenu (maintenu `consume.seconds`) → remplir un récipient ou boire sur un liquide → poser |
   | Accroupi + secondaire   | force la pose, par exemple contre un coffre                                                                                                                  |
   - Maintenir le clic gauche ≥ 0,5 s **sur une créature** donne une attaque chargée, appliquée au relâchement.
-  - Pendant qu'on mange ou boit, on avance à ×`consume.moveFactor` (0,4) et sans sprint ; une autre main ou une autre cible arrête l'action jusqu'au prochain appui (M12).
+  - Pendant qu'on mange ou boit, on avance à ×`consume.moveFactor` (0,4) et sans sprint ; changer d'objet en main ou viser un bloc interactif arrête l'action jusqu'au prochain appui (M12).
   - Sur un bloc, maintenir mine ; si la cible change pendant le maintien, la progression repart de zéro.
 - **Casser** :
   - `t = dureté × 1,5 / vitesse de l'outil` si le type d'outil correspond ; sinon vitesse 1 ;
