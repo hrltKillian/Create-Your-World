@@ -61,7 +61,7 @@ four volumes and the interface scale.
 | `npm run headless -- --ping`                                       | the world worker's code under plain Node                                          |
 | `npm run bench`                                                    | minified build with the hook on :4174, for performance measurements               |
 | `npm run e2e`                                                      | Playwright: boot, selftest, save and input specs (Chrome locally, Chromium in CI) |
-| `npm run e2e:perf`                                                 | the perf spec on the bench build (CPU slowed ×1.7 for the walk; local only)       |
+| `npm run e2e:perf`                                                 | the perf spec on the bench build (walk as is and with the CPU ×1.7; local only)   |
 | `npm run size`                                                     | the gzip size of every script of `dist` against 400 kB                            |
 
 `--bot` takes `wander` (walks and jumps) or `wanderMineBuild` (wanders, mines, picks up, builds,
@@ -151,6 +151,8 @@ of them:
 
   | Measure                                  | Result           | Budget       |
   | ---------------------------------------- | ---------------- | ------------ |
+  | `walk` frame work p95                    | 0.7 ms           | ≤ 9 ms       |
+  | `walk` intervals over 20 ms              | 0 %              | < 1 %        |
   | `walk` frame work p95, CPU slowed ×1.7   | 1.1 ms           | ≤ 15 ms      |
   | `cave` draws, culling on / `occlusion=0` | 68 / 169 (−60 %) | ≤ 150, −30 % |
   | `dig` edit → mesh on screen, p95         | 18 ms            | ≤ 50 ms      |

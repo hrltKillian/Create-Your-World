@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { type BodyFrame, BodySounds } from '../../../src/audio/bodySounds.ts';
 import { FLAG_SOLID } from '../../../src/content/registry.ts';
 import { EYE_HEIGHT } from '../../../src/core/player.ts';
 import {
@@ -9,8 +10,10 @@ import {
   pulse,
   SPRINT_FOV,
 } from '../../../src/render/CameraRig.ts';
+import { PHYSICS } from '../../../src/sim/physics.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
 import type { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
+import { FakePlayer } from '../../helpers/fakeAudio.ts';
 import { flatWorld } from '../../helpers/flatWorld.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -167,6 +170,50 @@ describe('first-person feel', () => {
     expect(slow.high).toBeGreaterThan(BOB * 0.3);
     range(1);
     expect(Math.abs(frame(600))).toBeLessThan(1e-3);
+  });
+
+  it('dips on every footstep: the bob and the footsteps share the stride, after a jump or a teleport too', () => {
+    const { player, rig, frame } = walker();
+    const heard = new FakePlayer();
+    const feet = new BodySounds(heard, registry.pack.sounds!.player, 1, PHYSICS.sprint * 2);
+    const f: BodyFrame = {
+      x: 0,
+      y: 64,
+      z: 0,
+      seconds: FRAME,
+      onGround: true,
+      inWater: false,
+      step: 'step',
+      health: 100,
+      dead: false,
+    };
+    /** Frames at `speed` m/s; the bob (in BOBs) at each footstep after the first second. */
+    const walk = (seconds: number, onGround = true, speed: number = PHYSICS.walk) => {
+      const bobs: number[] = [];
+      player.body.onGround = onGround;
+      f.onGround = onGround;
+      for (let i = 0; i < seconds * 60; i++) {
+        frame(speed);
+        const before = heard.calls.length;
+        f.x = player.body.x;
+        f.z = player.body.z;
+        feet.update(f);
+        if (heard.calls.length > before && i >= 60) bobs.push(rig.bobOffset() / BOB);
+      }
+      return bobs;
+    };
+    /** Every footstep fell at the bottom of a dip (−BOB). */
+    const expectDips = (bobs: number[]) => {
+      expect(bobs.length).toBeGreaterThan(2);
+      expect(Math.max(...bobs)).toBeLessThan(-0.9);
+    };
+    expectDips(walk(4));
+    // A jump forward: no footstep and no bob in the air.
+    walk(0.6, false);
+    expectDips(walk(4));
+    // A teleport (40 m in a frame) starts the stride again.
+    walk(1 / 60, true, 40 * 60);
+    expectDips(walk(4));
   });
 
   it('dips on a landing, deeper for a longer fall, then comes back', () => {

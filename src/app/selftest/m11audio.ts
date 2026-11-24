@@ -1,8 +1,8 @@
 import { ambienceKey } from '../../audio/Ambience.ts';
-import { BODY_SOUNDS } from '../../audio/bodySounds.ts';
+import { AUDIO } from '../../audio/AudioEngine.ts';
 import { consumeSound } from '../../audio/cues.ts';
 import type { BlockDef, ItemDef, SoundBindings } from '../../content/schema.ts';
-import { HOTBAR_SLOTS } from '../../core/player.ts';
+import { HOTBAR_SLOTS, STRIDE } from '../../core/player.ts';
 import { ticksOf } from '../../sim/clock.ts';
 import { HOUR_TICKS } from '../../sim/time.ts';
 import { ARENA_DOOR, ARENA_WORKSHOP } from '../../world/gen/arena.ts';
@@ -54,15 +54,15 @@ const JUMP_SPOT = { x: 26, z: 0 } as const;
 const MEAL_SPOT = { x: 26, z: 4 } as const;
 const WATER_SPOT = { x: 30, z: 0 } as const;
 const FIRE_SPOT = { x: 30, z: 6 } as const;
-/** Frames of the walk, two ticks each (4 s: about 17 m at walking speed). */
-const WALK_FRAMES = 60;
+/** Steps of the walk, two ticks each (4 s: about 17 m at walking speed). */
+const WALK_STEPS = 60;
 /** Ticks for a jump to come down again. */
 const JUMP_TICKS = 30;
 /** Ticks a held use or a craft gets past its own duration. */
 const SLACK_TICKS = 10;
-/** Health under the heartbeat's threshold, and the frames (two ticks each: 3 s) it is heard for. */
+/** Health under the heartbeat's threshold, and the steps (two ticks each: 3 s) it is heard for. */
 const LOW_HEALTH = 10;
-const BEAT_FRAMES = 45;
+const BEAT_STEPS = 45;
 /** Wall time for the crackles of a lit fire (a scan every 0.5 s, a crackle every 0.35–0.8 s). */
 const CRACKLE_MS = 2500;
 
@@ -83,11 +83,15 @@ function assertHeard(app: App, mark: number, keys: readonly string[], what: stri
   }
 }
 
-/** `n` frames of `ticks` ticks each: the client hears the body once a frame. */
-async function stepFrames(app: App, n: number, ticks: number): Promise<void> {
+/**
+ * `n` steps of `ticks` ticks, each heard by the client's next frame and lasting at least
+ * AUDIO.dedupMs of wall time: the engine drops a key played again sooner, and fixed steps squeeze
+ * the game's seconds (two footsteps 6 stepped frames apart are under 30 ms on a 240 Hz display).
+ */
+export async function stepFrames(app: App, n: number, ticks: number): Promise<void> {
   for (let i = 0; i < n; i++) {
     app.session!.step(ticks);
-    await frameOrFail();
+    await framesFor(AUDIO.dedupMs);
   }
 }
 
@@ -178,18 +182,14 @@ export const M11_AUDIO_CASES: readonly SelftestCase[] = [
       assert(step, 'the ground has no footstep sound');
       const mark = audioMark(app);
       const from = body.z;
-      for (let i = 0; i < WALK_FRAMES; i++) {
-        press(app, 'forward', 2);
-        await frameOrFail();
-      }
-      // The last ticks are heard on the next frame.
-      await frameOrFail();
-      const strides = Math.floor((from - body.z) / BODY_SOUNDS.stride);
+      app.input!.force('forward', WALK_STEPS * 2);
+      await stepFrames(app, WALK_STEPS, 2);
+      const strides = Math.floor((from - body.z) / STRIDE);
       const steps = heardSince(app, mark).filter((key) => key === step).length;
       assert(strides >= 5, `the walk covered ${(from - body.z).toFixed(1)} m only`);
       assert(
         Math.abs(steps - strides) <= 1,
-        `${steps} footsteps (${step}) over ${strides} strides of ${BODY_SOUNDS.stride} m`,
+        `${steps} footsteps (${step}) over ${strides} strides of ${STRIDE} m`,
       );
     },
   },
@@ -352,7 +352,7 @@ export const M11_AUDIO_CASES: readonly SelftestCase[] = [
       const mark = audioMark(app);
       try {
         setStat(app, 'health', LOW_HEALTH);
-        await stepFrames(app, BEAT_FRAMES, 2);
+        await stepFrames(app, BEAT_STEPS, 2);
       } finally {
         setStat(app, 'health', b.max);
       }

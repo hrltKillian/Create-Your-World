@@ -1,6 +1,6 @@
 import type { RawTables } from '../content/registry.ts';
 import { clampPitch, type Vec3 } from '../core/angles.ts';
-import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
+import { CROUCH_EYE_HEIGHT, EYE_HEIGHT, STRIDE } from '../core/player.ts';
 import type { LookTarget } from '../input/LookTarget.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
@@ -18,10 +18,11 @@ const WALL_MARGIN = 0.3;
 const PROBE_SPREAD = 0.15;
 const hit = createRayHit();
 
-/** View bob (docs « Caméra 1re personne »): 0.035 m up and down, one dip a step. */
+/**
+ * View bob (docs « Caméra 1re personne »): 0.035 m up and down, one dip a step (STRIDE, the
+ * footsteps' own: the phase turns half a turn a stride).
+ */
 export const BOB = 0.035;
-/** Ground covered by one step (m): the bob's phase turns half a turn a step. */
-const STEP_LENGTH = 1.3;
 /** Speed (m/s) from which the bob has its whole amplitude (slower: less); eased at BOB_RATE (1/s). */
 const BOB_FULL_SPEED = 3.5;
 const BOB_RATE = 8;
@@ -189,13 +190,19 @@ export class CameraRig implements LookTarget {
    */
   private feel(player: Readonly<PlayerState>, x: number, z: number, dt: number): void {
     const b = player.body;
+    const onFoot = b.onGround && !b.inWater;
     let moved = Math.hypot(x - this.lastX, z - this.lastZ);
-    // NaN on the first frame; a teleport or a respawn is no step either.
-    if (!(moved <= MAX_FRAME_MOVE)) moved = 0;
     this.lastX = x;
     this.lastZ = z;
-    this.bobPhase = (this.bobPhase + (moved * Math.PI) / STEP_LENGTH) % (Math.PI * 2);
-    const walking = b.onGround && !b.inWater && dt > 0;
+    // NaN on the first frame; a teleport or a respawn is no step either: the stride starts again.
+    if (!(moved <= MAX_FRAME_MOVE)) {
+      moved = 0;
+      this.bobPhase = 0;
+    }
+    // The ground the footsteps count (audio/bodySounds.ts: on foot, out of water), so each one
+    // falls at the bottom of a dip.
+    if (onFoot) this.bobPhase = (this.bobPhase + (moved * Math.PI) / STRIDE) % (Math.PI * 2);
+    const walking = onFoot && dt > 0;
     const scale = walking ? Math.min(1, moved / dt / BOB_FULL_SPEED) : 0;
     this.bobScale += (scale - this.bobScale) * Math.min(1, dt * BOB_RATE);
     this.sinceLand += dt;

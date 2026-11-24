@@ -24,15 +24,8 @@ import { type GenContext, generateColumn } from '../../world/gen/generateColumn.
 import { LatticeCache, pointInfo } from '../../world/gen/sample.ts';
 import { GROUND, regionOf, siteIn } from '../../world/gen/structures.ts';
 import type { App } from '../App.ts';
-import {
-  framesFor,
-  freezeTime,
-  lightAt,
-  look,
-  setTime,
-  teleport,
-  waitUntil,
-} from '../automation.ts';
+import { framesFor, freezeTime, lightAt, look, setTime, waitUntil } from '../automation.ts';
+import { teleportAndWait } from '../bench/stage.ts';
 import {
   assert,
   chunksMeshed,
@@ -91,17 +84,8 @@ function spawnPlace(app: App): Place {
 
 /** Teleports the player and waits until it landed and the loading radius around it is meshed. */
 async function visit(app: App, x: number, y: number | 'surface', z: number): Promise<void> {
-  const session = app.session!;
-  const body = session.player.body;
-  teleport(app, x, y, z);
-  // Without fixed steps the teleport lands on the next tick (pumped here while the page is hidden).
-  await waitUntil(() => Math.abs(body.x - x) < 0.5 && Math.abs(body.z - z) < 0.5, {
-    timeoutMs: 5000,
-    label: `the teleport to (${x}, ${z}) did not land`,
-    pump: () => session.pumpOnce(document.hidden),
-    pollMs: 20,
-  });
-  await chunksMeshed(app, session.loadingRadius(), VISIT_MS);
+  await teleportAndWait(app, x, y, z);
+  await chunksMeshed(app, app.session!.loadingRadius(), VISIT_MS);
 }
 
 /** Switches the debug view, waits until every shown section is meshed for it, and captures it. */

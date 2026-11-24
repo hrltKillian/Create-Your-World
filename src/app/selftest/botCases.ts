@@ -1,5 +1,6 @@
 import { TICKS_PER_SECOND } from '../../sim/clock.ts';
-import { teleport, waitUntil, withinFrames } from '../automation.ts';
+import { withinFrames } from '../automation.ts';
+import { teleportAndWait } from '../bench/stage.ts';
 import { driveBot } from '../botDriver.ts';
 import { kill } from '../survivalAutomation.ts';
 import {
@@ -38,14 +39,7 @@ export const BOT_CASES: readonly SelftestCase[] = [
     skip: needsGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
-      teleport(app, BOT_SPOT.x, 'surface', BOT_SPOT.z);
-      const b = session.player.body;
-      // Real-time sessions apply the teleport on their next tick (a hidden page ticks here).
-      await waitUntil(() => Math.abs(b.x - BOT_SPOT.x) + Math.abs(b.z - BOT_SPOT.z) < 1, {
-        timeoutMs: 5000,
-        label: 'the teleport to the bot spot did not happen',
-        pump: () => session.pumpOnce(document.hidden),
-      });
+      await teleportAndWait(app, BOT_SPOT.x, 'surface', BOT_SPOT.z);
       await chunksMeshed(app, session.loadingRadius(), LOAD_MS);
       const seconds = app.params.fixedStep ? FIXED_SECONDS : REAL_SECONDS;
       const report = await driveBot(app, 'wanderMineBuild', seconds);

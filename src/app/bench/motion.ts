@@ -1,9 +1,8 @@
 import { TICKS_PER_SECOND } from '../../sim/clock.ts';
 import type { App } from '../App.ts';
-import { clock, freezeTime, look, setTime } from '../automation.ts';
-import { god } from '../survivalAutomation.ts';
-import { teleportAndWait } from './place.ts';
-import { type FrameResult, sampleFrames } from './sampler.ts';
+import { look } from '../automation.ts';
+import { sampleFrames } from './sampler.ts';
+import { staged, teleportAndWait } from './stage.ts';
 
 /** The motion benchmarks: the free camera flown straight (`fly`), the player walking (`walk`). */
 
@@ -54,12 +53,10 @@ export const WALK = {
 export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
   const session = app.session;
   const input = app.input;
-  const time = clock(app);
-  if (!session || !input || !time || app.freecam) throw new Error('walk needs a player');
+  if (!session || !input || app.freecam) throw new Error('walk needs a player');
   if (app.params.fixedStep) throw new Error('walk needs real ticks (no ?fixedStep)');
   const body = session.player.body;
   const start = { x: body.x, y: body.y, z: body.z };
-  const immune = session.player.survival.god;
   let yaw = session.rig.yaw;
   let distance = 0;
   let lastX = body.x;
@@ -82,20 +79,15 @@ export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
     const blocked = body.onGround && Math.hypot(body.vx, body.vz) < WALK.blockedSpeed;
     if (blocked || body.inWater) input.force('jump', 2);
   };
-  let frames: FrameResult;
-  try {
-    setTime(app, WALK.hour);
-    freezeTime(app, true);
-    god(app, true);
-    input.force('forward', Math.ceil((seconds + 1) * TICKS_PER_SECOND));
-    frames = await sampleFrames(app, seconds, step);
-  } finally {
-    input.force('forward', 0);
-    input.force('jump', 0);
-    god(app, immune);
-    setTime(app, time.hour);
-    freezeTime(app, time.frozen);
-    await teleportAndWait(app, start.x, start.y, start.z);
-  }
+  const frames = await staged(app, WALK.hour, async () => {
+    try {
+      input.force('forward', Math.ceil((seconds + 1) * TICKS_PER_SECOND));
+      return await sampleFrames(app, seconds, step);
+    } finally {
+      input.force('forward', 0);
+      input.force('jump', 0);
+      await teleportAndWait(app, start.x, start.y, start.z);
+    }
+  });
   return { kind: 'walk' as const, seconds, distance, ...frames };
 }

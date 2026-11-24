@@ -1,12 +1,13 @@
 import { ticksOf } from '../sim/clock.ts';
 import type { App } from './App.ts';
-import { clock, freezeTime, setTime, waitUntil, yieldTask } from './automation.ts';
+import { waitUntil, yieldTask } from './automation.ts';
 import { caveBenchmark } from './bench/cave.ts';
 import { digBenchmark } from './bench/dig.ts';
 import { flyBenchmark, walkBenchmark } from './bench/motion.ts';
+import { staged } from './bench/stage.ts';
 import { killCreature, placeCreature } from './creatureAutomation.ts';
 import { percentile } from './perf.ts';
-import { god, setStat } from './survivalAutomation.ts';
+import { setStat } from './survivalAutomation.ts';
 
 /**
  * The performance benchmarks of `__game.perf.benchmark(kind)` and `?bench=` (docs « Mesure de
@@ -102,45 +103,40 @@ const GOLDEN_ANGLE = 2.399;
 export async function mobsBenchmark(app: App, seconds: number = MOBS.seconds) {
   const session = app.session;
   const kinds = app.registry?.pack.creatures ?? [];
-  const time = clock(app);
-  if (!session || !time) throw new Error('No world session');
+  if (!session) throw new Error('No world session');
   if (kinds.length === 0) throw new Error('The content pack has no creatures');
-  const { god: immune, toxicity } = session.player.survival;
+  const { toxicity } = session.player.survival;
   const ids: number[] = [];
   const ticks: number[] = [];
-  try {
-    setTime(app, MOBS.hour);
-    freezeTime(app, true);
-    god(app, true);
-    const { x, z } = session.player.body;
-    for (let n = 0; n < MOBS.creatures; n++) {
-      const r = MOBS.ringMin + (n % MOBS.rings) * MOBS.ringStep;
-      const angle = n * GOLDEN_ANGLE;
-      const creature = kinds[n % kinds.length]!.key;
-      const id = placeCreature(
-        app,
-        creature,
-        x + Math.cos(angle) * r,
-        'surface',
-        z + Math.sin(angle) * r,
-      );
-      if (id === null)
-        throw new Error(`${creature} could not be placed (unloaded or debugging off)`);
-      ids.push(id);
+  await staged(app, MOBS.hour, async () => {
+    try {
+      const { x, z } = session.player.body;
+      for (let n = 0; n < MOBS.creatures; n++) {
+        const r = MOBS.ringMin + (n % MOBS.rings) * MOBS.ringStep;
+        const angle = n * GOLDEN_ANGLE;
+        const creature = kinds[n % kinds.length]!.key;
+        const id = placeCreature(
+          app,
+          creature,
+          x + Math.cos(angle) * r,
+          'surface',
+          z + Math.sin(angle) * r,
+        );
+        if (id === null)
+          throw new Error(`${creature} could not be placed (unloaded or debugging off)`);
+        ids.push(id);
+      }
+      const measured = ticksOf(seconds);
+      for (let i = 0; i < MOBS.warmupTicks + measured; i++) {
+        session.step(1);
+        if (i >= MOBS.warmupTicks) ticks.push(session.tickMs);
+        if (i % MOBS.batchTicks === MOBS.batchTicks - 1) await yieldTask();
+      }
+    } finally {
+      for (const id of ids) killCreature(app, id);
+      setStat(app, 'toxicity', toxicity);
     }
-    const measured = ticksOf(seconds);
-    for (let i = 0; i < MOBS.warmupTicks + measured; i++) {
-      session.step(1);
-      if (i >= MOBS.warmupTicks) ticks.push(session.tickMs);
-      if (i % MOBS.batchTicks === MOBS.batchTicks - 1) await yieldTask();
-    }
-  } finally {
-    for (const id of ids) killCreature(app, id);
-    god(app, immune);
-    setStat(app, 'toxicity', toxicity);
-    setTime(app, time.hour);
-    freezeTime(app, time.frozen);
-  }
+  });
   ticks.sort((a, b) => a - b);
   return {
     kind: 'mobs',

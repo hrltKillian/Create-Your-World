@@ -2,10 +2,9 @@ import { EYE_HEIGHT } from '../../core/player.ts';
 import { type FoundCave, findCave } from '../../world/gen/find.ts';
 import { isFlatWorld } from '../../world/gen/generateColumn.ts';
 import type { App } from '../App.ts';
-import { clock, framesFor, freezeTime, look, setTime, waitUntil } from '../automation.ts';
-import { god } from '../survivalAutomation.ts';
-import { teleportAndWait } from './place.ts';
+import { framesFor, look, waitUntil } from '../automation.ts';
 import { sampleFrames } from './sampler.ts';
+import { staged, teleportAndWait } from './stage.ts';
 
 /**
  * The `cave` benchmark (docs M11 « Fait quand »): the view from a fixed pose deep underground,
@@ -48,62 +47,56 @@ export function cavePose(app: App): FoundCave {
 export async function caveBenchmark(app: App, seconds: number = CAVE.seconds) {
   const session = app.session;
   const occlusion = app.view?.chunks.occlusion;
-  const time = clock(app);
-  if (!session || !occlusion || !time) throw new Error('No world session');
+  if (!session || !occlusion) throw new Error('No world session');
   const cave = cavePose(app);
   const wasOn = occlusion.isEnabled();
-  const immune = session.player.survival.god;
   const cam = app.freecam;
   const camStart = cam ? { ...cam.pose } : null;
   const body = session.player.body;
   const start = { x: body.x, y: body.y, z: body.z, yaw: session.rig.yaw, pitch: session.rig.pitch };
   const x = cave.x + 0.5;
   const z = cave.z + 0.5;
-  try {
-    setTime(app, CAVE.hour);
-    freezeTime(app, true);
-    god(app, true);
-    if (cam) cam.set({ x, y: cave.y + EYE_HEIGHT, z, yaw: CAVE.yaw, pitch: CAVE.pitch });
-    else await teleportAndWait(app, x, cave.y, z);
-    await waitUntil(() => !session.loading && session.chunksReady(session.renderDistance), {
-      timeoutMs: CAVE.loadMs,
-      label: `render distance ${session.renderDistance} around the cave not meshed`,
-      pollMs: 50,
-    });
-    const hold = () => look(app, CAVE.yaw, CAVE.pitch);
-    occlusion.setEnabled(true);
-    await framesFor(CAVE.settleMs, hold);
-    const on = await sampleFrames(app, seconds / 2, hold);
-    const hidden = app.view!.chunks.stats().hidden;
-    const walk = occlusion.stats();
-    occlusion.setEnabled(false);
-    await framesFor(CAVE.settleMs, hold);
-    const off = await sampleFrames(app, seconds / 2, hold);
-    return {
-      kind: 'cave' as const,
-      seconds,
-      pose: { x, y: cave.y, z, yaw: CAVE.yaw, pitch: CAVE.pitch },
-      draws: on.draws,
-      drawsOff: off.draws,
-      /** Share of the draws the culling saves (« −30 % »). */
-      saved: off.draws > 0 ? 1 - on.draws / off.draws : 0,
-      triangles: on.triangles,
-      trianglesOff: off.triangles,
-      hidden,
-      reached: walk.reached,
-      walkMs: walk.lastMs,
-      workP95: on.workP95,
-      workP95Off: off.workP95,
-    };
-  } finally {
-    occlusion.setEnabled(wasOn);
-    if (cam && camStart) cam.set(camStart);
-    else {
-      look(app, start.yaw, start.pitch);
-      await teleportAndWait(app, start.x, start.y, start.z);
+  return staged(app, CAVE.hour, async () => {
+    try {
+      if (cam) cam.set({ x, y: cave.y + EYE_HEIGHT, z, yaw: CAVE.yaw, pitch: CAVE.pitch });
+      else await teleportAndWait(app, x, cave.y, z);
+      await waitUntil(() => !session.loading && session.chunksReady(session.renderDistance), {
+        timeoutMs: CAVE.loadMs,
+        label: `render distance ${session.renderDistance} around the cave not meshed`,
+        pollMs: 50,
+      });
+      const hold = () => look(app, CAVE.yaw, CAVE.pitch);
+      occlusion.setEnabled(true);
+      await framesFor(CAVE.settleMs, hold);
+      const on = await sampleFrames(app, seconds / 2, hold);
+      const hidden = app.view!.chunks.stats().hidden;
+      const walk = occlusion.stats();
+      occlusion.setEnabled(false);
+      await framesFor(CAVE.settleMs, hold);
+      const off = await sampleFrames(app, seconds / 2, hold);
+      return {
+        kind: 'cave' as const,
+        seconds,
+        pose: { x, y: cave.y, z, yaw: CAVE.yaw, pitch: CAVE.pitch },
+        draws: on.draws,
+        drawsOff: off.draws,
+        /** Share of the draws the culling saves (« −30 % »). */
+        saved: off.draws > 0 ? 1 - on.draws / off.draws : 0,
+        triangles: on.triangles,
+        trianglesOff: off.triangles,
+        hidden,
+        reached: walk.reached,
+        walkMs: walk.lastMs,
+        workP95: on.workP95,
+        workP95Off: off.workP95,
+      };
+    } finally {
+      occlusion.setEnabled(wasOn);
+      if (cam && camStart) cam.set(camStart);
+      else {
+        look(app, start.yaw, start.pitch);
+        await teleportAndWait(app, start.x, start.y, start.z);
+      }
     }
-    god(app, immune);
-    setTime(app, time.hour);
-    freezeTime(app, time.frozen);
-  }
+  });
 }

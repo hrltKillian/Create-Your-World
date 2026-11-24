@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BODY_SOUNDS, type BodyFrame, BodySounds } from '../../../src/audio/bodySounds.ts';
 import { CRACKLE, Crackles } from '../../../src/audio/crackles.ts';
+import { STRIDE } from '../../../src/core/player.ts';
 import { TICK_SECONDS } from '../../../src/sim/clock.ts';
 import { PHYSICS } from '../../../src/sim/physics.ts';
 import { FakePlayer } from '../../helpers/fakeAudio.ts';
@@ -42,7 +43,7 @@ describe('BodySounds', () => {
     const { go, count } = body();
     // 10 s at walking speed, two ticks a frame.
     go(150, 2, PHYSICS.walk);
-    const expected = Math.floor((PHYSICS.walk * 10) / BODY_SOUNDS.stride);
+    const expected = Math.floor((PHYSICS.walk * 10) / STRIDE);
     expect(count(STEP)).toBe(expected);
     go(150, 2, 0);
     go(150, 2, PHYSICS.walk, { onGround: false });
@@ -64,7 +65,7 @@ describe('BodySounds', () => {
     f.seconds = 2 * TICK_SECONDS;
     go(1, 2, 0);
     expect(player.calls).toEqual([]);
-    go(1, 2, BODY_SOUNDS.stride / (2 * TICK_SECONDS) / 2);
+    go(1, 2, STRIDE / (2 * TICK_SECONDS) / 2);
     expect(count(STEP)).toBe(0);
   });
 

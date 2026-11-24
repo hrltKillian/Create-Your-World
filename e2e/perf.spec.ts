@@ -13,6 +13,9 @@ const BOOT = 'seed=42&storage=memory&mute=1&quality=medium';
 /** Boot, the render distance meshed, then the run (a CPU slowed ×1.7 loads slower too). */
 const BENCH_TIMEOUT_MS = 150_000;
 
+/** « `walk` : travail p95 ≤ 9 ms et moins de 1 % d'intervalles > 20 ms ». */
+const WALK_P95_MS = 9;
+const MAX_LONG_FRAMES = 0.01;
 /** « CPU ralenti ×1,7 (Playwright) : travail p95 ≤ 15 ms » (an M1 stand-in). */
 const SLOW_CPU = 1.7;
 const SLOW_WALK_P95_MS = 15;
@@ -33,6 +36,15 @@ async function bench(page: Page, kind: string): Promise<Record<string, number>> 
   console.info(`${kind}: ${JSON.stringify(result)}`);
   return result;
 }
+
+test(`walk: frame work p95 ≤ ${WALK_P95_MS} ms, under ${MAX_LONG_FRAMES * 100} % of intervals over 20 ms`, async ({
+  page,
+}) => {
+  const walk = await bench(page, 'walk');
+  expect(walk.frames).toBeGreaterThan(0);
+  expect(walk.workP95).toBeLessThanOrEqual(WALK_P95_MS);
+  expect(walk.longFrames).toBeLessThan(MAX_LONG_FRAMES);
+});
 
 test(`walk with the CPU slowed ×${SLOW_CPU}: frame work p95 ≤ ${SLOW_WALK_P95_MS} ms`, async ({
   page,

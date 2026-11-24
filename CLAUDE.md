@@ -93,8 +93,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`spiral`, `findBiome`, `findStructure`, `biomesWithin`) and the spawn `world/gen/spawn.ts`; a
     generation step reads the padded `heights` (`PADDED` rows) and writes only its own column
     (decoration: `world/gen/decor.ts`);
-  - angles: `core/angles.ts`; player constants shared by sim, render and input (eye heights,
-    `HOTBAR_SLOTS`): `core/player.ts`;
+  - angles: `core/angles.ts`; player constants shared by sim, render, audio and input (eye heights,
+    `HOTBAR_SLOTS`, `STRIDE`: one footstep and one bob dip): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
     pack texture sets: `content/validate.ts` (`textureSets`);
   - items and crafting data: `content/items.ts` (`packItems`, `blockItemKey`, `harvests`: the
@@ -222,7 +222,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     its graph `audio/graph.ts` (`WATER_FILTER`), loops `audio/loops.ts` (`LoopBank`: rendered on
     first use, `seamless` wrap), `audio/Ambience.ts` (`ambienceKey`, 3 s crossfade), `audio/cues.ts`
     (`consumeSound`, `LAND_MIN_FALL`), `audio/bodySounds.ts` (`BODY_SOUNDS`: steps, strokes,
-    heartbeat), `audio/crackles.ts`; per-frame wiring `app/AudioBridge.ts` (`OpenWorld.sounds`,
+    heartbeat; a footstep a `STRIDE`), `audio/crackles.ts`; per-frame wiring `app/AudioBridge.ts` (`OpenWorld.sounds`,
     `litSounds`); automation `app/audioAutomation.ts` (`audioMark`, `heardSince`, `ambienceView`);
   - render feel (docs « Rendu », « Caméra 1re personne »): `render/CameraRig.ts` (view bob `BOB`
     with `viewBob`, `land` dip, `hurt` roll, sprint `fovOffset`/`SPRINT_FOV`; the pose's
@@ -238,7 +238,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`ClientThrottle`, `THROTTLE`; off in selftests), spans `app/perf.ts` (`SPANS`, `playSpans`,
     `lastSpan`); benchmarks `app/benchmarks.ts` (`BENCH_KINDS`, `runBenchmark`, `loadBenchmark`,
     `MOBS`) and `app/bench/` (sampler `sampleFrames`; motion `FLY`/`WALK`; cave `CAVE`/`cavePose`;
-    dig `DIG`; place `teleportAndWait`; `autorun.ts` for `?bench=`); the cave search
+    dig `DIG`; stage `teleportAndWait` (the selftests' too) and `staged` (the clock frozen at an
+    hour, the player immune); `autorun.ts` for `?bench=`); the cave search
     `world/gen/find.ts` `findCave`; the gzip budget `tools/gzipBudget.ts`;
   - onboarding (docs « Prise en main »): `platform/onboarding.ts` (`SeenTips`, key
     `cyw.onboarding.v1`, `TIPS`), `ui/onboarding.ts` (`ControlsCard`, `TIP_SECONDS`),

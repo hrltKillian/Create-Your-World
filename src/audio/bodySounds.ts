@@ -1,9 +1,8 @@
+import { STRIDE } from '../core/player.ts';
 import type { CuePlayer } from './cues.ts';
 
-/** Footsteps, strokes and the heartbeat (docs « Audio »: pas, eau, cœur). */
+/** Footsteps (one a STRIDE), strokes and the heartbeat (docs « Audio »: pas, eau, cœur). */
 export const BODY_SOUNDS = {
-  /** Metres walked on the ground per footstep (2.5 steps a second at walking speed). */
-  stride: 1.7,
   /** Metres swum per stroke. */
   stroke: 2.2,
   /** Seconds between heartbeats just under the threshold, and near 0 health. */
@@ -90,8 +89,7 @@ export class BodySounds {
     this.wasInWater = f.inWater;
     if (f.inWater)
       this.swum = this.advance(this.swum + flat + rise, BODY_SOUNDS.stroke, this.keys.swim);
-    else if (f.onGround && f.step)
-      this.walked = this.advance(this.walked + flat, BODY_SOUNDS.stride, f.step);
+    else if (f.onGround && f.step) this.walked = this.advance(this.walked + flat, STRIDE, f.step);
   }
 
   /** Plays `key` once a whole `length` is covered; returns the distance kept for the next one. */
