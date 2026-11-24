@@ -91,8 +91,7 @@ function checkItems(
       if (!Number.isInteger(tool.tier) || tool.tier < 0 || tool.tier > 4)
         add(`${path}.tool.tier`, 'must be an integer 0–4');
       if (!positive(tool.speed)) add(`${path}.tool.speed`, 'must be > 0');
-      if (!isCount(tool.durability, 1) || tool.durability > MAX_DURABILITY)
-        add(`${path}.tool.durability`, `must be an integer 1–${MAX_DURABILITY}`);
+      checkDurability(tool.durability, `${path}.tool.durability`, add);
     }
     // Tools, gear and water containers keep their own wear or charges, so they never stack.
     if ((tool || item.wear || item.container) && item.maxStack !== 1)
@@ -127,8 +126,7 @@ function checkUses(
   const wear = item.wear;
   if (wear) {
     if (!WEAR_SLOTS.includes(wear.slot)) add(`${path}.wear.slot`, `unknown slot "${wear.slot}"`);
-    if (!isCount(wear.durability, 1) || wear.durability > MAX_DURABILITY)
-      add(`${path}.wear.durability`, `must be an integer 1–${MAX_DURABILITY}`);
+    checkDurability(wear.durability, `${path}.wear.durability`, add);
   }
   if (item.consume) {
     if (!positive(item.consume.seconds)) add(`${path}.consume.seconds`, 'must be > 0');
@@ -149,9 +147,14 @@ export function checkWeapon(weapon: WeaponDef, path: string, add: AddIssue): voi
   for (const field of ['damage', 'cooldown', 'reach'] as const)
     if (!positive(weapon[field])) add(`${path}.${field}`, 'must be > 0');
   if (!(weapon.knockback >= 0)) add(`${path}.knockback`, 'must be ≥ 0');
-  const uses = weapon.durability;
-  if (uses !== undefined && (!isCount(uses, 1) || uses > MAX_DURABILITY))
-    add(`${path}.durability`, `must be an integer 1–${MAX_DURABILITY}`);
+  if (weapon.durability !== undefined)
+    checkDurability(weapon.durability, `${path}.durability`, add);
+}
+
+/** A stack's uses (a tool's, a weapon's, gear's wear): an integer 1–MAX_DURABILITY. */
+function checkDurability(uses: number, path: string, add: AddIssue): void {
+  if (!isCount(uses, 1) || uses > MAX_DURABILITY)
+    add(path, `must be an integer 1–${MAX_DURABILITY}`);
 }
 
 function checkTiers(pack: ContentPack, add: AddIssue): void {

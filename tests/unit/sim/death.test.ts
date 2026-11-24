@@ -7,7 +7,7 @@ import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash } from '../../../src/sim/persistence.ts';
 import type { PlayerState } from '../../../src/sim/player.ts';
 import { blockEntityRecord, playerRecord, readBlockEntity } from '../../../src/sim/saveRecords.ts';
-import { cellKey } from '../../../src/world/coords.ts';
+import { cellKey, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle } from '../../helpers/save.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
@@ -309,6 +309,29 @@ describe('death', () => {
     expect(eventsOf(s.send({ type: 'player.respawn' }), 'respawned')).toMatchObject([{ x, y, z }]);
   });
 
+  it('comes back on the same free cell beside a shaft, near or far, never in a bush (seed 109)', () => {
+    const s = playerTestSim({ seed: '109', worldType: 'default' });
+    const { x, y, z } = s.sim.spawn;
+    const [bx, bz] = [Math.floor(x), Math.floor(z)];
+    s.fill(bx, y - 8, bz, bx, y + 1, bz, 'block:air');
+    const backs = [];
+    for (const far of [false, true]) {
+      if (far) {
+        s.send({ type: 'debug.teleport', x: x + 1000, y: 120, z });
+        s.step(40);
+        expect(s.sim.world.heightAt(bx - 1, bz - 1)).toBe(-1);
+      }
+      s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+      const [back] = eventsOf(s.send({ type: 'player.respawn' }), 'respawned');
+      backs.push(back);
+      s.step(far ? 300 : 40);
+      const [fx, fy, fz] = [Math.floor(back!.x), back!.y, Math.floor(back!.z)];
+      expect([s.block(fx, fy, fz), s.block(fx, fy + 1, fz)]).toEqual(['block:air', 'block:air']);
+      expect(s.player.body.y).toBe(fy);
+    }
+    expect(backs[1]).toEqual(backs[0]);
+  });
+
   it('never leaves the pack in a sealed pocket beyond the rock', () => {
     const s = playerTestSim({ seed: 'pack-pocket' });
     s.fill(-3, 65, -3, 3, 70, 3, 'block:stone');
@@ -326,6 +349,18 @@ describe('death', () => {
     expect(s.block(2, 65, 0)).toBe('block:air');
     const lying = [...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop');
     expect(lying).toHaveLength(1);
+  });
+
+  it('spills what it carried when dying on the world’s top block, with no pack outside it', () => {
+    const s = playerTestSim({ seed: 'death-ceiling' });
+    s.fill(-2, WORLD_HEIGHT - 1, -2, 2, WORLD_HEIGHT - 1, 2, 'block:stone');
+    s.player.body.y = WORLD_HEIGHT;
+    s.give('item:dirt', 5);
+    s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
+    expect(s.player.graves).toEqual([]);
+    expect(packAt(s, 0, WORLD_HEIGHT, 0)).toBeUndefined();
+    const lying = [...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop');
+    expect(lying.map((drop) => [drop.item, drop.count])).toEqual([['item:dirt', 5]]);
   });
 
   it('stacks a second pack above the first when dying on the same spot', () => {

@@ -334,18 +334,29 @@ describe("a creature's blow", () => {
     expect(s.player.survival.health).toBe(100);
   });
 
-  it.each(['block:campfire[lit=1]', 'block:chest[facing4=n]', 'block:glowbloom_lantern'])(
-    'a low %s on the line lets a Prowler’s blow over it land',
-    (state) => {
-      const s = world(`low-block-${state}`);
-      const prowler = registry.creature('creature:prowler')!;
-      const c = place(s, 'creature:prowler', 0.5, -1.6);
-      c.modeTicks = 600;
-      s.put(0, 65, -1, state);
-      expect(strike(s.sim, c, prowler, s.player, [])).toBe(true);
-      expect(s.player.survival.health).toBeLessThan(100);
-    },
-  );
+  it.each([
+    ['block:campfire[lit=1]', false],
+    ['block:chest[facing4=n]', false],
+    ['block:glowbloom_lantern', false],
+    ['block:campfire[lit=1]', true],
+    ['block:chest[facing4=n]', true],
+  ])('a low %s lets a Prowler’s blow over it land (crouching: %s)', (state, crouching) => {
+    const s = world(`low-block-${state}-${crouching}`);
+    const prowler = registry.creature('creature:prowler')!;
+    const c = place(s, 'creature:prowler', 0.5, -1.6);
+    c.modeTicks = 600;
+    s.put(0, 65, -1, state);
+    s.player.body.crouching = crouching;
+    for (const pz of [0.2375, 0.35, 0.5])
+      for (const cz of [-1.52, -1.6, -1.7, -1.88]) {
+        s.player.body.z = pz;
+        c.body.z = cz;
+        s.player.invulnerable = 0;
+        s.player.survival.health = 100;
+        expect(strike(s.sim, c, prowler, s.player, []), `player ${pz}, Prowler ${cz}`).toBe(true);
+        expect(s.player.survival.health).toBeLessThan(100);
+      }
+  });
 
   it('a creature is invulnerable for 8 ticks after a blow', () => {
     const s = world('creature-invulnerable');

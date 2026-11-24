@@ -1,4 +1,4 @@
-import { COLLISION_FULL, COLLISION_NONE } from '../content/registry.ts';
+import { Column } from '../world/Column.ts';
 import {
   columnKey,
   localIndex,
@@ -7,7 +7,8 @@ import {
   toColumn,
   toLocal,
 } from '../world/coords.ts';
-import { surfaceY } from '../world/gen/generateColumn.ts';
+import { generateColumn, surfaceY } from '../world/gen/generateColumn.ts';
+import { restoreSections } from '../world/gen/generateResult.ts';
 import type { SavedSection } from '../world/protocol.ts';
 import type { Simulation } from './Simulation.ts';
 
@@ -25,25 +26,30 @@ export function surfaceAt(sim: Simulation, x: number, z: number): number {
 }
 
 /**
- * Collision of the cell (x, y, z) (a `RawTables.collision` value), resolved at once like
- * `surfaceAt`: the block of a loaded column, else of its saved section, else the generated ground
- * below the analytic height (full) and air above it (decorations aside).
+ * Collision of cells (a `RawTables.collision` value), resolved at once: the block of a loaded
+ * column, else of the column generated here (decoration and caves included) under its saved
+ * sections, kept for the reader's lifetime (a few milliseconds a column: respawns only).
  */
-export function collisionAt(sim: Simulation, x: number, y: number, z: number): number {
+export function collisionReader(sim: Simulation): (x: number, y: number, z: number) => number {
   const { world } = sim;
-  const tables = sim.registry.tables;
-  if (world.heightAt(x, z) >= 0) return tables.collision[world.getBlock(x, y, z)]!;
-  const saved = sim.edits.get(columnKey(toColumn(x), toColumn(z)));
-  const section = saved?.find((s) => s.sy === Math.floor(y / SECTION_SIZE));
-  if (section) {
-    const ly = y - section.sy * SECTION_SIZE;
-    const state =
-      section.blocks === null
-        ? section.uniformBlock
-        : section.blocks[localIndex(toLocal(x), ly, toLocal(z))]!;
-    return tables.collision[state]!;
-  }
-  return y < surfaceY(sim.ctx, x, z) ? COLLISION_FULL : COLLISION_NONE;
+  const collision = sim.registry.tables.collision;
+  const generated = new Map<number, Column>();
+  return (x, y, z) => {
+    if (world.heightAt(x, z) >= 0) return collision[world.getBlock(x, y, z)]!;
+    const cx = toColumn(x);
+    const cz = toColumn(z);
+    const key = columnKey(cx, cz);
+    let column = generated.get(key);
+    if (!column) {
+      column = new Column(cx, cz, world.air);
+      generateColumn(sim.ctx, column);
+      const saved = sim.edits.get(key);
+      // Read only: the saved arrays are shared, never written through this column.
+      if (saved) restoreSections(column, saved, world.air);
+      generated.set(key, column);
+    }
+    return collision[column.getBlock(toLocal(x), y, toLocal(z))]!;
+  };
 }
 
 /**

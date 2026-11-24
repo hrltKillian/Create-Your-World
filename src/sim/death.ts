@@ -19,7 +19,7 @@ import { addItem, addToRange, type Inventory, type ItemStack } from './inventory
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { collisionAt, surfaceAt } from './surface.ts';
+import { collisionReader, surfaceAt } from './surface.ts';
 import { addEffect, createSurvival } from './survival.ts';
 
 /*
@@ -124,8 +124,10 @@ function leavePack(
   let ring: BlockCell[] = [feet];
   for (let d = 0; d <= PACK_REACH && ring.length > 0; d++) {
     for (const cell of ring)
-      if (packFits(sim, cell.x, cell.y, cell.z)) {
-        editBlock(world, sim.light, cell.x, cell.y, cell.z, registry.grave, out);
+      if (
+        packFits(sim, cell.x, cell.y, cell.z) &&
+        editBlock(world, sim.light, cell.x, cell.y, cell.z, registry.grave, out)
+      ) {
         sim.blockEntities.set(cellKey(cell.x, cell.y, cell.z), {
           kind: 'grave',
           ...cell,
@@ -150,8 +152,9 @@ function leavePack(
   return null;
 }
 
-/** Whether a pack may go in a cell: air or replaceable, with no block entity. */
+/** Whether a pack may go in a cell: inside the world, air or replaceable, with no block entity. */
 function packFits(sim: Simulation, x: number, y: number, z: number): boolean {
+  if (y < 0 || y >= WORLD_HEIGHT) return false;
   const { registry } = sim;
   const state = sim.world.getBlock(x, y, z);
   const free = state === registry.air || (registry.tables.flags[state]! & FLAG_REPLACEABLE) !== 0;
@@ -171,10 +174,11 @@ function spawnPoint(sim: Simulation): { x: number; y: number; z: number } {
   const { x, y, z } = sim.spawn;
   const bx = Math.floor(x);
   const bz = Math.floor(z);
+  const standable = standableIn(collisionReader(sim));
   let point: { x: number; y: number; z: number } | null = null;
   spiral(SPAWN_RINGS, (dx, dz) => {
     for (const dy of SPAWN_BAND)
-      if (standable(sim, bx + dx, y + dy, bz + dz)) {
+      if (standable(bx + dx, y + dy, bz + dz)) {
         point = { x: x + dx, y: y + dy, z: z + dz };
         return true;
       }
@@ -182,20 +186,25 @@ function spawnPoint(sim: Simulation): { x: number; y: number; z: number } {
   });
   if (point) return point;
   for (let floor = y - 3; floor > 0; floor--)
-    if (standable(sim, bx, floor, bz)) return { x, y: floor, z };
+    if (standable(bx, floor, bz)) return { x, y: floor, z };
   return { x, y: surfaceAt(sim, bx, bz), z };
 }
 
-/** Whether a player fits with their feet in cell (x, y, z): ground under them, feet and head free. */
-function standable(sim: Simulation, x: number, y: number, z: number): boolean {
-  if (y < 1 || y + 1 >= WORLD_HEIGHT) return false;
-  const ground = collisionAt(sim, x, y - 1, z);
-  return (
-    ground !== COLLISION_NONE &&
-    ground !== COLLISION_LIQUID &&
-    collisionAt(sim, x, y, z) === COLLISION_NONE &&
-    collisionAt(sim, x, y + 1, z) === COLLISION_NONE
-  );
+/**
+ * Whether a player fits with their feet in cell (x, y, z), with the cells' collision from
+ * `collisionAt`: ground under them, feet and head free.
+ */
+function standableIn(collisionAt: (x: number, y: number, z: number) => number) {
+  return (x: number, y: number, z: number): boolean => {
+    if (y < 1 || y + 1 >= WORLD_HEIGHT) return false;
+    const ground = collisionAt(x, y - 1, z);
+    return (
+      ground !== COLLISION_NONE &&
+      ground !== COLLISION_LIQUID &&
+      collisionAt(x, y, z) === COLLISION_NONE &&
+      collisionAt(x, y + 1, z) === COLLISION_NONE
+    );
+  };
 }
 
 /** The Respawn command of a dead player (refused while alive). */
