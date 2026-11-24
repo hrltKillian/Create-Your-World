@@ -8,7 +8,8 @@ import { PHYSICS } from './physics.ts';
 /**
  * Creature bodies: a box of the creature's hitbox against the voxels (collision.ts), gravity,
  * buoyancy, acceleration towards the speed its brain wants, and a hop onto a one-block step it
- * walks into (its paths climb one block). Zero allocation.
+ * walks into (its paths climb one block), from the ground or out of a liquid onto its bank.
+ * Zero allocation.
  */
 export const CREATURE_BODY = {
   /** m/s² towards the wanted speed (on the ground and in the air alike). */
@@ -32,8 +33,8 @@ function setAabb(b: CreatureBody, width: number, height: number): void {
 
 /**
  * One tick of a creature body towards the horizontal velocity (`wantX`, `wantZ`) when `steer`
- * (else it slides: knocked back or falling over). Walking into a wall on the ground with `climb`
- * hops (a one-block step). Returns whether a wall stopped it.
+ * (else it slides: knocked back or falling over). Walking into a wall on the ground or swimming
+ * with `climb` hops (a one-block step, a bank). Returns whether a wall stopped it.
  */
 export function stepCreatureBody(
   world: VoxelWorld,
@@ -60,9 +61,11 @@ export function stepCreatureBody(
     b.vx *= CREATURE_BODY.groundFriction;
     b.vz *= CREATURE_BODY.groundFriction;
   }
-  b.vy = wet
-    ? Math.min(CREATURE_BODY.swimUp, b.vy + PHYSICS.gravity * dt)
-    : Math.max(-PHYSICS.terminal, b.vy - PHYSICS.gravity * dt);
+  // Buoyancy lifts at most to `swimUp`; a faster rise (a hop out onto the bank) falls as in air.
+  b.vy =
+    wet && b.vy <= CREATURE_BODY.swimUp
+      ? Math.min(CREATURE_BODY.swimUp, b.vy + PHYSICS.gravity * dt)
+      : Math.max(-PHYSICS.terminal, b.vy - PHYSICS.gravity * dt);
   setAabb(b, width, height);
   if (overlapsSolid(world, tables)) {
     // Buried (a debug fill): one cell up if the box is free there, else stuck: never through rock.
@@ -89,7 +92,7 @@ export function stepCreatureBody(
   b.x += dx;
   b.y += dy;
   b.z += dz;
-  if (blocked && climb && steer && b.onGround) {
+  if (blocked && climb && steer && (b.onGround || wet)) {
     b.vy = PHYSICS.jump;
     b.onGround = false;
   }

@@ -178,4 +178,17 @@ describe('A* pathfinding', () => {
     expect(lastSearch.reached).toBe(false);
     for (const [x] of cells) expect(x).toBeLessThan(96);
   });
+
+  it('swims out of water too deep to stand in, to the bank, rather than to its bed', () => {
+    // A pool 9 deep over the stone floor's level: feet float in its top layer (y 63).
+    const world = flatWorld();
+    const water = registry.defaultState('block:fresh_water');
+    for (let x = -10; x <= 10; x++)
+      for (let z = -10; z <= 10; z++) for (let y = 55; y <= 63; y++) world.setBlock(x, y, z, water);
+    const from: [number, number, number] = [0, 63, 0];
+    const cells = search(world, query(from, [20, 64, 0]));
+    expect(lastSearch.reached).toBe(true);
+    expectWalkable(cells, from);
+    expect(cells.at(-1)).toEqual([20, 64, 0]);
+  });
 });

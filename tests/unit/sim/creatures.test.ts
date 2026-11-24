@@ -205,6 +205,26 @@ describe('creatures', () => {
     expect(run(true)).toBe(65);
   });
 
+  it('a Trotter that walked into water climbs back out onto the bank, from shallow or deep water', () => {
+    // Pools flush with the ground (feet at 65): 1 and 3 deep from the bank, 9 deep from the middle.
+    const cases: [depth: number, x: number][] = [
+      [1, 40.5],
+      [3, 40.5],
+      [9, 48.5],
+    ];
+    for (const [depth, x] of cases) {
+      const s = world(`swim-${depth}`);
+      s.fill(40, 65 - depth, -6, 56, 64, 6, 'block:fresh_water');
+      const id = s.sim.nextEntityId;
+      s.send({ type: 'debug.spawn', creature: 'creature:trotter', x, y: 64, z: 0.5 });
+      const c = s.sim.entities.get(id) as CreatureState;
+      const dry = () => c.body.x < 40 || c.body.x > 57 || Math.abs(c.body.z) > 7;
+      for (let t = 0; t < 3600 && !dry(); t++) s.step(1);
+      expect(dry(), `${depth} deep`).toBe(true);
+      expect(c.body.y, `${depth} deep`).toBeGreaterThanOrEqual(65);
+    }
+  });
+
   it("a Shellback's brow plate stops 60 % of a blow from the front", () => {
     const s = world('front');
     const shellback = place(s, 'creature:shellback', 0.5, -20.5);

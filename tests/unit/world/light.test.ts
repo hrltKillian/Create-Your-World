@@ -289,7 +289,8 @@ describe('seams', () => {
     const gone = world.getColumn(0, 0)!;
     world.columns.delete(columnKey(0, 0));
     light.removeColumn(0, 0);
-    light.flush();
+    // Resolved at once, and not for remeshing: its neighbours are hidden with it.
+    expect(light.flush()).toBe(false);
     // The others are lit as if the unloaded column were rock, so nothing stale floods back.
     expect(mismatches(world, referenceLight(world, 0, 0))).toEqual([]);
     world.columns.set(columnKey(0, 0), gone);

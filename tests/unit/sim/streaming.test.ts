@@ -106,6 +106,21 @@ describe('streaming review fixes', () => {
     expect(allMeshable(sim, cx, cz, 3)).toBeNull();
   });
 
+  it('asks for no remesh when columns unload behind a walk: only edits change shown light', () => {
+    const { host } = makeHost('unload-light');
+    run(host, at(0), at(0), 4, 300);
+    let changed = 0;
+    let unloaded = 0;
+    for (let cx = 1; cx <= 6; cx++) {
+      for (const e of run(host, at(cx), at(0), 4, 60)) {
+        if (e.type === 'blocksChanged') changed++;
+        if (e.type === 'columnUnloaded') unloaded++;
+      }
+    }
+    expect(unloaded).toBeGreaterThan(0);
+    expect(changed).toBe(0);
+  });
+
   it('hides meshes beyond RD + 1 when the render distance shrinks, and shows them again', () => {
     const { host } = makeHost('hide');
     run(host, at(0), at(0), 6, 400);
