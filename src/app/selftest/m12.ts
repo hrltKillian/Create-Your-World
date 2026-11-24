@@ -283,7 +283,7 @@ export const M12_SUITE: readonly SelftestCase[] = [
       openBlock(app, cell.x, cell.y, cell.z);
       assert(app.inventory?.screen() === 'station', `the fire showed ${app.inventory?.screen()}`);
       const to = OPEN_SLOTS_BASE + fuelSlotOf(station);
-      sendAndStep(app, { type: 'station.move', from: app.input!.slot, to });
+      sendAndStep(app, { type: 'station.move', from: app.input!.slot, to, count: 2 });
       const contents = () =>
         blockEntityContents(app, cell.x, cell.y, cell.z) as {
           slots: { item: string; count: number }[];
