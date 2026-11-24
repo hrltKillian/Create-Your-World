@@ -22,6 +22,24 @@ import { UiBridge } from './UiBridge.ts';
 
 const log = createLogger('ui');
 
+/**
+ * The item icons of a registry (blob URLs, by item id), drawn once for the page: a registry and its
+ * texture layers live as long as it, so every world opened again shares the same URLs (kept for
+ * the page, never drawn twice).
+ */
+const iconsOf = new WeakMap<Registry, Promise<string[]>>();
+
+function itemIcons(registry: Registry, layers: readonly Uint8Array[]): Promise<string[]> {
+  let icons = iconsOf.get(registry);
+  if (!icons) {
+    icons = createItemIcons(registry, layers, registry.pack.manifest.textureSize);
+    iconsOf.set(registry, icons);
+    // A failure is drawn again by the next world opened.
+    icons.catch(() => iconsOf.delete(registry));
+  }
+  return icons;
+}
+
 /** The screens over the world (the hook's `ui.screen()` names them). */
 export type InventoryScreen = 'bag' | 'container' | 'station';
 
@@ -64,7 +82,7 @@ export class InventoryUi {
     this.input = input;
     this.gate = gate;
     const art: ItemArt = { registry, icons: [] };
-    createItemIcons(registry, layers, registry.pack.manifest.textureSize)
+    itemIcons(registry, layers)
       .then((urls) => {
         art.icons = urls;
       })
@@ -115,13 +133,17 @@ export class InventoryUi {
     return this.station.isOpen() ? 'station' : null;
   }
 
-  /** Opens the bag while playing, or closes the open screen (capturing the mouse again). */
-  toggleBag(): void {
+  /**
+   * Opens the bag while playing, or closes the open screen (capturing the mouse again). Returns
+   * whether it did either.
+   */
+  toggleBag(): boolean {
     if (this.screen()) this.closeScreen(true);
     else if (this.gate.canOpenScreen()) {
       this.bag.open();
       this.gate.openScreen();
-    }
+    } else return false;
+    return true;
   }
 
   /** `relock`: back to the game (the screens' own key), else to the "Click to resume" overlay (Esc). */
@@ -186,8 +208,10 @@ export class InventoryUi {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
     const action = actionForCode(this.input.bindings, event.code);
-    if (action === 'inventory') this.toggleBag();
-    else if (!this.screen()) return;
+    if (action === 'inventory') {
+      // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.
+      if (this.toggleBag()) event.preventDefault();
+    } else if (!this.screen()) return;
     else if (action === 'pause') {
       // Consumed: the same Esc must not also open the pause menu.
       event.preventDefault();

@@ -28,9 +28,10 @@ function replyTransfers(call: IoCall, value: unknown): ArrayBuffer[] {
 
 /**
  * The io worker (docs « Workers »: codec, deflate-raw and IndexedDB). Pure module: it only talks to
- * the injected port, so tests run it with fake-indexeddb. Requests run one at a time in arrival
- * order, so a read always sees the writes sent before it. The database opens on the first request
- * that needs it; when it cannot (no IndexedDB), each such request answers the error.
+ * the injected port, so tests run it with fake-indexeddb. Database requests run one at a time in
+ * arrival order, so a read always sees the writes sent before it; deflate and inflate run in order
+ * on a queue of their own. The database opens on the first request that needs it; when it cannot
+ * (no IndexedDB), each such request answers the error.
  */
 export function startIoWorker(port: IoPort, deps: IoDeps = BROWSER_DEPS): void {
   let opening: Promise<IdbStore> | null = null;
@@ -66,9 +67,14 @@ export function startIoWorker(port: IoPort, deps: IoDeps = BROWSER_DEPS): void {
     }
   };
 
-  let queue = Promise.resolve();
+  // Two queues: the codec jobs never touch the database, so a write (a page-hide flush) never
+  // waits behind the deflates of an autosave already running.
+  let storeQueue = Promise.resolve();
+  let codecQueue = Promise.resolve();
   port.listen((request: IoRequest) => {
-    queue = queue.then(async () => {
+    const codec = request.op === 'deflate' || request.op === 'inflate';
+    const queue = codec ? codecQueue : storeQueue;
+    const next = queue.then(async () => {
       try {
         const value = await run(request);
         port.post({ id: request.id, ok: true, value }, replyTransfers(request, value));
@@ -83,5 +89,7 @@ export function startIoWorker(port: IoPort, deps: IoDeps = BROWSER_DEPS): void {
         });
       }
     });
+    if (codec) codecQueue = next;
+    else storeQueue = next;
   });
 }

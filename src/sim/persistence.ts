@@ -31,6 +31,7 @@ import {
   blockEntityRecord,
   creatureRecord,
   dropRecord,
+  insideWorld,
   playerRecord,
   readBlockEntity,
   readCreature,
@@ -264,6 +265,7 @@ function readWorld(data: WorldRecord): WorldRecord {
     isWhole(world.tick, 0) &&
     isWhole(world.nextEntityId, 1) &&
     isPoint(world.spawn) &&
+    insideWorld(world.spawn) &&
     Array.isArray(world.stateKeys) &&
     world.stateKeys.every((key) => typeof key === 'string');
   if (!valid) throw new Error('Corrupt world record');

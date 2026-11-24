@@ -1,3 +1,4 @@
+import { isWhole } from '../core/guards.ts';
 import type { SimEvent } from './events.ts';
 
 /**
@@ -133,8 +134,7 @@ export function deserializeTime(data: unknown): TimeState {
   const time = createTime();
   if (!data || typeof data !== 'object') return time;
   const saved = data as Partial<TimeState>;
-  if (typeof saved.ticks === 'number' && Number.isInteger(saved.ticks) && saved.ticks >= 0)
-    time.ticks = saved.ticks;
+  if (isWhole(saved.ticks, 0)) time.ticks = saved.ticks;
   if (typeof saved.frozen === 'boolean') time.frozen = saved.frozen;
   return time;
 }
