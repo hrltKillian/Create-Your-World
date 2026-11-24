@@ -197,7 +197,30 @@ describe('saving block entities and craft queues', () => {
       progressTicks: 0,
       process: '',
       lit: false,
+      keepLit: false,
       tick: 5,
     });
+  });
+
+  it('round-trips a campfire kept burning; only a fire that allows it keeps the toggle', async () => {
+    const s = flatSim('kept');
+    s.put(2, 65, -2, 'block:campfire[lit=0]');
+    s.give('item:broadleaf_log', 3);
+    const fuel = 32 + fuelSlotOf(registry.crafting.station('station:campfire')!);
+    s.send(
+      { type: 'container.open', x: 2, y: 65, z: -2 },
+      { type: 'station.move', from: 0, to: fuel },
+    );
+    s.send({ type: 'station.keepLit', on: true });
+    s.step(10);
+    const fire = s.sim.blockEntities.get(cellKey(2, 65, -2)) as StationEntity;
+    expect(fire).toMatchObject({ keepLit: true, lit: true });
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+    const r = await reopen(storage);
+    expect(records(r.sim)).toEqual(records(s.sim));
+    expect(blockEntityRecord(fire)).toMatchObject({ keepLit: true });
+    const kiln = { kind: 'station', station: 'station:kiln', x: 1, y: 2, z: 3, keepLit: true };
+    expect(readBlockEntity(kiln, registry, 5)).toMatchObject({ keepLit: false });
   });
 });

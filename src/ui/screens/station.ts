@@ -10,6 +10,7 @@ import { t } from '../../i18n/i18n.ts';
 import { h } from '../h.ts';
 import { type ItemArt, ingredientName, itemIcon, type Slots } from '../itemSlot.ts';
 import { type ScreenDeps, SlotBoard } from '../slotBoard.ts';
+import { menuButton } from './menuParts.ts';
 
 /** What a station shows besides its slots. */
 export interface StationStatus {
@@ -21,14 +22,17 @@ export interface StationStatus {
   readonly progress: number;
   /** Key of the process the inputs call for ('' when none). */
   readonly process: string;
+  /** The fire is kept burning without a process (the « Keep burning » toggle). */
+  readonly keepLit: boolean;
 }
 
 /**
  * The Station screen (campfire, kiln, bloomery; docs « Écrans »): the inputs, the fuel slot under
- * its flame, the progress arrow, the output, and the processes the station runs (the one under way
- * lit), beside the bag and the hotbar. Slots take the bag's gestures; Shift+click sends fuel the
- * fire burns to the fuel slot and the ingredients of its processes to the inputs (the simulation
- * decides).
+ * its flame, the progress arrow, the output, the « Keep burning » toggle of a fire that allows it
+ * (the campfire: warmth and light without a process), and the processes the station runs (the one
+ * under way lit), beside the bag and the hotbar. Slots take the bag's gestures; Shift+click sends
+ * fuel the fire burns to the fuel slot and the ingredients of its processes to the inputs (the
+ * simulation decides, and the toggle shows what it keeps).
  */
 export class StationScreen {
   readonly element: HTMLElement;
@@ -40,6 +44,9 @@ export class StationScreen {
   private readonly processes: HTMLElement;
   private readonly flame: HTMLElement;
   private readonly bar: HTMLElement;
+  private readonly keepLit: HTMLButtonElement;
+  /** The toggle's state as the simulation last showed it. */
+  private kept = false;
   private station: StationDef | null = null;
   /** What the process list was drawn with (redrawn when either changes). */
   private shownProcess = '';
@@ -57,6 +64,11 @@ export class StationScreen {
     this.processes = h('ul', { class: 'station-processes' });
     this.flame = h('span', { class: 'flame' });
     this.bar = h('span', { class: 'station-bar' }, h('span', { class: 'station-bar-fill' }));
+    this.keepLit = menuButton('keep-lit', t('station.keepLit'), () => {
+      deps.actions.click();
+      deps.actions.send({ type: 'station.keepLit', on: !this.kept });
+    });
+    this.keepLit.classList.add('station-keep-lit');
     this.element.append(
       h(
         'div',
@@ -69,6 +81,7 @@ export class StationScreen {
             'div',
             { class: 'station' },
             this.machine,
+            this.keepLit,
             h('p', { class: 'bag-section' }, t('station.processes')),
             this.processes,
           ),
@@ -124,6 +137,7 @@ export class StationScreen {
       parts.push(part('station-fire', 'station.fuel', [this.flame, ...slot]));
     }
     this.machine.replaceChildren(...parts);
+    this.keepLit.hidden = station.keepLit !== true;
     this.drawProcesses('');
     board.open();
   }
@@ -138,6 +152,9 @@ export class StationScreen {
     this.flame.style.setProperty('--flame', String(status.flame));
     this.flame.classList.toggle('lit', status.lit);
     this.bar.style.setProperty('--progress', String(status.progress));
+    this.kept = status.keepLit;
+    this.keepLit.classList.toggle('on', status.keepLit);
+    this.keepLit.setAttribute('aria-pressed', String(status.keepLit));
     if (status.process !== this.shownProcess || this.art.icons !== this.shownIcons)
       this.drawProcesses(status.process);
   }

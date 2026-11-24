@@ -447,6 +447,8 @@ export function readBlockEntity(
     progressTicks: whole(saved.progressTicks),
     process: typeof saved.process === 'string' ? saved.process : '',
     lit: saved.lit === true,
+    // Only a fire that may be kept burning keeps the toggle on.
+    keepLit: saved.keepLit === true && def?.keepLit === true,
     tick: isWhole(saved.tick, 0) ? saved.tick : lastTick,
   };
 }

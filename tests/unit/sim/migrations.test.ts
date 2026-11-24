@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { openErrorKey } from '../../../src/app/worlds.ts';
 import type {
+  BlockEntity,
   ContainerEntity,
   GraveEntity,
   StationEntity,
@@ -122,6 +123,8 @@ describe('save versions', () => {
     expect(chest.slots[8]).toEqual({ item: 'item:flint', count: 3 });
     const kiln = sim.blockEntities.get(cellKey(-2, 65, 2)) as StationEntity;
     expect(kiln).toMatchObject({ process: 'process:copper_ingot', progressTicks: 142, tick: 450 });
+    // Version 6 keeps a burning station burning, but a kiln's fire only burns for its processes.
+    expect(kiln.keepLit).toBe(false);
     const player = sim.players.get(1)!;
     expect(player.craft).toEqual([
       {
@@ -234,5 +237,77 @@ describe('save versions', () => {
     step(30);
     // It runs on east along its path, away from the player.
     expect(fleeing!.body.x).toBeGreaterThan(7);
+  });
+
+  it('upgrades version 5 stations: a fire burning when saved is kept burning', () => {
+    const station = (lit: boolean) => ({
+      kind: 'station',
+      station: 'station:campfire',
+      x: 1,
+      y: 65,
+      z: 1,
+      lit,
+    });
+    const chest = { kind: 'container', x: 2, y: 65, z: 1, slots: [] };
+    const column = migrate('column', { blockEntities: [station(true), station(false), chest] }, 5);
+    expect(column.blockEntities).toEqual([
+      { ...station(true), keepLit: true },
+      { ...station(false), keepLit: false },
+      chest,
+    ]);
+    expect(migrate('column', { blockEntities: 'x' }, 5)).toEqual({ blockEntities: 'x' });
+  });
+
+  it('loads the v5 fixture with a campfire burning when saved: it burns on, kept lit', async () => {
+    // The v5 fixture holds no station: one burning there, as version 5 saved it, is added.
+    const stored = fixture(5);
+    const fire = {
+      kind: 'station',
+      x: 3,
+      y: 65,
+      z: 3,
+      station: 'station:campfire',
+      slots: [null, null, { item: 'item:broadleaf_log', count: 2 }, null],
+      burnTicksLeft: 600,
+      burnTicks: 1200,
+      progressTicks: 0,
+      process: '',
+      lit: true,
+      tick: 61,
+    };
+    // As version 5 wrote it: no `keepLit` yet.
+    const columns = stored.columns.map((c) =>
+      c.cx === 0 && c.cz === 0 ? { ...c, blockEntities: [fire as unknown as BlockEntity] } : c,
+    );
+    const storage = new MemoryStorage();
+    await storage.write({ ...stored, columns, removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const campfire = sim.blockEntities.get(cellKey(3, 65, 3)) as StationEntity;
+    expect(campfire).toMatchObject({ keepLit: true, lit: true });
+    settle(sim);
+    step(610);
+    // Its log burnt out (600 ticks left), it lit the next one, with nothing to cook.
+    expect(campfire.slots[2]).toEqual({ item: 'item:broadleaf_log', count: 1 });
+    expect(campfire).toMatchObject({ lit: true, process: '' });
+  });
+
+  it('loads the v6 fixture: a campfire kept burning, an idle one that burns nothing', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(6), removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const kept = sim.blockEntities.get(cellKey(3, 65, -3)) as StationEntity;
+    const idle = sim.blockEntities.get(cellKey(-3, 65, -3)) as StationEntity;
+    expect(kept).toMatchObject({ keepLit: true, lit: true, burnTicksLeft: 1174 });
+    expect(idle).toMatchObject({ keepLit: false, lit: false, burnTicksLeft: 0 });
+    // The jump is no longer remembered between ticks: the body has no `jumpHeldLast`.
+    expect('jumpHeldLast' in sim.players.get(1)!.body).toBe(false);
+    settle(sim);
+    step(1200);
+    expect(kept.slots[2]).toEqual({ item: 'item:broadleaf_log', count: 1 });
+    expect(idle.slots[2]).toEqual({ item: 'item:broadleaf_log', count: 2 });
+    expect(idle.lit).toBe(false);
+    const block = (x: number, z: number) => sim.registry.states[sim.world.getBlock(x, 65, z)]!.key;
+    expect(block(3, -3)).toBe('block:campfire[lit=1]');
+    expect(block(-3, -3)).toBe('block:campfire[lit=0]');
   });
 });

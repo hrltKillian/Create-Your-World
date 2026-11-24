@@ -81,6 +81,8 @@ export function validBlockEntityCommand(c: BlockEntityCommand): boolean {
     case 'container.move':
     case 'station.move':
       return validSlotMove(c);
+    case 'station.keepLit':
+      return typeof c.on === 'boolean';
   }
 }
 

@@ -51,6 +51,11 @@ export interface StationEntity {
   process: string;
   /** Burned during the last tick: drives the block's `lit` state (light and heat). */
   lit: boolean;
+  /**
+   * Kept burning without a process while it has fuel (warmth, light): the « Keep burning » toggle
+   * of a station whose fire allows it (`StationDef.keepLit`), off for a new one.
+   */
+  keepLit: boolean;
   /** Last tick simulated: a station outside the simulation radius catches up from it. */
   tick: number;
 }
@@ -132,6 +137,7 @@ export function createBlockEntity(
       progressTicks: 0,
       process: '',
       lit: false,
+      keepLit: false,
       tick: sim.tick,
     };
   } else {

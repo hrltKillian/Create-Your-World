@@ -77,7 +77,9 @@ export type BlockEntityCommand =
   | { readonly type: 'container.open'; readonly x: number; readonly y: number; readonly z: number }
   | { readonly type: 'container.close' }
   | SlotMove<'container.move'>
-  | SlotMove<'station.move'>;
+  | SlotMove<'station.move'>
+  /** The open station's « Keep burning » toggle (a fire that allows it: `StationDef.keepLit`). */
+  | { readonly type: 'station.keepLit'; readonly on: boolean };
 
 /** A move between the inventory (slots 0–31) and other slots numbered from `OPEN_SLOTS_BASE`. */
 export interface SlotMove<T extends 'container.move' | 'station.move' | 'equip.move'> {

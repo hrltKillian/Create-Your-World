@@ -79,6 +79,7 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
       add(path, 'a processing station needs input, fuel and output slots');
     if (!station.burns && (slots.some((n) => n !== 0) || station.fuelSlot))
       add(path, 'a station without fire has no slots');
+    if (station.keepLit && !station.burns) add(`${path}.keepLit`, 'only a fire can be kept lit');
   });
   pack.blocks.forEach((block, i) => {
     const path = `blocks[${i}]`;

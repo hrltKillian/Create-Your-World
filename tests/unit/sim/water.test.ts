@@ -134,6 +134,7 @@ describe('water containers', () => {
       progressTicks: 0,
       process: '',
       lit: false,
+      keepLit: false,
       tick: 0,
     };
     const boil = registry.crafting.process('process:flask_boiled')!;

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -17,6 +17,18 @@ export type PlainRecord = Readonly<Record<string, unknown>>;
 
 /** Upgrades each kind of record from one version to the next. */
 export type MigrationStep = Readonly<Record<RecordKind, (record: PlainRecord) => PlainRecord>>;
+
+/** A column record whose block entities go through `upgrade` (a list that is no list is kept). */
+function withBlockEntities(
+  record: PlainRecord,
+  upgrade: (entity: unknown) => unknown,
+): PlainRecord {
+  const entities = record.blockEntities;
+  return { ...record, blockEntities: Array.isArray(entities) ? entities.map(upgrade) : entities };
+}
+
+/** A block entity record's kind, if it is an object. */
+const kindOf = (entity: unknown): unknown => (entity as { kind?: unknown } | null)?.kind;
 
 /** `MIGRATIONS[i]` upgrades a version i + 1 record to version i + 2. */
 export const MIGRATIONS: readonly MigrationStep[] = [
@@ -39,16 +51,10 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     world: (record) => record,
     player: (record) => ({ ...record, drank: false }),
-    column: (record) => ({
-      ...record,
-      blockEntities: Array.isArray(record.blockEntities)
-        ? record.blockEntities.map((entity: unknown) =>
-            (entity as { kind?: unknown } | null)?.kind === 'grave'
-              ? { ...(entity as object), worn: [] }
-              : entity,
-          )
-        : record.blockEntities,
-    }),
+    column: (record) =>
+      withBlockEntities(record, (entity) =>
+        kindOf(entity) === 'grave' ? { ...(entity as object), worn: [] } : entity,
+      ),
   },
   // 4 → 5 (M10): columns keep their creatures among their entities, and whether their first
   // generation placed a herd. A stored column had its first generation long ago (it was edited or
@@ -57,6 +63,18 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     world: (record) => record,
     player: (record) => record,
     column: (record) => ({ ...record, herds: true }),
+  },
+  // 5 → 6 (M12): a fire burns only while it processes, unless the player keeps it burning; a
+  // station burning when saved keeps burning (the reader keeps the toggle for campfires only).
+  {
+    world: (record) => record,
+    player: (record) => record,
+    column: (record) =>
+      withBlockEntities(record, (entity) =>
+        kindOf(entity) === 'station'
+          ? { ...(entity as object), keepLit: (entity as { lit?: unknown }).lit === true }
+          : entity,
+      ),
   },
 ];
 

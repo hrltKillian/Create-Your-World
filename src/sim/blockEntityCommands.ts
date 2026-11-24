@@ -17,9 +17,9 @@ import { cellInSight } from './targeting.ts';
 
 /**
  * The Container and Station screens on the simulation side: opening (one player at a time, within
- * 5 blocks and in sight), closing, and atomic moves between the inventory and the open block
- * entity. A station takes anything in its inputs, only fuel its fire burns in its fuel slot, and
- * nothing in its outputs.
+ * 5 blocks and in sight), closing, atomic moves between the inventory and the open block entity,
+ * and the open campfire's « Keep burning » toggle. A station takes anything in its inputs, only
+ * fuel its fire burns in its fuel slot, and nothing in its outputs.
  */
 
 export function applyBlockEntityCommand(
@@ -50,7 +50,24 @@ export function applyBlockEntityCommand(
       else out.push({ type: 'inventoryChanged', playerId });
       break;
     }
+    case 'station.keepLit': {
+      const refusal = keepLit(sim, player, command.on);
+      if (refusal) reject(out, playerId, command.type, refusal);
+      break;
+    }
   }
+}
+
+/**
+ * Turns the open station's « Keep burning » on or off (its fire then burns, while it has fuel,
+ * without a process); returns the refusal, if any.
+ */
+function keepLit(sim: Simulation, player: PlayerState, on: boolean): string | null {
+  const entity = openedEntity(sim, player);
+  if (entity?.kind !== 'station') return 'not open';
+  if (sim.registry.crafting.station(entity.station)?.keepLit !== true) return 'invalid';
+  entity.keepLit = on;
+  return null;
 }
 
 /**

@@ -92,6 +92,7 @@ function kiln(): StationEntity {
     progressTicks: ticksOf(10) / 2,
     process: 'process:copper_ingot',
     lit: true,
+    keepLit: false,
     tick: 0,
   };
 }
@@ -154,6 +155,7 @@ describe('UiBridge', () => {
       flame: 0.25,
       progress: 0.5,
       process: 'process:copper_ingot',
+      keepLit: false,
     });
   });
 
@@ -183,6 +185,7 @@ describe('UiBridge', () => {
       flame: 0,
       progress: 0,
       process: '',
+      keepLit: false,
     });
   });
 
@@ -194,6 +197,9 @@ describe('UiBridge', () => {
       flame: 0.25,
       progress: 0,
       process: '',
+      keepLit: false,
     });
+    // A campfire kept burning says so (its screen's toggle).
+    expect(stationStatus(registry, { ...banked, keepLit: true }).keepLit).toBe(true);
   });
 });

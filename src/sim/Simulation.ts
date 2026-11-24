@@ -320,7 +320,8 @@ export class Simulation implements ColumnSink {
       case 'container.open':
       case 'container.close':
       case 'container.move':
-      case 'station.move': {
+      case 'station.move':
+      case 'station.keepLit': {
         const player = this.players.get(playerId);
         if (player) applyBlockEntityCommand(this, player, command, out);
         break;
