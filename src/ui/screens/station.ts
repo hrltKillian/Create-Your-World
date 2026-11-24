@@ -2,6 +2,7 @@ import { fuelSlotOf, outputSlotOf, stationSlotCount } from '../../content/crafti
 import type { Ingredient, ItemCount, ProcessDef, StationDef } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
 import { type ItemArt, ingredientName, itemIcon, type Slots } from '../itemSlot.ts';
 import { type ScreenDeps, SlotBoard } from '../slotBoard.ts';
@@ -127,9 +128,12 @@ export class StationScreen {
     this.board.close();
   }
 
-  /** Shows the inventory, then the station's slots, its flame, progress and process. */
-  update(slots: Slots, status: StationStatus): void {
-    this.board.update(slots);
+  /**
+   * Shows the inventory, then the station's slots, the cursor stack, its flame, progress and
+   * process.
+   */
+  update(slots: Slots, cursor: Readonly<ItemStack> | null, status: StationStatus): void {
+    this.board.update(slots, cursor);
     this.flame.style.setProperty('--flame', String(status.flame));
     this.flame.classList.toggle('lit', status.lit);
     this.bar.style.setProperty('--progress', String(status.progress));

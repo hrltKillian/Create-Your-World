@@ -1,6 +1,7 @@
 import type { StationDef } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
 import { type ScreenDeps, SlotBoard, slotGrid } from '../slotBoard.ts';
@@ -69,9 +70,9 @@ export class WorkbenchScreen {
     this.board.close();
   }
 
-  /** Shows the inventory then the outputs, and the bench's Logbook and queue. */
-  update(slots: Slots, logbook: LogbookState): void {
-    this.board.update(slots);
+  /** Shows the inventory then the outputs, the cursor stack, and the bench's Logbook and queue. */
+  update(slots: Slots, cursor: Readonly<ItemStack> | null, logbook: LogbookState): void {
+    this.board.update(slots, cursor);
     this.logbook.update(logbook);
   }
 

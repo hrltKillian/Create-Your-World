@@ -66,8 +66,11 @@ export class SlotView {
   private shownCount = -1;
   private shownWear = -1;
 
-  /** `key`: the number shown in the corner (hotbar slots). */
-  constructor(slot: number, art: ItemArt, key?: number) {
+  /**
+   * `slot`: its number (`data-slot`), or null for the cursor stack's view; `key`: the number shown
+   * in the corner (hotbar slots).
+   */
+  constructor(slot: number | null, art: ItemArt, key?: number) {
     this.art = art;
     this.icon = h('img', { class: 'slot-icon', attrs: { alt: '', draggable: 'false' } });
     this.icon.hidden = true;
@@ -76,7 +79,7 @@ export class SlotView {
     this.wear.hidden = true;
     this.element = h(
       'div',
-      { class: 'slot', attrs: { 'data-slot': String(slot) } },
+      { class: 'slot', attrs: slot === null ? {} : { 'data-slot': String(slot) } },
       key === undefined ? null : h('span', { class: 'slot-key' }, key),
       this.icon,
       this.count,

@@ -6,12 +6,13 @@ import {
   batchCount,
   CRAFT_BATCHES,
   type CraftBatch,
-  hiddenRecipes,
+  filterRows,
   type IngredientPip,
   type LogbookSource,
   logbookRows,
   pipFilled,
   type RecipeRow,
+  shownName,
   stationRecipes,
 } from '../logbook.ts';
 import type { ScreenActions } from '../slotBoard.ts';
@@ -40,18 +41,21 @@ export interface LogbookLimits {
 
 /**
  * The Logbook (the Bag's: the hand recipes and the player's queue; a Workbench's: its station's
- * recipes and the bench's queue): tabs, the revealed recipes with craftable ones first, each with
- * its owned/required pips; the selected recipe's ingredients (with where an unseen one is found)
- * and the ×1/×5/Max buttons (on for what the inventory pays for and the queue takes); then the
- * queue of 5, whose entries cancel on a click, and what is left: the recipes still to discover,
- * and in the Bag the ones made at a station (« 3 more at the Workbench »). Rebuilt only when what
- * it shows changes.
+ * recipes and the bench's queue): a search box (output and ingredient names, without case or
+ * accents) and the « Can craft now » filter, the category tabs (with their craftable count), the
+ * recipes with craftable ones first, each with its owned/required pips, then the undiscovered ones
+ * greyed (their unseen ingredients as « ? »); the selected recipe's ingredients (with where an
+ * unseen one is found) and the ×1/×5/Max buttons (on for what the inventory pays for and the queue
+ * takes); then the queue of 5, whose entries cancel on a click, and in the Bag the recipes made at
+ * a station (« 3 more at the Workbench »). Rebuilt only when what it shows changes.
  */
 export class LogbookPanel {
   readonly element: HTMLElement;
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
   private readonly limits: LogbookLimits;
+  private readonly search: HTMLInputElement;
+  private readonly craftableOnly: HTMLButtonElement;
   private readonly tabs: HTMLElement;
   private readonly list: HTMLElement;
   private readonly detail: HTMLElement;
@@ -60,6 +64,8 @@ export class LogbookPanel {
   private readonly footer: HTMLElement;
   private tab: RecipeCategory = RECIPE_CATEGORIES[0]!;
   private selected = '';
+  private query = '';
+  private onlyCraftable = false;
   private state: LogbookState | null = null;
   private signature = '';
   private progress: HTMLElement | null = null;
@@ -68,6 +74,34 @@ export class LogbookPanel {
     this.art = art;
     this.actions = actions;
     this.limits = limits;
+    this.search = h('input', {
+      class: 'logbook-search',
+      attrs: {
+        type: 'search',
+        placeholder: t('logbook.search'),
+        'aria-label': t('logbook.search'),
+        'data-action': 'search',
+        autocomplete: 'off',
+        spellcheck: 'false',
+      },
+      on: {
+        input: () => {
+          this.query = this.search.value;
+          this.redraw();
+        },
+      },
+    });
+    this.craftableOnly = menuButton(
+      'craftable-only',
+      t('logbook.craftableOnly'),
+      () => {
+        this.onlyCraftable = !this.onlyCraftable;
+        this.actions.click();
+        this.redraw();
+      },
+      'logbook-filter',
+    );
+    this.craftableOnly.setAttribute('aria-pressed', 'false');
     this.tabs = h('nav', { class: 'logbook-tabs' });
     this.list = h('div', { class: 'logbook-list' });
     this.detail = h('div', { class: 'logbook-detail' });
@@ -78,6 +112,7 @@ export class LogbookPanel {
       'div',
       { class: 'logbook' },
       h('p', { class: 'bag-section' }, t('logbook.title')),
+      h('div', { class: 'logbook-find' }, this.search, this.craftableOnly),
       this.tabs,
       this.list,
       this.detail,
@@ -90,7 +125,11 @@ export class LogbookPanel {
   /** Shows the player's recipes and queue (call when the bag is open; cheap when nothing changed). */
   update(state: LogbookState): void {
     this.state = state;
-    const rows = logbookRows(state.source, this.limits.maxCount);
+    const rows = filterRows(
+      logbookRows(state.source, this.limits.maxCount),
+      { query: this.query, craftableOnly: this.onlyCraftable },
+      (key) => ingredientName(this.art.registry, key),
+    );
     const footer = this.footerText(state.source);
     const signature = this.signatureOf(rows, state.queue, footer);
     if (signature !== this.signature) {
@@ -100,41 +139,51 @@ export class LogbookPanel {
     this.progress?.style.setProperty('--progress', String(state.queue[0]?.progress ?? 0));
   }
 
-  private refresh(): void {
-    this.actions.click();
+  /** Draws again after a choice of the player (tab, row, search, filter). */
+  private redraw(): void {
     this.signature = '';
     if (this.state) this.update(this.state);
   }
 
+  /** A click on a tab or a row: its sound, then the panel again. */
+  private choose(): void {
+    this.actions.click();
+    this.redraw();
+  }
+
   /** Everything the panel shows but the progress bar. */
   private signatureOf(rows: readonly RecipeRow[], queue: readonly QueueView[], footer: string) {
-    const parts = [this.tab, this.selected, this.art.icons.length, footer];
+    const parts = [this.tab, this.selected, this.onlyCraftable, this.art.icons.length, footer];
     for (const entry of queue) parts.push(entry.recipe, entry.count);
     for (const row of rows) {
-      parts.push(row.recipe.key, row.max, row.room);
+      parts.push(row.recipe.key, row.max, row.room, row.discovered);
       for (const pip of row.pips) parts.push(pip.owned, Number(pip.seen));
     }
     return parts.join('|');
   }
 
-  /** The recipes still to discover, then (in the Bag) those made at a station, by station. */
+  /** In the Bag, the revealed recipes made at a station, by station. */
   private footerText(source: LogbookSource): string {
-    const hidden = hiddenRecipes(source);
-    const parts = hidden > 0 ? [t('logbook.hidden', { n: hidden })] : [];
-    for (const { station, count } of stationRecipes(source))
-      parts.push(t('logbook.atStation', { n: count, station: this.stationName(station) }));
-    return parts.join(' · ');
+    return stationRecipes(source)
+      .map(({ station, count }) =>
+        t('logbook.atStation', { n: count, station: this.stationName(station) }),
+      )
+      .join(' · ');
   }
 
   private render(rows: readonly RecipeRow[], queue: readonly QueueView[], footer: string): void {
+    this.craftableOnly.setAttribute('aria-pressed', String(this.onlyCraftable));
+    this.craftableOnly.classList.toggle('on', this.onlyCraftable);
     this.tabs.replaceChildren(
       ...RECIPE_CATEGORIES.map((category) => this.tabButton(category, rows)),
     );
     const shown = rows.filter((row) => row.recipe.category === this.tab);
+    const filtered = this.query.trim() !== '' || this.onlyCraftable;
+    const empty = filtered ? 'logbook.noMatch' : 'logbook.empty';
     this.list.replaceChildren(
       ...(shown.length > 0
         ? shown.map((row) => this.rowButton(row))
-        : [h('p', { class: 'logbook-empty' }, t('logbook.empty'))]),
+        : [h('p', { class: 'logbook-empty' }, t(empty))]),
     );
     const selected = shown.find((row) => row.recipe.key === this.selected);
     this.detail.replaceChildren(
@@ -162,7 +211,7 @@ export class LogbookPanel {
           click: () => {
             this.tab = category;
             this.selected = '';
-            this.refresh();
+            this.choose();
           },
         },
       },
@@ -175,6 +224,7 @@ export class LogbookPanel {
     const recipe = row.recipe;
     const classes = ['logbook-row'];
     if (row.craftable) classes.push('craftable');
+    if (!row.discovered) classes.push('undiscovered');
     if (recipe.key === this.selected) classes.push('selected');
     return h(
       'button',
@@ -184,7 +234,7 @@ export class LogbookPanel {
         on: {
           click: () => {
             this.selected = recipe.key;
-            this.refresh();
+            this.choose();
           },
         },
       },
@@ -193,7 +243,7 @@ export class LogbookPanel {
         'span',
         { class: 'logbook-row-text' },
         h('span', { class: 'logbook-name' }, this.outputName(row)),
-        h('span', { class: 'logbook-pips' }, ...row.pips.map((pip) => this.pip(pip))),
+        h('span', { class: 'logbook-pips' }, ...row.pips.map((pip) => this.pip(row, pip))),
       ),
     );
   }
@@ -205,11 +255,19 @@ export class LogbookPanel {
     return count > 1 ? t('logbook.makes', { name, n: count }) : name;
   }
 
-  private pip(pip: IngredientPip): HTMLElement {
+  /** An ingredient's icon, or « ? » for one an undiscovered recipe keeps unseen. */
+  private ingredientIcon(row: RecipeRow, pip: IngredientPip): HTMLElement {
+    if (!shownName(row, pip)) return h('span', { class: 'item-unknown' }, t('logbook.unknown'));
+    const icon = itemIcon(this.art, pip.key);
+    if (!pip.seen) icon.classList.add('unseen');
+    return icon;
+  }
+
+  private pip(row: RecipeRow, pip: IngredientPip): HTMLElement {
     return h(
       'span',
       { class: pipFilled(pip) ? 'pip filled' : 'pip' },
-      itemIcon(this.art, pip.key),
+      this.ingredientIcon(row, pip),
       t('logbook.pip', { owned: pip.owned, required: pip.required }),
     );
   }
@@ -229,13 +287,21 @@ export class LogbookPanel {
         h('strong', null, this.outputName(row)),
         h('span', { class: 'logbook-time' }, t('logbook.seconds', { n: recipe.seconds })),
       ),
-      h('ul', { class: 'logbook-ingredients' }, ...row.pips.map((pip) => this.ingredient(pip))),
+    ];
+    if (!row.discovered)
+      out.push(h('p', { class: 'logbook-undiscovered' }, t('logbook.undiscovered')));
+    out.push(
+      h(
+        'ul',
+        { class: 'logbook-ingredients' },
+        ...row.pips.map((pip) => this.ingredient(row, pip)),
+      ),
       h(
         'div',
         { class: 'logbook-batches' },
         ...CRAFT_BATCHES.map((batch) => this.batchButton(batch, row)),
       ),
-    ];
+    );
     return out;
   }
 
@@ -256,23 +322,29 @@ export class LogbookPanel {
     return button;
   }
 
-  /** An ingredient line: icon, name and pip; where it is found while it has never been seen. */
-  private ingredient(pip: IngredientPip): HTMLElement {
+  /**
+   * An ingredient line: icon, name and pip, then where it is found while it has never been seen.
+   * One an undiscovered recipe keeps unseen shows « ? » and where it is found in its name's place.
+   */
+  private ingredient(row: RecipeRow, pip: IngredientPip): HTMLElement {
     const registry = this.art.registry;
-    const hint = pip.seen ? undefined : registry.item(pip.key)?.hintKey;
-    const icon = itemIcon(this.art, pip.key);
-    if (!pip.seen) icon.classList.add('unseen');
+    const hintKey = pip.seen ? undefined : registry.item(pip.key)?.hintKey;
+    const hint = hintKey ? t(hintKey) : '';
+    const named = shownName(row, pip);
+    const name = named
+      ? h('span', { class: 'logbook-ingredient' }, ingredientName(registry, pip.key))
+      : h('span', { class: 'logbook-ingredient logbook-hint' }, hint || t('logbook.unknown'));
     return h(
       'li',
       { class: pipFilled(pip) ? 'filled' : '' },
-      icon,
-      h('span', { class: 'logbook-ingredient' }, ingredientName(registry, pip.key)),
+      this.ingredientIcon(row, pip),
+      name,
       h(
         'span',
         { class: 'pip-count' },
         t('logbook.pip', { owned: pip.owned, required: pip.required }),
       ),
-      hint ? h('span', { class: 'logbook-hint' }, t(hint)) : null,
+      named && hint ? h('span', { class: 'logbook-hint' }, hint) : null,
     );
   }
 

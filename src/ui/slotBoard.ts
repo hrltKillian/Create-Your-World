@@ -1,6 +1,7 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
 import { t } from '../i18n/i18n.ts';
 import type { Command } from '../sim/commands.ts';
+import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
 import { type ItemArt, type Slots, SlotView, stackName } from './itemSlot.ts';
 
@@ -32,10 +33,11 @@ export interface ScreenDeps {
 }
 
 /**
- * The shell of a slot screen (Bag, Container, Station): a full-screen section whose `[data-slot]`
- * views send the simulation's slot clicks (sim/slotClicks.ts decides): a left or right button
- * press on a slot, with Shift or not, one outside the panel (slot −1: throws the cursor stack), and
- * a hotbar number key over a slot. It only sends commands and shows what the simulation answers.
+ * The shell of a slot screen (Bag, Container, Station, Workbench): a full-screen section whose
+ * `[data-slot]` views send the simulation's slot clicks (sim/slotClicks.ts decides): a left or
+ * right button press on a slot, with Shift or not, one outside the panel (slot −1: throws the
+ * cursor stack), and a hotbar number key over a slot. It only sends commands and shows what the
+ * simulation answers: the slots, and the cursor stack (PlayerState.cursor) under the mouse.
  */
 export class SlotBoard {
   readonly element: HTMLElement;
@@ -49,8 +51,13 @@ export class SlotBoard {
   private readonly closeKey: () => string;
   /** Views by slot number. */
   private readonly views: SlotView[] = [];
+  /** The cursor stack's view, under the mouse (it ignores the pointer); hidden while it is empty. */
+  private readonly cursor: SlotView;
   private slots: Slots = [];
   private hovered = -1;
+  /** The pointer's last place in the viewport, where the cursor stack shows. */
+  private pointerX = 0;
+  private pointerY = 0;
 
   constructor(deps: ScreenDeps, id: string) {
     this.art = deps.art;
@@ -59,15 +66,23 @@ export class SlotBoard {
     this.closeKey = deps.closeKey;
     this.caption = h('p', { class: 'bag-caption' });
     this.closeHint = h('p', { class: 'bag-close' });
-    this.element = h('section', {
-      id,
-      class: 'screen screen-slots',
-      on: {
-        pointerdown: this.onPointerDown,
-        pointerover: this.onPointerOver,
-        contextmenu: (event) => event.preventDefault(),
+    this.cursor = new SlotView(null, deps.art);
+    this.cursor.element.classList.add('slot-cursor');
+    this.cursor.element.hidden = true;
+    this.element = h(
+      'section',
+      {
+        id,
+        class: 'screen screen-slots',
+        on: {
+          pointerdown: this.onPointerDown,
+          pointermove: this.onPointerMove,
+          pointerover: this.onPointerOver,
+          contextmenu: (event) => event.preventDefault(),
+        },
       },
-    });
+      this.cursor.element,
+    );
     this.element.hidden = true;
   }
 
@@ -123,13 +138,19 @@ export class SlotBoard {
   }
 
   /**
-   * Shows the slots (the inventory, then the open block entity's): call when they change and
-   * regularly; unchanged slots cost nothing.
+   * Shows the slots (the inventory, then the open block entity's) and the cursor stack: call when
+   * they change and regularly; unchanged slots cost nothing.
    */
-  update(slots: Slots): void {
+  update(slots: Slots, cursor: Readonly<ItemStack> | null): void {
     this.slots = slots;
     for (let i = 0; i < this.views.length; i++) this.views[i]?.set(slots[i] ?? null);
     if (this.hovered >= 0) this.hover(this.hovered);
+    this.cursor.set(cursor);
+    const view = this.cursor.element;
+    if (view.hidden === (cursor !== null)) {
+      view.hidden = cursor === null;
+      this.placeCursor();
+    }
   }
 
   /** A hotbar number key (slot 0–7) pressed while the screen is open, over the hovered slot. */
@@ -151,12 +172,25 @@ export class SlotBoard {
     if (this.caption.textContent !== text) this.caption.textContent = text;
   }
 
+  /** Puts the cursor stack's view where the pointer last was (viewport pixels: main.css). */
+  private placeCursor(): void {
+    this.cursor.element.style.transform = `translate(${this.pointerX}px, ${this.pointerY}px)`;
+  }
+
   private readonly onPointerOver = (event: PointerEvent): void => {
     this.hover(slotOf(event.target));
   };
 
+  /** The cursor stack follows the pointer. */
+  private readonly onPointerMove = (event: PointerEvent): void => {
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    if (!this.cursor.element.hidden) this.placeCursor();
+  };
+
   /** A press on a slot clicks it; one outside the panel (the backdrop) is slot −1. */
   private readonly onPointerDown = (event: PointerEvent): void => {
+    this.onPointerMove(event);
     if (event.button !== MOUSE_LEFT && event.button !== MOUSE_RIGHT) return;
     const slot = slotOf(event.target);
     const outside = event.target instanceof Element && !event.target.closest('.bag-panel');

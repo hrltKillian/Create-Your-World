@@ -8,7 +8,7 @@ import { ticksOf } from '../../../src/sim/clock.ts';
 import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import type { Gear } from '../../../src/sim/environment.ts';
 import type { SimView } from '../../../src/sim/host.ts';
-import { createInventory, type Inventory } from '../../../src/sim/inventory.ts';
+import { createInventory, type Inventory, type ItemStack } from '../../../src/sim/inventory.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
@@ -17,6 +17,9 @@ import type { LogbookState } from '../../../src/ui/screens/logbook.ts';
 import type { StationScreen, StationStatus } from '../../../src/ui/screens/station.ts';
 import type { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import { registry } from '../../helpers/registry.ts';
+
+/** The cursor stack a screen shows. */
+type Cursor = ItemStack | null;
 
 /** A screen stand-in that records its updates. */
 function screen<T extends unknown[]>() {
@@ -51,10 +54,10 @@ function setup(entity?: BlockEntity) {
       this.elapsed += dt;
     },
   };
-  const bag = screen<[Inventory, LogbookState, Gear]>();
-  const container = screen<[Inventory]>();
-  const station = screen<[Inventory, StationStatus]>();
-  const workbench = screen<[Inventory, LogbookState]>();
+  const bag = screen<[Inventory, Cursor, LogbookState, Gear]>();
+  const container = screen<[Inventory, Cursor]>();
+  const station = screen<[Inventory, Cursor, StationStatus]>();
+  const workbench = screen<[Inventory, Cursor, LogbookState]>();
   const input = { slot: 0 };
   const player = {
     playerId: 1,
@@ -62,7 +65,7 @@ function setup(entity?: BlockEntity) {
     equipment: [null, null, null, null, null] as Inventory,
     seen: {},
     craft: [],
-    cursor: null,
+    cursor: null as Cursor,
     screen: entity ? { kind: 'block', x: entity.x, y: entity.y, z: entity.z } : null,
   };
   const view = {
@@ -133,7 +136,8 @@ describe('UiBridge', () => {
     bridge.frame(FRAME);
     expect(bag.updates).toHaveLength(1);
     // The inventory, then the worn items (slots 64–68) and what they protect from.
-    const [slots, logbook, gear] = bag.updates[0]!;
+    const [slots, cursor, logbook, gear] = bag.updates[0]!;
+    expect(cursor).toBeNull();
     expect(slots).toHaveLength(OPEN_SLOTS_BASE + 5);
     expect(slots[3]).toEqual({ item: 'item:broadleaf_log', count: 4 });
     expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
@@ -144,6 +148,11 @@ describe('UiBridge', () => {
     expect(logbook.source.station).toBeUndefined();
     expect(logbook.source.room(registry.crafting.recipe('recipe:cord')!)).toBe(5 * 64);
     expect(logbook.queue).toEqual([]);
+    // The cursor stack the simulation holds for the player shows with the slots.
+    player.cursor = { item: 'item:flint', count: 3 };
+    bridge.onEvent({ type: 'inventoryChanged', playerId: 1 });
+    bridge.frame(FRAME);
+    expect(bag.updates.at(-1)![1]).toEqual({ item: 'item:flint', count: 3 });
   });
 
   it('shows the open chest or station from slot 64 on, with the station fire', () => {
@@ -155,7 +164,7 @@ describe('UiBridge', () => {
     const b = setup(kiln());
     b.station.open = true;
     b.bridge.frame(FRAME);
-    const [slots, status] = b.station.updates[0]!;
+    const [slots, , status] = b.station.updates[0]!;
     expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:charcoal', count: 2 });
     expect(status).toEqual({
       lit: true,
@@ -181,7 +190,7 @@ describe('UiBridge', () => {
     const s = setup(bench);
     s.workbench.open = true;
     s.bridge.frame(FRAME);
-    const [slots, logbook] = s.workbench.updates[0]!;
+    const [slots, , logbook] = s.workbench.updates[0]!;
     expect(slots[OPEN_SLOTS_BASE]).toEqual({ item: 'item:chest', count: 1 });
     expect(logbook.source.station).toBe('station:workbench');
     expect(logbook.queue).toEqual([queueView(registry, entry)]);

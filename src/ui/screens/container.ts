@@ -1,5 +1,6 @@
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
 import {
@@ -71,10 +72,10 @@ export class ContainerScreen {
     this.board.close();
   }
 
-  /** Shows the inventory, then the container's slots. */
-  update(slots: Slots): void {
+  /** Shows the inventory, then the container's slots, and the cursor stack. */
+  update(slots: Slots, cursor: Readonly<ItemStack> | null): void {
     this.slots = slots;
-    this.board.update(slots);
+    this.board.update(slots, cursor);
   }
 
   hotkey(hotbarSlot: number): void {

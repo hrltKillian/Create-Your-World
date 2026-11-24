@@ -156,6 +156,30 @@ describe('InventoryUi', () => {
     expect(esc()).toBe(false);
   });
 
+  it("leaves the keys typed in the Logbook's search to it, but Esc", () => {
+    const { ui } = setup();
+    const search = { tagName: 'INPUT', type: 'search' };
+    const typed = (code: string) => {
+      const event = {
+        code,
+        repeat: false,
+        defaultPrevented: false,
+        target: search,
+        preventDefault() {
+          event.defaultPrevented = true;
+        },
+      };
+      keydown(event as unknown as KeyboardEvent);
+      return event.defaultPrevented;
+    };
+    ui.toggleBag();
+    // E (the bag's key), Tab and a hotbar number type into the box: the bag stays open.
+    for (const code of ['KeyE', 'Tab', 'Digit2']) expect(typed(code)).toBe(false);
+    expect(ui.screen()).toBe('bag');
+    expect(typed('Escape')).toBe(true);
+    expect(ui.screen()).toBeNull();
+  });
+
   it('draws the item icons once for every world opened with the same content', () => {
     const before = iconSets.made;
     setup();

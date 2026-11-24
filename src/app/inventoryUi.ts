@@ -4,7 +4,7 @@ import type { Registry } from '../content/registry.ts';
 import { createLogger } from '../core/log.ts';
 import { t } from '../i18n/i18n.ts';
 import { actionForCode, HOTBAR_CODES } from '../input/bindings.ts';
-import type { InputManager } from '../input/InputManager.ts';
+import { type InputManager, isTextField } from '../input/InputManager.ts';
 import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../sim/craftQueue.ts';
 import type { SimEvent } from '../sim/events.ts';
@@ -53,12 +53,14 @@ interface ScreenView {
 
 /**
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
- * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or Tab opens the bag and closes any
- * screen, so does Esc (back to play either way, never the pause menu: PlayGate.closeScreen), a
- * hotbar key over a slot swaps. The Bag opens in the simulation too (`screen.open`), whose slot
- * clicks need it; chests, stations and workbenches open from the simulation (secondary on the
- * block): their screen shows on its `blockEntityOpened` event and goes on `blockEntityClosed`. Closing a screen
- * sends `screen.close` (the cursor stack goes back to the inventory).
+ * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
+ * Tab opens the bag and closes any screen, so does Esc (back to play either way, never the pause
+ * menu: PlayGate.closeScreen), a hotbar key over a slot swaps; keys typed in a text box (the
+ * Logbook's search) are its own, but Esc. The Bag opens in the simulation too (`screen.open`),
+ * whose slot clicks need it; chests, stations and workbenches open from the simulation (secondary
+ * on the block): their screen shows on its `blockEntityOpened` event and goes on
+ * `blockEntityClosed`. Closing a screen sends `screen.close` (the cursor stack goes back to the
+ * inventory).
  */
 export class InventoryUi {
   readonly hotbar: Hotbar;
@@ -207,8 +209,8 @@ export class InventoryUi {
 
   /**
    * The simulation closed the open chest, station or workbench (moved away, broken, another one
-   * opened, the player died). A death keeps the gate's screen: the death screen takes it over (HudBridge), so
-   * the game does not pause and Respawn captures the mouse again.
+   * opened, the player died). A death keeps the gate's screen: the death screen takes it over
+   * (HudBridge), so the game does not pause and Respawn captures the mouse again.
    */
   private blockClosed(): void {
     const open = this.openView();
@@ -218,7 +220,7 @@ export class InventoryUi {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat) return;
+    if (event.repeat || (event.code !== 'Escape' && isTextField(event.target))) return;
     const action = actionForCode(this.input.bindings, event.code);
     if (action === 'inventory') {
       // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.

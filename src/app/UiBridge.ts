@@ -34,9 +34,10 @@ type OpenScreen = 'bag' | 'container' | 'station' | 'workbench' | null;
 
 /**
  * Refreshes the hotbar and the open screen (the bag with its Logbook, a chest, a station, a
- * workbench with its own Logbook) from the player's live state: at 10 Hz, at once after an inventory, craft or block entity event, when the
- * selected slot changes and when a screen opens. The views diff what they show, so a refresh that
- * changes nothing touches no DOM. The player's hints (SimEvent `hint`) go to the HUD hint line.
+ * workbench with its own Logbook) with the cursor stack, from the player's live state: at 10 Hz,
+ * at once after an inventory, craft or block entity event, when the selected slot changes and when
+ * a screen opens. The views diff what they show, so a refresh that changes nothing touches no DOM.
+ * The player's hints (SimEvent `hint`) go to the HUD hint line.
  */
 export class UiBridge {
   private readonly view: SimView;
@@ -126,11 +127,11 @@ export class UiBridge {
     };
   }
 
-  /** The Bag: the inventory then the worn items, their protection, and the Logbook. */
+  /** The Bag: the inventory then the worn items, the cursor stack, the protection and the Logbook. */
   private bagScreen(): void {
-    const { inventory, equipment, craft } = this.player;
+    const { inventory, equipment, craft, cursor } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
-    this.views.bag.update(screenSlots(inventory, equipment), this.logbook(craft), gear);
+    this.views.bag.update(screenSlots(inventory, equipment), cursor, this.logbook(craft), gear);
   }
 
   /**
@@ -142,11 +143,13 @@ export class UiBridge {
     const entity =
       screen?.kind === 'block' ? this.view.blockEntity(screen.x, screen.y, screen.z) : undefined;
     if (entity?.kind !== open) return;
-    const slots = screenSlots(this.player.inventory, entity.slots);
-    if (entity.kind === 'container') this.views.container.update(slots);
+    const { inventory, cursor } = this.player;
+    const slots = screenSlots(inventory, entity.slots);
+    const { container, workbench, station } = this.views;
+    if (entity.kind === 'container') container.update(slots, cursor);
     else if (entity.kind === 'workbench')
-      this.views.workbench.update(slots, this.logbook(entity.craft, entity.station));
-    else this.views.station.update(slots, stationStatus(this.view.registry, entity));
+      workbench.update(slots, cursor, this.logbook(entity.craft, entity.station));
+    else station.update(slots, cursor, stationStatus(this.view.registry, entity));
   }
 }
 

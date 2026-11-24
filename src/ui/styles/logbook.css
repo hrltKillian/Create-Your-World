@@ -78,6 +78,59 @@
   gap: 6px;
 }
 
+/* The search box and the « Can craft now » filter. */
+.logbook-find {
+  display: flex;
+  gap: 6px;
+}
+
+.logbook-search {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c-ink);
+  font: 0.8rem var(--font);
+}
+
+.logbook-search:focus {
+  border-color: var(--c-accent);
+  outline: none;
+}
+
+.logbook-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--c-ink-muted);
+  font: 600 0.7rem var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.logbook-filter::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--c-ink-muted);
+  border-radius: 3px;
+}
+
+.logbook-filter.on {
+  color: var(--c-accent);
+}
+
+.logbook-filter.on::before {
+  border-color: var(--c-accent);
+  background: var(--c-accent);
+}
+
 .logbook-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -149,6 +202,30 @@
 
 .logbook-row.selected {
   background: rgba(232, 176, 74, 0.14);
+}
+
+/* An undiscovered recipe: greyed, at the bottom of its tab; its unseen ingredients are « ? ». */
+.logbook-row.undiscovered {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.item-unknown {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  color: var(--c-ink-muted);
+  font-weight: 700;
+}
+
+.logbook-ingredients .item-unknown {
+  width: 20px;
+}
+
+.logbook-undiscovered {
+  margin: 0 0 6px;
+  color: var(--c-ink-muted);
+  font-size: 0.74rem;
 }
 
 .logbook-row-text {
@@ -247,6 +324,11 @@
   color: var(--c-ink-muted);
   font-size: 0.7rem;
   font-style: italic;
+}
+
+/* An unknown ingredient's line: where it is found, in its name's place. */
+.logbook-ingredient.logbook-hint {
+  grid-column: auto;
 }
 
 .logbook-batches {

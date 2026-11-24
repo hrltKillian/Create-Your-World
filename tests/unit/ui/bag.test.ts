@@ -118,13 +118,66 @@ describe('BagScreen', () => {
     expect(sent.at(-1)).toEqual({ type: 'slot.hotkey', slot: head, hotbar: 2 });
   });
 
+  it('shows the Inventory or the Logbook page from its tab bar, the one chosen last first', () => {
+    const { screen } = deps();
+    const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS);
+    const bag = new BagScreen(screen, logbook);
+    const wear = fake(bag.element).querySelector('.wear')!;
+    const tab = (page: string) => byAttr(bag.element, 'data-page', page)[0]!;
+    expect(byAttr(bag.element, 'data-page').map((e) => e.getAttribute('data-page'))).toEqual([
+      'inventory',
+      'logbook',
+    ]);
+    expect([bag.shown(), wear.hidden, fake(logbook.element).hidden]).toEqual([
+      'inventory',
+      false,
+      true,
+    ]);
+    tab('logbook').dispatch('click');
+    expect([bag.shown(), wear.hidden, fake(logbook.element).hidden]).toEqual([
+      'logbook',
+      true,
+      false,
+    ]);
+    expect(tab('logbook').className).toBe('bag-tab active');
+    expect(tab('inventory').getAttribute('aria-pressed')).toBe('false');
+    // Both pages sit beside the same inventory slots; the page stays chosen across openings.
+    expect(slotNumbers(bag.element)).toHaveLength(BASE_INVENTORY_SLOTS + WEAR_SLOTS.length);
+    bag.open();
+    bag.close();
+    bag.open();
+    expect(bag.shown()).toBe('logbook');
+  });
+
+  it('draws the cursor stack under the pointer while it holds one', () => {
+    const { screen } = deps();
+    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    bag.open();
+    const cursor = fake(bag.element).querySelector('.slot-cursor')!;
+    // Not a slot: a press on it (it ignores the pointer anyway) clicks nothing.
+    expect(cursor.getAttribute('data-slot')).toBeNull();
+    expect(cursor.hidden).toBe(true);
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
+    const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+    const state = { source: logbookSource({}), queue: [] };
+    fake(bag.element).dispatch('pointermove', { clientX: 120, clientY: 80 });
+    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear);
+    expect(cursor.hidden).toBe(false);
+    expect(cursor.textContent).toContain('3');
+    expect(cursor.style.transform).toBe('translate(120px, 80px)');
+    fake(bag.element).dispatch('pointermove', { clientX: 200, clientY: 90 });
+    expect(cursor.style.transform).toBe('translate(200px, 90px)');
+    bag.update(slots, null, state, gear);
+    expect(cursor.hidden).toBe(true);
+  });
+
   it('shows what the worn items protect from', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[9] = { item: 'item:fur_hood', count: 1 };
     const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
-    bag.update(slots, { source: logbookSource({}), queue: [] }, gear);
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear);
     expect(fake(bag.element).querySelector('.wear-stats')?.textContent).toBe(
       'Armor 3 · Warmth +16 °C · Cooling −0 °C',
     );
@@ -167,14 +220,75 @@ describe('LogbookPanel', () => {
     logbook.update({ source: logbookSource({ 'item:planks': 8 }), queue: [] });
     byAttr(root, 'data-tab', 'building')[0]!.dispatch('click');
     expect(byAttr(root, 'data-recipe', 'recipe:chest')).toEqual([]);
-    expect(fake(root).querySelector('.logbook-footer')?.textContent).toMatch(
-      /Still to discover: \d+ · 2 more at the Workbench$/,
+    expect(fake(root).querySelector('.logbook-footer')?.textContent).toBe(
+      '2 more at the Workbench',
     );
     byAttr(root, 'data-tab', 'survival')[0]!.dispatch('click');
     byAttr(root, 'data-recipe', 'recipe:unfired_flask')[0]!.dispatch('click');
     expect(fake(root).querySelector('.logbook-hint')?.textContent).toBe(
       'Dug from clay banks along the shores',
     );
+  });
+
+  it('searches outputs and ingredients, and « Can craft now » keeps what the inventory pays for', () => {
+    const { logbook, root } = panel();
+    const search = fake(root).findAll((e) => e.getAttribute('data-action') === 'search')[0]!;
+    const type = (text: string) => {
+      (search as unknown as { value: string }).value = text;
+      search.dispatch('input');
+    };
+    const rows = () => byAttr(root, 'data-recipe').map((e) => e.getAttribute('data-recipe'));
+    logbook.update({ source: logbookSource(tools), queue: [] });
+    byAttr(root, 'data-tab', 'tools')[0]!.dispatch('click');
+    type('HATCHET');
+    expect(rows()).toEqual(['recipe:flint_hatchet']);
+    // By an ingredient's name; the tab's badge counts what the search keeps.
+    type('cord');
+    expect(rows()).toEqual(['recipe:flint_hatchet', 'recipe:flint_pickaxe', 'recipe:flint_spear']);
+    const badge = byAttr(root, 'data-tab', 'tools')[0]!.querySelector('.logbook-count');
+    expect(badge?.textContent).toBe('2');
+    type('nothing like it');
+    expect(rows()).toEqual([]);
+    expect(fake(root).querySelector('.logbook-empty')?.textContent).toBe('No recipe matches.');
+    type('');
+    const filter = fake(root).findAction('craftable-only')!;
+    filter.dispatch('click');
+    expect(filter.getAttribute('aria-pressed')).toBe('true');
+    expect(rows()).toEqual(['recipe:flint_knife', 'recipe:flint_hatchet', 'recipe:flint_pickaxe']);
+    filter.dispatch('click');
+    expect(rows().length).toBeGreaterThan(3);
+  });
+
+  it('lists undiscovered recipes greyed at the bottom, their unseen ingredients as « ? »', () => {
+    const { logbook, sent, root } = panel();
+    logbook.update({ source: logbookSource({}), queue: [] });
+    byAttr(root, 'data-tab', 'survival')[0]!.dispatch('click');
+    const rows = byAttr(root, 'data-recipe');
+    const bandage = byAttr(root, 'data-recipe', 'recipe:bandage')[0]!;
+    expect(bandage.className).toBe('logbook-row undiscovered');
+    expect(rows.at(-1)).toBe(bandage);
+    expect(bandage.querySelector('.logbook-name')?.textContent).toBe('Bandage');
+    const unknown = bandage.findAll((e) => e.className === 'item-unknown');
+    expect(unknown.map((e) => e.textContent)).toEqual(['?', '?']);
+    bandage.dispatch('click');
+    const detail = fake(root).querySelector('.logbook-detail')!;
+    expect(detail.querySelector('.logbook-undiscovered')).not.toBeNull();
+    // Each unseen ingredient: « ? », and where it is found in its name's place.
+    const icons = detail.findAll((e) => e.className === 'item-unknown');
+    expect(icons.map((e) => e.textContent)).toEqual(['?', '?']);
+    const names = detail.findAll((e) => e.className === 'logbook-ingredient logbook-hint');
+    expect(names.map((e) => e.textContent)).toEqual([
+      'Pulled from tall grass',
+      'Oozes from conifer needles and palmthorns',
+    ]);
+    for (const batch of ['1', '5', 'max'])
+      expect((fake(root).findAction(`craft-${batch}`) as { disabled?: boolean }).disabled).toBe(
+        true,
+      );
+    expect(sent).toEqual([]);
+    // « Can craft now » hides it.
+    fake(root).findAction('craftable-only')!.dispatch('click');
+    expect(byAttr(root, 'data-recipe', 'recipe:bandage')).toEqual([]);
   });
 
   it('shows the queue of 5, the first entry with its progress, and cancels on a click', () => {
@@ -238,7 +352,7 @@ describe('WorkbenchScreen', () => {
     expect(slotNumbers(bench.element)).toHaveLength(BASE_INVENTORY_SLOTS + def.outputSlots);
     const slots: Inventory = new Array(base + def.outputSlots).fill(null);
     slots[base + 1] = { item: 'item:chest', count: 2 };
-    bench.update(slots, {
+    bench.update(slots, null, {
       source: logbookSource({ 'item:planks': 8, 'item:cord': 1 }, BENCH),
       queue: [],
     });
@@ -264,7 +378,7 @@ describe('ContainerScreen', () => {
     slots[0] = { item: 'item:dirt', count: 3 };
     slots[9] = { item: 'item:dirt', count: 4 };
     slots[OPEN_SLOTS_BASE + 2] = { item: 'item:flint', count: 1 };
-    chest.update(slots);
+    chest.update(slots, null);
     byAttr(chest.element, 'data-action', 'take-all')[0]!.dispatch('click');
     byAttr(chest.element, 'data-action', 'store-all')[0]!.dispatch('click');
     expect(sent).toEqual([
@@ -304,15 +418,21 @@ describe('StationScreen', () => {
       process: 'process:copper_ingot',
       keepLit: false,
     };
-    station.update(slots, burning);
+    station.update(slots, null, burning);
     expect(flame().className).toBe('flame lit');
     const active = fake(station.element).findAll((e) => e.className === 'station-process active');
     expect(active).toHaveLength(1);
     // A banked fire (idle, fuel time left) is dim: its size stays, it is not lit.
-    station.update(slots, { lit: false, flame: 0.5, progress: 0, process: '', keepLit: false });
+    station.update(slots, null, {
+      lit: false,
+      flame: 0.5,
+      progress: 0,
+      process: '',
+      keepLit: false,
+    });
     expect(flame().className).toBe('flame');
     expect(flame().style.getPropertyValue('--flame')).toBe('0.5');
-    station.update(slots, { lit: false, flame: 0, progress: 0, process: '', keepLit: false });
+    station.update(slots, null, { lit: false, flame: 0, progress: 0, process: '', keepLit: false });
     expect(flame().className).toBe('flame');
     // A kiln's fire burns only for its processes: no « Keep burning » toggle.
     expect(fake(station.element).findAction('keep-lit')!.hidden).toBe(true);
@@ -326,14 +446,14 @@ describe('StationScreen', () => {
     expect(toggle.hidden).toBe(false);
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + 4).fill(null);
     const status = { lit: false, flame: 0, progress: 0, process: '', keepLit: false };
-    station.update(slots, status);
+    station.update(slots, null, status);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
     const toggles = () => sent.filter((c) => c.type === 'station.keepLit');
     toggle.dispatch('click');
     expect(toggles()).toEqual([{ type: 'station.keepLit' }]);
     // The screen shows what the simulation keeps, not the click.
     expect(toggle.classList.contains('on')).toBe(false);
-    station.update(slots, { ...status, keepLit: true, lit: true });
+    station.update(slots, null, { ...status, keepLit: true, lit: true });
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     expect(toggle.classList.contains('on')).toBe(true);
     // Each click flips it in the simulation, however soon after the last one (no refresh between).
