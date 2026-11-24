@@ -213,11 +213,10 @@ export function readPlayer(
   if (!isWhole(saved.playerId, 0) || !isWhole(saved.id, 1)) return null;
   const { x, y, z } = spawn;
   const player = createPlayer(saved.playerId, x, y, z, 6, registry.pack.balance, saved.id);
-  if (!readBody(player.body, saved.body)) {
-    player.body.x = x;
-    player.body.y = y;
-    player.body.z = z;
-  }
+  // Read into a copy: a body out of the world keeps the fresh one at the spawn (at rest, its fall
+  // measured from there), none of the saved fall state.
+  const body = { ...player.body };
+  if (readBody(body, saved.body)) Object.assign(player.body, body);
   const { yaw, pitch, stamina, exhausted, restTicks, viewRadius } = saved;
   assignFields(player, { yaw, pitch, stamina, exhausted, restTicks, viewRadius });
   player.prevX = player.body.x;
@@ -265,14 +264,17 @@ export function dropRecord(drop: Readonly<ItemDropState>): DropRecord {
   return record;
 }
 
-/** The drop of a (migrated) record, or null if it is malformed or out of the world. */
+/** The drop of a (migrated) record, or null if it is malformed, below the world or past its border. */
 export function readDrop(data: unknown, registry: Registry): ItemDropState | null {
   const saved = (data ?? {}) as Partial<DropRecord>;
   if (saved.kind !== 'itemDrop' || !isWhole(saved.id, 1) || typeof saved.item !== 'string')
     return null;
   if (!isWhole(saved.count, 1) || !isPoint(saved.body)) return null;
   const body: DropBody = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: false };
-  if (!readBody(body, saved.body)) return null;
+  // A drop thrown at a jump's apex from the top layer flies a little higher than a player: brought
+  // down to the top of the world (it falls back onto the top layer), never lost.
+  const savedBody = { ...saved.body, y: Math.min(saved.body.y, WORLD_HEIGHT + 2) };
+  if (!readBody(body, savedBody)) return null;
   const drop: ItemDropState = {
     kind: 'itemDrop',
     id: saved.id,

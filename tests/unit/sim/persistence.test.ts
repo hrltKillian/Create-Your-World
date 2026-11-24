@@ -21,7 +21,7 @@ import {
   SAVE_VERSION,
   SaveVersionError,
 } from '../../../src/world/codec/migrations.ts';
-import { columnKey, localIndex } from '../../../src/world/coords.ts';
+import { columnKey, localIndex, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
 import { withTicks } from '../../helpers/simHarness.ts';
@@ -158,8 +158,10 @@ describe('save records', () => {
       { x: 0, y: -3, z: 0 },
       { x: 0, y: 1e9, z: 0 },
     ]) {
-      const far = readPlayer({ playerId: 1, id: 2, body }, registry, spawn)!;
-      expect(far.body).toMatchObject(spawn);
+      const fall = { vy: -50, onGround: true, airTicks: 99, fallStartY: 1e9, crouching: true };
+      const far = readPlayer({ playerId: 1, id: 2, body: { ...body, ...fall } }, registry, spawn)!;
+      expect(far.body).toMatchObject({ ...spawn, vy: 0, onGround: false, airTicks: 0 });
+      expect(far.body).toMatchObject({ fallStartY: spawn.y, crouching: false });
       expect(far.prevX).toBe(spawn.x);
     }
     expect(readPlayer({ playerId: 1, id: 2 ** 60 }, registry, spawn)).toBeNull();
@@ -167,6 +169,9 @@ describe('save records', () => {
       readDrop({ kind: 'itemDrop', id: 2, item: 'item:dirt', count: 1, body }, registry);
     expect(drop(fast)!.body).toMatchObject({ vx: terminal, vy: -terminal, vz: terminal });
     expect(drop({ x: 1e15, y: 70, z: 0 })).toBeNull();
+    // Thrown at a jump's apex from the top layer: brought down within reach of it, not lost.
+    expect(drop({ x: 0, y: WORLD_HEIGHT + 2.6, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 2);
+    expect(drop({ x: 0, y: 1e9, z: 0 })!.body.y).toBe(WORLD_HEIGHT + 2);
   });
 });
 
