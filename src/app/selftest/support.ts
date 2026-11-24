@@ -1,5 +1,7 @@
+import type { BlockDef } from '../../content/schema.ts';
 import { i18nMissing } from '../../i18n/i18n.ts';
 import type { Inventory } from '../../sim/inventory.ts';
+import { ARENA_WORKSHOP } from '../../world/gen/arena.ts';
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
 import type { App } from '../App.ts';
 import {
@@ -9,11 +11,14 @@ import {
   framesFor,
   freezeTime,
   look,
+  press,
   setTime,
   teleport,
   waitForChunks,
   waitUntil,
+  withinFrames,
 } from '../automation.ts';
+import type { InventoryScreen } from '../inventoryUi.ts';
 
 /** Shared pieces of the in-browser selftest suites. */
 
@@ -161,6 +166,46 @@ export function arenaOf(app: App) {
   const arena = app.registry!.pack.arena;
   assert(arena, 'the content pack has no arena');
   return arena;
+}
+
+/** The first block of the arena's workshop row that `matches`: its cell and definition. */
+export function workshopBlock(
+  app: App,
+  what: string,
+  matches: (def: BlockDef) => boolean,
+): { cell: Cell; def: BlockDef } {
+  const registry = app.registry!;
+  const defs = arenaOf(app).workshop.map((key) => registry.blockDef(registry.defaultState(key)));
+  const i = defs.findIndex(matches);
+  assert(i >= 0, `the arena's workshop has no ${what}`);
+  const row = ARENA_WORKSHOP;
+  return { cell: { x: row.x + i * row.step, y: row.y, z: row.z }, def: defs[i]! };
+}
+
+/** Opens the screen of a workshop block with secondary from two cells south of it. */
+export async function openFromSouth(app: App, cell: Cell, screen: InventoryScreen): Promise<void> {
+  await standAt(app, { x: cell.x, z: cell.z + 2 });
+  await aimAt(app, cell);
+  press(app, 'secondary', 1);
+  const shown = app.inventory?.screen() ?? null;
+  assert(shown === screen, `secondary on (${cell.x}, ${cell.y}, ${cell.z}) opened ${shown}`);
+}
+
+/** Frames the UI bridge (10 Hz, or the next frame after an event) gets to show a change. */
+export const UI_FRAMES = 30;
+
+/** Waits until a selector matches on the page (the UI bridge refreshed the screen). */
+export async function waitForShown(selector: string, what: string): Promise<void> {
+  const shown = await withinFrames(UI_FRAMES, () => document.querySelector(selector) !== null);
+  assert(shown, `${what} does not show (${selector})`);
+}
+
+/** Waits until a slot of the open screen shows an item. */
+export function waitForSlot(screen: string, slot: number): Promise<void> {
+  return waitForShown(
+    `#screen-${screen} [data-slot="${slot}"].filled`,
+    `slot ${slot} of the ${screen} screen`,
+  );
 }
 
 /** The slots of a cell's block entity (a chest, a station; empty when it has none). */

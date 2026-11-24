@@ -3,9 +3,9 @@ import { patchSettings, type SettingsPatch } from '../../platform/settings.ts';
 import type { App } from '../App.ts';
 import {
   click,
+  clickOutside,
   clickSlot,
   hotbarView,
-  moveSlot,
   openBlock,
   reloadWorld,
   saveNow,
@@ -60,15 +60,18 @@ export function uiHook(app: App) {
       app.inventory?.screen() ??
       app.game?.menus.screen() ??
       null,
-    /** Clicks the first element a selector matches (false: none, or a disabled button). */
-    click,
     /**
-     * Clicks a `[data-slot]` of the open screen like the mouse: button 0 (left) or 1 (right),
-     * with Shift or not (false: the slot does not show).
+     * A slot number: clicks that `[data-slot]` of the open screen like the mouse, button 0 (left)
+     * or 1 (right), with Shift or not (false: the slot does not show). A selector: clicks the
+     * first element it matches (false: none, or a disabled button).
      */
-    slot: (slot: number, button: 0 | 1 = 0, shift = false) => clickSlot(slot, button, shift),
-    /** Moves a stack to an empty `[data-slot]` of the open screen: a left click on each. */
-    move: (from: number, to: number) => moveSlot(from, to),
+    click: (target: number | string, button: 0 | 1 = 0, shift = false) =>
+      typeof target === 'number' ? clickSlot(target, button, shift) : click(target),
+    /**
+     * Clicks beside the open screen's panel like the mouse: throws the cursor stack (0, left) or
+     * one of its items (1, right); false when no slot screen is open.
+     */
+    clickOutside: (button: 0 | 1 = 0) => clickOutside(button),
     /** What the hotbar shows: the selected slot and each slot's count text. */
     hotbar: () => hotbarView(app),
   };

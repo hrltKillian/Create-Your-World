@@ -1,13 +1,13 @@
 import { fuelSlotOf, outputSlotOf } from '../../content/crafting.ts';
 import { blockItemKey } from '../../content/items.ts';
-import type { BlockDef, ProcessDef, RecipeDef } from '../../content/schema.ts';
+import type { ProcessDef, RecipeDef } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { ticksOf } from '../../sim/clock.ts';
 import { OPEN_SLOTS_BASE } from '../../sim/commands.ts';
 import { countItem } from '../../sim/inventory.ts';
 import { canonicalJson } from '../../sim/stateHash.ts';
 import { ingredientName } from '../../ui/itemSlot.ts';
-import { ARENA_DOOR, ARENA_WORKSHOP } from '../../world/gen/arena.ts';
+import { ARENA_DOOR } from '../../world/gen/arena.ts';
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
 import type { App } from '../App.ts';
 import {
@@ -30,22 +30,27 @@ import {
   needsArenaPlayer,
   needsIdb,
   noErrorsCase,
+  openFromSouth,
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
   slotsAt,
   standAt,
   stateKey,
+  UI_FRAMES,
+  waitForSlot,
+  workshopBlock,
 } from './support.ts';
 
 /**
  * M8 « Fait quand » browser checks in the arena (?worldType=arena&fixedStep=1&selftest=m0,m8):
  * the Logbook crafts the Flint Hatchet by clicks, which breaks a log at least 1.9× faster than the
- * hand; secondary on the workshop's kiln opens the Station screen, where ore and fuel dragged in
- * give one ingot; the cabin door opens, lets the player in and closes; a chest filled by drag and
- * drop comes back whole after save.reload() (IndexedDB only, the default storage) and empties
- * with « Take all ». Content keys come from the pack's arena description and recipes (engine code
- * never names content): the arena's log, ore wall, gravel and workshop row.
+ * hand; secondary on the workshop's kiln opens the Station screen, where ore and fuel put in by
+ * slot clicks (taken onto the cursor, put down) give one ingot; the cabin door opens, lets the
+ * player in and closes; a chest filled by clicks comes back whole after save.reload() (IndexedDB
+ * only, the default storage) and empties with « Take all ». Content keys come from the pack's
+ * arena description and recipes (engine code never names content): the arena's log, ore wall,
+ * gravel and workshop row.
  */
 
 /** Where the crafting case stands (the spawn). */
@@ -61,24 +66,8 @@ const SPEEDUP = 1.9;
 const MAX_BREAK_TICKS = 400;
 /** Ticks a process gets past its own duration (« step(330) » for the 10 s copper ingot). */
 const SMELT_SLACK = 30;
-/** Frames the UI bridge (10 Hz, or the next frame after an event) gets to show a change. */
-const UI_FRAMES = 30;
 /** Items stored in the chest before the reload. */
 const STORED = 7;
-
-/** The first block of the arena's workshop row that `matches`: its cell and definition. */
-function workshopBlock(
-  app: App,
-  what: string,
-  matches: (def: BlockDef) => boolean,
-): { cell: Cell; def: BlockDef } {
-  const registry = app.registry!;
-  const defs = arenaOf(app).workshop.map((key) => registry.blockDef(registry.defaultState(key)));
-  const i = defs.findIndex(matches);
-  assert(i >= 0, `the arena's workshop has no ${what}`);
-  const row = ARENA_WORKSHOP;
-  return { cell: { x: row.x + i * row.step, y: row.y, z: row.z }, def: defs[i]! };
-}
 
 /** State id of the arena tree's log. */
 function logState(app: App): number {
@@ -115,17 +104,6 @@ function smelter(app: App): { cell: Cell; process: ProcessDef } {
   return { cell, process: smelts(def.station)! };
 }
 
-/** Whether a slot of the open screen shows an item (the UI bridge refreshed it). */
-function slotShown(screen: string, slot: number): boolean {
-  return document.querySelector(`#screen-${screen} [data-slot="${slot}"].filled`) !== null;
-}
-
-/** Waits until a slot of the open screen shows an item. */
-async function waitForSlot(screen: string, slot: number): Promise<void> {
-  const shown = await withinFrames(UI_FRAMES, () => slotShown(screen, slot));
-  assert(shown, `slot ${slot} of the ${screen} screen shows nothing`);
-}
-
 /** Sets a log in LOG_CELL and mines it with a hotbar slot; returns the ticks it took. */
 async function ticksToBreak(app: App, slot: number): Promise<number> {
   const log = stateKey(app, logState(app));
@@ -155,15 +133,6 @@ async function useDoor(app: App): Promise<string> {
   return doorHalves(app);
 }
 
-/** Opens the screen of a workshop block with secondary from two cells south of it. */
-async function openFromSouth(app: App, cell: Cell, screen: 'container' | 'station') {
-  await standAt(app, { x: cell.x, z: cell.z + 2 });
-  await aimAt(app, cell);
-  press(app, 'secondary', 1);
-  const shown = app.inventory?.screen() ?? null;
-  assert(shown === screen, `secondary on (${cell.x}, ${cell.y}, ${cell.z}) opened ${shown}`);
-}
-
 export const M8_SUITE: readonly SelftestCase[] = [
   {
     name: 'clicking « Flint Hatchet » in the Logbook, then ×1 and step(90), crafts the hatchet',
@@ -187,6 +156,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
       screens.toggleBag();
       try {
         assert(screens.screen() === 'bag', `the bag key opened ${screens.screen()}`);
+        assert(click('#screen-bag [data-page="logbook"]'), 'the Bag has no Logbook tab');
         const tab = `#screen-bag [data-tab="${recipe.category}"]`;
         const drawn = await withinFrames(UI_FRAMES, () => document.querySelector(tab) !== null);
         assert(drawn && click(tab), `the Logbook has no "${recipe.category}" tab`);
@@ -236,7 +206,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
     },
   },
   {
-    name: 'secondary on the kiln opens the Station screen; ore and fuel dragged in give one ingot',
+    name: 'secondary on the kiln opens the Station screen; ore and fuel clicked in give one ingot',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
     skip: needsArenaPlayer,
