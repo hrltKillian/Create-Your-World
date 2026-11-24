@@ -93,7 +93,7 @@ const biomes = [...registry.pack.biomes!].sort((p, q) => p.order - q.order).map(
  * A play session with the local player, a gate and an inventory that record what they do, over
  * one loaded column (0, 0) whose west half (x < 16) is biome 0 and east half biome 1.
  */
-function setup() {
+function setup(tips: { dusk(): boolean } | null = null) {
   const player = createPlayer(1, 0, 65, 0, 2, b);
   const sent: Command[] = [];
   const gate = {
@@ -153,6 +153,7 @@ function setup() {
     input as unknown as InputManager,
     gate as unknown as PlayGate,
     inventory as unknown as InventoryUi,
+    tips,
   );
   const die = (p: PlayerState) => {
     p.survival.health = 0;
@@ -325,6 +326,22 @@ describe('HudBridge', () => {
     bridge.frame(0.1);
     const clock = bridge.hud.clock as unknown as FakeElement;
     expect(clock.textContent).toBe('07:00 · Day 1');
+  });
+
+  it('leaves a sunset to the onboarding when it shows its dusk tip, else shows the banner', () => {
+    let first = true;
+    const once = () => {
+      const shown = first;
+      first = false;
+      return shown;
+    };
+    const { bridge, emit } = setup({ dusk: once });
+    const banner = bridge.hud.banner.element as unknown as FakeElement;
+    emit({ type: 'sunset', day: 1 });
+    expect(banner.classList.contains('play')).toBe(false);
+    emit({ type: 'sunset', day: 2 });
+    expect(banner.textContent).toBe('The sun is setting…');
+    expect(banner.classList.contains('play')).toBe(true);
   });
 });
 

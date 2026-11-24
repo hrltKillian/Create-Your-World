@@ -49,6 +49,11 @@ export interface BootParams {
   readonly spawns: boolean | null;
   /** Ticks without hostile spawns at the start of a world (`?grace=0`; null: the pack's). */
   readonly grace: number | null;
+  /**
+   * The controls card and tips (`?onboarding=1`: shown as in a new browser, `0`: never; null: once
+   * per browser, but never under automation). See app/onboarding.ts `onboardingMode`.
+   */
+  readonly onboarding: boolean | null;
 }
 
 export const DEFAULT_BOOT_PARAMS: BootParams = {
@@ -78,6 +83,7 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   freezeTime: false,
   spawns: null,
   grace: null,
+  onboarding: null,
 };
 
 function flag(params: URLSearchParams, name: string): boolean {
@@ -138,5 +144,6 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     freezeTime: flag(params, 'freezeTime'),
     spawns: params.has('spawns') ? flag(params, 'spawns') : params.has('selftest') ? false : null,
     grace: ticks(params.get('grace')),
+    onboarding: params.has('onboarding') ? flag(params, 'onboarding') : null,
   };
 }

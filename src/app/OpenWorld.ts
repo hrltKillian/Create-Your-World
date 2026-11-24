@@ -22,6 +22,7 @@ import { FreeCam } from './FreeCam.ts';
 import { GameSession } from './GameSession.ts';
 import { HudBridge } from './HudBridge.ts';
 import { InventoryUi } from './inventoryUi.ts';
+import { Onboarding, onboardingMode, seenTipsFor } from './onboarding.ts';
 import { type GateEvents, PlayGate } from './playGate.ts';
 import { PLAYER_ID, type WorldSlot } from './worlds.ts';
 
@@ -65,6 +66,8 @@ export class OpenWorld {
   readonly hud: HudBridge | null = null;
   /** Event cues, ambience, the underwater low-pass and the body's sounds. */
   readonly sounds: AudioBridge;
+  /** The controls card and the tips (none with the free camera). */
+  readonly onboarding: Onboarding | null = null;
   private readonly lock: WorldLock;
   private readonly input: InputManager;
   private readonly events: GateEvents;
@@ -135,7 +138,16 @@ export class OpenWorld {
       gate,
       audio,
     );
-    this.hud = new HudBridge(this.layer, session, input, gate, this.inventory);
+    const seen = seenTipsFor(onboardingMode(params, navigator.webdriver === true));
+    this.onboarding = new Onboarding(
+      this.layer,
+      session,
+      input,
+      this.inventory,
+      deps.layoutLoaded,
+      seen,
+    );
+    this.hud = new HudBridge(this.layer, session, input, gate, this.inventory, this.onboarding);
   }
 
   /** One frame of play: input, ticks, streaming, meshing, the HUD; returns the camera pose. */
@@ -145,6 +157,7 @@ export class OpenWorld {
     this.sounds.frame(dt, pose);
     this.inventory?.bridge.frame(dt);
     this.hud?.frame(dt);
+    this.onboarding?.frame(dt);
     this.cross.classList.toggle('hidden', session.rig.mode === 'third' || this.freecam !== null);
     return pose;
   }
@@ -190,6 +203,7 @@ export class OpenWorld {
     this.saves.stop();
     this.sounds.dispose();
     this.inventory?.dispose();
+    this.onboarding?.dispose();
     this.gate?.dispose();
     this.layer.remove();
     this.session.dispose();

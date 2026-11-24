@@ -17,13 +17,20 @@ import { BiomeWatch, hudEffects, targetText } from './hudModel.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import type { PlayGate } from './playGate.ts';
 
+/** The onboarding's say on the sunset banner (app/onboarding.ts). */
+interface DuskTip {
+  /** The first dusk shows its tip in place of the banner: true when it did. */
+  dusk(): boolean;
+}
+
 /** Seconds between two refreshes of the gauges, clock, target, objectives and effects (10 Hz). */
 const REFRESH_SECONDS = 0.1;
 
 /**
  * Keeps the survival HUD in step with the local player: the compass and the pickup lines every
  * frame, the rest at 10 Hz and at once after the player's objective, death and respawn events.
- * Shows the day's banners, the biome entered, the sleep fade, the objective lines, the items
+ * Shows the day's banners (the first sunset's goes to the onboarding's dusk tip when it shows
+ * one), the biome entered, the sleep fade, the objective lines, the items
  * picked up, the hit marker and the damage arcs, and runs the death screen: it takes the open
  * screen's place (the mouse stays free) and Respawn, a click, captures the mouse again. The screen
  * follows `survival.dead`, so a world saved dead opens on it.
@@ -34,6 +41,7 @@ export class HudBridge {
   private readonly input: InputManager;
   private readonly gate: PlayGate;
   private readonly inventory: InventoryUi;
+  private readonly tips: DuskTip | null;
   private elapsed = REFRESH_SECONDS;
   private objective: ObjectiveDef | null = null;
   /** The death screen holds the gate's screen (given back on Respawn). */
@@ -63,11 +71,13 @@ export class HudBridge {
     input: InputManager,
     gate: PlayGate,
     inventory: InventoryUi,
+    tips: DuskTip | null = null,
   ) {
     this.session = session;
     this.input = input;
     this.gate = gate;
     this.inventory = inventory;
+    this.tips = tips;
     const pack = session.host.view.registry.pack;
     this.hud = new Hud(pack.balance, pack.objectives ?? [], () => this.respawn());
     layer.prepend(this.hud.element);
@@ -94,8 +104,9 @@ export class HudBridge {
   private onEvent(event: SimEvent): void {
     const hud = this.hud;
     const player = this.session.player;
-    if (event.type === 'sunset') hud.banner.show(t('hud.sunset'));
-    else if (event.type === 'nightSurvived')
+    if (event.type === 'sunset') {
+      if (!this.tips?.dusk()) hud.banner.show(t('hud.sunset'));
+    } else if (event.type === 'nightSurvived')
       hud.banner.show(t('hud.nightSurvived', { n: event.night }));
     else if (event.type === 'creatureHurt' && event.attacker === player.id) hud.combat.hit();
     if (!('playerId' in event) || event.playerId !== player.playerId) return;

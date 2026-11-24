@@ -14,22 +14,27 @@ export function hintText(key: string, params: Readonly<Record<string, string>>):
   return t(key, names);
 }
 
-/** A short transient line at the top centre of the HUD (« Tool too weak: … »), gone after 2.5 s. */
+/**
+ * A short transient line at the top centre of the HUD (« Tool too weak: … »), gone after 2.5 s;
+ * the onboarding tips (`#hud-tip`) are another one, shown longer.
+ */
 export class HudHint {
   readonly element: HTMLElement;
+  private readonly seconds: number;
   /** Seconds left on screen (0: hidden). */
   private left = 0;
 
-  constructor() {
-    this.element = h('p', { id: 'hud-hint', class: 'hud-hint', attrs: { role: 'status' } });
+  constructor(id = 'hud-hint', seconds = HINT_SECONDS) {
+    this.seconds = seconds;
+    this.element = h('p', { id, class: 'hud-hint', attrs: { role: 'status' } });
     this.element.hidden = true;
   }
 
-  /** Shows a line (replacing the current one) for HINT_SECONDS. */
+  /** Shows a line (replacing the current one) for its seconds. */
   show(text: string): void {
     if (this.element.textContent !== text) this.element.textContent = text;
     this.element.hidden = false;
-    this.left = HINT_SECONDS;
+    this.left = this.seconds;
   }
 
   /** Counts the time down; call every frame (touches the DOM only when the line goes). */
