@@ -107,9 +107,9 @@
     "rules": {
       "hostiles": false
     },
-    "tick": 72,
+    "tick": 176,
     "time": {
-      "ticks": 10572,
+      "ticks": 10676,
       "frozen": false
     },
     "nextEntityId": 2,
@@ -140,14 +140,14 @@
         "wallZ": 0,
         "crouching": false,
         "airTicks": 0,
-        "jumpTicks": 167,
+        "jumpTicks": 271,
         "fallStartY": 65
       },
       "yaw": 0,
       "pitch": 0,
       "stamina": 100,
       "exhausted": false,
-      "restTicks": 92,
+      "restTicks": 196,
       "viewRadius": 2,
       "inventory": [
         {
@@ -216,15 +216,15 @@
         "useTicks": 0
       },
       "craft": [],
-      "seen": ["item:cord", "item:dirt", "item:flint", "item:stick"],
+      "seen": ["item:cord", "item:dirt", "item:flint", "item:planks", "item:stick"],
       "survival": {
         "health": 100,
-        "hunger": 99.84888888888935,
-        "thirst": 99.76388888888846,
+        "hunger": 99.61777777777894,
+        "thirst": 99.40277777777669,
         "temperature": 0,
         "toxicity": 0,
         "breath": 15,
-        "calmTicks": 248,
+        "calmTicks": 352,
         "staminaSpent": 0,
         "cause": "",
         "dead": false,
@@ -235,12 +235,12 @@
         "ambient": 20,
         "target": 0,
         "airToxicity": 0,
-        "sampleTicks": 24
+        "sampleTicks": 18
       },
       "equipment": [null, null, null, null, null],
       "respawn": null,
       "graves": [],
-      "objectives": [],
+      "objectives": ["objective:workbench"],
       "drank": false,
       "fightTicks": 0,
       "invulnerable": 0,
@@ -254,7 +254,7 @@
       "cz": -1,
       "v": 7,
       "codec": "raw",
-      "payload": "AQIDBgAAAFQAAP8HAcEHAgABvPAB",
+      "payload": "AQIEBgAAAFQASQAA/wcBwQcCAAEAAwABuvAB",
       "entities": [],
       "blockEntities": [
         {
@@ -285,10 +285,44 @@
             null,
             null
           ]
+        },
+        {
+          "kind": "workbench",
+          "x": 4,
+          "y": 65,
+          "z": -2,
+          "station": "station:workbench",
+          "slots": [
+            {
+              "item": "item:chest",
+              "count": 1
+            },
+            null,
+            null,
+            null
+          ],
+          "craft": [
+            {
+              "recipe": "recipe:chest",
+              "count": 1,
+              "progressTicks": 11,
+              "reserved": [
+                {
+                  "item": "item:planks",
+                  "count": 8
+                },
+                {
+                  "item": "item:cord",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "tick": 176
         }
       ],
       "herds": false,
-      "lastTick": 72
+      "lastTick": 176
     }
   ]
 }

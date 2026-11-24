@@ -6,7 +6,9 @@ import type {
   ContainerEntity,
   GraveEntity,
   StationEntity,
+  WorkbenchEntity,
 } from '../../../src/sim/blockEntities.ts';
+import { ticksOf } from '../../../src/sim/clock.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
@@ -323,12 +325,12 @@ describe('save versions', () => {
     expect(migrate('column', { blockEntities: [] }, 6)).toEqual({ blockEntities: [] });
   });
 
-  it('loads the v7 fixture: a cursor stack saved in the open Bag back in an inventory of 40', async () => {
+  it('loads the v7 fixture: a cursor stack back in an inventory of 40, a workbench at work', async () => {
     const storage = new MemoryStorage();
     const stored = fixture(7);
     expect(stored.players[0]!.cursor).toEqual({ item: 'item:dirt', count: 10 });
     await storage.write({ ...stored, removed: [] });
-    const { sim } = await restoreFrom(storage);
+    const { sim, step } = await restoreFrom(storage);
     const player = sim.players.get(1)!;
     expect([player.screen, player.cursor]).toEqual([null, null]);
     expect(player.inventory).toHaveLength(40);
@@ -337,5 +339,23 @@ describe('save versions', () => {
     expect(player.inventory[39]).toEqual({ item: 'item:stick', count: 1 });
     const chest = sim.blockEntities.get(cellKey(2, 65, -2)) as ContainerEntity;
     expect(chest.slots[0]).toEqual({ item: 'item:flint', count: 3 });
+    // A workbench with a chest made and another under way, its ingredients reserved.
+    const bench = sim.blockEntities.get(cellKey(4, 65, -2)) as WorkbenchEntity;
+    expect(bench.slots).toEqual([{ item: 'item:chest', count: 1 }, null, null, null]);
+    expect(bench.craft).toEqual([
+      {
+        recipe: 'recipe:chest',
+        count: 1,
+        progressTicks: 11,
+        reserved: [
+          { item: 'item:planks', count: 8 },
+          { item: 'item:cord', count: 1 },
+        ],
+      },
+    ]);
+    settle(sim);
+    step(ticksOf(3) - 11);
+    expect(bench.slots[0]).toEqual({ item: 'item:chest', count: 2 });
+    expect(bench.craft).toEqual([]);
   });
 });
