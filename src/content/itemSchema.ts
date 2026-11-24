@@ -102,7 +102,11 @@ export interface ItemDef {
   readonly nameKey: string;
   /** Icon texture, or the block whose faces draw it. */
   readonly icon: TexKey | { readonly block: BlockKey };
-  readonly maxStack: number;
+  /**
+   * Most items of a stack when it is not the default 64 (a tool, a weapon, a wearable and a water
+   * container stack to 1 whatever it says: content/items.ts `stackLimit`).
+   */
+  readonly maxStack?: number;
   /** Groups an ingredient can name instead of an item (`tag:log`). */
   readonly tags?: readonly TagKey[];
   readonly tool?: ToolDef;

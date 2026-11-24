@@ -1,3 +1,4 @@
+import { stackLimit } from './items.ts';
 import {
   type ContentPack,
   type Ingredient,
@@ -27,8 +28,8 @@ export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssu
   const output = (path: string, out: ItemCount) => {
     const def = refs.items.get(out.item);
     if (!def) add(`${path}.item`, `unknown item "${out.item}"`);
-    else if (!isCount(out.count, 1) || out.count > def.maxStack)
-      add(`${path}.count`, `must be an integer 1–${def.maxStack} (one stack)`);
+    else if (!isCount(out.count, 1) || out.count > stackLimit(def))
+      add(`${path}.count`, `must be an integer 1–${stackLimit(def)} (one stack)`);
   };
   const keys = new Set<string>();
   const unique = (path: string, key: string, prefix: string) => {

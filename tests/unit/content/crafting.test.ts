@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import type { ContentPack, Ingredient } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
@@ -152,8 +153,8 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
         ]);
       }
     }
-    expect(registry.maxStack('item:flint')).toBe(30);
-    expect(registry.maxStack('item:berries')).toBe(20);
+    expect(registry.maxStack('item:flint')).toBe(DEFAULT_STACK);
+    expect(registry.maxStack('item:berries')).toBe(DEFAULT_STACK);
     expect(registry.maxStack('item:iron_blade')).toBe(1);
     expect(registry.maxStack('item:fur_coat')).toBe(1);
     expect(registry.item('item:fur_coat')!.wear).toMatchObject({ slot: 'body', warmth: 10 });

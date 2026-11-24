@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { CRAFT_QUEUE, noteSeen, STATION_REACH } from '../../../src/sim/craftQueue.ts';
 import { addItem, countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
@@ -117,7 +118,8 @@ describe('craft queue', () => {
     const s = setup();
     s.give('item:plant_fiber', 3);
     s.enqueue('cord');
-    addItem(s.player.inventory, registry, { item: 'item:stone', count: 50 * 32 });
+    const full = DEFAULT_STACK * s.player.inventory.length;
+    addItem(s.player.inventory, registry, { item: 'item:stone', count: full });
     s.step(30);
     const drops = [...s.sim.entities.values()].filter(
       (e): e is ItemDropState => e.kind === 'itemDrop',

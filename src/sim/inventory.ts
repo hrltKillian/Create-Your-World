@@ -121,6 +121,22 @@ export function spendUses(registry: Registry, slots: Inventory, slot: number, us
   return true;
 }
 
+/**
+ * Cuts every stack of a slot array over its item's maximum down to it (a pack that lowered a
+ * maximum since the save). Returns the excess, one stack per cut stack (it may itself be over the
+ * maximum: `addToRange` splits it), for the caller to place.
+ */
+export function fitStacks(registry: Registry, slots: Inventory): ItemStack[] {
+  const excess: ItemStack[] = [];
+  for (const stack of slots) {
+    const max = stack ? registry.maxStack(stack.item) : 0;
+    if (!stack || stack.count <= max) continue;
+    excess.push({ ...stack, count: stack.count - max });
+    stack.count = max;
+  }
+  return excess;
+}
+
 /** Removes up to `count` items from a slot; returns what was removed (null if the slot is empty). */
 export function takeFromSlot(inventory: Inventory, slot: number, count: number): ItemStack | null {
   const stack = inventory[slot];

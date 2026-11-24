@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { Rng } from '../../../src/core/rng.ts';
 import {
   addItem,
@@ -6,6 +7,7 @@ import {
   countItem,
   createInventory,
   deserializeInventory,
+  fitStacks,
   INVENTORY_SLOTS,
   type Inventory,
   moveInto,
@@ -21,19 +23,22 @@ import { registry } from '../../helpers/registry.ts';
 const counts = (inventory: Inventory) => inventory.map((s) => s?.count ?? 0);
 
 describe('inventory', () => {
-  it('splits 70 blocks into stacks of 50 and 20, hotbar first', () => {
+  it('splits 100 blocks into stacks of 64 and 36, hotbar first', () => {
     const inventory = createInventory();
     expect(inventory).toHaveLength(INVENTORY_SLOTS);
-    expect(addItem(inventory, registry, { item: 'item:dirt', count: 70 })).toBe(0);
-    expect(counts(inventory).slice(0, 3)).toEqual([50, 20, 0]);
+    expect(addItem(inventory, registry, { item: 'item:dirt', count: 100 })).toBe(0);
+    expect(counts(inventory).slice(0, 3)).toEqual([64, 36, 0]);
     expect(addItem(inventory, registry, { item: 'item:dirt', count: 35 })).toBe(0);
-    expect(counts(inventory).slice(0, 3)).toEqual([50, 50, 5]);
+    expect(counts(inventory).slice(0, 3)).toEqual([64, 64, 7]);
   });
 
   it('returns what does not fit and keeps tools apart', () => {
     const inventory = createInventory();
     expect(
-      addItem(inventory, registry, { item: 'item:stone', count: 50 * INVENTORY_SLOTS + 7 }),
+      addItem(inventory, registry, {
+        item: 'item:stone',
+        count: DEFAULT_STACK * INVENTORY_SLOTS + 7,
+      }),
     ).toBe(7);
     const tools = createInventory();
     expect(addItem(tools, registry, { item: 'item:flint_pickaxe', count: 2, durability: 60 })).toBe(
@@ -47,25 +52,40 @@ describe('inventory', () => {
 
   it('moves, merges, swaps and quick-moves between the hotbar and the bag', () => {
     const inventory = createInventory();
-    addItem(inventory, registry, { item: 'item:dirt', count: 60 });
+    addItem(inventory, registry, { item: 'item:dirt', count: 74 });
     addItem(inventory, registry, { item: 'item:sand', count: 5 });
-    // Slots: 0 dirt 50, 1 dirt 10, 2 sand 5.
+    // Slots: 0 dirt 64, 1 dirt 10, 2 sand 5.
     expect(moveItems(inventory, registry, 1, 0)).toBe(false); // slot 0 is full
     expect(moveItems(inventory, registry, 0, 9, 20)).toBe(true);
-    expect(counts(inventory).slice(0, 10)).toEqual([30, 10, 5, 0, 0, 0, 0, 0, 0, 20]);
+    expect(counts(inventory).slice(0, 10)).toEqual([44, 10, 5, 0, 0, 0, 0, 0, 0, 20]);
     expect(moveItems(inventory, registry, 1, 0)).toBe(true);
-    expect(inventory[0]).toEqual({ item: 'item:dirt', count: 40 });
+    expect(inventory[0]).toEqual({ item: 'item:dirt', count: 54 });
     expect(moveItems(inventory, registry, 2, 0, 1)).toBe(false); // part of a stack cannot swap
     expect(moveItems(inventory, registry, 2, 0)).toBe(true);
     expect(inventory[0]?.item).toBe('item:sand');
     expect(inventory[2]?.item).toBe('item:dirt');
-    expect(quickMove(inventory, registry, 2)).toBe(true); // 40 dirt join the 20 in the bag
-    expect(counts(inventory).slice(8, 11)).toEqual([10, 50, 0]);
+    expect(quickMove(inventory, registry, 2)).toBe(true); // 54 dirt join the 20 in the bag
+    expect(counts(inventory).slice(8, 11)).toEqual([10, 64, 0]);
     expect(inventory[8]?.item).toBe('item:dirt');
     expect(quickMove(inventory, registry, 9)).toBe(true);
-    expect(inventory[1]).toEqual({ item: 'item:dirt', count: 50 });
-    expect(takeFromSlot(inventory, 1, 60)).toEqual({ item: 'item:dirt', count: 50 });
+    expect(inventory[1]).toEqual({ item: 'item:dirt', count: 64 });
+    expect(takeFromSlot(inventory, 1, 70)).toEqual({ item: 'item:dirt', count: 64 });
     expect(inventory[1]).toBeNull();
+  });
+
+  it('cuts stacks over their maximum down to it and returns the excess', () => {
+    const slots: Inventory = [
+      { item: 'item:dirt', count: 100 },
+      null,
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:flint_pickaxe', count: 3, durability: 7 },
+    ];
+    expect(fitStacks(registry, slots)).toEqual([
+      { item: 'item:dirt', count: 36 },
+      { item: 'item:flint_pickaxe', count: 2, durability: 7 },
+    ]);
+    expect(counts(slots)).toEqual([64, 0, 64, 1]);
+    expect(fitStacks(registry, slots)).toEqual([]);
   });
 
   it('keeps item totals through 1000 random operations', () => {

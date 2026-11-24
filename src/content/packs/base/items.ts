@@ -8,25 +8,23 @@ type PackItem = ItemDef & { readonly nameKey: PackI18nKey };
 /** Ids of the items the pack strings name (`item.<id>`). */
 type ItemId = PackI18nKey extends infer K ? (K extends `item.${infer Id}` ? Id : never) : never;
 
-/** What sets an item apart besides its id and stack size. */
-type Traits = Omit<Partial<ItemDef>, 'key' | 'nameKey' | 'icon' | 'maxStack'>;
+/** What sets an item apart besides its id (`maxStack` only for a stack other than the default). */
+type Traits = Omit<Partial<ItemDef>, 'key' | 'nameKey' | 'icon'>;
 
-/** Stack sizes (docs « Inventaire »): materials 30, food 20, tools, gear and containers 1. */
-const MATERIAL = 30;
-const FOOD = 20;
-
-/** An item whose key, name and icon follow its id: `item:<id>`, `item.<id>`, `tex:icon_<id>`. */
-const item = (id: ItemId, maxStack: number, traits: Traits = {}): PackItem => ({
+/**
+ * An item whose key, name and icon follow its id: `item:<id>`, `item.<id>`, `tex:icon_<id>`. It
+ * stacks to 64 (content/items.ts `stackLimit`; tools, weapons, gear and containers to 1).
+ */
+const item = (id: ItemId, traits: Traits = {}): PackItem => ({
   key: `item:${id}`,
   nameKey: `item.${id}`,
   icon: `tex:icon_${id}`,
-  maxStack,
   ...traits,
 });
 
 /** A raw material found in the world, with where to look. */
 const found = (id: ItemId, hintKey: PackI18nKey, traits: Traits = {}) =>
-  item(id, MATERIAL, { hintKey, ...traits });
+  item(id, { hintKey, ...traits });
 
 /**
  * Melee use (docs « Combat »): damage, seconds between hits, reach in blocks; a weapon that is no
@@ -42,16 +40,16 @@ const weapon = (damage: number, cooldown: number, reach = 3, material?: ToolMate
 
 /** Hatchets and pickaxes of a material (tier, speed and durability from `TOOL_TIERS`). */
 const hatchet = (material: ToolMaterial, damage: number) =>
-  item(`${material}_hatchet`, 1, {
+  item(`${material}_hatchet`, {
     tool: { kind: 'axe', ...TOOL_TIERS[material] },
     weapon: weapon(damage, 0.6),
   });
 const pickaxe = (material: ToolMaterial) =>
-  item(`${material}_pickaxe`, 1, { tool: { kind: 'pick', ...TOOL_TIERS[material] } });
+  item(`${material}_pickaxe`, { tool: { kind: 'pick', ...TOOL_TIERS[material] } });
 const blade = (material: Exclude<ToolMaterial, 'flint'>, damage: number) =>
-  item(`${material}_blade`, 1, { weapon: weapon(damage, 0.5, 3, material) });
+  item(`${material}_blade`, { weapon: weapon(damage, 0.5, 3, material) });
 
-const gear = (id: ItemId, wear: WearDef) => item(id, 1, { wear });
+const gear = (id: ItemId, wear: WearDef) => item(id, { wear });
 
 /**
  * A water container (M9) with its contents: drinking a charge quenches 25 thirst with the water's
@@ -63,7 +61,7 @@ const vessel = (
   contents: ContainerContents,
   toxicity = 0,
 ) =>
-  item(`${shape}_${contents}`, 1, {
+  item(`${shape}_${contents}`, {
     container: { charges, contents, emptyAs: `item:${shape}_empty` },
     ...(contents === 'empty' ? {} : { consume: { seconds: 1.2, thirst: 25, toxicity } }),
   });
@@ -72,18 +70,18 @@ const vessel = (
 const materials = [
   found('stick', 'where.stick', { fuel: FUELS.stick }),
   found('plant_fiber', 'where.plant_fiber'),
-  item('cord', MATERIAL),
+  item('cord'),
   found('flint', 'where.flint'),
-  item('stone_shard', MATERIAL),
+  item('stone_shard'),
   found('resin', 'where.resin'),
   found('raw_hide', 'where.raw_hide'),
-  item('leather', MATERIAL),
+  item('leather'),
   found('fur', 'where.fur'),
   found('clay_lump', 'where.clay_lump'),
-  item('copper_ingot', MATERIAL),
-  item('bronze_ingot', MATERIAL),
-  item('iron_ingot', MATERIAL),
-  item('charcoal', MATERIAL, { fuel: FUELS.charcoal }),
+  item('copper_ingot'),
+  item('bronze_ingot'),
+  item('iron_ingot'),
+  item('charcoal', { fuel: FUELS.charcoal }),
   found('shell_plate', 'where.shell_plate'),
   found('toxic_gland', 'where.toxic_gland'),
   found('prowler_sinew', 'where.prowler_sinew'),
@@ -92,10 +90,10 @@ const materials = [
 
 /** Tools and weapons (« Outils et paliers », the weapon table of « Combat »). */
 const tools = [
-  item('flint_knife', 1, { weapon: weapon(4, 0.4, 3, 'flint') }),
+  item('flint_knife', { weapon: weapon(4, 0.4, 3, 'flint') }),
   hatchet('flint', 4),
   pickaxe('flint'),
-  item('flint_spear', 1, { weapon: weapon(6, 0.8, 4, 'flint') }),
+  item('flint_spear', { weapon: weapon(6, 0.8, 4, 'flint') }),
   hatchet('copper', 5),
   pickaxe('copper'),
   blade('copper', 7),
@@ -125,23 +123,23 @@ const equipment = [
 
 /** Food and remedies (« Survie »: raw meat +10 toxicity, the antidote −40); effects in M9. */
 const consumables = [
-  item('berries', FOOD, { hintKey: 'where.berries', consume: { seconds: 0.8, hunger: 6 } }),
-  item('raw_meat', FOOD, {
+  item('berries', { hintKey: 'where.berries', consume: { seconds: 0.8, hunger: 6 } }),
+  item('raw_meat', {
     hintKey: 'where.raw_meat',
     consume: { seconds: 1.2, hunger: 10, toxicity: 10 },
   }),
-  item('grilled_meat', FOOD, { consume: { seconds: 1.2, hunger: 30 } }),
-  item('palmthorn_fruit', FOOD, {
+  item('grilled_meat', { consume: { seconds: 1.2, hunger: 30 } }),
+  item('palmthorn_fruit', {
     hintKey: 'where.palmthorn_fruit',
     consume: { seconds: 1, hunger: 6, thirst: 10 },
   }),
-  item('bandage', FOOD, { consume: { seconds: 2, health: 20 } }),
-  item('antidote_tea', FOOD, { consume: { seconds: 1.5, thirst: 5, toxicity: -40 } }),
+  item('bandage', { consume: { seconds: 2, health: 20 } }),
+  item('antidote_tea', { consume: { seconds: 1.5, thirst: 5, toxicity: -40 } }),
 ];
 
 /** Water containers (« Eau potable »): raw water +3 toxicity, boiled 0, foul +12. */
 const containers = [
-  item('unfired_flask', MATERIAL),
+  item('unfired_flask'),
   vessel('flask', 3, 'empty'),
   vessel('flask', 3, 'raw', 3),
   vessel('flask', 3, 'boiled'),
@@ -161,5 +159,5 @@ export const items: readonly PackItem[] = [
   ...containers,
   // A saved item whose key the pack no longer has: it keeps that key, and stacks only with the
   // unknown items of the same key (`sameStack`).
-  { key: 'item:unknown', nameKey: 'item.unknown', icon: 'tex:unknown', maxStack: 50 },
+  { key: 'item:unknown', nameKey: 'item.unknown', icon: 'tex:unknown' },
 ];

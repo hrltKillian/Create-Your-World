@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCK_STACK, fitsTool, harvests } from '../../../src/content/items.ts';
+import { DEFAULT_STACK, fitsTool, harvests, stackLimit } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import type { BlockKey, ContentPack } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
@@ -31,7 +31,7 @@ describe('items', () => {
       }
       expect(registry.items[item]!.icon).toEqual({ block: block.key });
       expect(registry.items[item]!.nameKey).toBe(block.nameKey);
-      expect(items.maxStack[item]).toBe(BLOCK_STACK);
+      expect(items.maxStack[item]).toBe(DEFAULT_STACK);
       expect(items.places[item]).toBe(registry.defaultState(block.key));
       expect(registry.items[item]!.tool).toBeUndefined();
     }
@@ -41,7 +41,7 @@ describe('items', () => {
     for (const key of ['item:air', 'item:worldrock', 'item:fresh_water'])
       expect(id(key), key).toBe(-1);
     expect(id(registry.unknownItem)).toBeGreaterThanOrEqual(0);
-    expect(items.maxStack[id(registry.unknownItem)]).toBe(BLOCK_STACK);
+    expect(items.maxStack[id(registry.unknownItem)]).toBe(DEFAULT_STACK);
     // Self-dropping blocks keep their item.
     for (const key of ['item:dirt', 'item:stone', 'item:torch', 'item:gate'])
       expect(id(key), key).toBeGreaterThanOrEqual(0);
@@ -139,6 +139,59 @@ describe('item validation', () => {
       (p.arena as unknown as { oreWall: string[] }).oreWall = ['block:nope'];
     });
     expect(validatePack(pack).map((i) => i.path)).toEqual(['arena.oreWall[0]']);
+  });
+});
+
+describe('stack sizes', () => {
+  /** A pack whose items are changed by `mutate`, and the paths of its issues. */
+  const issues = (mutate: (items: Record<string, unknown>[]) => void) =>
+    validatePack(broken((p) => mutate(p.items!))).map((i) => i.path);
+  const at = (key: string) => basePack.items!.findIndex((i) => i.key === key);
+
+  it('stacks every block and item to 64 unless it says otherwise, and never a tool or gear', () => {
+    expect(DEFAULT_STACK).toBe(64);
+    for (const def of registry.items) {
+      const one = def.tool || def.weapon || def.wear || def.container;
+      expect(items.maxStack[id(def.key)], def.key).toBe(one ? 1 : (def.maxStack ?? 64));
+    }
+    expect(stackLimit({ key: 'item:x', nameKey: 'x', icon: 'tex:x', maxStack: 16 })).toBe(16);
+    const flask = registry.item('item:flask_empty')!;
+    expect([stackLimit(flask), stackLimit({ ...flask, maxStack: 1 })]).toEqual([1, 1]);
+  });
+
+  it('takes a maximum of 1–999, and only 1 from a tool, a weapon, a wearable or a container', () => {
+    const cord = at('item:cord');
+    for (const max of [0, 1.5, 1000])
+      expect(
+        issues((list) => {
+          list[cord]!.maxStack = max;
+        }),
+      ).toContain(`items[${cord}].maxStack`);
+    expect(
+      issues((list) => {
+        list[cord]!.maxStack = 16;
+      }),
+    ).toEqual([]);
+    for (const key of [
+      'item:flint_spear',
+      'item:flint_pickaxe',
+      'item:fur_coat',
+      'item:flask_raw',
+    ]) {
+      const i = at(key);
+      expect(
+        issues((list) => {
+          list[i]!.maxStack = 2;
+        }),
+        key,
+      ).toEqual([`items[${i}].maxStack`]);
+      expect(
+        issues((list) => {
+          list[i]!.maxStack = 1;
+        }),
+        key,
+      ).toEqual([]);
+    }
   });
 });
 

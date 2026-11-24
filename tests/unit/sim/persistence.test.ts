@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry } from '../../../src/content/registry.ts';
 import type { Command } from '../../../src/sim/commands.ts';
@@ -27,7 +28,7 @@ import {
   SAVE_VERSION,
   SaveVersionError,
 } from '../../../src/world/codec/migrations.ts';
-import { columnKey, localIndex, WORLD_HEIGHT } from '../../../src/world/coords.ts';
+import { cellKey, columnKey, localIndex, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD, zlibDeflater } from '../../helpers/save.ts';
 import { withTicks } from '../../helpers/simHarness.ts';
@@ -95,7 +96,7 @@ describe('save records', () => {
   it('round-trip the world, the player and the drops, before any column is loaded', async () => {
     const s = flatSim('records');
     send(s, { type: 'debug.give', item: 'item:flint_pickaxe', count: 1 });
-    send(s, { type: 'debug.give', item: 'item:dirt', count: 70 });
+    send(s, { type: 'debug.give', item: 'item:dirt', count: 100 });
     s.tick(20, { forward: 1, yaw: 0.7, pitch: -0.2 });
     spawnDrop(s.sim, { item: 'item:sand', count: 4 }, 3.5, 70, 2.5, 1, 0, 0, 5);
     fill(s, 2, 70, 2, 'block:stone');
@@ -113,7 +114,7 @@ describe('save records', () => {
       nextEntityId: s.sim.nextEntityId,
       spawn: s.sim.spawn,
     });
-    expect(stored.players[0]!.inventory[1]).toEqual({ item: 'item:dirt', count: 50 });
+    expect(stored.players[0]!.inventory[1]).toEqual({ item: 'item:dirt', count: DEFAULT_STACK });
     const r = await restoreFrom(storage);
     expect(r.restored.info).toEqual(TEST_WORLD);
     expect(r.restored.contentChanged).toBe(false);
@@ -303,7 +304,11 @@ describe('restoring a world', () => {
     /** One free slot, and two drops of other items at the player's feet once their delay ends. */
     const start = () => {
       const s = flatSim('compete');
-      send(s, { type: 'debug.give', item: 'item:stone', count: 50 * (INVENTORY_SLOTS - 1) });
+      send(s, {
+        type: 'debug.give',
+        item: 'item:stone',
+        count: DEFAULT_STACK * (INVENTORY_SLOTS - 1),
+      });
       const p = s.sim.players.get(1)!.body;
       const dirt = { item: 'item:dirt', count: 1 };
       const older = spawnDrop(s.sim, dirt, p.x - 9, p.y, p.z, 0, 0, 0, 40);
@@ -405,6 +410,37 @@ describe('restoring a world', () => {
     expect(again.columns[0]!.entities[0]).toMatchObject({ item: 'item:relic' });
     const [section] = unpackSections(again.columns[0]!.payload, (id) => id);
     expect(section!.blocks![localIndex(2, 2, 2)]).toBe(registry.unknownBlock);
+  });
+
+  it('splits the stacks over a maximum the pack lowered: into the inventory, or on the ground', async () => {
+    const s = flatSim('fit');
+    send(s, { type: 'debug.give', item: 'item:cord', count: 40 });
+    send(s, {
+      type: 'debug.fill',
+      x0: 2,
+      y0: 65,
+      z0: 2,
+      x1: 2,
+      y1: 65,
+      z1: 2,
+      state: 'block:chest[facing4=n]',
+    });
+    send(s, { type: 'container.open', x: 2, y: 65, z: 2 });
+    s.sim.blockEntities.get(cellKey(2, 65, 2))!.slots[3] = { item: 'item:cord', count: 20 };
+    const storage = new MemoryStorage();
+    await saveTo(storage, s.sim);
+    // The same pack, but cord now stacks to 16.
+    const items = basePack.items!.map((i) => (i.key === 'item:cord' ? { ...i, maxStack: 16 } : i));
+    const r = await restoreFrom(storage, buildRegistry({ ...basePack, items }));
+    const inventory = r.sim.players.get(1)!.inventory;
+    expect(inventory.slice(0, 4).map((stack) => stack?.count ?? 0)).toEqual([16, 16, 8, 0]);
+    expect(r.sim.blockEntities.get(cellKey(2, 65, 2))!.slots[3]).toEqual({
+      item: 'item:cord',
+      count: 16,
+    });
+    expect(drops(r.sim).map((d) => [d.item, d.count, d.body.x, d.body.z])).toEqual([
+      ['item:cord', 4, 2.5, 2.5],
+    ]);
   });
 
   it('refuses a save from a newer version and skips unreadable columns', async () => {

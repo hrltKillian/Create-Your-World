@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import type { GraveEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
 import type { Inventory } from '../../../src/sim/inventory.ts';
@@ -136,7 +137,7 @@ describe('death', () => {
     s.send({ type: 'player.respawn' });
     s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 2.5 });
     // A full bag first: only the matching stacks top up.
-    s.give('item:stone', 31 * 50);
+    s.give('item:stone', (s.player.inventory.length - 1) * DEFAULT_STACK);
     s.give('item:dirt', 20);
     const target = { target: { ...FEET, face: 4 } };
     s.tick(1, { ...target, secondary: true });
@@ -146,7 +147,7 @@ describe('death', () => {
     expect(s.player.equipment[2]?.item).toBe('item:fur_coat');
     expect(s.player.graves).toEqual([FEET]);
     // Room again: the rest comes back, the pack and its marker go.
-    for (let slot = 0; slot < 32; slot++)
+    for (let slot = 0; slot < s.player.inventory.length; slot++)
       if (s.player.inventory[slot]?.item === 'item:stone') s.player.inventory[slot] = null;
     s.tick(1, { ...target, secondary: true });
     s.tick(1);
