@@ -225,4 +225,36 @@ describe('A* around sunken pools', () => {
     expect(cells.some(inPool)).toBe(false);
     expectWalkable(cells, from);
   });
+
+  it('never drops into that pool from a dock one block above its surface, whatever the body', () => {
+    // Planks at y 62 over the water (top cell 61), x 2..5 at z 0: the dock's feet at 63.
+    const world = pool(61, 30);
+    for (let x = 2; x <= 5; x++) world.setBlock(x, 62, 0, registry.defaultState('block:planks'));
+    for (const clearance of [1, 2]) {
+      const from: [number, number, number] = [0, 64, 0];
+      const cells = search(world, { ...query(from, [5, 63, 3]), clearance });
+      expect(
+        cells.some(([x, y]) => x >= 2 && x <= 8 && y <= 62),
+        `clearance ${clearance}`,
+      ).toBe(false);
+    }
+  });
+});
+
+describe('A* in shallow water', () => {
+  it('climbs one block out of water lying on the ground, never a 2-high wall', () => {
+    // One layer of water on the floor (feet 64) along a wall 2 high at x = 1.
+    const world = flatWorld();
+    const water = registry.defaultState('block:fresh_water');
+    for (let x = -4; x <= 0; x++) for (let z = -6; z <= 6; z++) world.setBlock(x, 64, z, water);
+    wall(world, 1, -40, 50, 2);
+    const cells = search(world, query([0, 64, 0], [5, 64, 0]));
+    expect(lastSearch.reached).toBe(false);
+    expect(cells.some(([x]) => x >= 1)).toBe(false);
+    // A 1-high step out of it is still a step.
+    world.setBlock(1, 65, 0, registry.air);
+    const step = search(world, query([0, 64, 0], [5, 64, 0]));
+    expect(lastSearch.reached).toBe(true);
+    expect(step.some(([x, y]) => x === 1 && y === 65)).toBe(true);
+  });
 });
