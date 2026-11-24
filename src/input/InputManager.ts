@@ -11,6 +11,7 @@ import {
 import { KeyLabels } from './keyLabels.ts';
 import { clampPitch, type LookTarget } from './LookTarget.ts';
 import { PointerLock } from './pointerLock.ts';
+import { SprintLatch } from './sprintLatch.ts';
 
 /** View turn (radians) per pixel of mouse movement at sensitivity 1 (Settings scale it). */
 export const BASE_SENSITIVITY = 0.0025;
@@ -52,6 +53,8 @@ export class InputManager {
   private dragging = false;
   /** Crouched by a toggle press (crouchToggle); a release of every key stands up again. */
   private crouched = false;
+  /** Forward pressed twice in a row: sprint while it stays held. */
+  private readonly sprintLatch = new SprintLatch();
 
   constructor(element: HTMLElement, options: InputOptions) {
     this.element = element;
@@ -118,7 +121,8 @@ export class InputManager {
 
   /**
    * Builds this tick's command from the held keys, the view and the block the client aims at.
-   * Buttons pressed and released since the previous sample count as held for this tick.
+   * Buttons pressed and released since the previous sample count as held for this tick. Sprint is
+   * its key, or forward held after a double tap.
    */
   sample(look: LookTarget, target?: ClientTarget): InputCommand {
     const command: InputCommand = {
@@ -126,7 +130,7 @@ export class InputManager {
       forward: this.axis('forward', 'back'),
       strafe: this.axis('right', 'left'),
       jump: this.isDown('jump') || this.latched.has('jump'),
-      sprint: this.isDown('sprint'),
+      sprint: this.isDown('sprint') || (this.sprintLatch.on && this.isDown('forward')),
       crouch: this.crouchToggle ? this.crouched || this.isForced('crouch') : this.isDown('crouch'),
       yaw: look.yaw,
       pitch: clampPitch(look.pitch),
@@ -169,7 +173,8 @@ export class InputManager {
     return (this.forced.get(action) ?? 0) > 0;
   }
 
-  private press(code: string): void {
+  /** A key or button goes down at `time` (the event's time stamp, ms). */
+  private press(code: string, time: number): void {
     if (code === UNBOUND || RESERVED_CODES.has(code)) return;
     if (!this.down.has(code) && this.enabled) {
       const action = actionForCode(this.bindings, code);
@@ -177,6 +182,7 @@ export class InputManager {
         this.edges.add(action);
         this.latched.add(action);
         if (action === 'crouch' && this.crouchToggle) this.crouched = !this.crouched;
+        if (action === 'forward') this.sprintLatch.press(time);
       }
     }
     this.down.add(code);
@@ -187,7 +193,7 @@ export class InputManager {
     if (this.takesDefault(event)) event.preventDefault();
     const slot = HOTBAR_CODES.indexOf(event.code);
     if (slot >= 0 && this.enabled) this.slot = slot;
-    if (!event.repeat) this.press(event.code);
+    if (!event.repeat) this.press(event.code, event.timeStamp);
   };
 
   /**
@@ -212,7 +218,7 @@ export class InputManager {
       return;
     }
     if (!this.pointer && event.button === 0) this.dragging = true;
-    this.press(`Mouse${event.button}`);
+    this.press(`Mouse${event.button}`, event.timeStamp);
   };
 
   private readonly onMouseUp = (event: MouseEvent): void => {

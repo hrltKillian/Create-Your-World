@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TICKS_PER_SECOND, ticksOf } from '../../../src/sim/clock.ts';
+import { PHYSICS } from '../../../src/sim/physics.ts';
+import { NO_USE } from '../../../src/sim/player.ts';
 import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 
@@ -83,5 +85,28 @@ describe('consumables', () => {
     s.tick(1);
     s.tick(ticksOf(consume('item:berries').seconds), { ...chest, crouch: true, secondary: true });
     expect(s.player.inventory[0]!.count).toBe(1);
+  });
+
+  it('slow the player to the balance share of the walk while eating or sipping, without sprint', () => {
+    const speed = (s: ReturnType<typeof playerTestSim>) =>
+      Math.hypot(s.player.body.vx, s.player.body.vz);
+    const slow = PHYSICS.walk * b.consume.moveFactor;
+    // Eating the held berries while running forward, looking at the sky.
+    const s = holding('item:berries', 20);
+    const run = { forward: 1, sprint: true, pitch: 1.2 };
+    s.tick(20, { ...run, secondary: true });
+    expect(s.player.interaction.useItem).not.toBe(NO_USE);
+    expect(speed(s)).toBeCloseTo(slow, 6);
+    expect(s.player.sprinting).toBe(false);
+    // Let go: the sprint comes back at once.
+    s.tick(20, run);
+    expect(speed(s)).toBeCloseTo(PHYSICS.sprint, 6);
+    expect(s.player.sprinting).toBe(true);
+    // A sip from the pond just ahead, the hand empty, slows the same way (still on the bank).
+    const sipping = playerTestSim({ seed: 'consume' });
+    sipping.fill(-3, 64, -8, 3, 64, -1, 'block:fresh_water');
+    sipping.tick(10, { forward: 1, sprint: true, secondary: true, pitch: -1.2 });
+    expect(sipping.player.interaction.useItem).not.toBe(NO_USE);
+    expect(speed(sipping)).toBeCloseTo(slow, 6);
   });
 });

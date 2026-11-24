@@ -75,7 +75,7 @@ describe('simulation determinism', () => {
 
   it('gives the same hash on two runs of the wanderMineBuild bot, also through JSON', () => {
     const run = (serialize: boolean) =>
-      runBot({ registry, seed: 'det-m', ticks: 1500, bot: 'wanderMineBuild', serialize });
+      runBot({ registry, seed: 'det-n', ticks: 1500, bot: 'wanderMineBuild', serialize });
     const a = run(false);
     expect(run(false)).toEqual(a);
     expect(run(true).hash).toBe(a.hash);

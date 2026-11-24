@@ -51,6 +51,14 @@ export interface InteractionState {
 /** `InteractionState.useItem` when secondary holds no action. */
 export const NO_USE = -2;
 
+/**
+ * Eating or drinking: secondary held on the item or the sip it started (consume.ts). The player
+ * then moves at `balance.consume.moveFactor` of the speed and cannot sprint.
+ */
+export function consuming(player: Readonly<PlayerState>): boolean {
+  return player.input.secondary && player.interaction.useItem !== NO_USE;
+}
+
 export function createInteraction(): InteractionState {
   return {
     mineX: 0,
@@ -213,6 +221,7 @@ const move: MoveInput = {
   jumpAllowed: false,
   sprint: false,
   crouch: false,
+  speedFactor: 1,
   yaw: 0,
 };
 const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
@@ -220,8 +229,8 @@ const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false 
 /**
  * One tick of player control. The previous position (render interpolation) and the view angles
  * always update; physics and stamina only run when `active` (its column is LIT: a frozen player
- * cannot fall into the void) and alive. A landing takes its fall damage. Returns whether the body
- * was stepped.
+ * cannot fall into the void) and alive. Eating or drinking slows the player (`consuming`). A
+ * landing takes its fall damage. Returns whether the body was stepped.
  */
 export function stepPlayer(
   player: PlayerState,
@@ -243,12 +252,14 @@ export function stepPlayer(
   if (!active || player.survival.health <= 0) return false;
   const balance = registry.pack.balance;
   const canSprint = !player.exhausted && player.stamina > 0;
+  const slowed = consuming(player);
   move.forward = input.forward;
   move.strafe = input.strafe;
   move.jump = input.jump;
   move.jumpAllowed = player.stamina >= STAMINA.jump;
-  move.sprint = input.sprint && canSprint;
+  move.sprint = input.sprint && canSprint && !slowed;
   move.crouch = input.crouch;
+  move.speedFactor = slowed ? balance.consume.moveFactor : 1;
   move.yaw = input.yaw;
   const result = stepBody(body, move, world, registry.tables, dt, stepResult);
   if (result.jumped) {

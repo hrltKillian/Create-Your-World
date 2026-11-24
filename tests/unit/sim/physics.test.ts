@@ -29,6 +29,7 @@ const idle: MoveInput = {
   jumpAllowed: true,
   sprint: false,
   crouch: false,
+  speedFactor: 1,
   yaw: 0,
 };
 const out: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
@@ -99,6 +100,30 @@ describe('player physics', () => {
     expect(body.z).toBeGreaterThan(-0.3 + 1e-3);
   });
 
+  it('jumps again on each landing while jump is held, never twice in the air', () => {
+    const world = flatWorld();
+    const body = settle(world, 0.5, 64, 0.5);
+    let jumps = 0;
+    let landings = 0;
+    for (let i = 0; i < 90; i++) {
+      const grounded = body.onGround;
+      stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
+      if (out.jumped) {
+        expect(grounded).toBe(true);
+        jumps++;
+      }
+      if (out.landedFrom > 0) landings++;
+    }
+    // A jump lasts 18 ticks in the air and the next one starts on the tick after its landing.
+    expect(jumps).toBe(5);
+    expect(landings).toBeGreaterThanOrEqual(jumps - 1);
+    // Released: no jump starts once the buffer is over.
+    for (let i = 0; i < 60; i++) {
+      stepBody(body, idle, world, registry.tables, DT, out);
+      if (i > PHYSICS.jumpBufferTicks) expect(out.jumped).toBe(false);
+    }
+  });
+
   it('keeps jumping for a few ticks after leaving an edge (coyote time)', () => {
     const world = emptyWorld(1);
     for (let x = -5; x < 5; x++) for (let z = 0; z < 3; z++) world.setBlock(x, 63, z, STONE);
@@ -110,6 +135,12 @@ describe('player physics', () => {
     }
     stepBody(body, { ...idle, forward: 1, jump: true }, world, registry.tables, DT, out);
     expect(out.jumped).toBe(true);
+    // Held on while it falls past the edge: no second jump in the air.
+    for (let i = 0; i < 30; i++) {
+      stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
+      expect(out.jumped).toBe(false);
+    }
+    expect(body.onGround).toBe(false);
   });
 
   it('swims: slower, lighter gravity, rises while jump is held', () => {
@@ -137,8 +168,11 @@ describe('player physics', () => {
         for (let y = 64; y < surface + above; y++) world.setBlock(x, y, z, STONE);
     }
     const body = createBody(0.5, surface - 1, 2.5);
-    for (let i = 0; i < 300; i++)
+    // Jump held until the swimmer stands out of the water (held on, it would jump again), then on.
+    for (let i = 0; i < 300 && !(body.onGround && !body.feetInWater); i++)
       stepBody(body, { ...idle, forward: 1, jump: true }, world, registry.tables, DT, out);
+    for (let i = 0; i < 30; i++)
+      stepBody(body, { ...idle, forward: 1 }, world, registry.tables, DT, out);
     return { body, top: surface + above };
   }
 

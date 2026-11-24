@@ -48,9 +48,8 @@ export interface Body {
   crouching: boolean;
   /** Ticks since the body last stood on ground (coyote time). */
   airTicks: number;
-  /** Ticks since jump was pressed (jump buffer); large when not pressed. */
+  /** Ticks since jump was last held (jump buffer): 0 while held, large once released. */
   jumpTicks: number;
-  jumpHeldLast: boolean;
   /** Highest y since leaving the ground (fall damage). */
   fallStartY: number;
 }
@@ -65,6 +64,8 @@ export interface MoveInput {
   jumpAllowed: boolean;
   sprint: boolean;
   crouch: boolean;
+  /** Multiplies the speed the body moves at (1; eating or drinking slows the player). */
+  speedFactor: number;
   /** Radians, 0 looks north (−z). */
   yaw: number;
 }
@@ -94,7 +95,6 @@ export function createBody(x: number, y: number, z: number): Body {
     crouching: false,
     airTicks: 0,
     jumpTicks: 99,
-    jumpHeldLast: false,
     fallStartY: 0,
   };
   resetBody(body, x, y, z);
@@ -211,13 +211,14 @@ function accelerate(
   sprinting: boolean,
   dt: number,
 ): void {
-  const speed = body.inWater
+  const mode = body.inWater
     ? PHYSICS.swim
     : body.crouching
       ? PHYSICS.crouch
       : sprinting
         ? PHYSICS.sprint
         : PHYSICS.walk;
+  const speed = mode * input.speedFactor;
   let fx = input.forward;
   let fs = input.strafe;
   const len = Math.sqrt(fx * fx + fs * fs);
@@ -252,8 +253,10 @@ function accelerate(
 }
 
 /**
- * Jump and gravity phase: buffered presses and coyote time, swimming and climbing out of water.
- * Updates the vertical speed and returns the vertical move of this tick.
+ * Jump and gravity phase: a held jump jumps again on each landing (a tap shortly before landing
+ * still counts: the jump buffer), with coyote time after leaving an edge but never twice in the
+ * air; swimming and climbing out of water. Updates the vertical speed and returns the vertical
+ * move of this tick.
  */
 function jumpAndGravity(
   body: Body,
@@ -263,9 +266,8 @@ function jumpAndGravity(
   dt: number,
   out: StepResult,
 ): number {
-  if (input.jump && !body.jumpHeldLast) body.jumpTicks = 0;
+  if (input.jump) body.jumpTicks = 0;
   else body.jumpTicks++;
-  body.jumpHeldLast = input.jump;
   // Swimming at the surface into a climbable bank with jump held lifts the feet onto it.
   const exit =
     input.jump && body.feetInWater && !body.headInWater ? waterExitSpeed(body, world, tables) : 0;

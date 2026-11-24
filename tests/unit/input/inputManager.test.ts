@@ -70,6 +70,26 @@ describe('InputManager', () => {
     expect(input.shiftHeld()).toBe(false);
   });
 
+  it('sprints while forward stays held after a double tap within 300 ms', () => {
+    const at = (type: 'keydown' | 'keyup', timeStamp: number) =>
+      win.dispatch(type, { code: 'KeyW', key: 'w', repeat: false, timeStamp });
+    at('keydown', 1000);
+    at('keyup', 1080);
+    expect(input.sample(look).sprint).toBe(false);
+    at('keydown', 1250);
+    expect(input.sample(look)).toMatchObject({ forward: 1, sprint: true });
+    expect(input.sample(look).sprint).toBe(true);
+    // Released: no more sprint; a lone press later walks.
+    at('keyup', 4000);
+    expect(input.sample(look).sprint).toBe(false);
+    at('keydown', 5000);
+    expect(input.sample(look)).toMatchObject({ forward: 1, sprint: false });
+    // Too slow a second tap walks too.
+    at('keyup', 5100);
+    at('keydown', 5400);
+    expect(input.sample(look).sprint).toBe(false);
+  });
+
   it('holds forced actions for a number of ticks', () => {
     input.force('forward', 2);
     expect(input.sample(look).forward).toBe(1);

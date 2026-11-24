@@ -128,6 +128,12 @@ export interface ShelterBalance {
   readonly coveredToxicity: number;
 }
 
+/** Eating and drinking (docs « M12 — Contrôles et combustible »). */
+export interface ConsumeBalance {
+  /** The player's speed is multiplied by this while eating or drinking, without sprint (0–1). */
+  readonly moveFactor: number;
+}
+
 export interface WaterBalance {
   /** Hold time of a sip from a drinkable liquid (empty hand). */
   readonly sipSec: number;
@@ -182,6 +188,7 @@ export interface BalanceDef {
   readonly climate: ClimateBalance;
   readonly shelter: ShelterBalance;
   readonly water: WaterBalance;
+  readonly consume: ConsumeBalance;
   readonly sleep: SleepBalance;
   readonly respawn: RespawnBalance;
   readonly creatures: CreatureBalance;
