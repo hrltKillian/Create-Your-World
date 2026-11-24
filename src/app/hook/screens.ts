@@ -2,6 +2,7 @@ import { i18nMissing } from '../../i18n/i18n.ts';
 import type { Settings } from '../../platform/settings.ts';
 import type { App } from '../App.ts';
 import { click, dragSlot, hotbarView, openBlock, reloadWorld, saveNow } from '../automation.ts';
+import { onboardingState, restartOnboarding } from '../onboardingAutomation.ts';
 import { byLastPlayed, deleteClosedWorld } from '../worlds.ts';
 
 /** `__game.ui`: the HUD text, the slot screens and the menus. */
@@ -111,5 +112,15 @@ export function saveHook(app: App) {
       }
       return { deleted, kept };
     },
+  };
+}
+
+/** `__game.onboarding`: the controls card and the contextual tips (M11). */
+export function onboardingHook(app: App) {
+  return {
+    /** Whether they may show, the card open, the tip on screen and the ones already seen. */
+    state: () => onboardingState(app),
+    /** Starts over as in a new browser (in memory only: the card shows); `false` turns it off. */
+    restart: (on = true) => restartOnboarding(app, on),
   };
 }

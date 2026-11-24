@@ -6,6 +6,7 @@ import { type DayPhase, daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.t
 import type { QueueView } from '../ui/screens/logbook.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { App } from './App.ts';
+import type { Game } from './Game.ts';
 import { queueView, stationStatus } from './UiBridge.ts';
 
 /**
@@ -77,10 +78,15 @@ export function scaleWaits(factor: number): void {
   waitScale = factor;
 }
 
+/** A wait's limit (ms) stretched like every other wait (×4 on slow CI renderers). */
+export function scaledWait(ms: number): number {
+  return ms * waitScale;
+}
+
 /** Polls `done` until it holds; throws once `timeoutMs` (times the wait scale) has passed. */
 export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
   const t0 = performance.now();
-  const limit = options.timeoutMs * waitScale;
+  const limit = scaledWait(options.timeoutMs);
   while (!done()) {
     if (performance.now() - t0 > limit) throw new Error(`${options.label} after ${limit} ms`);
     // Timers are throttled in hidden pages: only sleep while visible.
@@ -351,16 +357,40 @@ const RELOAD_MS = 30_000;
  * Saves and closes the open world (the pause menu's Save & quit), then opens it again from its
  * records; resolves once the loading radius around the player is meshed.
  */
-export async function reloadWorld(app: App): Promise<void> {
+export function reloadWorld(app: App): Promise<void> {
+  const id = app.game?.open?.info.id;
+  return reenter(app, (game) => game.openWorld(id!), `World ${id} did not open again`);
+}
+
+/**
+ * Saves and closes the open world, then creates and opens a new one of the same seed (and the
+ * boot's world type), as the New world screen does: a fresh player there. Resolves once its
+ * loading radius is meshed.
+ */
+export function freshWorld(app: App): Promise<void> {
+  const seed = app.session?.seed ?? '';
+  return reenter(
+    app,
+    (game) => game.createWorld({ name: '', seed, hostiles: true }),
+    `No new world of seed ${seed}`,
+  );
+}
+
+/** Save & quit, then `enter` another world; resolves once its loading radius is meshed. */
+async function reenter(
+  app: App,
+  enter: (game: Game) => Promise<void>,
+  failure: string,
+): Promise<void> {
   const game = app.game;
   const id = game?.open?.info.id;
   if (!game || !id) throw new Error('No open world');
   if (game.state !== 'paused') game.pause();
   if (!(await game.saveAndQuit()))
     throw new Error(`Save & quit of world ${id} failed (state ${game.state})`);
-  await game.openWorld(id);
+  await enter(game);
   const session = app.session;
-  if (!session) throw new Error(`World ${id} did not open again (state ${game.state})`);
+  if (!session) throw new Error(`${failure} (state ${game.state})`);
   await waitForChunks(app, session.loadingRadius(), RELOAD_MS);
   // The frame loop leaves the loading state on its next frame (there is none in a hidden page).
   if (!document.hidden) await frameOrFail();

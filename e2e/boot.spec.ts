@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { CI_FACTOR, selftest } from './selftest.ts';
+import { CI_FACTOR, gameReady, type Hook, pageErrors } from './selftest.ts';
+
+/** The boot: the capability gate's WebGL, the main menu into a first world, a bot playing it. */
 
 test('WebGL 2 with texture arrays is available', async ({ page }) => {
   await page.goto('/?scene=title');
@@ -10,36 +12,55 @@ test('WebGL 2 with texture arrays is available', async ({ page }) => {
   expect(layers).toBeGreaterThanOrEqual(256);
 });
 
-test('the test scene passes its selftests', async ({ page }) => {
-  expect(await selftest(page, 'scene=testchunk&selftest=m0,m1')).toMatch(/^SELFTEST PASS/);
+test('Play and Create world open a first world, where the controls card of a first launch shows', async ({
+  page,
+}) => {
+  const errors = pageErrors(page);
+  // ?onboarding=1: as in a new browser (Playwright counts as automation, which turns it off).
+  await page.goto('/?storage=memory&noLock=1&seed=42&mute=1&onboarding=1');
+  await gameReady(page);
+  expect(await page.evaluate(() => (window.__game as Hook).state())).toBe('menu');
+  // No world yet: Play opens the New world form.
+  await page.locator('#screen-main [data-action="play"]').click();
+  await page.locator('#screen-new-world [data-action="create"]').click();
+  const card = page.locator('#onboarding-card');
+  // It shows as the world opens, over the loading screen, and stays.
+  await expect(card).toBeVisible({ timeout: 30_000 * CI_FACTOR });
+  const state = () => page.evaluate(() => (window.__game as Hook).state());
+  await expect.poll(state, { timeout: 30_000 * CI_FACTOR }).toBe('world');
+  await expect(card).toBeVisible();
+  // The card names the keys of this keyboard (forward: W on QWERTY, Z on AZERTY).
+  const forward = await page.evaluate(() => (window.__game as Hook).input.keyLabel('forward'));
+  await expect(card.locator('kbd', { hasText: forward ?? '?' }).first()).toBeVisible();
+  await card.locator('[data-action="onboarding-close"]').click();
+  await expect(card).toBeHidden();
+  const hook = await page.evaluate(() => {
+    const game = window.__game as Hook;
+    return { errors: game.errors(), missing: game.ui.i18nMissing() };
+  });
+  expect(hook).toEqual({ errors: [], missing: [] });
+  expect(errors, 'uncaught page errors').toEqual([]);
 });
 
-test('the generated world streams; spawn, biomes, ores, xray and structures', async ({ page }) => {
-  // Real ticks (no fixed step), a far teleport and two full re-meshes: more time than the rest.
-  test.setTimeout(180_000 * CI_FACTOR);
-  const text = await selftest(page, 'seed=7&rd=4&mute=1&selftest=m0,m2,m6', { timeout: 170_000 });
-  expect(text).toMatch(/^SELFTEST PASS/);
-  // Every m2 and m6 case applies to the generated world: none may be skipped.
-  expect(text).not.toContain('skipped');
-});
-
-test('the player walks, animates and switches cameras on the flat world', async ({ page }) => {
-  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&rd=3&selftest=m0,m3';
-  expect(await selftest(page, query)).toMatch(/^SELFTEST PASS/);
-});
-
-test('the player digs, builds, strikes and hears it on the flat world', async ({ page }) => {
-  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&mute=1&selftest=m0,m4';
-  const text = await selftest(page, query);
-  expect(text).toMatch(/^SELFTEST PASS/);
-  // Every m4 case applies to this setup: none may be skipped.
-  expect(text).not.toContain('skipped');
-});
-
-test('day and night, sky light, torches and the light view on the flat world', async ({ page }) => {
-  const query = 'seed=42&worldType=flat&skipMenu=1&fixedStep=1&mute=1&selftest=m0,m5';
-  const text = await selftest(page, query);
-  expect(text).toMatch(/^SELFTEST PASS/);
-  // Every m5 case applies to this setup: none may be skipped.
-  expect(text).not.toContain('skipped');
+/**
+ * M11 « un bot wanderMineBuild tourne 5 min dans le navigateur → errors() vide », in fixed steps
+ * (the driver advances 8 ticks a frame). Local only: with software rendering the 9 000 ticks and
+ * the streaming they need take too long for CI, which plays the bot's minute of the m11 suite.
+ */
+test('the wanderMineBuild bot plays five game minutes in the generated world without an error', async ({
+  page,
+}) => {
+  test.skip(Boolean(process.env.CI), 'local only: the m11 suite plays a minute on CI');
+  test.setTimeout(300_000);
+  const errors = pageErrors(page);
+  await page.goto('/?storage=memory&noLock=1&skipMenu=1&seed=7&rd=4&fixedStep=1&mute=1');
+  await gameReady(page);
+  const run = await page.evaluate(async () => {
+    const game = window.__game as Hook;
+    await game.world.waitForChunks();
+    const report = await game.bot.run('wanderMineBuild', 300);
+    return { ticks: report.ticks, errors: report.errors, all: game.errors() };
+  });
+  expect(run).toEqual({ ticks: 9000, errors: [], all: [] });
+  expect(errors, 'uncaught page errors').toEqual([]);
 });

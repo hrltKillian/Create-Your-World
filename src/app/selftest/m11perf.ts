@@ -1,14 +1,14 @@
 import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../../render/quality.ts';
 import type { App } from '../App.ts';
 import { caveBenchmark } from '../bench/cave.ts';
-import { digBenchmark } from '../bench/dig.ts';
+import { DIG, digBenchmark } from '../bench/dig.ts';
 import { flyBenchmark, walkBenchmark } from '../bench/motion.ts';
 import { loadBenchmark } from '../benchmarks.ts';
 import { applyQuality } from '../graphicsPreset.ts';
 import {
   assert,
   assertTiming,
-  needsGeneratedPlayer,
+  needsRealTimeGeneratedPlayer,
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
@@ -20,8 +20,7 @@ import {
  * with &freecam=1 instead). Deterministic counters (draws, triangles, sections) are hard checks;
  * frame-time thresholds are only checked on the bench build (`npm run bench`, pane visible: docs
  * « les mesures de perf se font uniquement sur bench »), and wall-clock ones not on slow CI
- * renderers (?timing=0). The integration step adds these cases to a suite (and its closing
- * `noErrorsCase`).
+ * renderers (?timing=0). Part of the m11 suite (selftest/m11.ts).
  */
 
 /** « `cave` : ≤ 150 draws » and « −30 % de draws sous terre par rapport à occlusion=0 ». */
@@ -41,7 +40,6 @@ const PLAYABLE_MS = 3000;
 /** Shorter runs than the benchmarks' defaults: the selftest checks they work and their counters. */
 const WALK_SECONDS = 6;
 const FLY_SECONDS = 4;
-const DIG_EDITS = 12;
 /** A walk of WALK_SECONDS covers at least this many blocks (≈ 4.3 m/s on open ground). */
 const MIN_WALKED = 6;
 
@@ -52,22 +50,12 @@ function onBench(app: App, condition: boolean, message: string): void {
 
 const pct = (share: number) => `${(share * 100).toFixed(1)} %`;
 
-function needsRealTicks(app: App): string | null {
-  return (
-    needsGeneratedPlayer(app) ?? (app.params.fixedStep ? 'needs real ticks (no ?fixedStep)' : null)
-  );
-}
-
-function needsPlayer(app: App): string | null {
-  return app.params.freecam ? 'needs a player (no ?freecam)' : null;
-}
-
 export const M11_PERF_CASES: readonly SelftestCase[] = [
   {
     name: `load: the world was playable within ${PLAYABLE_MS / 1000} s of the navigation (bench build)`,
     scenes: PLAY_SCENES,
     timeoutMs: 90_000,
-    skip: needsPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const load = await loadBenchmark(app);
@@ -83,7 +71,7 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
     name: `cave culling: from a cave pocket, ≤ ${MAX_CAVE_DRAWS} draws and ${pct(MIN_CAVE_SAVED)} fewer than with ?occlusion=0`,
     scenes: PLAY_SCENES,
     timeoutMs: 120_000,
-    skip: needsGeneratedPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const cave = await caveBenchmark(app, 2);
@@ -104,7 +92,7 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
     name: `benchmark('walk'): the player walks; ≤ ${MAX_DRAWS} draws, work p95 ≤ ${WALK_WORK_P95_MS} ms, < ${pct(MAX_LONG_FRAMES)} intervals over 20 ms (bench build)`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsRealTicks,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
       const walk = await walkBenchmark(app, WALK_SECONDS);
@@ -120,11 +108,12 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
     name: `benchmark('dig'): repeated edits are written in place and shown within ${EDIT_TO_MESH_P95_MS} ms p95`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       await playerSession(app);
-      const dig = await digBenchmark(app, DIG_EDITS);
-      assert(dig.edits === DIG_EDITS, `${dig.edits} edits timed of ${DIG_EDITS}`);
+      // The benchmark's 30 edits: one slow frame (a busy worker, a collection) is not the p95.
+      const dig = await digBenchmark(app);
+      assert(dig.edits === DIG.edits, `${dig.edits} edits timed of ${DIG.edits}`);
       assert(dig.inPlace > 0, 'no remesh was written into the vertex buffer already there');
       assertTiming(
         app,
@@ -149,7 +138,7 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
     name: 'render.setQuality: a preset sets the render distance and caps the pixel ratio',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
-    skip: needsPlayer,
+    skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const rd = session.renderDistance;

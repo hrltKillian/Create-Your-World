@@ -2,7 +2,7 @@ import type { ObjectiveDef } from '../../content/schema.ts';
 import { t } from '../../i18n/i18n.ts';
 import { POINT_BEARINGS } from '../../ui/hud/compass.ts';
 import type { App } from '../App.ts';
-import { look, withinFrames } from '../automation.ts';
+import { freshWorld, look, withinFrames } from '../automation.ts';
 import { walkObjectivesHere } from '../walkAutomation.ts';
 import { assert, PLAY_SCENES, playerSession, SEARCH_RADIUS, type SelftestCase } from './support.ts';
 import { needsGeneratedFixedPlayer } from './survivalScenes.ts';
@@ -15,21 +15,14 @@ import { needsGeneratedFixedPlayer } from './survivalScenes.ts';
  * held at the floor the view aims at) and fed through their screens, a sip at a pool, a night
  * held out in a cabin, journeys to the biomes of the raw items (findBiome), a creature killed for
  * its loot. After each objective the HUD's panel shows the next one, and the compass its point
- * when it has one. It needs a player who has done no objective and leaves a cabin at the spawn
- * and the clock a day on: run it in its own boot, right after m0.
+ * when it has one. It needs a player who has done no objective: after earlier suites of the boot
+ * did some (m9 under `?selftest=all`), it walks in a new world of the same seed. It leaves a cabin
+ * at the spawn and the clock a day on.
  * tests/unit/sim/objectiveWalk.test.ts runs the same walk on an inline simulation of seed 7.
  */
 
 /** Frames the HUD (10 Hz, or the next frame after an event) gets to show a change. */
 const UI_FRAMES = 30;
-
-/** The walk starts the chain: a player who has done no objective yet. */
-function needsFreshPlayer(app: App): string | null {
-  const done = app.session?.player.objectives.length ?? 0;
-  return done > 0
-    ? `needs a player who has done no objective (${done} done: run it after m0)`
-    : null;
-}
 
 /** The objectives panel shows an objective (none: the chain done), the compass its point. */
 async function hudShows(app: App, objective: ObjectiveDef | undefined): Promise<void> {
@@ -53,9 +46,11 @@ export const OBJECTIVES_WALK_CASES: readonly SelftestCase[] = [
     name: 'a scripted walk does every objective of the pack in chain order, the HUD following',
     scenes: PLAY_SCENES,
     timeoutMs: 240_000,
-    skip: (app) => needsGeneratedFixedPlayer(app) ?? needsFreshPlayer(app),
+    skip: needsGeneratedFixedPlayer,
     run: async (app) => {
-      await playerSession(app);
+      const session = await playerSession(app);
+      // The walk starts the chain: a player who has done no objective yet.
+      if (session.player.objectives.length > 0) await freshWorld(app);
       const chain = app.registry!.pack.objectives ?? [];
       assert(chain.length > 0, 'the pack has no objectives');
       await hudShows(app, chain[0]);

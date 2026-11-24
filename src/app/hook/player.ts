@@ -1,8 +1,10 @@
 import type { DebugStat } from '../../sim/commands.ts';
 import { serializeInventory } from '../../sim/inventory.ts';
 import type { DeathCause } from '../../sim/survival.ts';
+import { BOT_KINDS, type BotKind } from '../../sim/testing/bots.ts';
 import type { App } from '../App.ts';
 import { blockEntityContents, craft, craftQueue, give, teleport } from '../automation.ts';
+import { driveBot } from '../botDriver.ts';
 import {
   census,
   creatureList,
@@ -11,6 +13,7 @@ import {
   spawnLog,
 } from '../creatureAutomation.ts';
 import { equip, god, kill, playerStats, setStat } from '../survivalAutomation.ts';
+import { walkObjectivesHere } from '../walkAutomation.ts';
 
 /** `__game.player`: the local player's body, gauges, inventory and debug commands. */
 export function playerHook(app: App) {
@@ -86,5 +89,28 @@ export function craftHooks(app: App) {
       /** A cell's chest or station: { kind, slots } (a station adds station, flame, progress, process). */
       contents: (x: number, y: number, z: number) => blockEntityContents(app, x, y, z),
     },
+  };
+}
+
+/** `__game.objectives`: the scripted walk through the pack's objectives (M11). */
+export function objectivesHook(app: App) {
+  return {
+    /**
+     * Does every objective in chain order from where the player stands (a player who has done
+     * none, the generated world, ?fixedStep=1; biomes searched within `maxRadius`); the keys done.
+     */
+    walk: (maxRadius = 3000) => walkObjectivesHere(app, maxRadius),
+  };
+}
+
+/** `__game.bot`: a bot of sim/testing playing the player in the browser (M11). */
+export function botHook(app: App) {
+  return {
+    kinds: () => [...BOT_KINDS],
+    /**
+     * Plays `seconds` of game time (fixed steps: 8 ticks a frame; else real time), the camera
+     * following; what it did and the errors captured meanwhile.
+     */
+    run: (kind: BotKind = 'wanderMineBuild', seconds = 300) => driveBot(app, kind, seconds),
   };
 }

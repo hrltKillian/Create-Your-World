@@ -7,11 +7,13 @@ import { M7_SUITE } from './m7.ts';
 import { M8_SUITE } from './m8.ts';
 import { M9_SUITE } from './m9.ts';
 import { M10_SUITE } from './m10.ts';
+import { M11_SUITE } from './m11.ts';
 import {
   assert,
   assertTiming,
   chunksMeshed,
   needsFlatPlayer,
+  needsGeneratedWorld,
   noErrorsCase,
   playerSession,
   type SelftestCase,
@@ -114,6 +116,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
       name: 'the generated world streams around the camera (loading radius meshed)',
       scenes: ['loading', 'world'],
       timeoutMs: 30_000,
+      skip: needsGeneratedWorld,
       run: async (app) => {
         await app.ready();
         const session = app.session;
@@ -131,6 +134,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
     {
       name: 'workers and the main thread generate identical columns',
       scenes: ['world'],
+      skip: needsGeneratedWorld,
       run: async (app) => {
         const { Column } = await import('../../world/Column.ts');
         const { columnHash, generateColumn } = await import('../../world/gen/generateColumn.ts');
@@ -150,6 +154,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
       name: 'lowering the render distance frees geometry, raising it streams again',
       scenes: ['world'],
       timeoutMs: 100_000,
+      skip: needsGeneratedWorld,
       run: async (app) => {
         const session = app.session!;
         const rd = session.renderDistance;
@@ -344,4 +349,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m8: M8_SUITE,
   m9: M9_SUITE,
   m10: M10_SUITE,
+  m11: M11_SUITE,
 };

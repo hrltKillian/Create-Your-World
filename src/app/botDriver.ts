@@ -4,7 +4,7 @@ import type { SimEvent } from '../sim/events.ts';
 import { BOT_KINDS, type BotKind, createBot } from '../sim/testing/bots.ts';
 import { type BotTally, emptyTally, sendBotCommands, tallyEvent } from '../sim/testing/runBot.ts';
 import type { App } from './App.ts';
-import { frameOrFail, yieldTask } from './automation.ts';
+import { frameOrFail, scaledWait, yieldTask } from './automation.ts';
 import type { GameSession } from './GameSession.ts';
 
 /**
@@ -71,7 +71,8 @@ export interface BotDriveReport extends BotTally {
  * Lets a bot play the open world for `seconds` of game time (the world seed drives its choices).
  * With fixed steps the driver advances the ticks itself, FRAME_TICKS per frame; otherwise the frame
  * loop ticks in real time (and a hidden page ticks between tasks, as waitForChunks does). Fails when
- * the ticks fall far behind (the world paused or closed).
+ * the ticks fall far behind (the world paused or closed): after twice the game time and 10 s, a
+ * wait stretched on slow renderers like the others.
  */
 export async function driveBot(
   app: App,
@@ -85,7 +86,7 @@ export async function driveBot(
   const errors = app.errors.length;
   const start = view.tick();
   const end = start + Math.round(seconds * TICKS_PER_SECOND);
-  const deadline = performance.now() + seconds * 2000 + 10_000;
+  const deadline = performance.now() + scaledWait(seconds * 2000 + 10_000);
   const run = pilot(session, kind, session.seed, app.input ?? undefined);
   try {
     while (view.tick() < end) {

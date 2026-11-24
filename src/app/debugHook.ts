@@ -1,21 +1,22 @@
 import type { Action } from '../input/bindings.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import type { App } from './App.ts';
+import { ambienceView, audioMark, heardSince } from './audioAutomation.ts';
 import { clock, freezeTime, look, press, setTime } from './automation.ts';
-import { craftHooks, entitiesHook, playerHook } from './hook/player.ts';
+import { botHook, craftHooks, entitiesHook, objectivesHook, playerHook } from './hook/player.ts';
 import { perfHook, renderHook } from './hook/render.ts';
-import { saveHook, settingsHook, uiHook } from './hook/screens.ts';
+import { onboardingHook, saveHook, settingsHook, uiHook } from './hook/screens.ts';
 import { worldHook } from './hook/world.ts';
 
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
  * `__DEBUG_HOOK__`, so it never ships in production builds. The larger groups are in `hook/`:
- * player, entities, craft and container (`player.ts`), world (`world.ts`), render and perf
- * (`render.ts`), ui, settings and save (`screens.ts`).
+ * player, entities, craft, container, objectives and bot (`player.ts`), world (`world.ts`), render
+ * and perf (`render.ts`), ui, settings, save and onboarding (`screens.ts`).
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 10,
+    version: 11,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -73,15 +74,24 @@ export function installDebugHook(app: App): void {
     player: playerHook(app),
     entities: entitiesHook(app),
     ...craftHooks(app),
+    objectives: objectivesHook(app),
+    bot: botHook(app),
     world: worldHook(app),
     render: renderHook(app),
     ui: uiHook(app),
     settings: settingsHook(app),
     save: saveHook(app),
+    onboarding: onboardingHook(app),
     audio: {
       /** Keys of the sounds played (oldest first), logged even when muted or not yet resumed. */
       log: () => app.audio?.log() ?? [],
       state: () => app.audio?.state() ?? null,
+      /** A mark in the log (every key ever logged), for `since`. */
+      mark: () => audioMark(app),
+      /** The keys logged after a mark, oldest first (within the log's last 256). */
+      since: (mark: number) => heardSince(app, mark),
+      /** The ambience: its loops and gains, the underwater low-pass, the place heard. */
+      ambience: () => ambienceView(app),
     },
   };
   window.__game = api;

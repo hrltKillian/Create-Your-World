@@ -8,6 +8,8 @@ export interface SelftestResult {
   readonly ok: boolean;
   readonly skipped?: boolean;
   readonly detail?: string;
+  /** Wall time the case ran (ms; none when skipped). */
+  readonly ms?: number;
 }
 
 export interface SelftestReport {
@@ -56,11 +58,14 @@ async function runCase(app: App, name: string, test: SelftestCase): Promise<Self
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`timeout after ${limit} ms`)), limit);
   });
+  const t0 = performance.now();
+  const ms = () => Math.round(performance.now() - t0);
   try {
     await Promise.race([Promise.resolve().then(() => test.run(app)), timeout]);
-    return { name, ok: true };
+    return { name, ok: true, ms: ms() };
   } catch (error) {
-    return { name, ok: false, detail: error instanceof Error ? error.message : String(error) };
+    const detail = error instanceof Error ? error.message : String(error);
+    return { name, ok: false, detail, ms: ms() };
   } finally {
     clearTimeout(timer);
   }
@@ -76,5 +81,7 @@ function showBanner(passed: number, total: number, results: readonly SelftestRes
   const skipped = results.filter((r) => r.skipped).length;
   const head = `SELFTEST ${ok ? 'PASS' : 'FAIL'} ${passed}/${total}${skipped ? ` (${skipped} skipped)` : ''}`;
   banner.textContent = [head, ...failures].join('\n');
+  // Every case with its outcome, for e2e/selftest.spec.ts (which checks each case ran somewhere).
+  banner.dataset.results = JSON.stringify(results);
   document.body.append(banner);
 }

@@ -4,6 +4,7 @@ import { DEBUG_VIEWS, type DebugView } from '../../render/voxelMaterial.ts';
 import type { App } from '../App.ts';
 import { nextFrame } from '../automation.ts';
 import { BENCH_KINDS, type BenchKind, runBenchmark } from '../benchmarks.ts';
+import { feelView, setParticles, setViewBob } from '../feelAutomation.ts';
 import { applyQuality } from '../graphicsPreset.ts';
 
 /** `__game.perf`: frame statistics, the worker pool, the mesh scheduler and the benchmarks. */
@@ -86,6 +87,21 @@ export function renderHook(app: App) {
     hand: () => {
       const hand = app.session?.play.hand;
       return hand ? { visible: hand.visible, swing: hand.swing, boxes: hand.batch.size } : null;
+    },
+    /**
+     * The view's feel: camera field of view and its sprint offset, bob, roll, the hand's sway,
+     * particles alive and both switches.
+     */
+    feel: () => feelView(app),
+    /** Turns particles on or off for the open world (off clears the live ones); the feel after. */
+    particles: (on: boolean) => {
+      setParticles(app, on);
+      return feelView(app);
+    },
+    /** Turns the view bob on or off for the open world; the feel after. */
+    viewBob: (on: boolean) => {
+      setViewBob(app, on);
+      return feelView(app);
     },
     /** Boxes in the world batch this frame and live break particles. */
     boxes: () => {

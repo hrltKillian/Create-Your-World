@@ -32,6 +32,7 @@ import {
   emitterOf,
   keepingClock,
   needsFlatPlayer,
+  needsSpawningFlatPlayer,
   noErrorsCase,
   PLAY_SCENES,
   playerSession,
@@ -94,20 +95,6 @@ const DROP_RADIUS = 3;
 interface Spot {
   readonly x: number;
   readonly z: number;
-}
-
-/** The combat cases and the benchmark: the flat world, fixed steps, no natural spawns. */
-function needsCombatSetup(app: App): string | null {
-  const flat = needsFlatPlayer(app);
-  if (flat) return flat;
-  return app.params.spawns ? 'natural spawns would join in (without ?spawns=1)' : null;
-}
-
-/** The spawn cases: the flat world, fixed steps, natural spawns from the first tick. */
-function needsSpawnSetup(app: App): string | null {
-  const flat = needsFlatPlayer(app);
-  if (flat) return flat;
-  return app.params.spawns && app.params.grace === 0 ? null : 'needs ?spawns=1&grace=0';
 }
 
 /** The pack's creature with a brain: the stalker (Prowler) or the grazer (Trotter). */
@@ -243,7 +230,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: `at ${NIGHT_HOUR}:00 a Prowler placed ${HUNT_DISTANCE} blocks in front of the player hurts them within ${HUNT_TICKS} ticks`,
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
-    skip: needsCombatSetup,
+    skip: needsFlatPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const full = app.registry!.pack.balance.health.max;
@@ -283,7 +270,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: 'a first stealthy spear blow on a Trotter deals 9, one it sees coming 6',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
-    skip: needsCombatSetup,
+    skip: needsFlatPlayer,
     run: async (app) => {
       await playerSession(app);
       const trotter = creatureWith(app, 'grazer');
@@ -310,7 +297,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: 'a Trotter killed by spear blows leaves its loot: meat and hide',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
-    skip: needsCombatSetup,
+    skip: needsFlatPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const registry = app.registry!;
@@ -347,7 +334,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: `at noon no hostile spawns on the surface over ${SPAWN_TICKS} ticks`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsSpawnSetup,
+    skip: needsSpawningFlatPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const view = session.host.view;
@@ -372,7 +359,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: `at ${NIGHT_HOUR}:00 at least ${MIN_NIGHT_HOSTILES} hostiles spawn in ${SPAWN_TICKS} ticks, each in an effective light ≤ ${HOSTILE_MAX_LIGHT} and beyond Manhattan ${TORCH_GUARD} of every torch`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsSpawnSetup,
+    skip: needsSpawningFlatPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       const view = session.host.view;
@@ -439,7 +426,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     name: `benchmark('mobs'): ${MOBS.creatures} creatures by night keep a simulation tick p95 ≤ ${MOBS_TICK_P95_MS} ms`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
-    skip: needsCombatSetup,
+    skip: needsFlatPlayer,
     run: async (app) => {
       await playerSession(app);
       await standAt(app, BENCH);

@@ -37,8 +37,10 @@ export async function digBenchmark(app: App, edits: number = DIG.edits) {
   const ground = blockKey(app, Math.floor(focus.x), y, z);
   const air = app.registry.states[app.registry.air]!.key;
   if (!original || !ground) throw new Error(`the cell (${x}, ${y}, ${z}) is not loaded`);
+  // A solid cell is dug out; a cell of air is filled with the ground under the player.
   const other = original === air ? ground : air;
-  if (other === air) throw new Error(`no ground under the player to fill (${x}, ${y}, ${z}) with`);
+  if (other === original)
+    throw new Error(`no ground under the player to fill (${x}, ${y}, ${z}) with`);
   await waitUntil(() => scheduler.idle(), {
     timeoutMs: DIG.settleMs,
     label: 'meshing still busy',

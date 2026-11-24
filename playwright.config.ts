@@ -15,6 +15,8 @@ export default defineConfig({
   // CI renders in software (SwiftShader) and stretches selftest waits ×4 (?timing=0).
   timeout: process.env.CI ? 800_000 : 200_000,
   expect: { timeout: 15_000 },
+  // One worker, tests in file order: selftest.spec.ts's last test reads what its setups wrote
+  // (a failed test is retried before the next one starts).
   fullyParallel: false,
   workers: 1,
   retries: CI ? 1 : 0,

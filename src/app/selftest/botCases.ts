@@ -1,14 +1,21 @@
 import { TICKS_PER_SECOND } from '../../sim/clock.ts';
-import type { App } from '../App.ts';
 import { teleport, waitUntil, withinFrames } from '../automation.ts';
 import { driveBot } from '../botDriver.ts';
 import { kill } from '../survivalAutomation.ts';
-import { assert, chunksMeshed, PLAY_SCENES, playerSession, type SelftestCase } from './support.ts';
+import {
+  assert,
+  chunksMeshed,
+  needsGeneratedPlayer,
+  PLAY_SCENES,
+  playerSession,
+  type SelftestCase,
+} from './support.ts';
 
 /**
- * M11 « un bot wanderMineBuild tourne … dans le navigateur → errors() vide », in any world with a
- * player (fixed steps or real time): the bot plays a short run away from the spawn (the earlier
- * suites build around it) without an error, and brings a dead player back. The five-minute run is
+ * M11 « un bot wanderMineBuild tourne … dans le navigateur → errors() vide », in the generated
+ * world with a player (fixed steps or real time; the flat and arena worlds have nothing for it to
+ * do): the bot plays a short run away from the spawn (the earlier suites build around it) without
+ * an error, and brings a dead player back. The five-minute run is
  * `__game.bot.run('wanderMineBuild', 300)`. What the bot does (mining, building, meals) depends on
  * the ground it lands on, so these cases only check that it plays; the headless runs and the unit
  * tests check its behaviour.
@@ -23,16 +30,12 @@ const LOAD_MS = 25_000;
 /** Frames for the HUD (10 Hz) to follow the respawn. */
 const UI_FRAMES = 30;
 
-function needsPlayer(app: App): string | null {
-  return app.params.freecam ? 'needs a player (no ?freecam)' : null;
-}
-
 export const BOT_CASES: readonly SelftestCase[] = [
   {
     name: 'the wanderMineBuild bot plays the player away from the spawn without an error',
     scenes: PLAY_SCENES,
     timeoutMs: 90_000,
-    skip: needsPlayer,
+    skip: needsGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       teleport(app, BOT_SPOT.x, 'surface', BOT_SPOT.z);
@@ -56,7 +59,7 @@ export const BOT_CASES: readonly SelftestCase[] = [
     name: 'the bot brings a dead player back (Respawn) and the death screen closes',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
-    skip: needsPlayer,
+    skip: needsGeneratedPlayer,
     run: async (app) => {
       const session = await playerSession(app);
       kill(app, 'fall');
