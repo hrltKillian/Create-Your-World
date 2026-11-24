@@ -70,8 +70,7 @@ export function wanderMineBuildBot(seed: string, world: BotWorld): Bot {
         out.push(input(s, tick, 0));
         return;
       }
-      const chore = tidy(senses, player);
-      if (chore) out.push(chore);
+      tidy(senses, player, out);
       const b = player.body;
       s.stuck = Math.abs(b.x - s.lastX) + Math.abs(b.z - s.lastZ) < 0.02 ? s.stuck + 1 : 0;
       s.lastX = b.x;

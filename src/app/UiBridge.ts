@@ -2,11 +2,12 @@ import type { Registry } from '../content/registry.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { StationEntity } from '../sim/blockEntities.ts';
 import { ticksOf } from '../sim/clock.ts';
+import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
 import type { CraftEntry } from '../sim/craftQueue.ts';
 import { type Gear, wornGear } from '../sim/environment.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
-import { countMatching, INVENTORY_SLOTS } from '../sim/inventory.ts';
+import { countMatching, type Inventory } from '../sim/inventory.ts';
 import type { PlayerState } from '../sim/player.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
@@ -111,7 +112,7 @@ export class UiBridge {
         crafting,
         seen: player.seen,
         owned: (ingredient) =>
-          countMatching(player.inventory, 0, INVENTORY_SLOTS, crafting, ingredient),
+          countMatching(player.inventory, 0, player.inventory.length, crafting, ingredient),
         stationNear: (station) => view.stationNear(station),
       },
       queue: player.craft.map((entry) => queueView(view.registry, entry)),
@@ -122,18 +123,30 @@ export class UiBridge {
   private bagScreen(): void {
     const { inventory, equipment } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
-    this.views.bag.update([...inventory, ...equipment], this.logbook(), gear);
+    this.views.bag.update(screenSlots(inventory, equipment), this.logbook(), gear);
   }
 
   /** The open chest or station: the inventory then its slots (and a station's fire). */
   private blockScreen(open: 'container' | 'station'): void {
-    const cell = this.player.opened;
-    const entity = cell ? this.view.blockEntity(cell.x, cell.y, cell.z) : undefined;
+    const screen = this.player.screen;
+    const entity =
+      screen?.kind === 'block' ? this.view.blockEntity(screen.x, screen.y, screen.z) : undefined;
     if (entity?.kind !== open) return;
-    const slots = [...this.player.inventory, ...entity.slots];
+    const slots = screenSlots(this.player.inventory, entity.slots);
     if (entity.kind === 'container') this.views.container.update(slots);
     else this.views.station.update(slots, stationStatus(this.view.registry, entity));
   }
+}
+
+/**
+ * The slots of a screen by slot number: the inventory, then the open block entity's or the worn
+ * items from OPEN_SLOTS_BASE (the slots between are empty).
+ */
+export function screenSlots(inventory: Inventory, open: Inventory): Inventory {
+  const slots: Inventory = new Array(OPEN_SLOTS_BASE + open.length).fill(null);
+  for (let i = 0; i < inventory.length; i++) slots[i] = inventory[i]!;
+  for (let i = 0; i < open.length; i++) slots[OPEN_SLOTS_BASE + i] = open[i]!;
+  return slots;
 }
 
 /** A queue entry as the Logbook shows it, with the progress of its craft under way. */

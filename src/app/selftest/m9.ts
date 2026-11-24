@@ -7,6 +7,7 @@ import { OPEN_SLOTS_BASE } from '../../sim/commands.ts';
 import { wearSlotOf } from '../../sim/equipment.ts';
 import { canonicalJson } from '../../sim/stateHash.ts';
 import { type DeathCause, thermalStatus } from '../../sim/survival.ts';
+import { moveClicks } from '../../sim/testing/slotMoves.ts';
 import { clockText } from '../../ui/hud/clock.ts';
 import { bearingOf } from '../../ui/hud/compass.ts';
 import { ingredientName } from '../../ui/itemSlot.ts';
@@ -359,7 +360,15 @@ export const M9_SUITE: readonly SelftestCase[] = [
         ];
         for (const [item, slot] of moves) {
           const from = inventory.findIndex((stack) => stack?.item === item);
-          session.host.send({ type: 'station.move', from, to: OPEN_SLOTS_BASE + slot });
+          const before = slotsAt(app, cell)[slot];
+          const clicks = moveClicks(
+            registry,
+            from,
+            OPEN_SLOTS_BASE + slot,
+            inventory[from]!,
+            before,
+          );
+          for (const command of clicks) session.host.send(command);
           session.step(1);
           const there = slotsAt(app, cell)[slot];
           // With water to boil, the fire lights at once and burns the log out of its slot.

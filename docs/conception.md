@@ -886,10 +886,10 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 **Inventaire**
 
-- Barre de 8, sac de 24 (6×4), 5 emplacements d'équipement (tête, visage, torse, jambes, pieds).
-- Piles `{ item: ItemKey, count, durability?, charges?, orig? }`. Maximum : blocs 50, matériaux 30, nourriture 20, outils 1.
+- Barre de 8, sac de 24 (6×4), 5 emplacements d'équipement (tête, visage, torse, jambes, pieds). L'inventaire a de 32 à 64 cases (`inventorySize`, sa longueur ; les améliorations de M19 l'agrandissent).
+- Piles `{ item: ItemKey, count, durability?, charges?, orig? }`. Maximum : 64 (`DEFAULT_STACK`), ou le `maxStack` de l'objet ; outils, armes, équipements et récipients : 1 (`stackLimit`). Une pile au-delà d'un maximum abaissé est redécoupée au chargement (`fitStacks`).
 - Opérations pures qui renvoient le reste.
-- L'UI n'envoie que des commandes atomiques (`inv.move {from,to,count}`, `inv.split`, `inv.quickMove`, `inv.drop`, `equip`), validées par la sim.
+- L'UI n'envoie que des commandes, validées par la sim : `screen.open {kind: 'bag'}` / `screen.close`, `slot.click {slot, button, shift}`, `slot.hotkey {slot, hotbar}` (`sim/slotClicks.ts`, pile du curseur `PlayerState.cursor`), `inv.drop`. Les cases de l'écran ouvert sont numérotées à partir de 64 (`OPEN_SLOTS_BASE`).
 - Coffre de 18 emplacements, ouvert par un seul joueur à ≤ 5 blocs ; casser un conteneur répand son contenu.
 
 **Craft : le « Logbook »** (une liste originale, pas de grille)

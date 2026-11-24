@@ -1,8 +1,8 @@
 /**
  * Minimal DOM stand-in for UI tests under Node: what `h()` and the HUD and screen views touch
  * (elements, attributes, classes, text, `hidden`, `disabled`, `remove()`, custom style properties),
- * with `.class` selectors for `querySelector`. Listeners are kept; `dispatch` calls them (a
- * stand-in for a click).
+ * with `.class` selectors for `querySelector` (and `[attribute]` ones for `closest`). Listeners are
+ * kept; `dispatch` calls them (a stand-in for a click).
  */
 export class FakeNode {}
 
@@ -112,6 +112,14 @@ export class FakeElement extends FakeNode {
     return found;
   }
 
+  /** This element or its nearest ancestor matching a `.class` or `[attribute]` selector. */
+  closest(selector: string): FakeElement | null {
+    const attribute = selector.startsWith('[') ? selector.slice(1, -1) : null;
+    for (let e: FakeElement | null = this; e; e = e.parent)
+      if (attribute ? e.getAttribute(attribute) !== null : e.hasClass(selector.slice(1))) return e;
+    return null;
+  }
+
   /** The first descendant matching a `.class` selector. */
   querySelector(selector: string): FakeElement | null {
     for (const child of this.childNodes) {
@@ -135,11 +143,12 @@ export class FakeElement extends FakeNode {
   }
 }
 
-const dom = globalThis as { document?: unknown; Node?: unknown };
+const dom = globalThis as { document?: unknown; Node?: unknown; Element?: unknown };
 
-/** Installs the stand-ins as the global `document` (always visible) and `Node`. */
+/** Installs the stand-ins as the global `document` (always visible), `Node` and `Element`. */
 export function installFakeDom(): void {
   dom.Node = FakeNode;
+  dom.Element = FakeElement;
   dom.document = {
     createElement: (tag: string) => new FakeElement(tag),
     visibilityState: 'visible',
@@ -150,5 +159,6 @@ export function installFakeDom(): void {
 
 export function removeFakeDom(): void {
   delete dom.Node;
+  delete dom.Element;
   delete dom.document;
 }

@@ -14,9 +14,9 @@ import {
   blockEntityContents,
   blockKey,
   click,
-  dragSlot,
   give,
   look,
+  moveSlot,
   press,
   reloadWorld,
   setBlock,
@@ -269,7 +269,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
           assert(from >= 0, `no ${item} in the inventory`);
           await waitForSlot('station', from);
           assert(
-            dragSlot(from, OPEN_SLOTS_BASE + slot),
+            moveSlot(from, OPEN_SLOTS_BASE + slot),
             `slot ${from} or a station slot is hidden`,
           );
           session.step(1);
@@ -322,7 +322,7 @@ export const M8_SUITE: readonly SelftestCase[] = [
     },
   },
   {
-    name: 'a chest filled by drag and drop comes back whole after save.reload(); « Take all » empties it',
+    name: 'a chest filled by clicks comes back whole after save.reload(); « Take all » empties it',
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
     skip: (app) => needsIdb(app) ?? needsArenaPlayer(app),
@@ -340,14 +340,14 @@ export const M8_SUITE: readonly SelftestCase[] = [
         assert(from >= 0 && to >= 0, `no ${item} in the inventory (${from}) or the chest is full`);
         const before = countItem(slotsAt(app, cell), item);
         await waitForSlot('container', from);
-        assert(dragSlot(from, OPEN_SLOTS_BASE + to), `slot ${from} or chest slot ${to} is hidden`);
+        assert(moveSlot(from, OPEN_SLOTS_BASE + to), `slot ${from} or chest slot ${to} is hidden`);
         session.step(1);
         const stored = countItem(slotsAt(app, cell), item) - before;
         assert(stored === moved, `the chest got ${stored} ${item}, not ${moved}`);
       } finally {
         app.inventory?.closeScreen();
       }
-      // Applies the container.close the screen sent, so the save holds a closed chest.
+      // Applies the screen.close the screen sent, so the save holds a closed chest.
       session.step(1);
       const saved = canonicalJson(blockEntityContents(app, cell.x, cell.y, cell.z));
       await reloadWorld(app);

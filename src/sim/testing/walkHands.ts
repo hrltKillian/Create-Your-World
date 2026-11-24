@@ -10,6 +10,7 @@ import { eyeHeight } from '../physics.ts';
 import { bodyInCell } from '../placement.ts';
 import type { PlayerState } from '../player.ts';
 import { emptySlot } from './botSenses.ts';
+import { inBag, moveClicks } from './slotMoves.ts';
 import { type Cell, cellText, type Point, type WalkPort } from './walkPort.ts';
 import { type Aim, aimToBreak, aimToPlace, standFor } from './walkReach.ts';
 
@@ -123,7 +124,7 @@ export abstract class Hands {
     if (free >= 0) return free;
     const bag = emptySlot(inventory, HOTBAR_SLOTS, inventory.length);
     if (bag < 0) throw new Error('the inventory is full: no hand to free');
-    this.port.send({ type: 'inv.move', from: HOTBAR_SLOTS - 1, to: bag });
+    this.move(HOTBAR_SLOTS - 1, bag);
     return HOTBAR_SLOTS - 1;
   }
 
@@ -135,8 +136,15 @@ export abstract class Hands {
     if (slot < HOTBAR_SLOTS) return slot;
     const free = emptySlot(inventory, 0, HOTBAR_SLOTS);
     const to = free >= 0 ? free : HOTBAR_SLOTS - 1;
-    this.port.send({ type: 'inv.move', from: slot, to });
+    this.move(slot, to);
     return to;
+  }
+
+  /** Moves a whole stack between two inventory slots in the Bag (swapping with what is there). */
+  private move(from: number, to: number): void {
+    const inventory = this.me().inventory;
+    const clicks = moveClicks(this.registry, from, to, inventory[from]!, inventory[to]);
+    for (const command of inBag(...clicks)) this.port.send(command);
   }
 
   /**

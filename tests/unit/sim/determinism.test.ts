@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { stateHash } from '../../../src/sim/stateHash.ts';
 import { runBot } from '../../../src/sim/testing/runBot.ts';
+import { shiftClick, slotClick } from '../../../src/sim/testing/slotMoves.ts';
 import { registry } from '../../helpers/registry.ts';
 import { createTestSim } from '../../helpers/simHarness.ts';
 
@@ -40,12 +42,15 @@ function workshopRun(serialize: boolean): number {
     s.host.send({ type: 'debug.give', item, count });
   s.step(1);
   s.host.send({ type: 'container.open', x: 2, y: 65, z: -2 });
-  s.host.send({ type: 'station.move', from: 0 });
-  s.host.send({ type: 'station.move', from: 1, to: 34, count: 4 });
+  s.host.send(shiftClick(0));
+  // Four sticks put into the fuel slot one by one, the rest back in the bag.
+  const fuel = OPEN_SLOTS_BASE + 2;
+  for (const click of [slotClick(1), ...new Array(4).fill(slotClick(fuel, 1)), slotClick(1)])
+    s.host.send(click);
   s.host.send({ type: 'craft.enqueue', recipe: 'recipe:flint_hatchet', count: 1 });
   s.step(200);
   s.host.send({ type: 'container.open', x: -2, y: 65, z: -2 });
-  s.host.send({ type: 'container.move', from: 2 });
+  s.host.send(shiftClick(2));
   s.host.send({ type: 'debug.teleport', x: 20 * 32, y: 'surface', z: 0.5 });
   s.step(400);
   s.host.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });

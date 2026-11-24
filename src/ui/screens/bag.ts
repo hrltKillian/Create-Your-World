@@ -1,4 +1,3 @@
-import type { Registry } from '../../content/registry.ts';
 import { WEAR_SLOTS } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -10,27 +9,22 @@ import type { LogbookPanel, LogbookState } from './logbook.ts';
 
 /**
  * The Bag (E or Tab, docs « Écrans »): on the left the silhouette, its 5 equipment slots (slots
- * 32–36, moved with `equip.move`) and what the worn items protect from, in the middle the 6×4 bag
- * and the hotbar, on the right the Logbook.
+ * 64–68 of the slot clicks; a wearable only goes in its own) and what the worn items protect from,
+ * in the middle the 6×4 bag and the hotbar, on the right the Logbook.
  */
 export class BagScreen {
   readonly element: HTMLElement;
   readonly logbook: LogbookPanel;
   private readonly board: SlotBoard;
   private readonly protection: HTMLElement;
-  private readonly registry: Registry;
-  private readonly base: number;
 
   constructor(deps: ScreenDeps, logbook: LogbookPanel) {
     this.logbook = logbook;
-    // A split dropped back on its slot never looks for a worn slot that would refuse it.
-    const board = new SlotBoard(deps, 'equip.move', 'screen-bag', this.accepts);
+    const board = new SlotBoard(deps, 'screen-bag');
     this.board = board;
-    this.registry = deps.art.registry;
-    this.base = deps.slotCount;
     this.element = board.element;
     this.protection = h('p', { class: 'wear-stats' });
-    const worn = board.slotViews(deps.slotCount, deps.slotCount + WEAR_SLOTS.length);
+    const worn = board.slotViews(deps.openBase, deps.openBase + WEAR_SLOTS.length);
     this.element.append(
       h(
         'div',
@@ -47,13 +41,6 @@ export class BagScreen {
       ),
     );
   }
-
-  /**
-   * Whether an equipment slot (from `slotCount`) takes an item, as the simulation's equip.move
-   * does: a wearable in its own box only.
-   */
-  readonly accepts = (slot: number, item: string): boolean =>
-    this.registry.item(item)?.wear?.slot === WEAR_SLOTS[slot - this.base];
 
   isOpen(): boolean {
     return this.board.isOpen();

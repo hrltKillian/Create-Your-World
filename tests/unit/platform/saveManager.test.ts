@@ -13,6 +13,7 @@ import { countItem } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
 import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
+import { shiftClick } from '../../../src/sim/testing/slotMoves.ts';
 import type { Deflater } from '../../../src/world/codec/columnRecord.ts';
 import { columnKey } from '../../../src/world/coords.ts';
 import {
@@ -357,7 +358,7 @@ describe('save manager', () => {
     await manager.save();
     expect(columnsOf(storage.batches[1])).toEqual([]);
     // Items stored in a chest change no block: its column is written for its block entities.
-    s.host.send({ type: 'container.move', from: 0 });
+    s.host.send(shiftClick(0));
     s.step();
     await manager.save();
     expect(columnsOf(storage.batches[2])).toEqual([[0, 0]]);

@@ -7,7 +7,7 @@ import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { stepCreatures } from './ai/creatureStep.ts';
 import type { BlockEntity } from './blockEntities.ts';
-import { applyBlockEntityCommand, checkOpened } from './blockEntityCommands.ts';
+import { applyBlockEntityCommand } from './blockEntityCommands.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { stepCombat } from './combat.ts';
@@ -19,7 +19,6 @@ import { respawn, stepDeaths } from './death.ts';
 import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
-import { applyEquipCommand } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
@@ -28,7 +27,9 @@ import { stepObjectives } from './objectives.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
+import { applyScreenCommand, checkOpened } from './screens.ts';
 import { stepSleep } from './sleep.ts';
+import { applySlotCommand } from './slotClicks.ts';
 import { SpatialHash } from './spatialHash.ts';
 import { placeHerds, type SpawnLogEntry, stepSpawning } from './spawning.ts';
 import { stepStations } from './stations.ts';
@@ -74,8 +75,8 @@ export type Entity = PlayerState | ItemDropState | CreatureState;
  * Authoritative game state. DOM-free and deterministic for a given order of deliveries; the client
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, creatures
- * (AI, combat, spawning), item drops, inventory, equipment, block entities (chests, stations,
- * packs), craft queues, survival, deaths, sleep, objectives and debug commands.
+ * (AI, combat, spawning), item drops, inventory, slot screens and their clicks, block entities
+ * (chests, stations, packs), craft queues, survival, deaths, sleep, objectives and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -310,25 +311,27 @@ export class Simulation implements ColumnSink {
         }
         break;
       }
-      case 'inv.move':
-      case 'inv.quickMove':
       case 'inv.drop': {
         const player = this.players.get(playerId);
         if (player) applyInventoryCommand(this, player, command, out);
         break;
       }
+      case 'screen.open':
+      case 'screen.close': {
+        const player = this.players.get(playerId);
+        if (player) applyScreenCommand(this, player, command, out);
+        break;
+      }
+      case 'slot.click':
+      case 'slot.hotkey': {
+        const player = this.players.get(playerId);
+        if (player) applySlotCommand(this, player, command, out);
+        break;
+      }
       case 'container.open':
-      case 'container.close':
-      case 'container.move':
-      case 'station.move':
       case 'station.keepLit': {
         const player = this.players.get(playerId);
         if (player) applyBlockEntityCommand(this, player, command, out);
-        break;
-      }
-      case 'equip.move': {
-        const player = this.players.get(playerId);
-        if (player) applyEquipCommand(this.registry, player, command, out);
         break;
       }
       case 'craft.enqueue':

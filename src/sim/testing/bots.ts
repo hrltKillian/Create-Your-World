@@ -15,7 +15,8 @@ export const BOT_KINDS: readonly BotKind[] = ['wander', 'wanderMineBuild'];
 export interface Bot {
   /**
    * This tick's commands into `out`, from the player's current state: the respawn while it is dead
-   * (createBot), at most one inventory command, then the input (always last).
+   * (createBot), at most one inventory chore (a Shift+click in the Bag opened and closed for it,
+   * or a throw), then the input (always last).
    */
   next(player: Readonly<PlayerState>, tick: number, out: Command[]): void;
 }

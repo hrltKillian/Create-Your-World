@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { fuelSlotOf, outputSlotOf } from '../../../src/content/crafting.ts';
 import type { ContainerEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
-import type { ClientTarget, Command } from '../../../src/sim/commands.ts';
+import { type ClientTarget, type Command, OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { createHost } from '../../../src/sim/host.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { blockEntityRecord } from '../../../src/sim/saveRecords.ts';
+import { shiftClick, slotClick } from '../../../src/sim/testing/slotMoves.ts';
 import { cellKey, toColumn } from '../../../src/world/coords.ts';
 import { createGenContext } from '../../../src/world/gen/generateColumn.ts';
 import { LatticeCache } from '../../../src/world/gen/sample.ts';
@@ -32,6 +33,8 @@ const lying = (s: ReturnType<typeof setup>) =>
     .map((d) => [d.item, d.count]);
 const open = (x: number, y: number, z: number): Command => ({ type: 'container.open', x, y, z });
 const debugOpen = (x: number, y: number, z: number): Command => ({ type: 'debug.open', x, y, z });
+/** First slot number of the open chest or station. */
+const C = OPEN_SLOTS_BASE;
 
 /** A chest at (0, 65, −3), north of the player, behind a stone wall at z −2 higher than the eye. */
 function walledChest() {
@@ -55,23 +58,26 @@ describe('chests', () => {
     expect(eventsOf(s.send(open(0, 65, -2)), 'blockEntityOpened')).toEqual([
       { type: 'blockEntityOpened', playerId: 1, kind: 'container', x: 0, y: 65, z: -2 },
     ]);
-    s.send({ type: 'container.move', from: 0, to: 35, count: 4 });
+    // Four of them put down one by one, the rest back where they came from.
+    const four = new Array(4).fill(slotClick(C + 3, 1));
+    s.send(slotClick(0), ...four, slotClick(0));
     expect(chest.slots[3]).toEqual({ item: 'item:dirt', count: 4 });
-    s.send({ type: 'container.move', from: 0 });
+    s.send(shiftClick(0));
     expect(chest.slots[3]).toEqual({ item: 'item:dirt', count: 10 });
     expect(countItem(s.player.inventory, 'item:dirt')).toBe(0);
-    s.send({ type: 'container.move', from: 35 });
+    s.send(shiftClick(C + 3));
     expect(countItem(s.player.inventory, 'item:dirt')).toBe(10);
     expect(
       rejections(
         s.send(
-          { type: 'station.move', from: 0 },
-          { type: 'container.move', from: 32 + 18 },
-          { type: 'container.move', from: 40 },
-          { type: 'container.move', from: -1 },
+          { type: 'station.keepLit' },
+          slotClick(C + 18),
+          shiftClick(8),
+          slotClick(40),
+          slotClick(-2),
         ),
       ),
-    ).toEqual(['not open', 'invalid', 'nothing to move', 'invalid']);
+    ).toEqual(['not open', 'invalid', 'nothing to move', 'invalid', 'invalid']);
 
     // A second player cannot open it meanwhile.
     s.sim.addPlayer(2, 2);
@@ -81,9 +87,9 @@ describe('chests', () => {
 
     s.send({ type: 'debug.teleport', x: 8.5, y: 'surface', z: 0.5 });
     expect(eventsOf(s.events, 'blockEntityClosed')).toHaveLength(1);
-    expect(s.player.opened).toBeNull();
+    expect(s.player.screen).toBeNull();
     expect(rejections(s.send(open(0, 65, -2)))).toEqual(['reach']);
-    expect(rejections(s.send({ type: 'container.close' }))).toEqual(['nothing open']);
+    expect(rejections(s.send({ type: 'screen.close' }))).toEqual(['nothing open']);
   });
 
   it('opens on a right click instead of placing, and spills its items when broken', () => {
@@ -95,7 +101,7 @@ describe('chests', () => {
     s.tick(1, { secondary: true, target });
     expect(eventsOf(s.events, 'blockEntityOpened')).toHaveLength(1);
     expect(s.block(0, 65, -1)).toBe('block:air');
-    s.send({ type: 'container.move', from: 0 }, { type: 'container.move', from: 1 });
+    s.send(shiftClick(0), shiftClick(1));
     expect(s.entity<ContainerEntity>(0, 65, -2)!.slots.slice(0, 2)).toEqual([
       { item: 'item:dirt', count: 5 },
       { item: 'item:torch', count: 3 },
@@ -157,11 +163,11 @@ describe('chests', () => {
     s.tick(1, { secondary: true, target: { x: 0, y: 65, z: -3, face: 4 } });
     s.tick(1);
     expect(eventsOf(s.events, 'blockEntityOpened')).toEqual([]);
-    expect(s.player.opened).toBeNull();
+    expect(s.player.screen).toBeNull();
     // A hole in the wall: now in view, it opens.
     s.put(0, 65, -2, 'block:air');
     expect(eventsOf(s.send(open(0, 65, -3)), 'blockEntityOpened')).toHaveLength(1);
-    expect(s.player.opened).toEqual({ x: 0, y: 65, z: -3 });
+    expect(s.player.screen).toEqual({ kind: 'block', x: 0, y: 65, z: -3 });
   });
 
   it('opens by debug.open without aiming, within reach only, and never without debugging', () => {
@@ -193,18 +199,14 @@ describe('stations in the world', () => {
   it('opens on a right click and takes fuel and ore, refusing what does not fit a slot', () => {
     const s = kiln();
     expect(eventsOf(s.events, 'blockEntityOpened')[0]?.kind).toBe('station');
-    const fuel = 32 + fuelSlotOf(s.def);
-    const output = 32 + outputSlotOf(s.def);
+    const fuel = C + fuelSlotOf(s.def);
+    const output = C + outputSlotOf(s.def);
+    // Ore on the cursor: the fuel slot and the output refuse it, so it goes back to its slot.
     expect(
-      rejections(
-        s.send(
-          { type: 'station.move', from: 0, to: fuel },
-          { type: 'station.move', from: 1, to: output },
-          { type: 'container.move', from: 1 },
-        ),
-      ),
-    ).toEqual(['slot', 'slot', 'not open']);
-    s.send({ type: 'station.move', from: 1 }, { type: 'station.move', from: 0 });
+      rejections(s.send(slotClick(0), slotClick(fuel), slotClick(output), slotClick(0))),
+    ).toEqual(['slot', 'slot']);
+    expect([s.player.cursor, s.kiln.slots]).toEqual([null, [null, null, null, null]]);
+    s.send(shiftClick(1), shiftClick(0));
     // The log went to the fuel slot and lit at once; the ore waits in the first input.
     expect(s.kiln.slots).toEqual([{ item: 'item:copper_ore', count: 1 }, null, null, null]);
     expect(s.kiln).toMatchObject({ lit: true, burnTicksLeft: ticksOf(40) - 1, progressTicks: 1 });
@@ -212,7 +214,7 @@ describe('stations in the world', () => {
 
   it('smelts a copper ingot in 10 s, lit meanwhile, its light following', () => {
     const s = kiln();
-    s.send({ type: 'station.move', from: 1 }, { type: 'station.move', from: 0 });
+    s.send(shiftClick(1), shiftClick(0));
     expect(s.block(0, 65, -2)).toBe('block:kiln[facing4=s,lit=1]');
     expect(blockOf(s.host.view.world.getLight(0, 65, -1))).toBe(11);
     s.step(298);
@@ -223,15 +225,14 @@ describe('stations in the world', () => {
     s.step(1);
     expect(s.block(0, 65, -2)).toBe('block:kiln[facing4=s,lit=0]');
     expect(blockOf(s.host.view.world.getLight(0, 65, -1))).toBe(0);
-    s.send({ type: 'station.move', from: 32 + outputSlotOf(s.def) });
+    s.send(shiftClick(C + outputSlotOf(s.def)));
     expect(countItem(s.player.inventory, 'item:copper_ingot')).toBe(1);
   });
 
   it('catches up after its column was unloaded exactly as a station that kept ticking', () => {
     const away = kiln(5, 2);
     const stay = kiln(5, 2);
-    for (const s of [away, stay])
-      s.send({ type: 'station.move', from: 1 }, { type: 'station.move', from: 0 });
+    for (const s of [away, stay]) s.send(shiftClick(1), shiftClick(0));
     away.send({ type: 'debug.teleport', x: 40 * 32, y: 'surface', z: 0.5 });
     stay.send({ type: 'debug.freezeTime', frozen: false });
     away.step(100);
@@ -256,7 +257,7 @@ describe('stations in the world', () => {
     s.give('item:broadleaf_log', 50);
     s.send(open(0, 65, -2));
     const def = registry.crafting.station('station:campfire')!;
-    s.send({ type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) });
+    s.send(slotClick(0), slotClick(C + fuelSlotOf(def)));
     const fire = s.entity<StationEntity>(0, 65, -2)!;
     fire.keepLit = true;
     fire.burnTicksLeft = 0;
@@ -279,12 +280,12 @@ describe('stations in the world', () => {
     const def = registry.crafting.station('station:bloomery')!;
     const bloomery = s.entity<StationEntity>(0, 65, -2)!;
     // Its fire burns charcoal only and no process uses logs: they stay in the bag.
-    expect(rejections(s.send({ type: 'station.move', from: 0 }))).toEqual(['slot']);
+    expect(rejections(s.send(shiftClick(0)))).toEqual(['slot']);
     expect(s.player.inventory[0]).toEqual({ item: 'item:broadleaf_log', count: 4 });
-    expect(rejections(s.send({ type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) }))).toEqual(
-      ['slot'],
-    );
-    s.send({ type: 'station.move', from: 1 }, { type: 'station.move', from: 2 });
+    const fuel = C + fuelSlotOf(def);
+    expect(rejections(s.send(slotClick(0), slotClick(fuel), slotClick(0)))).toEqual(['slot']);
+    expect(s.player.inventory[0]).toEqual({ item: 'item:broadleaf_log', count: 4 });
+    s.send(shiftClick(1), shiftClick(2));
     expect(bloomery.slots[fuelSlotOf(def)]).toBeNull(); // lit at once
     expect(bloomery).toMatchObject({ lit: true, process: 'process:iron_ingot' });
     expect(bloomery.slots[0]).toEqual({ item: 'item:bog_iron', count: 2 });
@@ -297,9 +298,9 @@ describe('stations in the world', () => {
     s.give('item:charcoal', 3);
     const charcoal = s.player.inventory.findIndex((stack) => stack?.item === 'item:charcoal');
     const logs = s.player.inventory.findIndex((stack) => stack?.item === 'item:broadleaf_log');
-    s.send({ type: 'station.move', from: charcoal });
+    s.send(shiftClick(charcoal));
     expect(s.kiln.slots[fuelSlotOf(s.def)]?.item).toBe('item:charcoal');
-    s.send({ type: 'station.move', from: logs });
+    s.send(shiftClick(logs));
     // Logs both burn and feed (charcoal): with the fuel slot taken they go to an input.
     const inputs = s.kiln.slots.slice(0, s.def.inputSlots);
     const inStation = inputs.reduce(
@@ -317,7 +318,7 @@ describe('stations in the world', () => {
   it('sends fuel and ingredients across: a log to the kiln fuel, then to its inputs', () => {
     const s = kiln(1, 3);
     // Copper ore is no fuel: it goes to an input; the logs fill the fuel slot first.
-    s.send({ type: 'station.move', from: 1 }, { type: 'station.move', from: 0 });
+    s.send(shiftClick(1), shiftClick(0));
     expect(s.kiln.slots.slice(0, 3)).toEqual([
       { item: 'item:copper_ore', count: 1 },
       null,
@@ -325,7 +326,7 @@ describe('stations in the world', () => {
     ]);
     // A stick burns but no kiln process uses it: once the fuel slot holds logs, it stays.
     s.give('item:stick', 2);
-    expect(rejections(s.send({ type: 'station.move', from: 0 }))).toEqual(['nothing to move']);
+    expect(rejections(s.send(shiftClick(0)))).toEqual(['nothing to move']);
     expect(s.player.inventory[0]).toEqual({ item: 'item:stick', count: 2 });
   });
 
@@ -337,7 +338,7 @@ describe('stations in the world', () => {
     // Nothing open: refused.
     expect(rejections(s.send(keep))).toEqual(['not open']);
     const def = registry.crafting.station('station:campfire')!;
-    s.send(open(0, 65, -2), { type: 'station.move', from: 0, to: 32 + fuelSlotOf(def) });
+    s.send(open(0, 65, -2), slotClick(0), slotClick(C + fuelSlotOf(def)));
     const fire = s.entity<StationEntity>(0, 65, -2)!;
     // Fuel alone: no recipe runs, nothing burns.
     s.step(30);
@@ -349,7 +350,7 @@ describe('stations in the world', () => {
     expect(s.block(0, 65, -2)).toBe('block:campfire[lit=1]');
     expect(blockOf(s.host.view.world.getLight(0, 65, -1))).toBeGreaterThan(0);
     // It stays on once the screen is closed, and goes out when turned off again.
-    s.send({ type: 'container.close' });
+    s.send({ type: 'screen.close' });
     s.step(30);
     expect(fire.lit).toBe(true);
     expect(rejections(s.send(keep))).toEqual(['not open']);

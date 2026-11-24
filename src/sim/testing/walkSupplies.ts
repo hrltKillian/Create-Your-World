@@ -4,6 +4,7 @@ import type { Ingredient, ProcessDef, RecipeDef, StationDef } from '../../conten
 import { ticksOf } from '../clock.ts';
 import { OPEN_SLOTS_BASE } from '../commands.ts';
 import { countMatching } from '../inventory.ts';
+import { moveClicks, shiftClick } from './slotMoves.ts';
 import { Gathering } from './walkGather.ts';
 import { type Cell, cellText, type WalkPort } from './walkPort.ts';
 
@@ -137,10 +138,10 @@ export abstract class Supplies extends Gathering {
     await this.goHome();
     this.open(cell);
     process.inputs.forEach((input, slot) => {
-      this.load(input.item, input.count * runs, slot);
+      this.load(cell, input.item, input.count * runs, slot);
     });
-    if (fuel) this.load(fuel.item, fuel.count, fuelSlotOf(def));
-    this.port.send({ type: 'container.close' });
+    if (fuel) this.load(cell, fuel.item, fuel.count, fuelSlotOf(def));
+    this.port.send({ type: 'screen.close' });
     const want = runs * process.output.count;
     const made = () => this.outputs(cell, def, process.output.item);
     const ticks = ticksOf(process.seconds) * runs + SLACK_TICKS;
@@ -153,8 +154,8 @@ export abstract class Supplies extends Gathering {
     const out = outputSlotOf(def);
     for (let slot = out; slot < out + def.outputSlots; slot++)
       if (this.view.blockEntity(cell.x, cell.y, cell.z)?.slots[slot])
-        this.port.send({ type: 'station.move', from: OPEN_SLOTS_BASE + slot });
-    this.port.send({ type: 'container.close' });
+        this.port.send(shiftClick(OPEN_SLOTS_BASE + slot));
+    this.port.send({ type: 'screen.close' });
   }
 
   /** The station's outputs of an item. */
@@ -188,18 +189,25 @@ export abstract class Supplies extends Gathering {
   /** Opens a station's screen within reach (`debug.open`: no aiming). */
   private open(cell: Cell): void {
     this.port.send({ type: 'debug.open', ...cell });
-    if (!this.me().opened) throw new Error(`the station at ${cellText(cell)} did not open`);
+    if (this.me().screen?.kind !== 'block')
+      throw new Error(`the station at ${cellText(cell)} did not open`);
   }
 
-  /** Moves `count` items filling an ingredient from the inventory into a slot of the open station. */
-  private load(ingredient: string, count: number, slot: number): void {
+  /**
+   * Moves `count` items filling an ingredient from the inventory into a slot of the open station
+   * at a cell, by clicks.
+   */
+  private load(cell: Cell, ingredient: string, count: number, slot: number): void {
     const inventory = this.me().inventory;
+    const to = OPEN_SLOTS_BASE + slot;
     let left = count;
     for (let from = 0; from < inventory.length && left > 0; from++) {
       const stack = inventory[from];
       if (!stack || !this.registry.crafting.matches(stack.item, ingredient)) continue;
       const moved = Math.min(left, stack.count);
-      this.port.send({ type: 'station.move', from, to: OPEN_SLOTS_BASE + slot, count: moved });
+      const there = this.view.blockEntity(cell.x, cell.y, cell.z)?.slots[slot];
+      for (const click of moveClicks(this.registry, from, to, stack, there, moved))
+        this.port.send(click);
       left -= moved;
     }
   }

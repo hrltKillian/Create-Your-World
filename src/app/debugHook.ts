@@ -16,7 +16,7 @@ import { worldHook } from './hook/world.ts';
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 12,
+    version: 13,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],

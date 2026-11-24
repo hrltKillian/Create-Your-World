@@ -4,7 +4,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry } from '../../../src/content/registry.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { InlineColumnSource } from '../../../src/sim/InlineColumnSource.ts';
-import { countItem, INVENTORY_SLOTS } from '../../../src/sim/inventory.ts';
+import { BASE_INVENTORY_SLOTS, countItem } from '../../../src/sim/inventory.ts';
 import { type ItemDropState, spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
@@ -307,7 +307,7 @@ describe('restoring a world', () => {
       send(s, {
         type: 'debug.give',
         item: 'item:stone',
-        count: DEFAULT_STACK * (INVENTORY_SLOTS - 1),
+        count: DEFAULT_STACK * (BASE_INVENTORY_SLOTS - 1),
       });
       const p = s.sim.players.get(1)!.body;
       const dirt = { item: 'item:dirt', count: 1 };

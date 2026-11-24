@@ -5,9 +5,10 @@ import { addStrings } from '../../../src/i18n/i18n.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { BlockEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
+import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import type { Gear } from '../../../src/sim/environment.ts';
 import type { SimView } from '../../../src/sim/host.ts';
-import { createInventory, INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
+import { createInventory, type Inventory } from '../../../src/sim/inventory.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
@@ -59,7 +60,8 @@ function setup(entity?: BlockEntity) {
     equipment: [null, null, null, null, null] as Inventory,
     seen: {},
     craft: [],
-    opened: entity ? { x: entity.x, y: entity.y, z: entity.z } : null,
+    cursor: null,
+    screen: entity ? { kind: 'block', x: entity.x, y: entity.y, z: entity.z } : null,
   };
   const view = {
     registry,
@@ -128,10 +130,11 @@ describe('UiBridge', () => {
     player.equipment[2] = { item: 'item:fur_coat', count: 1 };
     bridge.frame(FRAME);
     expect(bag.updates).toHaveLength(1);
-    // The inventory, then the worn items (slots 32–36) and what they protect from.
+    // The inventory, then the worn items (slots 64–68) and what they protect from.
     const [slots, logbook, gear] = bag.updates[0]!;
-    expect(slots).toHaveLength(INVENTORY_SLOTS + 5);
-    expect(slots[INVENTORY_SLOTS + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
+    expect(slots).toHaveLength(OPEN_SLOTS_BASE + 5);
+    expect(slots[3]).toEqual({ item: 'item:broadleaf_log', count: 4 });
+    expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
     expect(gear).toMatchObject({ armor: 2, warmth: 10, cooling: 0 });
     // The simulation's own count: a tag ingredient counts every item carrying it.
     expect(logbook.source.owned('tag:log')).toBe(4);
@@ -139,17 +142,17 @@ describe('UiBridge', () => {
     expect(logbook.queue).toEqual([]);
   });
 
-  it('shows the open chest or station after the inventory, with the station fire', () => {
+  it('shows the open chest or station from slot 64 on, with the station fire', () => {
     const chest: BlockEntity = { kind: 'container', x: 0, y: 0, z: 0, slots: [null, null] };
     const a = setup(chest);
     a.container.open = true;
     a.bridge.frame(FRAME);
-    expect(a.container.updates[0]![0]).toHaveLength(a.player.inventory.length + 2);
+    expect(a.container.updates[0]![0]).toHaveLength(OPEN_SLOTS_BASE + 2);
     const b = setup(kiln());
     b.station.open = true;
     b.bridge.frame(FRAME);
     const [slots, status] = b.station.updates[0]!;
-    expect(slots[b.player.inventory.length + 2]).toEqual({ item: 'item:charcoal', count: 2 });
+    expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:charcoal', count: 2 });
     expect(status).toEqual({
       lit: true,
       flame: 0.25,

@@ -127,7 +127,10 @@ export function applyCraftCommand(
   }
 }
 
-/** Tick step 9 for a player: notes the items seen, then advances the first queue entry. */
+/**
+ * Tick step 9 for a player: notes the items seen (in the inventory or on the cursor), then advances
+ * the first queue entry.
+ */
 export function stepCrafting(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const registry = sim.registry;
   const inventory = player.inventory;
@@ -135,6 +138,8 @@ export function stepCrafting(sim: Simulation, player: PlayerState, out: SimEvent
     const stack = inventory[i];
     if (stack && player.seen[stack.item] !== true) noteSeen(registry, player.seen, stack.item);
   }
+  const cursor = player.cursor;
+  if (cursor && player.seen[cursor.item] !== true) noteSeen(registry, player.seen, cursor.item);
   const entry = player.craft[0];
   if (!entry) return;
   const recipe = registry.crafting.recipe(entry.recipe);

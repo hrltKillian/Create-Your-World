@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { RECIPE_CATEGORIES, WEAR_SLOTS } from '../../../src/content/schema.ts';
 import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
-import type { Command } from '../../../src/sim/commands.ts';
+import { type Command, OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../../../src/sim/craftQueue.ts';
-import { INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
+import { BASE_INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
 import type { LogbookSource } from '../../../src/ui/logbook.ts';
 import { BagScreen } from '../../../src/ui/screens/bag.ts';
 import { ContainerScreen } from '../../../src/ui/screens/container.ts';
@@ -25,7 +25,8 @@ function deps(label = () => 'E') {
   const screen: ScreenDeps = {
     art: { registry, icons: [] },
     actions: { send: (command) => sent.push(command), click: () => {} },
-    slotCount: INVENTORY_SLOTS,
+    slotCount: BASE_INVENTORY_SLOTS,
+    openBase: OPEN_SLOTS_BASE,
     closeKey: label,
   };
   return { screen, sent };
@@ -67,31 +68,55 @@ describe('BagScreen', () => {
   it('has the 32 inventory slots and the 5 equipment slots of the silhouette', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
-    expect(slotNumbers(bag.element).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: INVENTORY_SLOTS + WEAR_SLOTS.length }, (_, i) => i),
-    );
+    expect(slotNumbers(bag.element).sort((a, b) => a - b)).toEqual([
+      ...Array.from({ length: BASE_INVENTORY_SLOTS }, (_, i) => i),
+      ...WEAR_SLOTS.map((_, i) => OPEN_SLOTS_BASE + i),
+    ]);
     expect(byAttr(bag.element, 'data-wear').map((e) => e.getAttribute('data-wear'))).toEqual(
       WEAR_SLOTS,
     );
-    // Each box of the silhouette is the slot of its worn item, from 32 on.
+    // Each box of the silhouette is the slot of its worn item, from 64 on.
     const boxes = byAttr(bag.element, 'data-wear').map((box) => slotNumbers(box as never));
-    expect(boxes).toEqual(WEAR_SLOTS.map((_, i) => [INVENTORY_SLOTS + i]));
+    expect(boxes).toEqual(WEAR_SLOTS.map((_, i) => [OPEN_SLOTS_BASE + i]));
   });
 
-  it('takes only a wearable in its own equipment slot (right-drag splits)', () => {
-    const { screen } = deps();
+  it('sends a slot click per press: left or right, with Shift, and outside the panel', () => {
+    const { screen, sent } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
-    const head = INVENTORY_SLOTS + WEAR_SLOTS.indexOf('head');
-    const body = INVENTORY_SLOTS + WEAR_SLOTS.indexOf('body');
-    expect(bag.accepts(head, 'item:fur_hood')).toBe(true);
-    expect(bag.accepts(body, 'item:fur_hood')).toBe(false);
-    expect(bag.accepts(head, 'item:broadleaf_log')).toBe(false);
+    bag.open();
+    const slot = (n: number) => byAttr(bag.element, 'data-slot', String(n))[0]!;
+    const head = OPEN_SLOTS_BASE + WEAR_SLOTS.indexOf('head');
+    const press = (target: FakeElement, button: number, shiftKey = false) =>
+      fake(bag.element).dispatch('pointerdown', {
+        target,
+        button,
+        shiftKey,
+        preventDefault: () => {},
+      });
+    press(slot(3), 0);
+    press(slot(head), 2);
+    press(slot(9), 0, true);
+    // A press on the panel (its title) is no click; one beside it (the backdrop) is slot −1.
+    press(fake(bag.element).querySelector('.bag-header')!, 0);
+    press(fake(bag.element), 2);
+    // The middle button clicks nothing.
+    press(slot(3), 1);
+    expect(sent).toEqual([
+      { type: 'slot.click', slot: 3, button: 0, shift: false },
+      { type: 'slot.click', slot: head, button: 1, shift: false },
+      { type: 'slot.click', slot: 9, button: 0, shift: true },
+      { type: 'slot.click', slot: -1, button: 1, shift: false },
+    ]);
+    // A hotbar key over a slot: that slot and the hotbar slot.
+    fake(bag.element).dispatch('pointerover', { target: slot(head) });
+    bag.hotkey(2);
+    expect(sent.at(-1)).toEqual({ type: 'slot.hotkey', slot: head, hotbar: 2 });
   });
 
   it('shows what the worn items protect from', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
-    const slots: Inventory = new Array(INVENTORY_SLOTS + WEAR_SLOTS.length).fill(null);
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[9] = { item: 'item:fur_hood', count: 1 };
     const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
     bag.update(slots, { source: logbookSource({}), queue: [] }, gear);
@@ -184,26 +209,26 @@ describe('LogbookPanel', () => {
 });
 
 describe('ContainerScreen', () => {
-  it('numbers the chest slots after the inventory; Take all and Store all send one move per stack', () => {
+  it('numbers the chest slots from 64; Take all and Store all Shift+click each stack', () => {
     const { screen, sent } = deps();
     const chest = new ContainerScreen(screen);
     chest.open('Chest', 18);
-    expect(Math.max(...slotNumbers(chest.element))).toBe(INVENTORY_SLOTS + 17);
-    const slots: Inventory = new Array(INVENTORY_SLOTS + 18).fill(null);
+    expect(Math.max(...slotNumbers(chest.element))).toBe(OPEN_SLOTS_BASE + 17);
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + 18).fill(null);
     slots[0] = { item: 'item:dirt', count: 3 };
     slots[9] = { item: 'item:dirt', count: 4 };
-    slots[INVENTORY_SLOTS + 2] = { item: 'item:flint', count: 1 };
+    slots[OPEN_SLOTS_BASE + 2] = { item: 'item:flint', count: 1 };
     chest.update(slots);
     byAttr(chest.element, 'data-action', 'take-all')[0]!.dispatch('click');
     byAttr(chest.element, 'data-action', 'store-all')[0]!.dispatch('click');
     expect(sent).toEqual([
-      { type: 'container.move', from: INVENTORY_SLOTS + 2 },
-      { type: 'container.move', from: 9 },
+      { type: 'slot.click', slot: OPEN_SLOTS_BASE + 2, button: 0, shift: true },
+      { type: 'slot.click', slot: 9, button: 0, shift: true },
     ]);
     // A second opening makes the chest's views again (another size, no duplicates).
     chest.close();
     chest.open('Chest', 6);
-    expect(slotNumbers(chest.element)).toHaveLength(INVENTORY_SLOTS + 6);
+    expect(slotNumbers(chest.element)).toHaveLength(BASE_INVENTORY_SLOTS + 6);
   });
 });
 
@@ -213,7 +238,7 @@ describe('StationScreen', () => {
     const station = new StationScreen(screen);
     const kiln = registry.crafting.station('station:kiln')!;
     station.open(kiln, 'Clay Kiln');
-    const base = INVENTORY_SLOTS;
+    const base = OPEN_SLOTS_BASE;
     const machine = fake(station.element).querySelector('.station-machine')!;
     const inMachine = (cls: string) =>
       slotNumbers(machine.querySelector(cls) as unknown as HTMLElement);
@@ -253,7 +278,7 @@ describe('StationScreen', () => {
     station.open(registry.crafting.station('station:campfire')!, 'Campfire');
     const toggle = fake(station.element).findAction('keep-lit')!;
     expect(toggle.hidden).toBe(false);
-    const slots: Inventory = new Array(INVENTORY_SLOTS + 4).fill(null);
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + 4).fill(null);
     const status = { lit: false, flame: 0, progress: 0, process: '', keepLit: false };
     station.update(slots, status);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
@@ -269,21 +294,5 @@ describe('StationScreen', () => {
     toggle.dispatch('click');
     toggle.dispatch('click');
     expect(toggles()).toEqual(new Array(3).fill({ type: 'station.keepLit' }));
-  });
-
-  it('tells which items its slots take, from the station layout (right-drag splits)', () => {
-    const { screen } = deps();
-    const station = new StationScreen(screen);
-    const base = INVENTORY_SLOTS;
-    expect(station.accepts(base, 'item:copper_ore')).toBe(false); // nothing open yet
-    station.open(registry.crafting.station('station:bloomery')!, 'Bloomery');
-    // The bloomery: its input, its fuel slot (charcoal only), its output.
-    expect(station.accepts(base, 'item:broadleaf_log')).toBe(true);
-    expect(station.accepts(base + 1, 'item:charcoal')).toBe(true);
-    expect(station.accepts(base + 1, 'item:broadleaf_log')).toBe(false);
-    expect(station.accepts(base + 2, 'item:charcoal')).toBe(false);
-    station.open(registry.crafting.station('station:kiln')!, 'Clay Kiln');
-    expect(station.accepts(base + 2, 'item:broadleaf_log')).toBe(true);
-    expect(station.accepts(base + 2, 'item:copper_ore')).toBe(false);
   });
 });

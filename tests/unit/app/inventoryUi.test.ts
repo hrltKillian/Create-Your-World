@@ -151,7 +151,7 @@ describe('InventoryUi', () => {
     expect(gate).toMatchObject({ screenOpen: false, closes: 2 });
     // The simulation closes the station too.
     send();
-    expect(player.opened).toBeNull();
+    expect(player.screen).toBeNull();
     // In play with no screen, Esc is the app's (the pause menu).
     expect(esc()).toBe(false);
   });

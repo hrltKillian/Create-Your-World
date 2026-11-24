@@ -5,7 +5,7 @@ import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
 import { consuming, NO_USE } from './consume.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
-import { createInventory, type Inventory } from './inventory.ts';
+import { createInventory, type Inventory, type ItemStack } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
 import {
   createSurvival,
@@ -100,8 +100,18 @@ export interface PlayerState {
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
-  /** 32 slots: the hotbar (0–7, the selected one is `input.slot`) then the bag. */
+  /**
+   * The hotbar (0–7, the selected one is `input.slot`) then the bag: its length is the player's
+   * inventory size (inventory.ts `inventorySize`: 32 at first, 64 at most).
+   */
   inventory: Inventory;
+  /**
+   * The stack the player holds on the cursor of the open screen (sim/slotClicks.ts): back in the
+   * inventory when the screen closes, in the Abandoned Pack at a death. Saved.
+   */
+  cursor: ItemStack | null;
+  /** The screen the player has open (not saved): the Bag, or a chest's or station's. */
+  screen: PlayerScreen | null;
   interaction: InteractionState;
   /** The Logbook's queue (at most 5 entries, the first one in progress). */
   craft: CraftEntry[];
@@ -110,8 +120,6 @@ export interface PlayerState {
    * `Crafting.revealed`). Plain data for hashes and saves.
    */
   seen: Record<string, true>;
-  /** Cell of the block entity whose screen the player has open (not saved). */
-  opened: BlockCell | null;
   /** Gauges, timed effects and the last environment sample (survival.ts). */
   survival: SurvivalState;
   /** Worn items, one slot per `WEAR_SLOTS` entry (head to feet). */
@@ -135,6 +143,13 @@ export interface BlockCell {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+}
+
+/** The Bag, or the screen of the block entity (a chest, a station) at a cell. */
+export type PlayerScreen = { readonly kind: 'bag' } | BlockScreen;
+
+export interface BlockScreen extends BlockCell {
+  readonly kind: 'block';
 }
 
 /** A player lying on the bedroll at a cell, with the health they had at the last check. */
@@ -172,10 +187,11 @@ export function createPlayer(
     input: NEUTRAL_INPUT,
     viewRadius,
     inventory: createInventory(),
+    cursor: null,
+    screen: null,
     interaction: createInteraction(),
     craft: [],
     seen: {},
-    opened: null,
     survival: createSurvival(balance),
     equipment: new Array<null>(WEAR_SLOTS.length).fill(null),
     respawn: null,

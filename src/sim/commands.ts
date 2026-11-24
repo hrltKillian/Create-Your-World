@@ -1,4 +1,4 @@
-import { INVENTORY_SLOTS } from './inventory.ts';
+import { MAX_INVENTORY_SLOTS } from './inventory.ts';
 import type { DeathCause, Gauge } from './survival.ts';
 
 /** Commands are the only way to change simulation state (they could travel over a network). */
@@ -15,8 +15,9 @@ export type Command =
     }
   | InputCommand
   | InventoryCommand
+  | ScreenCommand
+  | SlotCommand
   | BlockEntityCommand
-  | EquipCommand
   | CraftCommand
   /** Comes back after a death (the death screen's Respawn button); refused while alive. */
   | { readonly type: 'player.respawn' }
@@ -52,56 +53,60 @@ export interface InputCommand {
   readonly target?: ClientTarget;
 }
 
-/** Atomic inventory edits sent by the UI (slots 0–7 are the hotbar, 8–31 the bag). */
-export type InventoryCommand =
-  /** Moves `count` items (default: the whole stack): merges, or swaps two whole stacks. */
-  | {
-      readonly type: 'inv.move';
-      readonly from: number;
-      readonly to: number;
-      readonly count?: number;
-    }
-  /** Sends a stack from the hotbar to the bag, or from the bag to the hotbar. */
-  | { readonly type: 'inv.quickMove'; readonly slot: number }
-  /** Throws one item of a slot (or the whole stack) in front of the player. */
-  | { readonly type: 'inv.drop'; readonly slot: number; readonly all: boolean };
+/** Throws one item of an inventory slot (or the whole stack) in front of the player (no screen). */
+export interface InventoryCommand {
+  readonly type: 'inv.drop';
+  readonly slot: number;
+  readonly all: boolean;
+}
 
 /**
- * The Container and Station screens (docs « Écrans »). A player has at most one block entity open
- * (a chest or a station, within 5 blocks, one player at a time). Moves number the slots like
- * inventory commands (0–31), then the open block entity's slots from 32 (a station: its inputs,
- * its fuel slot, its outputs: content/crafting.ts `fuelSlotOf`, `outputSlotOf`). Without `to`, the
- * whole stack goes to the other side (Shift+click; « Take all » and « Store all » send one per slot).
+ * The slot screens (docs « Écrans »): the Bag opens on its key; a chest or a station opens on
+ * secondary on its block, or `container.open`. A player has one screen open at most (opening one
+ * closes the other); closing it puts the cursor stack back in the inventory (sim/screens.ts).
+ */
+export type ScreenCommand =
+  | { readonly type: 'screen.open'; readonly kind: 'bag' }
+  | { readonly type: 'screen.close' };
+
+/**
+ * Clicks on the open screen's slots (sim/slotClicks.ts, decision 20): the screen's slots are
+ * numbered from 0 for the inventory (hotbar 0–7, then the bag, `inventory.length` slots), then
+ * from OPEN_SLOTS_BASE (64) for the open block entity's (a station: its inputs, its fuel slot, its
+ * outputs: content/crafting.ts `fuelSlotOf`, `outputSlotOf`) or the Bag's worn items (in
+ * `WEAR_SLOTS` order). Refused with no screen open.
+ */
+export type SlotCommand =
+  /**
+   * Left (0) or right (1) button on a slot, with Shift or not; slot −1 is a click outside the
+   * screen's panel, which throws the cursor stack (left) or one of its items (right).
+   */
+  | {
+      readonly type: 'slot.click';
+      readonly slot: number;
+      readonly button: 0 | 1;
+      readonly shift: boolean;
+    }
+  /** A hotbar number key (`hotbar` 0–7) over a slot: swaps the two (refused with a cursor stack). */
+  | { readonly type: 'slot.hotkey'; readonly slot: number; readonly hotbar: number };
+
+/**
+ * The open chest or station: `container.open` opens one (within 5 blocks, in sight, one player at
+ * a time) as secondary on its block does.
  */
 export type BlockEntityCommand =
   | { readonly type: 'container.open'; readonly x: number; readonly y: number; readonly z: number }
-  | { readonly type: 'container.close' }
-  | SlotMove<'container.move'>
-  | SlotMove<'station.move'>
   /**
    * Flips the open station's « Keep burning » (a fire that allows it: `StationDef.keepLit`): each
    * click one flip, whatever the screen last showed.
    */
   | { readonly type: 'station.keepLit' };
 
-/** A move between the inventory (slots 0–31) and other slots numbered from `OPEN_SLOTS_BASE`. */
-export interface SlotMove<T extends 'container.move' | 'station.move' | 'equip.move'> {
-  readonly type: T;
-  readonly from: number;
-  readonly to?: number;
-  readonly count?: number;
-}
-
 /**
- * The Bag's equipment boxes (sim/equipment.ts): the worn items are slots 32–36, in `WEAR_SLOTS`
- * order. An item only goes into the box of its `wear.slot`. Without `to` (Shift+click) a wearable
- * is put on (swapping what was worn), a worn item taken off, anything else moved between the
- * hotbar and the bag.
+ * First slot number of the open block entity, or of the worn items, in slot commands (64): past
+ * the largest inventory, whatever the player's size.
  */
-export type EquipCommand = SlotMove<'equip.move'>;
-
-/** First slot number of the open block entity, or of the worn items, in moves (32). */
-export const OPEN_SLOTS_BASE = INVENTORY_SLOTS;
+export const OPEN_SLOTS_BASE = MAX_INVENTORY_SLOTS;
 
 /** The Logbook (docs « Craft : le Logbook »): a queue of 5 entries per player. */
 export type CraftCommand =

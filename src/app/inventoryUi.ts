@@ -5,9 +5,9 @@ import { createLogger } from '../core/log.ts';
 import { t } from '../i18n/i18n.ts';
 import { actionForCode, HOTBAR_CODES } from '../input/bindings.ts';
 import type { InputManager } from '../input/InputManager.ts';
+import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../sim/craftQueue.ts';
 import type { SimEvent } from '../sim/events.ts';
-import { INVENTORY_SLOTS } from '../sim/inventory.ts';
 import { Hotbar } from '../ui/hud/hotbar.ts';
 import { HudHint } from '../ui/hud/hudHint.ts';
 import type { ItemArt } from '../ui/itemSlot.ts';
@@ -54,9 +54,10 @@ interface ScreenView {
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
  * Station): item icons, refresh, commands, sounds and keys. E or Tab opens the bag and closes any
  * screen, so does Esc (back to play either way, never the pause menu: PlayGate.closeScreen), a
- * hotbar key over a slot swaps. Chests and stations open from the simulation (secondary on the
- * block): their screen shows on its `blockEntityOpened` event and goes on `blockEntityClosed`;
- * closing one sends `container.close`.
+ * hotbar key over a slot swaps. The Bag opens in the simulation too (`screen.open`), whose slot
+ * clicks need it; chests and stations open from the simulation (secondary on the block): their
+ * screen shows on its `blockEntityOpened` event and goes on `blockEntityClosed`. Closing a screen
+ * sends `screen.close` (the cursor stack goes back to the inventory).
  */
 export class InventoryUi {
   readonly hotbar: Hotbar;
@@ -98,7 +99,8 @@ export class InventoryUi {
     const deps: ScreenDeps = {
       art,
       actions,
-      slotCount: INVENTORY_SLOTS,
+      slotCount: session.player.inventory.length,
+      openBase: OPEN_SLOTS_BASE,
       closeKey: () => input.keyLabel('inventory'),
     };
     this.hotbar = new Hotbar(art);
@@ -140,6 +142,7 @@ export class InventoryUi {
     else if (this.gate.canOpenScreen()) {
       this.bag.open();
       this.gate.openScreen();
+      this.session.host.send({ type: 'screen.open', kind: 'bag' });
     } else return false;
     return true;
   }
@@ -156,7 +159,7 @@ export class InventoryUi {
     const open = this.openView();
     if (!open) return;
     open.close();
-    if (open !== this.bag) this.session.host.send({ type: 'container.close' });
+    this.session.host.send({ type: 'screen.close' });
   }
 
   private openView(): ScreenView | null {
@@ -179,7 +182,7 @@ export class InventoryUi {
     const showing = this.openView();
     if (!entity || station === undefined || (!showing && !this.gate.canOpenScreen())) {
       // No screen can show it (paused): the simulation closes it again.
-      this.session.host.send({ type: 'container.close' });
+      this.session.host.send({ type: 'screen.close' });
       return;
     }
     showing?.close();

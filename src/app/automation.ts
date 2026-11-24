@@ -133,11 +133,11 @@ export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 
   }
 }
 
-/** Sends a command; fixed-step sessions apply it now (one tick). */
-export function sendAndStep(app: App, command: Command): void {
+/** Sends commands in order; fixed-step sessions apply them now (one tick). */
+export function sendAndStep(app: App, ...commands: Command[]): void {
   const session = app.session;
   if (!session) return;
-  session.host.send(command);
+  for (const command of commands) session.host.send(command);
   if (app.params.fixedStep) session.step(1);
 }
 
@@ -298,32 +298,43 @@ function middleOf(element: Element): { clientX: number; clientY: number } {
   return { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
 }
 
-/**
- * Drags the stack of one slot onto another on the open slot screen (Bag, Container, Station) as
- * the mouse does: pointer down on the source, moved and released over the target, which the
- * screen finds under the pointer. Slots are numbered as in `[data-slot]` (0–31 the inventory, 32+
- * the open chest or station, or the Bag's worn items). Returns false (the drag cancelled) when a
- * slot is missing or covered.
- */
-export function dragSlot(from: number, to: number): boolean {
+/** The view of a slot on the open slot screen (Bag, Container, Station), if it shows. */
+function slotView(slot: number): Element | null {
   const screen = document.querySelector<HTMLElement>('.screen-slots:not([hidden])');
-  const source = screen?.querySelector(`[data-slot="${from}"]`);
-  const target = screen?.querySelector(`[data-slot="${to}"]`);
-  if (!screen || !source || !target) return false;
-  // The mouse's pointer id (1 in Chrome) is always active, so the screen may capture it.
-  const mouse = { bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 };
-  source.dispatchEvent(
-    new PointerEvent('pointerdown', { ...mouse, ...middleOf(source), buttons: 1 }),
+  return screen?.querySelector(`[data-slot="${slot}"]`) ?? null;
+}
+
+/**
+ * Clicks a slot of the open slot screen as the mouse does: a left (0) or right (1) button press on
+ * its view, with Shift or not; the screen sends the simulation's `slot.click`. Slots are numbered
+ * as in `[data-slot]` (the inventory from 0; the open chest or station, or the Bag's worn items,
+ * from 64). Returns false when the slot does not show.
+ */
+export function clickSlot(slot: number, button: 0 | 1 = 0, shift = false): boolean {
+  const view = slotView(slot);
+  if (!view) return false;
+  view.dispatchEvent(
+    new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      button: button === 1 ? 2 : 0,
+      buttons: button === 1 ? 2 : 1,
+      shiftKey: shift,
+      ...middleOf(view),
+    }),
   );
-  const end = middleOf(target);
-  const under = document.elementFromPoint(end.clientX, end.clientY)?.closest('[data-slot]');
-  if (under !== target) {
-    screen.dispatchEvent(new PointerEvent('pointercancel', { ...mouse, ...end }));
-    return false;
-  }
-  screen.dispatchEvent(new PointerEvent('pointermove', { ...mouse, ...end, buttons: 1 }));
-  screen.dispatchEvent(new PointerEvent('pointerup', { ...mouse, ...end, buttons: 0 }));
   return true;
+}
+
+/**
+ * Moves the stack of one slot to an empty one as the mouse does: a left click on each (taken onto
+ * the cursor, put down). Returns false, clicking nothing, when either slot does not show.
+ */
+export function moveSlot(from: number, to: number): boolean {
+  if (!slotView(from) || !slotView(to)) return false;
+  return clickSlot(from) && clickSlot(to);
 }
 
 /** Sets the view angles (radians; the pitch is clamped like the mouse look). */
