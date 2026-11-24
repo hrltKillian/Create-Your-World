@@ -258,7 +258,7 @@ export const M11_AUDIO_CASES: readonly SelftestCase[] = [
         openBlock(app, chest.x, chest.y, chest.z);
         assert(app.inventory?.screen() === 'container', 'the chest screen did not open');
       } finally {
-        app.inventory?.closeScreen(true);
+        app.inventory?.closeScreen();
         app.session!.step(1);
       }
       const { open, close } = soundsOf(app).chest;

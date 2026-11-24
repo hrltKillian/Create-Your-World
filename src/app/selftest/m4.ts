@@ -257,7 +257,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
         assert(inventory.bag.isOpen(), 'the bag did not open');
         await framesFor(200);
       } finally {
-        inventory.closeScreen(true);
+        inventory.closeScreen();
         session.rig.mode = mode;
       }
       await frameOrFail();

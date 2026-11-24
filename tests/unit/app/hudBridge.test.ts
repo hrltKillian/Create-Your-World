@@ -109,9 +109,9 @@ function setup(tips: { dusk(): boolean } | null = null) {
     openScreen() {
       this.screenOpen = true;
     },
-    closeScreen(relock: boolean) {
+    closeScreen() {
       this.screenOpen = false;
-      if (relock) this.relocks++;
+      this.relocks++;
     },
   };
   // Column (0, 0) only: biome 0 west of x 16, biome 1 east of it.

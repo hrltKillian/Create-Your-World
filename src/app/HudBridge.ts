@@ -245,7 +245,7 @@ export class HudBridge {
 
   private closeDeath(): void {
     this.hud.death.hide();
-    if (this.holdsScreen) this.gate.closeScreen(true);
+    if (this.holdsScreen) this.gate.closeScreen();
     this.holdsScreen = false;
   }
 }

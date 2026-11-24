@@ -1198,7 +1198,7 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
    - Ensuite `audio.resume()`.
 2. Perte du verrou sans écran ouvert → pause.
 3. Ouvrir le sac → le jeu appelle lui-même `exitPointerLock()` ; la sim continue.
-4. Fermer avec la même touche re-verrouille (c'est un geste utilisateur). Fermer avec Échap, ou après une erreur → overlay « Click to resume ».
+4. Fermer un écran (sa touche, Échap, ou la sim qui le ferme) revient au jeu sans pause et re-verrouille. Si le navigateur refuse (Échap n'est pas un geste utilisateur), une simple invite « Click to resume » s'affiche et la simulation continue (M12).
 5. Le premier mouvement et les sauts de plus de 400 px sont ignorés.
 6. Pas de plein écran intégré en v1.
 7. `?noLock=1` pour l'automatisation.

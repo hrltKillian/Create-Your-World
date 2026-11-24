@@ -13,9 +13,15 @@ export function clickToPlay(controls: string, onClick: () => void): HTMLElement 
   return overlay;
 }
 
-export function setClickToPlayResume(overlay: HTMLElement): void {
+/**
+ * Turns the overlay into the light « Click to resume » prompt (play goes on behind it, the mouse
+ * not captured yet) and shows it.
+ */
+export function showResumePrompt(overlay: HTMLElement): void {
   const title = overlay.querySelector('.click-title');
   if (title) title.textContent = t('play.resume');
+  overlay.classList.add('click-light');
+  overlay.hidden = false;
 }
 
 /** Replaces the controls line (labels improve once the keyboard layout map has loaded). */

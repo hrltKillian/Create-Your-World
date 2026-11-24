@@ -108,7 +108,7 @@ export const ONBOARDING_CASES: readonly SelftestCase[] = [
         inventory.toggleBag();
         assert(inventory.screen() === 'bag', 'the bag did not open');
         await tipShows(app, t('tip.bag'), 'the first bag');
-        inventory.closeScreen(true);
+        inventory.closeScreen();
 
         await standAt(app, SPOT);
         app.input!.slot = 0;
@@ -137,7 +137,7 @@ export const ONBOARDING_CASES: readonly SelftestCase[] = [
 
         // Each tip once: the bag and mining again leave the dusk tip on the line.
         inventory.toggleBag();
-        inventory.closeScreen(true);
+        inventory.closeScreen();
         press(app, 'primary', 2);
         await withinFrames(2, () => false);
         const state = onboardingState(app);

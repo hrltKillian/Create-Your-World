@@ -283,6 +283,24 @@ body {
   font-size: 0.9rem;
 }
 
+/* The light prompt after a screen closed with the mouse still free: play goes on behind it. */
+.screen-click.click-light {
+  background: none;
+  justify-content: flex-start;
+  padding-top: 38vh;
+}
+
+.screen-click.click-light .click-title {
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  background: var(--c-panel);
+  font-size: 0.95rem;
+}
+
+.screen-click.click-light .click-controls {
+  display: none;
+}
+
 /* Transient HUD hint (top centre, under the compass, clock and target): a dark tag with an amber edge, fading in. */
 .hud-hint {
   position: absolute;

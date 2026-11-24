@@ -380,7 +380,7 @@ export const M9_SUITE: readonly SelftestCase[] = [
           `after step(${ticks}) the outputs hold ${outputs.map(stackText).join(', ')}, not « ${boiled} » with ${uses} uses`,
         );
       } finally {
-        app.inventory?.closeScreen(true);
+        app.inventory?.closeScreen();
       }
     },
   },
