@@ -13,7 +13,6 @@ import { type ItemStack, spendUses } from './inventory.ts';
 import { eyeHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Entity, Simulation } from './Simulation.ts';
-import { hasEffect } from './survival.ts';
 
 /*
  * The player's side of combat (docs « Combat », plan v3 « M19 »), at tick step 7: the press of
@@ -23,8 +22,7 @@ import { hasEffect } from './survival.ts';
  * air. Every swing empties the attack gauge, which fills again over the weapon's `cooldown`
  * (`player.attackCooldown`: the ticks left). A blow with the gauge full is a strong one (×1.8
  * damage, ×1.5 knockback); any other, however full the gauge, a plain one. A stealthy blow (the
- * creature off its guard and the player out of its view: `unawareOf`) deals ×1.5, a Weakened
- * player ×0.8; the creature's front armour, invulnerability and knockback resistance apply in
+ * creature off its guard and the player out of its view: `unawareOf`) deals ×1.5; the creature's front armour, invulnerability and knockback resistance apply in
  * `hurtCreature`. A press that struck or swung holds primary until it is released: no mining.
  * Zero allocation per tick.
  */
@@ -46,15 +44,10 @@ export function heldWeapon(sim: Simulation, player: Readonly<PlayerState>): Weap
   return weaponOf(sim.registry, player.inventory[player.input.slot]);
 }
 
-/** Damage of a blow before the creature's own armour; `weakness` is the Weakened factor (or 1). */
-export function meleeDamage(
-  weapon: WeaponDef,
-  strong: boolean,
-  stealth: boolean,
-  weakness: number,
-): number {
+/** Damage of a blow before the creature's own armour. */
+export function meleeDamage(weapon: WeaponDef, strong: boolean, stealth: boolean): number {
   const power = strong ? MELEE.strongDamage : 1;
-  return weapon.damage * power * (stealth ? MELEE.stealthDamage : 1) * weakness;
+  return weapon.damage * power * (stealth ? MELEE.stealthDamage : 1);
 }
 
 /** Knockback factor of a blow (1 = a normal hit). */
@@ -109,9 +102,7 @@ function attack(
   out: SimEvent[],
 ): void {
   const def = creatureDef(sim, c);
-  const respawn = sim.registry.pack.balance.respawn;
-  const weakness = hasEffect(player.survival, 'weakened') ? respawn.weakenedDamage : 1;
-  const damage = meleeDamage(weapon, strong, unawareOf(c, def, player), weakness);
+  const damage = meleeDamage(weapon, strong, unawareOf(c, def, player));
   const b = player.body;
   const knockback = meleeKnockback(weapon, strong);
   if (hurtCreature(sim, c, damage, b.x, b.z, knockback, player.id, out) <= 0) return;

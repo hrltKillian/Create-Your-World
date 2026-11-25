@@ -11,9 +11,7 @@ import {
 } from '../../../src/sim/environment.ts';
 import type { ItemStack } from '../../../src/sim/inventory.ts';
 import { STAMINA } from '../../../src/sim/player.ts';
-import type { Shelter } from '../../../src/sim/shelter.ts';
 import {
-  addEffect,
   createSurvival,
   type DeathCause,
   type Exposure,
@@ -44,7 +42,7 @@ function gearOf(...items: string[]): Gear {
 }
 
 /** The thermal model's input for a biome in the open, by day (1) or night (0), with gear. */
-function thermalIn(biome: string, day: number, gear = gearOf(), shelter: Shelter = 'exposed') {
+function thermalIn(biome: string, day: number, gear = gearOf()) {
   const { dayC, nightC } = climate(biome).climate;
   const input: ThermalInput = {
     dayC,
@@ -52,7 +50,6 @@ function thermalIn(biome: string, day: number, gear = gearOf(), shelter: Shelter
     day,
     y: 64,
     cave: false,
-    shelter,
     heat: 0,
     inWater: false,
     warmth: gear.warmth,
@@ -162,12 +159,12 @@ describe('hunger, thirst and an idle death', () => {
 });
 
 describe('temperature', () => {
-  it('locks the thermal examples: tundra shelter at night is 4.4 °C, target −28', () => {
+  it('locks the thermal examples: tundra at night by a fire giving 20 °C is 4 °C, target −30', () => {
     expect(dayFactor(NIGHT_DAYLIGHT)).toBe(0);
     expect(dayFactor(1)).toBe(1);
-    const shelter = thermalIn('biome:tundra', 0, gearOf(), 'enclosed');
-    expect(feltTemperature(shelter, b.climate)).toBeCloseTo(4.4, 6);
-    expect(targetTemperature(feltTemperature(shelter, b.climate), b)).toBeCloseTo(-28, 6);
+    const fire = { ...thermalIn('biome:tundra', 0), heat: 20 };
+    expect(feltTemperature(fire, b.climate)).toBeCloseTo(4, 6);
+    expect(targetTemperature(feltTemperature(fire, b.climate), b)).toBeCloseTo(-30, 6);
   });
 
   it('tundra without gear: Cold at about 2.5 min and Freezing at about 4.4, day or night', () => {
@@ -227,26 +224,27 @@ describe('temperature', () => {
 
 describe('toxicity', () => {
   const marsh = climate('biome:fungal_marsh').toxicityPerMin!;
-  const nauseous = (s: SurvivalState) => s.toxicity >= b.toxicity.nauseousAt;
+  const harmful = (s: SurvivalState) => s.toxicity >= b.toxicity.harmAt;
 
-  it('marsh: Nauseous at about 8.75 min by day; more than 40 min with a filter mask', () => {
-    const minutes = minutesUntil((s) => (s.airToxicity = marsh.day), nauseous);
-    expect(minutes).toBeCloseTo(b.toxicity.nauseousAt / marsh.day, 1);
-    expect(Math.abs(minutes - 8.75)).toBeLessThanOrEqual(1);
+  it('marsh: harmful at about 16 min by day; more than 40 min with a filter mask', () => {
+    const minutes = minutesUntil((s) => (s.airToxicity = marsh.day), harmful);
+    expect(minutes).toBeCloseTo(b.toxicity.harmAt / marsh.day, 1);
     const mask = gearOf('item:filter_mask').airFilter;
-    expect(minutesUntil((s) => (s.airToxicity = marsh.day * mask), nauseous)).toBeGreaterThan(40);
+    expect(minutesUntil((s) => (s.airToxicity = marsh.day * mask), harmful)).toBeGreaterThan(40);
   });
 
-  it('decays without a source, stops regeneration when Nauseous and hurts from 65', () => {
+  it('decays without a source, never stops regeneration and hurts from harmAt', () => {
     const s = createSurvival(b);
     s.toxicity = 10;
     stepGauges(s, b, idle);
     expect(s.toxicity).toBeCloseTo(10 - b.toxicity.decayPerMin / MINUTE, 9);
-    // Each value lies 1 above a threshold: the step's decay must not take it below.
+    // Each value lies 1 above a threshold: the step's decay must not take it below. Below harmAt
+    // a fed, calm player heals as usual (no status in the way, plan v3 « M20 »).
     s.health = 50;
-    s.toxicity = b.toxicity.nauseousAt + 1;
+    s.toxicity = b.toxicity.harmAt - 1;
     stepGauges(s, b, idle);
-    expect(s.health).toBe(50);
+    expect(s.health).toBeCloseTo(50 + b.health.regenPerSec / TICKS_PER_SECOND, 9);
+    s.health = 50;
     s.toxicity = b.toxicity.harmAt + 1;
     stepGauges(s, b, idle);
     expect(s.health).toBeCloseTo(50 - b.toxicity.harmPerMin / MINUTE, 9);
@@ -278,7 +276,7 @@ describe('health, breath, falls and effects', () => {
     const healed = b.health.regenPerSec / TICKS_PER_SECOND;
     expect(s.health).toBeCloseTo(50 + healed, 9);
     expect(hunger - s.hunger).toBeCloseTo(b.hunger.perMin / MINUTE + healed / 2, 9);
-    // Not while hungry, thirsty or Cold.
+    // Not while hungry or thirsty; the cold band changes nothing (plan v3 « M20 »).
     for (const field of ['hunger', 'thirst'] as const) {
       const low = createSurvival(b);
       low.health = 50;
@@ -291,7 +289,7 @@ describe('health, breath, falls and effects', () => {
     chilled.temperature = -b.temperature.mildAt;
     chilled.target = chilled.temperature;
     stepGauges(chilled, b, idle);
-    expect(chilled.health).toBe(50);
+    expect(chilled.health).toBeCloseTo(50 + healed, 9);
   });
 
   it('holds the breath 15 s under water, then drowns at 5/s', () => {
@@ -326,22 +324,6 @@ describe('health, breath, falls and effects', () => {
     expect(b.health.max - player.survival.health).toBeGreaterThanOrEqual(38);
     expect(b.health.max - player.survival.health).toBeLessThanOrEqual(40);
     expect(player.survival.cause).toBe('fall');
-  });
-
-  it('counts timed effects down and drops them at 0', () => {
-    const s = createSurvival(b);
-    addEffect(s, 'weakened', 3);
-    addEffect(s, 'untargeted', 1);
-    addEffect(s, 'weakened', 2);
-    expect(s.effects).toEqual([
-      { key: 'weakened', ticks: 3 },
-      { key: 'untargeted', ticks: 1 },
-    ]);
-    stepGauges(s, b, idle);
-    expect(s.effects).toEqual([{ key: 'weakened', ticks: 2 }]);
-    stepGauges(s, b, idle);
-    stepGauges(s, b, idle);
-    expect(s.effects).toEqual([]);
   });
 });
 
@@ -392,18 +374,38 @@ describe('stamina and the gauges', () => {
     expect(player.survival.health).toBeLessThan(b.respawn.health);
   });
 
-  it('caps stamina at 50 while starving and halves its regeneration while parched', () => {
+  it('leaves stamina alone while hungry or thirsty: no cap, no slower regeneration', () => {
     const s = createTestSim({ seed: 'stamina', worldType: 'flat', allowDebug: true });
     const player = s.sim.addPlayer(1, 2);
     s.step(30);
     s.host.send({ type: 'debug.setStat', stat: 'hunger', value: b.hunger.lowAt - 1 });
     s.step(2);
-    expect(player.stamina).toBe(b.hunger.lowStaminaMax);
-    s.host.send({ type: 'debug.setStat', stat: 'hunger', value: b.hunger.max });
+    expect(player.stamina).toBe(STAMINA.max);
     s.host.send({ type: 'debug.setStat', stat: 'stamina', value: 0 });
     s.host.send({ type: 'debug.setStat', stat: 'thirst', value: b.thirst.lowAt - 1 });
     // Resting for long: stamina comes back at once, for one second.
     s.step(TICKS_PER_SECOND);
-    expect(player.stamina).toBeCloseTo(STAMINA.regenPerSecond * b.thirst.lowStaminaRegen, 6);
+    expect(player.stamina).toBeCloseTo(STAMINA.regenPerSecond, 6);
+  });
+
+  it('hurts with the cold only beyond severeAt, and the cold costs no extra hunger', () => {
+    const s = createSurvival(b);
+    s.temperature = -b.temperature.severeAt + 1;
+    s.target = s.temperature;
+    s.health = 50;
+    stepGauges(s, b, idle);
+    // A fed, calm player heals even in the cold band.
+    expect(s.health).toBeCloseTo(50 + b.health.regenPerSec / TICKS_PER_SECOND, 9);
+    expect(s.hunger).toBeCloseTo(
+      b.hunger.max -
+        b.hunger.perMin / MINUTE -
+        (b.health.regenPerSec / TICKS_PER_SECOND) * b.health.hungerPerPoint,
+      9,
+    );
+    s.temperature = -b.temperature.severeAt - 1;
+    s.target = s.temperature;
+    const before = s.health;
+    stepGauges(s, b, idle);
+    expect(before - s.health).toBeCloseTo(b.temperature.severeDamagePerMin / MINUTE, 9);
   });
 });

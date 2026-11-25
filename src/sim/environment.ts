@@ -4,10 +4,9 @@ import { toColumn } from '../world/coords.ts';
 import { skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Inventory } from './inventory.ts';
-import { PHYSICS } from './physics.ts';
+import { eyeHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { headY, type Shelter, shelterOfBody } from './shelter.ts';
 import { daylightAt, hourOf, NIGHT_DAYLIGHT } from './time.ts';
 
 /*
@@ -33,7 +32,6 @@ export interface ThermalInput {
   /** Feet height (altitude cooling). */
   y: number;
   cave: boolean;
-  shelter: Shelter;
   /** °C from the strongest heat sources around. */
   heat: number;
   inWater: boolean;
@@ -48,8 +46,6 @@ export function feltTemperature(input: Readonly<ThermalInput>, c: ClimateBalance
     ? c.caveC
     : lerp(input.nightC, input.dayC, input.day) -
       c.altitudePerBlock * Math.max(0, input.y - c.altitudeFrom);
-  if (input.shelter === 'enclosed') t = lerp(t, c.enclosedC, c.enclosedBlend);
-  else if (input.shelter === 'covered' && t > c.shadeAboveC) t -= c.shadeC;
   t += input.heat;
   if (input.inWater) t -= c.waterC;
   // Gear brings the air back towards comfort, never past it.
@@ -183,7 +179,6 @@ const thermal: ThermalInput = {
   day: 0,
   y: 0,
   cave: false,
-  shelter: 'exposed',
   heat: 0,
   inWater: false,
   warmth: 0,
@@ -192,9 +187,8 @@ const thermal: ThermalInput = {
 const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
 
 /**
- * Samples a player's surroundings into its survival state: the shelter, the felt temperature and
- * its target, and the toxicity of the air (the biome's, by day or night, lowered by the shelter
- * and a filter mask). Returns false, leaving them as they were, outside the loaded world.
+ * Samples a player's surroundings into its survival state: the felt temperature and its target,
+ * and the toxicity of the air (the biome's, by day or night, lowered by a filter mask). Returns false, leaving them as they were, outside the loaded world.
  */
 export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean {
   const body = player.body;
@@ -205,8 +199,7 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   const { registry, world } = sim;
   const b = registry.pack.balance;
   const s = player.survival;
-  const head = headY(body);
-  s.shelter = shelterOfBody(world, registry.tables, body, b.shelter);
+  const head = Math.floor(body.y + eyeHeight(body));
   wornGear(registry, player.equipment, gear);
   const day = dayFactor(daylightAt(hourOf(sim.time.ticks)));
   thermal.dayC = biome.climate.dayC;
@@ -214,7 +207,6 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   thermal.day = day;
   thermal.y = body.y;
   thermal.cave = inCave(world, x, head, z, b.climate.caveDepth);
-  thermal.shelter = s.shelter;
   const middle = body.y + PHYSICS.height / 2;
   thermal.heat = heatAround(world, registry.tables, body.x, middle, body.z, b.climate.heatSources);
   thermal.inWater = body.inWater;
@@ -223,13 +215,7 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   s.ambient = feltTemperature(thermal, b.climate);
   s.target = targetTemperature(s.ambient, b);
   const air = biome.toxicityPerMin;
-  const shelterFactor =
-    s.shelter === 'enclosed'
-      ? b.shelter.enclosedToxicity
-      : s.shelter === 'covered'
-        ? b.shelter.coveredToxicity
-        : 1;
-  s.airToxicity = air ? lerp(air.night, air.day, day) * shelterFactor * gear.airFilter : 0;
+  s.airToxicity = air ? lerp(air.night, air.day, day) * gear.airFilter : 0;
   return true;
 }
 

@@ -147,7 +147,7 @@ describe('save versions', () => {
     expect(countItem(player.inventory, 'item:cord')).toBe(2);
   });
 
-  it('loads the v3 fixture: gauges, an effect, worn fur, a bedroll, a grave and objectives', async () => {
+  it('loads the v3 fixture: gauges (its effect dropped at v10), worn fur, a bedroll, a grave and objectives', async () => {
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(3), removed: [] });
     const { sim, step } = await restoreFrom(storage);
@@ -158,8 +158,8 @@ describe('save versions', () => {
       temperature: -45,
       toxicity: 12,
       cause: 'fall',
-      effects: [{ key: 'weakened', ticks: 1800 }],
     });
+    expect(player.survival).not.toHaveProperty('effects');
     expect(player.equipment[0]).toEqual({ item: 'item:fur_hood', count: 1, durability: 280 });
     expect(player.equipment[2]).toEqual({ item: 'item:fur_coat', count: 1, durability: 395 });
     expect(player.respawn).toEqual({ x: 3, y: 65, z: 3 });
@@ -171,9 +171,8 @@ describe('save versions', () => {
     expect(sim.herdColumns.size).toBe(fixture(3).columns.length);
     settle(sim);
     step(30);
-    // The game runs on: thirst drains, the effect counts down, the temperature drifts back.
+    // The game runs on: thirst drains, the temperature drifts back.
     expect(player.survival.thirst).toBeLessThan(41.25);
-    expect(player.survival.effects).toEqual([{ key: 'weakened', ticks: 1770 }]);
     expect(player.survival.temperature).toBeGreaterThan(-45);
   });
 
@@ -386,5 +385,19 @@ describe('save versions', () => {
     const { sim } = await restoreFrom(storage);
     const player = [...sim.players.values()][0]!;
     expect(player.bestiary).toEqual({ 'creature:trotter': 2, 'creature:prowler': 1 });
+  });
+
+  it('drops a version 9 player’s effects and shelter, and loads the v10 fixture', async () => {
+    const survival = { health: 50, effects: [{ key: 'weakened', ticks: 9 }], shelter: 'enclosed' };
+    expect(migrate('player', { playerId: 1, survival }, 9)).toEqual({
+      playerId: 1,
+      survival: { health: 50 },
+    });
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(10), removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = [...sim.players.values()][0]!;
+    expect(player.objectives).toEqual(['objective:workbench']);
+    expect(player.survival.health).toBe(100);
   });
 });

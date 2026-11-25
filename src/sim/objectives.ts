@@ -12,8 +12,7 @@ import { nightsSurvived } from './time.ts';
  * Objectives (docs « Objectifs jusqu'au fer », tick step 16): once a second, every objective of
  * the pack's chain a living player has not done yet is checked, and each whose condition holds is
  * done, in the order it was done. Items count once seen (so a step done ahead of the chain counts
- * as soon as the player gets there), and so does having drunk once; stations, the shelter and the
- * nights are read from the world and the clock. Nothing is allocated.
+ * as soon as the player gets there), and so does having drunk once; stations and the nights are read from the world and the clock. Nothing is allocated.
  */
 
 /** An objective's station counts within this distance of the player (blocks). */
@@ -50,7 +49,6 @@ export function conditionHolds(
   if (items) for (const item of items) if (player.seen[item] !== true) return false;
   if (condition.nights !== undefined && nightsSurvived(sim.time.ticks) < condition.nights)
     return false;
-  if (condition.enclosed && player.survival.shelter !== 'enclosed') return false;
   if (condition.drank && !player.drank) return false;
   const stations = condition.stations;
   if (stations)

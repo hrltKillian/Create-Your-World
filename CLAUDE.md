@@ -220,10 +220,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - survival (docs « Survie »): every rule number in the pack's `balance.ts` (`registry.pack.balance`,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
     heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
-    stamina limits, timed effects (`addEffect`, `hasEffect`) and tick step 11 `stepSurvival` in
+    tick step 11 `stepSurvival` (no status changes another rule, plan v3 « M20 ») in
     `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
-    `sim/environment.ts`; the shelter test `sim/shelter.ts` (`shelterAt`); `debug.setStat` sets
+    `sim/environment.ts` (sampled every `climate.sampleSec`); `debug.setStat` sets
     any gauge, `debug.kill` takes all health for a cause, `debug.god` stops damage (`survival.god`,
     kept across a respawn); balance tests compute their expectations from the balance
     (`tests/unit/sim/survival.test.ts`); gauge changes of food, drinks and sleep `adjustGauges`
@@ -234,24 +234,24 @@ They never override the rules above (determinism, zero allocations in hot loops,
     stops: another item in hand, an aimed interactive block, a release), sips and fills in
     `sim/water.ts` (`aimedLiquid`: the sim's own liquid ray); boiling keeps the charges left
     (`stations.ts` passes an input's uses on); worn items `sim/equipment.ts` (`wearSlotOf`,
-    `wearFilters`; slots 64–68 of the Bag's clicks, head to feet); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`); death,
+    `wearFilters`; slots 64–68 of the Bag's clicks, head to feet); sleeping `sim/sleep.ts` (`sleepOn`, `forgetBed`; at night with no hostile within 8 blocks, no shelter); death,
     Abandoned Pack (`registry.grave`), `player.respawn` and `recoverPack` in `sim/death.ts` (tick
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
     `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
     `sim/time.ts`;
   - objectives (docs « Objectifs jusqu'au fer »): the chain in data `content/packs/base/
     objectives.ts` (`ObjectiveDef`, `content/objectiveSchema.ts`: items seen, stations within
-    crafting reach, an enclosed shelter, nights survived; a `compass` point), checked once a second
+    crafting reach, nights survived; a `compass` point), checked once a second
     at tick step 16 (`stepObjectives`, `conditionHolds`, `stationNear`/`STATION_REACH` in
     `sim/objectives.ts`; event
     `objectiveDone`, the keys in `player.objectives`);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
     `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
-    `objectiveProgress`, `EffectList`, `Vignettes` with `vignetteLevels`, `Flash` banners
+    `objectiveProgress`, `Vignettes` with `vignetteLevels`, `Flash` banners
     (`replay` restarts a `.play` animation), `CombatMarks` (`#hud-hit`, `#hud-damage`,
     `damageBearing`)) and the death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them
     (compass every frame, the rest at 10 Hz) and hands the gate over to the death screen; what needs
-    the sim's rules (`hudEffects`, `targetText`) is in `app/hudModel.ts`; the sun on the compass
+    the sim's rules (`targetText`, `BiomeWatch`) is in `app/hudModel.ts`; the sun on the compass
     `sunBearing`/`aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
   - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
     `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
@@ -294,7 +294,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`ingredientName`, `itemIcon`; a tag's name is the pack string `tagNameKey`, `content/items.ts`);
     DOM tests use `tests/helpers/fakeDom.ts` (`dispatch`, `findAll`);
   - browser automation (waits, `teleport`, `fill`): `app/automation.ts`; its survival part (gauges,
-    `kill`, `god`, `equip`, `shelterHere`, `playerStats`): `app/survivalAutomation.ts`; its
+    `kill`, `god`, `equip`, `playerStats`): `app/survivalAutomation.ts`; its
     creature part (`placeCreature`, `killCreature`, `creatureList`, `census`, `spawnLog`, applied
     at once without a tick): `app/creatureAutomation.ts`; the benchmarks (`flyBenchmark`,
     `mobsBenchmark` and its scene `MOBS`, timed by `GameSession.tickMs`): `app/benchmarks.ts`;
@@ -402,14 +402,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
 - M9 screens: `ui.screen()` also names `'death'` (`#screen-death`, `data-action="respawn"`; it
   follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
-  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-effects`
-  (rows carry `data-effect`), `#hud-banner`, `#hud-sleep`.
+  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-banner`,
+  `#hud-sleep` (M20 removed `#hud-effects`: no status words).
 - M9 hook entries (version 9): `player.setStat(stat, value)` (any gauge, now; `setStamina` is gone),
-  `player.stats()` (gauges, the effects as the HUD lists them, shelter, felt °C and target, death and
+  `player.stats()` (gauges, `exhausted`, felt °C and target, death and
   cause, `god`, bedroll, packs, objectives, worn items), `player.kill(cause = 'fall')` (the death
   at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
-  wearable on, a worn item 64–68 off), `world.shelter()` (the test at the player's head, now);
-  `ui.text(selector)` reads the HUD (`#hud-clock`, `#hud-effects`…).
+  wearable on, a worn item 64–68 off); `ui.text(selector)` reads the HUD (`#hud-clock`…).
+  M20 removed `world.shelter()`.
 - M10 hook entries (version 10): `entities.spawn(creature, x, y | 'surface', z)` (`debug.spawn`,
   applied at once without a tick, facing the player; returns the id, null when refused),
   `entities.list()` (`{ id, creature, x, y, z, yaw, health, mode, target, sees, watched, herd,
@@ -445,6 +445,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Survival checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m20` (`selftest/m20.ts`):
+  a bedroll in the open sleeps, refused with a hostile 7 blocks off (`sleep.hostileRadius` 8); the
+  first cold band takes no health and the HUD names no status.
 - Combat checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m19` (`selftest/m19.ts`): a
   strong blow then a plain one, the HUD gauge `#hud-attack`.
 - Controls checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m18` (`selftest/m18.ts`):

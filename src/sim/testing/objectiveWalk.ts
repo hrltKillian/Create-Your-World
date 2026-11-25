@@ -103,8 +103,10 @@ class ObjectiveWalk extends Supplies {
     for (const item of c.items ?? []) await this.obtain(item, 1, 0);
     for (const station of c.stations ?? []) await this.station(station, 0);
     if (c.drank) await this.sip();
-    if (c.enclosed) await this.buildCabin();
-    if (c.nights !== undefined) this.holdOut(c.nights);
+    if (c.nights === undefined) return;
+    // No rule asks for a shelter: the cabin keeps the night's creatures out of the walk.
+    await this.buildCabin();
+    this.holdOut(c.nights);
   }
 
   /**
@@ -113,8 +115,8 @@ class ObjectiveWalk extends Supplies {
    */
   private awaitCheck(chain: readonly ObjectiveDef[], index: number): void {
     const objective = chain[index]!;
-    // The shelter is sampled every `checkSec`, the objectives once a second: twice both.
-    const ticks = 2 * (ticksOf(this.registry.pack.balance.shelter.checkSec) + TICKS_PER_SECOND);
+    // The objectives are checked once a second: twice that.
+    const ticks = 2 * TICKS_PER_SECOND;
     const me = this.me();
     this.stepUntil(() => me.objectives.includes(objective.key), ticks);
     const expected = chain.slice(0, index + 1).map((o) => o.key);
@@ -123,7 +125,7 @@ class ObjectiveWalk extends Supplies {
     const s = me.survival;
     throw new Error(
       `after ${objective.key} the objectives done are [${done}], not [${expected.join(', ')}] ` +
-        `(shelter ${s.shelter}, ${s.dead ? `dead of ${s.cause}` : 'alive'})`,
+        `(${s.dead ? `dead of ${s.cause}` : 'alive'})`,
     );
   }
 

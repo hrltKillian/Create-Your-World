@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GameSession } from '../../../src/app/GameSession.ts';
 import { HudBridge } from '../../../src/app/HudBridge.ts';
-import {
-  BIOME_SETTLE_SECONDS,
-  BiomeWatch,
-  hudEffects,
-  targetText,
-} from '../../../src/app/hudModel.ts';
+import { BIOME_SETTLE_SECONDS, BiomeWatch, targetText } from '../../../src/app/hudModel.ts';
 import type { InventoryUi } from '../../../src/app/inventoryUi.ts';
 import type { PlayGate } from '../../../src/app/playGate.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
@@ -15,18 +10,16 @@ import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { createPlayer, type PlayerState } from '../../../src/sim/player.ts';
 import { createTime } from '../../../src/sim/time.ts';
-import type { HudEffect } from '../../../src/ui/hud/effects.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
 
 /*
- * The HUD's view of the simulation (statuses, the aimed block's line) and the death screen's
+ * The HUD's view of the simulation (the aimed block's line) and the death screen's
  * hand-over with the open screen and the mouse. Thresholds come from the pack's balance.
  */
 
 const b = registry.pack.balance;
-const keys = (effects: readonly HudEffect[]) => effects.map((e) => e.key);
 const block = (key: string) => registry.defaultState(key as `block:${string}`);
 const item = (key: string) => registry.itemId(key);
 
@@ -37,41 +30,6 @@ beforeEach(() => {
 afterEach(removeFakeDom);
 
 describe('HUD model', () => {
-  it('lists the statuses past the balance thresholds, the most pressing first', () => {
-    const player = createPlayer(1, 0, 65, 0, 2, b);
-    const out: HudEffect[] = [];
-    expect(hudEffects(player, b, out)).toEqual([]);
-    const s = player.survival;
-    s.temperature = -b.temperature.severeAt;
-    s.hunger = 0;
-    s.toxicity = b.toxicity.nauseousAt;
-    s.thirst = b.thirst.lowAt - 1;
-    s.shelter = 'enclosed';
-    s.effects.push({ key: 'weakened', ticks: 90 });
-    player.exhausted = true;
-    expect(hudEffects(player, b, out)).toBe(out);
-    expect(keys(out)).toEqual([
-      'freezing',
-      'starving',
-      'nauseous',
-      'thirsty',
-      'exhausted',
-      'weakened',
-      'sheltered',
-    ]);
-    expect(out.find((e) => e.key === 'weakened')!.seconds).toBe(3);
-    s.temperature = b.temperature.mildAt;
-    s.toxicity = b.toxicity.harmAt;
-    s.breath = 0;
-    player.body.headInWater = true;
-    expect(keys(hudEffects(player, b, out)).slice(0, 4)).toEqual([
-      'drowning',
-      'starving',
-      'poisoned',
-      'hot',
-    ]);
-  });
-
   it('names the aimed block with the tier it needs, or how to sleep on a bedroll', () => {
     const stone = block('block:stone');
     expect(targetText(registry, stone, -1, 'Right click')).toEqual({

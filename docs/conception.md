@@ -2648,6 +2648,16 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - le froid ne blesse qu'à l'extrême ;
 - plus de modificateurs (tests d'équilibre recalculés).
 
+**Retenu à la réalisation** :
+
+- La liste d'états du HUD (`#hud-effects`, `ui/hud/effects.ts`, `hudEffects`) disparaît entièrement, effets temporisés compris (`SurvivalState.effects`, `addEffect`). Les jauges gardent leurs alertes visuelles (fiole qui clignote sous `lowAt`, vignettes, thermomètre) : ce sont des affichages, pas des règles.
+- Balance : plus de `coldFactor`, `hotFactor`, `lowStaminaMax`, `lowStaminaRegen`, `nauseousAt`, ni du bloc `shelter` ; `climate.sampleSec` (1 s) et `climate.editRadius` (8) reprennent l'échantillonnage de l'environnement (une modification proche, un feu allumé, ré-échantillonne). La régénération ne demande plus que d'être nourri et au calme.
+- La toxicité alerte et blesse à partir de `harmAt` (65).
+- Sommeil : `sleep.hostileRadius` passe à 8 ; plus de condition d'abri ni de réveil quand l'abri tombe.
+- L'objectif « abri » devient « camp » : un feu de camp à portée et un lit de camp eu en main. La marche des objectifs construit toujours sa cabane avant la nuit, pour tenir les créatures dehors, sans qu'aucune règle ne la demande.
+- SAVE 10 : la migration retire `survival.effects` et `survival.shelter` ; une ancienne clé d'objectif terminé (`objective:shelter`) reste sans effet.
+- Selftest `m20` (`?worldType=flat&fixedStep=1&selftest=m0,m20`) : dormir dehors, refus avec un hostile à 7 blocs, bande de froid sans dégâts et sans mot d'état.
+
 ### M21 — Quêtes non linéaires (retour 14)
 
 **Données** : un graphe de quêtes `QuestDef`, `{ requires, unlocks, condition | counter, rewards }`, qui remplace la chaîne d'objectifs.

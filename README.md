@@ -138,16 +138,20 @@ of them:
 
 ## Try this milestone
 
-**M19 — Minecraft-style combat** (plan v3, `docs/conception.md` « M19 »). `npm run dev`, then open
+**M20 — Simplified survival** (plan v3, `docs/conception.md` « M20 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **The attack gauge**: a click strikes at once. Every swing (a blow, or in the air) empties a
-  gauge under the crosshair that fills again over the weapon's time; a blow with the gauge full is
-  a strong one (×1.8 damage, ×1.5 knockback, with its trail), any other a plain one. Spam clicks
-  for many weak blows, or time them for strong ones.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m19`.
+- **No status words**: the HUD lists no Cold, Hungry, Sheltered… any more, and none changes
+  another rule. Exhaustion shows as the red stamina arc. Gauges hurt only when empty (hunger,
+  thirst) or extreme (temperature beyond its severe band, toxicity from its harm threshold).
+- **No shelter test**: fires and clothes keep you warm; two campfires warm the open tundra.
+- **Sleep like Minecraft**: a bedroll at night sleeps anywhere, unless a hostile creature is within
+  8 blocks; it still sets the respawn point.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m20`.
 
 ### Earlier milestones
+
+- **M19, Minecraft-style combat**: an attack gauge, strong blows when full; `?worldType=flat&fixedStep=1&selftest=m0,m19`.
 
 - **M18, controls and interfaces**: Esc only pauses, page keys, Logbook search everywhere, item descriptions; `?worldType=flat&fixedStep=1&selftest=m0,m18`.
 - **M17, fair creatures, Bestiary and scanner**: `?worldType=flat&fixedStep=1&selftest=m0,m17`.

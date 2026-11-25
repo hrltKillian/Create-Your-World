@@ -31,7 +31,7 @@ export const objectives: readonly ObjectiveDef[] = [
   step('tools', { items: ['item:flint_hatchet', 'item:torch'] }),
   step('flask', { drank: true, items: ['item:flask_empty'] }),
   step('workbench', { stations: ['station:workbench'] }),
-  step('shelter', { enclosed: true, stations: ['station:campfire'] }),
+  step('camp', { items: ['item:bedroll'], stations: ['station:campfire'] }),
   step('night', { nights: 1 }),
   step('copper', { stations: ['station:kiln'], items: ['item:copper_ingot'] }),
   step('copper_tools', { items: ['item:copper_pickaxe', 'item:copper_hatchet'] }),

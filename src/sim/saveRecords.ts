@@ -32,18 +32,14 @@ import {
 import type { DropBody, ItemDropState } from './itemDrops.ts';
 import { PHYSICS } from './physics.ts';
 import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
-import { SHELTERS, type Shelter } from './shelter.ts';
 import type { BlockEntityRecord, CreatureRecord, DropRecord, PlayerRecord } from './storage.ts';
 import {
   clampGauge,
   createSurvival,
   DEATH_CAUSES,
   type DeathCause,
-  EFFECT_KEYS,
-  type EffectKey,
   GAUGES,
   type SurvivalState,
-  type TimedEffect,
 } from './survival.ts';
 
 /**
@@ -132,7 +128,7 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     interaction: { ...player.interaction },
     craft: savedCraft(player.craft),
     seen: Object.keys(player.seen).sort(),
-    survival: { ...player.survival, effects: player.survival.effects.map((e) => ({ ...e })) },
+    survival: { ...player.survival },
     equipment: serializeInventory(player.equipment),
     respawn: player.respawn ? { ...player.respawn } : null,
     graves: player.graves.map((cell) => ({ ...cell })),
@@ -209,13 +205,7 @@ function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
   const survival = assignFields(createSurvival(balance), data);
   for (const gauge of GAUGES) survival[gauge] = clampGauge(gauge, survival[gauge], balance);
   const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
-  if (SHELTERS.includes(saved.shelter as Shelter)) survival.shelter = saved.shelter as Shelter;
   if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
-  for (const effect of Array.isArray(saved.effects) ? saved.effects : []) {
-    const { key, ticks } = (effect ?? {}) as Partial<TimedEffect>;
-    if (EFFECT_KEYS.includes(key as EffectKey) && isWhole(ticks, 1))
-      survival.effects.push({ key: key as EffectKey, ticks });
-  }
   return survival;
 }
 

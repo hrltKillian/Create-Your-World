@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import type { GraveEntity } from '../../../src/sim/blockEntities.ts';
-import { ticksOf } from '../../../src/sim/clock.ts';
 import type { Inventory } from '../../../src/sim/inventory.ts';
 import { spawnDrop } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
@@ -17,7 +16,7 @@ import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 /*
  * Death and respawn (docs « Mort »): everything carried goes into an Abandoned Pack, nothing is
  * lost or duplicated, the grave is recorded and saved, and the player comes back with the
- * balance's respawn gauges and effects.
+ * balance's respawn gauges.
  */
 
 const b = registry.pack.balance;
@@ -98,7 +97,7 @@ describe('death', () => {
     expect(s.player.inventory.every((stack) => stack === null)).toBe(true);
   });
 
-  it('comes back at the spawn with the respawn gauges, Weakened and untargeted', () => {
+  it('comes back at the spawn with the respawn gauges and no effect', () => {
     const s = equipped('respawn');
     s.send({ type: 'debug.teleport', x: 6.5, y: 65, z: 6.5 });
     s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
@@ -114,10 +113,6 @@ describe('death', () => {
     expect(survival.health).toBeCloseTo(r.health, 1);
     expect(survival.hunger).toBeCloseTo(r.hunger, 1);
     expect(survival.thirst).toBeCloseTo(r.thirst, 1);
-    expect(survival.effects).toEqual([
-      { key: 'weakened', ticks: ticksOf(r.weakenedSec) - 1 },
-      { key: 'untargeted', ticks: ticksOf(r.untargetedSec) - 1 },
-    ]);
     expect(eventsOf(s.send({ type: 'player.respawn' }), 'rejected')).toMatchObject([
       { command: 'player.respawn', reason: 'alive' },
     ]);
