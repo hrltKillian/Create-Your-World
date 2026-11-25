@@ -1,6 +1,7 @@
 import type { BalanceDef, ObjectiveDef } from '../../content/schema.ts';
 import { h } from '../h.ts';
 import { DeathScreen } from '../screens/death.ts';
+import { AttackGauge } from './attackGauge.ts';
 import { CombatMarks } from './combatMarks.ts';
 import { Compass } from './compass.ts';
 import { EffectList } from './effects.ts';
@@ -28,6 +29,7 @@ export class Hud {
   readonly vitals: Vitals;
   readonly stamina = new StaminaArc();
   readonly scan = new ScanRing();
+  readonly attack = new AttackGauge();
   readonly combat = new CombatMarks();
   readonly compass = new Compass();
   readonly clock: HTMLElement;
@@ -52,6 +54,7 @@ export class Hud {
       h('div', { class: 'hud-top' }, this.compass.element, this.clock, this.target.element),
       this.stamina.element,
       this.scan.element,
+      this.attack.element,
       this.combat.element,
       this.vitals.element,
       this.pickups.element,

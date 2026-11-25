@@ -168,6 +168,8 @@ export type SimEvent =
     }
   /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
   | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
+  /** A player's swing (a blow, or in the air): `strong` when it struck with a full gauge. */
+  | { readonly type: 'playerSwung'; readonly playerId: number; readonly strong: boolean }
   /** A creature entered a player's bestiary, or was studied (`level`: MET or STUDIED). */
   | {
       readonly type: 'bestiary';

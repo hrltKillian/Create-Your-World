@@ -92,11 +92,10 @@ export interface PlayerState {
   invulnerable: number;
   /** Ticks before the player may attack again (melee.ts). */
   attackCooldown: number;
-  /**
-   * Ticks primary has been held for an attack, −1 when not attacking (melee.ts; not saved, like
-   * the held input).
-   */
-  charge: number;
+  /** Primary was held last tick (a press is its first tick: melee.ts; not saved). */
+  primaryHeld: boolean;
+  /** The current hold of primary began with a swing: no mining until it is released (not saved). */
+  swinging: boolean;
   input: InputCommand;
   /** Render distance requested by the player's client (columns). */
   viewRadius: number;
@@ -188,7 +187,8 @@ export function createPlayer(
     fightTicks: 0,
     invulnerable: 0,
     attackCooldown: 0,
-    charge: -1,
+    primaryHeld: false,
+    swinging: false,
     input: NEUTRAL_INPUT,
     viewRadius,
     inventory: createInventory(),

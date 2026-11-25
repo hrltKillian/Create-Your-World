@@ -27,7 +27,7 @@ import { registry } from '../../helpers/registry.ts';
 /*
  * Creatures as drawn (docs « Animation »): every part of their box model, the gait's legs in two
  * half-cycles, the wind-up, the glowing Prowler eyes, the red flash and freeze of a hit, the fall
- * and shrink of a death; and the hand view's charged attack.
+ * and shrink of a death; and the hand view's swings.
  */
 
 const shared = boxUniforms;
@@ -292,21 +292,16 @@ function trotter(name: string): number {
 }
 
 describe('hand view attacks', () => {
-  it('draws the arm back while an attack charges and strikes once on the release', () => {
+  it('strikes once a swing, held or not, and not again while the swing is held', () => {
     const items = buildItemModels(registry, packPixels, TEXTURE_SIZE);
     const hand = new HandView(shared, registry, items);
     const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
     player.input = { ...player.input, primary: true };
-    player.charge = 10;
-    for (let i = 0; i < 20; i++) hand.draw(player, 0.05, true, 1, 0);
-    expect(hand.swing).toBe(0);
-    expect(hand.windup).toBeGreaterThan(0.9);
-    player.input = { ...player.input, primary: false };
-    player.charge = -1;
+    player.swinging = true;
+    player.attackCooldown = 12;
     hand.draw(player, 0.1, true, 1, 0);
     expect(hand.swing).toBeGreaterThan(0.2);
     for (let i = 0; i < 20; i++) hand.draw(player, 0.05, true, 1, 0);
     expect(hand.swing).toBe(0);
-    expect(hand.windup).toBeLessThan(0.01);
   });
 });

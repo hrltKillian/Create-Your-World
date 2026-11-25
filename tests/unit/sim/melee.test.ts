@@ -8,7 +8,8 @@ import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
 /*
- * The player's side of combat (docs « Combat »): light and charged blows, stealth, Weakened,
+ * The player's side of combat (docs « Combat », plan v3 « M19 »): plain and strong blows by the
+ * attack gauge, stealth, Weakened,
  * the weapon's cooldown and wear, primary's priority over mining, and the player's armour,
  * invulnerability and dodge against a creature's blow. The player stands at (0.5, 65, 0.5) looking
  * north (−z) in a flat world at noon.
@@ -40,6 +41,8 @@ function place(s: Harness, creature: string, x: number, z: number): CreatureStat
 function trotter(s: Harness, unaware: boolean, z = -1.5): CreatureState {
   const c = place(s, 'creature:trotter', 0.5, z);
   c.modeTicks = 600;
+  // Enough health that no blow is cut short by a kill.
+  c.health = 100;
   if (unaware) c.yaw = 0;
   return c;
 }
@@ -52,7 +55,7 @@ function pitchAt(s: Harness, c: CreatureState): number {
   return Math.atan2(dy, Math.hypot(c.body.x - b.x, c.body.z - b.z));
 }
 
-/** Holds primary for `hold` ticks, then releases it (the blow lands on the release). */
+/** Holds primary for `hold` ticks, then releases it (the blow lands on the press). */
 function click(s: Harness, pitch: number, hold = 1): void {
   s.tick(hold, { primary: true, pitch });
   s.tick(1, { pitch });
@@ -62,7 +65,7 @@ function click(s: Harness, pitch: number, hold = 1): void {
 const blows = (s: Harness) => eventsOf(s.events, 'creatureHurt').map((e) => e.amount);
 
 describe('melee formulas', () => {
-  it('charged blows deal ×1.8 and knock back ×1.5, stealthy ones ×1.5, Weakened ×0.8', () => {
+  it('strong blows deal ×1.8 and knock back ×1.5, stealthy ones ×1.5, Weakened ×0.8', () => {
     expect(meleeDamage(spear, false, false, 1)).toBe(6);
     expect(meleeDamage(spear, false, true, 1)).toBeCloseTo(9, 9);
     expect(meleeDamage(knife, true, false, 1)).toBeCloseTo(4 * 1.8, 9);
@@ -70,7 +73,7 @@ describe('melee formulas', () => {
     expect(meleeDamage(hand, false, false, balance.respawn.weakenedDamage)).toBeCloseTo(1.6, 9);
     expect(meleeKnockback(hand, false)).toBe(1);
     expect(meleeKnockback(hand, true)).toBe(1.5);
-    expect(MELEE.chargeTicks).toBe(15);
+    expect(MELEE.strongDamage).toBe(1.8);
   });
 
   it('armour lets 20/(20 + A) of the damage through', () => {
@@ -81,7 +84,7 @@ describe('melee formulas', () => {
 });
 
 describe('melee', () => {
-  it('a first stealthy spear blow on a Trotter deals 9, 6 without stealth', () => {
+  it('a first stealthy spear blow on a Trotter, gauge full, is strong: 6 × 1.8 × 1.5', () => {
     const run = (unaware: boolean) => {
       const s = world(`spear-${unaware}`);
       s.give('item:flint_spear');
@@ -90,29 +93,44 @@ describe('melee', () => {
       click(s, pitchAt(s, c));
       return blows(s);
     };
-    expect(run(true)).toEqual([9]);
-    expect(run(false)).toEqual([6]);
+    expect(run(true)[0]).toBeCloseTo(6 * 1.8 * 1.5, 9);
+    expect(run(false)[0]).toBeCloseTo(6 * 1.8, 9);
   });
 
-  it('a charged blow lands on the release after 0.5 s (15 ticks held): ×1.8 damage and ×1.5 knockback', () => {
-    const run = (hold: number) => {
-      const s = world(`charge-${hold}`);
-      s.give('item:flint_knife');
-      const c = trotter(s, true);
-      s.events.length = 0;
-      const pitch = pitchAt(s, c);
-      s.tick(hold, { primary: true, pitch });
-      expect(blows(s)).toEqual([]);
-      expect(s.player.charge).toBe(hold);
-      s.tick(1, { pitch });
-      expect(s.player.charge).toBe(-1);
-      return { dealt: blows(s), speed: Math.hypot(c.body.vx, c.body.vz) };
+  it('strikes on the press: strong with the gauge full, plain however full it is otherwise', () => {
+    const s = world('gauge');
+    s.give('item:flint_knife');
+    const c = trotter(s, true);
+    const pitch = pitchAt(s, c);
+    const { x, y, z } = c.body;
+    const reset = () => {
+      Object.assign(c.body, { x, y, z, vx: 0, vy: 0, vz: 0 });
+      Object.assign(c, { invulnerable: 0, mode: 'idle', modeTicks: 600, health: 50 });
+      s.sim.spatial.update(c.id, x, z);
     };
-    const light = run(MELEE.chargeTicks - 1);
-    const charged = run(MELEE.chargeTicks);
-    expect(light.dealt[0]).toBeCloseTo(4 * 1.5, 9);
-    expect(charged.dealt[0]).toBeCloseTo(4 * 1.8 * 1.5, 9);
-    expect(charged.speed / light.speed).toBeCloseTo(1.5, 1);
+    s.events.length = 0;
+    // The press lands at once, a strong one (×1.8, stealthy ×1.5).
+    s.tick(1, { primary: true, pitch });
+    expect(blows(s)[0]).toBeCloseTo(4 * 1.8 * 1.5, 9);
+    const strongSpeed = Math.hypot(c.body.vx, c.body.vz);
+    // Held: no second blow.
+    s.tick(3, { primary: true, pitch });
+    expect(blows(s)).toHaveLength(1);
+    s.tick(1, { pitch });
+    // Pressed again before the gauge is full: a plain blow, the gauge emptied.
+    expect(s.player.attackCooldown).toBeGreaterThan(0);
+    reset();
+    click(s, pitch);
+    expect(blows(s)[1]).toBeCloseTo(4 * 1.5, 9);
+    expect(Math.hypot(c.body.vx, c.body.vz) / strongSpeed).toBeCloseTo(1 / 1.5, 1);
+    expect(s.player.attackCooldown).toBe(Math.round(knife.cooldown * 30) - 2);
+  });
+
+  it('a swing in the air empties the gauge too', () => {
+    const s = world('air');
+    s.tick(1, { primary: true, pitch: 0.5 });
+    expect(s.player.attackCooldown).toBe(Math.round(hand.cooldown * 30) - 1);
+    expect(eventsOf(s.events, 'playerSwung')).toHaveLength(1);
   });
 
   it('a Weakened player deals 20 % less', () => {
@@ -121,32 +139,8 @@ describe('melee', () => {
     const c = trotter(s, true);
     s.events.length = 0;
     click(s, pitchAt(s, c));
-    expect(blows(s)[0]).toBeCloseTo(hand.damage * 1.5 * 0.8, 9);
-  });
-
-  it("waits out the weapon's cooldown between two blows", () => {
-    const s = world('cooldown');
-    s.give('item:flint_spear');
-    const c = trotter(s, true);
-    const pitch = pitchAt(s, c);
-    const { x, y, z } = c.body;
-    s.events.length = 0;
-    click(s, pitch);
-    expect(blows(s)).toHaveLength(1);
-    expect(s.player.attackCooldown).toBe(Math.round(spear.cooldown * 30) - 1);
-    // Back in place, idle and hurtable again: a click during the cooldown does nothing.
-    const reset = () => {
-      Object.assign(c.body, { x, y, z, vx: 0, vy: 0, vz: 0 });
-      Object.assign(c, { invulnerable: 0, mode: 'idle', modeTicks: 600 });
-      s.sim.spatial.update(c.id, x, z);
-    };
-    reset();
-    click(s, pitch);
-    expect(blows(s)).toHaveLength(1);
-    while (s.player.attackCooldown > 0) s.step(1);
-    reset();
-    click(s, pitch);
-    expect(blows(s)).toHaveLength(2);
+    // A first blow, gauge full: strong (×1.8) and stealthy (×1.5).
+    expect(blows(s)[0]).toBeCloseTo(hand.damage * 1.8 * 1.5 * 0.8, 9);
   });
 
   it('primary attacks a creature in reach before the block behind it, else mines', () => {
@@ -158,26 +152,22 @@ describe('melee', () => {
       s.events.length = 0;
       s.tick(5, { primary: true, pitch });
       const mining = eventsOf(s.events, 'mineProgress').length > 0;
-      const charging = s.player.charge >= 0;
+      const swinging = s.player.swinging;
       s.tick(1, { pitch });
-      return { mining, charging, blows: blows(s).length };
+      return { mining, swinging, blows: blows(s).length };
     };
-    expect(run(true)).toEqual({ mining: false, charging: true, blows: 1 });
-    expect(run(false)).toEqual({ mining: true, charging: false, blows: 0 });
+    expect(run(true)).toEqual({ mining: false, swinging: true, blows: 1 });
+    expect(run(false)).toEqual({ mining: true, swinging: false, blows: 0 });
   });
 
-  it('a charge held at death is dropped: no blow after the respawn without a click', () => {
-    const s = world('charge-death');
+  it('a hold kept through death and respawn strikes nothing without a new press', () => {
+    const s = world('hold-death');
     const c = trotter(s, true);
-    const pitch = pitchAt(s, c);
-    s.tick(20, { primary: true, pitch });
-    expect(s.player.charge).toBeGreaterThan(0);
     s.send({ type: 'debug.kill', cause: 'fall' });
-    s.tick(30, { pitch });
-    expect(s.player.charge).toBe(-1);
+    s.tick(30, { primary: true, pitch: pitchAt(s, c) });
     s.send({ type: 'player.respawn' });
     s.events.length = 0;
-    s.tick(10, { pitch: pitchAt(s, c) });
+    s.tick(10, { primary: true, pitch: pitchAt(s, c) });
     expect(blows(s)).toEqual([]);
   });
 
@@ -361,12 +351,13 @@ describe("a creature's blow", () => {
       }
   });
 
-  it('a creature is invulnerable for 8 ticks after a blow', () => {
+  it('a creature is invulnerable for 5 ticks after a blow', () => {
     const s = world('creature-invulnerable');
     const c = trotter(s, true);
     s.events.length = 0;
+    // Struck on the press, then one more tick (the release).
     click(s, pitchAt(s, c));
-    expect(c.invulnerable).toBe(COMBAT.creatureInvulnerableTicks - 1);
+    expect(c.invulnerable).toBe(COMBAT.creatureInvulnerableTicks - 2);
     expect(blows(s)).toHaveLength(1);
   });
 });

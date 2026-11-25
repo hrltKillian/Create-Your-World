@@ -125,38 +125,31 @@ boot; a case that needs another setup is skipped, and none may fail. `npm run e2
 each setup the suites need (`e2e/selftest.spec.ts`), and checks that every case ran in at least one
 of them:
 
-| Setup                  | Query                                                      | Runs                                                                                                    |
-| ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| test chunk scene       | `scene=testchunk`                                          | m1                                                                                                      |
-| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                                           |
-| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                                       |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot, m16 world                                                    |
-| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                                          |
-| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner, m18 controls |
-| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                              |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                     |
+| Setup                  | Query                                                      | Runs                                                                                                                |
+| ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| test chunk scene       | `scene=testchunk`                                          | m1                                                                                                                  |
+| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                                                       |
+| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                                                   |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot, m16 world                                                                |
+| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                                                      |
+| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner, m18 controls, m19 combat |
+| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                                          |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                                 |
 
 ## Try this milestone
 
-**M18 — Controls and interfaces** (plan v3, `docs/conception.md` « M18 »). `npm run dev`, then open
+**M19 — Minecraft-style combat** (plan v3, `docs/conception.md` « M19 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **Esc is the pause menu only**: over the bag or a chest too, which stays open behind it; a screen
-  closes with its own key. Resume plays at once (a light « Click to resume » if the browser keeps
-  the mouse for a moment).
-- **One key per page**: E (or Tab) opens the Bag, L the Logbook, B the Bestiary; the key of the
-  page on show closes it. All rebindable.
-- **Logbook**: a workbench also makes the hand recipes; a search finds every recipe, discovered
-  or not, those made elsewhere saying where (« At the Kiln »); hovering a recipe shows its item's
-  description, as hovering a slot does (uses, time on stone, damage, warmth, food…).
-- **Feel**: a held jump no longer bounces under a low ceiling; creatures aim at your body, not your
-  eyes; the debug position is your feet.
-- **No structures** until the lost colony's (M26); Shagbacks leave sinew, so bronze tools stay
-  within reach without hostiles.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m18`.
+- **The attack gauge**: a click strikes at once. Every swing (a blow, or in the air) empties a
+  gauge under the crosshair that fills again over the weapon's time; a blow with the gauge full is
+  a strong one (×1.8 damage, ×1.5 knockback, with its trail), any other a plain one. Spam clicks
+  for many weak blows, or time them for strong ones.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m19`.
 
 ### Earlier milestones
 
+- **M18, controls and interfaces**: Esc only pauses, page keys, Logbook search everywhere, item descriptions; `?worldType=flat&fixedStep=1&selftest=m0,m18`.
 - **M17, fair creatures, Bestiary and scanner**: `?worldType=flat&fixedStep=1&selftest=m0,m17`.
 - **M16, the planet's biomes, caves and ores**: clean borders, crossing caves, flooded and sealed caves under lakes, ores in layers; `?seed=7&rd=4&fixedStep=1&selftest=m0,m16`.
 - **M15, water**: flows by levels, falls first, dries up; `?worldType=arena&fixedStep=1&selftest=m0,m15`.

@@ -267,7 +267,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     },
   },
   {
-    name: 'a first stealthy spear blow on a Trotter deals 9, one it sees coming 6',
+    name: 'a first spear blow (gauge full: strong) on a Trotter is ×1.5 stealthy, plain when it sees it coming',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
     skip: needsFlatPlayer,
@@ -281,13 +281,19 @@ export const M10_SUITE: readonly SelftestCase[] = [
         const unaware = await trap(app, trotter.key, STEALTH_PIT, true);
         ids.push(unaware);
         const stealthy = damageTo(await strike(app, unaware, STEALTH_PIT), unaware);
-        const expected = spear.damage * MELEE.stealthDamage;
-        assert(stealthy === expected, `the stealthy blow dealt ${stealthy}, not ${expected}`);
+        // A blow takes at most the health left.
+        const strong = spear.damage * MELEE.strongDamage;
+        const expected = Math.min(trotter.health, strong * MELEE.stealthDamage);
+        assert(
+          Math.abs(stealthy - expected) < 1e-9,
+          `the stealthy blow dealt ${stealthy}, not ${expected}`,
+        );
         // Facing the player: the plain blow.
         const facing = await trap(app, trotter.key, SEEN_PIT, false);
         ids.push(facing);
         const seen = damageTo(await strike(app, facing, SEEN_PIT), facing);
-        assert(seen === spear.damage, `the blow it saw coming dealt ${seen}, not ${spear.damage}`);
+        const plain = Math.min(trotter.health, strong);
+        assert(Math.abs(seen - plain) < 1e-9, `the blow it saw coming dealt ${seen}, not ${plain}`);
       } finally {
         for (const id of ids) killCreature(app, id);
       }

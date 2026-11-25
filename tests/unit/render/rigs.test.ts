@@ -20,7 +20,6 @@ const still: Motion = {
   swimming: false,
   pitch: 0,
   striking: false,
-  charging: false,
   dt: 1 / 60,
 };
 

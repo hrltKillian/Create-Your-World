@@ -6,6 +6,7 @@ import { aboveHorizon, sunBearing } from '../render/Sky.ts';
 import { scannerOf } from '../sim/bestiary.ts';
 import { ticksOf } from '../sim/clock.ts';
 import type { SimEvent } from '../sim/events.ts';
+import { attackGauge } from '../sim/melee.ts';
 import { STAMINA } from '../sim/player.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import { dayOf, hourOf } from '../sim/time.ts';
@@ -102,6 +103,7 @@ export class HudBridge {
       this.refresh(elapsed);
     }
     this.hud.compass.update(headingOf(this.session.rig.yaw), this.targets);
+    this.hud.attack.update(attackGauge(this.session.host.view.registry, this.session.player));
     this.hud.pickups.frame(dt);
   }
 

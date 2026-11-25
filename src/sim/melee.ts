@@ -16,21 +16,22 @@ import type { Entity, Simulation } from './Simulation.ts';
 import { hasEffect } from './survival.ts';
 
 /*
- * The player's side of combat (docs « Combat », « Priorité des actions »), at tick step 7: primary
- * on a creature within the held weapon's reach attacks it instead of mining. Creatures are tested
- * first (docs « Ciblage »): only a solid block stops a blow, so a creature in or behind tall grass
- * or a torch is still in reach. The blow lands on the release: a light one, or a charged one
- * (×1.8 damage, ×1.5 knockback) once primary was held for 0.5 s. A stealthy blow (the creature off
- * its guard and the player out of its view: `unawareOf`) deals ×1.5, a Weakened player ×0.8; the
- * creature's front armour, invulnerability and knockback resistance apply in `hurtCreature`. The
- * weapon's cooldown separates two attacks. Zero allocation per tick.
+ * The player's side of combat (docs « Combat », plan v3 « M19 »), at tick step 7: the press of
+ * primary on a creature within the held weapon's reach strikes it instead of mining (creatures are
+ * tested first, docs « Ciblage »: only a solid block stops a blow, so a creature in or behind tall
+ * grass or a torch is still in reach); a press on nothing (no creature, no block) swings in the
+ * air. Every swing empties the attack gauge, which fills again over the weapon's `cooldown`
+ * (`player.attackCooldown`: the ticks left). A blow with the gauge full is a strong one (×1.8
+ * damage, ×1.5 knockback); any other, however full the gauge, a plain one. A stealthy blow (the
+ * creature off its guard and the player out of its view: `unawareOf`) deals ×1.5, a Weakened
+ * player ×0.8; the creature's front armour, invulnerability and knockback resistance apply in
+ * `hurtCreature`. A press that struck or swung holds primary until it is released: no mining.
+ * Zero allocation per tick.
  */
 
 export const MELEE = {
-  /** Primary held this long (0.5 s) makes a charged attack. */
-  chargeTicks: 15,
-  chargedDamage: 1.8,
-  chargedKnockback: 1.5,
+  strongDamage: 1.8,
+  strongKnockback: 1.5,
   stealthDamage: 1.5,
 } as const;
 
@@ -41,49 +42,61 @@ export function weaponOf(registry: Registry, stack: ItemStack | null | undefined
 }
 
 /** The weapon a player holds (the selected hotbar slot), else the bare hand. */
-function heldWeapon(sim: Simulation, player: Readonly<PlayerState>): WeaponDef {
+export function heldWeapon(sim: Simulation, player: Readonly<PlayerState>): WeaponDef {
   return weaponOf(sim.registry, player.inventory[player.input.slot]);
 }
 
 /** Damage of a blow before the creature's own armour; `weakness` is the Weakened factor (or 1). */
 export function meleeDamage(
   weapon: WeaponDef,
-  charged: boolean,
+  strong: boolean,
   stealth: boolean,
   weakness: number,
 ): number {
-  const charge = charged ? MELEE.chargedDamage : 1;
-  return weapon.damage * charge * (stealth ? MELEE.stealthDamage : 1) * weakness;
+  const power = strong ? MELEE.strongDamage : 1;
+  return weapon.damage * power * (stealth ? MELEE.stealthDamage : 1) * weakness;
 }
 
 /** Knockback factor of a blow (1 = a normal hit). */
-export function meleeKnockback(weapon: WeaponDef, charged: boolean): number {
-  return weapon.knockback * (charged ? MELEE.chargedKnockback : 1);
+export function meleeKnockback(weapon: WeaponDef, strong: boolean): number {
+  return weapon.knockback * (strong ? MELEE.strongKnockback : 1);
+}
+
+/** How full a player's attack gauge is (0–1) for the weapon held now. */
+export function attackGauge(registry: Registry, player: Readonly<PlayerState>): number {
+  const full = ticksOf(weaponOf(registry, player.inventory[player.input.slot]).cooldown);
+  return full <= 0 ? 1 : Math.max(0, 1 - player.attackCooldown / full);
 }
 
 /**
- * One tick of primary against creatures; `target` is the creature aimed at in reach (meleeTarget).
- * A press (or a hold) on a creature starts an attack, counting the ticks held in `player.charge`;
- * the release strikes the creature aimed at then, if the cooldown is over. Returns whether primary
- * is busy with an attack this tick (no mining then).
+ * One tick of primary against creatures; `target` is the creature aimed at in reach (meleeTarget),
+ * `onBlock` whether a block is aimed at. The press strikes the target (strong when the gauge is
+ * full), or swings in the air when nothing is aimed at; either empties the gauge. Returns whether
+ * primary is busy with that swing (held since: no mining).
  */
 export function stepMelee(
   sim: Simulation,
   player: PlayerState,
   target: CreatureState | undefined,
+  onBlock: boolean,
   out: SimEvent[],
 ): boolean {
-  if (player.input.primary) {
-    if (player.charge < 0 && !target) return false;
-    player.charge = Math.max(player.charge, 0) + 1;
-    return true;
+  const primary = player.input.primary;
+  const pressed = primary && !player.primaryHeld;
+  player.primaryHeld = primary;
+  if (!primary) {
+    player.swinging = false;
+    return false;
   }
-  if (player.charge < 0) return false;
-  const charged = player.charge >= MELEE.chargeTicks;
-  player.charge = -1;
-  if (target && player.attackCooldown === 0)
-    attack(sim, player, target, heldWeapon(sim, player), charged, out);
-  return true;
+  if (pressed && (target || !onBlock)) {
+    player.swinging = true;
+    const weapon = heldWeapon(sim, player);
+    const strong = player.attackCooldown === 0;
+    player.attackCooldown = ticksOf(weapon.cooldown);
+    out.push({ type: 'playerSwung', playerId: player.playerId, strong: strong && !!target });
+    if (target) attack(sim, player, target, weapon, strong, out);
+  }
+  return player.swinging;
 }
 
 /** A blow at a creature: damage, knockback, the weapon's wear and the hit sound. */
@@ -92,16 +105,15 @@ function attack(
   player: PlayerState,
   c: CreatureState,
   weapon: WeaponDef,
-  charged: boolean,
+  strong: boolean,
   out: SimEvent[],
 ): void {
   const def = creatureDef(sim, c);
   const respawn = sim.registry.pack.balance.respawn;
   const weakness = hasEffect(player.survival, 'weakened') ? respawn.weakenedDamage : 1;
-  const damage = meleeDamage(weapon, charged, unawareOf(c, def, player), weakness);
-  player.attackCooldown = ticksOf(weapon.cooldown);
+  const damage = meleeDamage(weapon, strong, unawareOf(c, def, player), weakness);
   const b = player.body;
-  const knockback = meleeKnockback(weapon, charged);
+  const knockback = meleeKnockback(weapon, strong);
   if (hurtCreature(sim, c, damage, b.x, b.z, knockback, player.id, out) <= 0) return;
   wearWeapon(sim, player, out);
   const sfx = sim.registry.pack.sounds?.combat.hit;

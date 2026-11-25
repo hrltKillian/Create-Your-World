@@ -2612,6 +2612,12 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - un coup dans le vide vide la jauge ;
 - `mobs` inchangé.
 
+**Retenu à la réalisation** :
+
+- La jauge est `player.attackCooldown` (les ticks qui restent, 0 = pleine) : un coup ou un coup dans le vide la vide ; miner un bloc, non. L'appui qui a frappé tient le bouton (`swinging`) : pas de minage avant de relâcher. Événement `playerSwung { strong }`.
+- La main frappe à chaque coup ; la traînée ne part que d'un coup donné jauge pleine. Le recul du bras du coup chargé disparaît.
+- Jauge au HUD `#hud-attack` sous le réticule (se cache une fois pleine, avec un éclat).
+
 ### M20 — Survie simplifiée : états, abri, sommeil (retours 12, 13)
 
 **États retirés** : Abrité, À couvert, Affamé, Assoiffé, Froid, Chaud, Nauséeux, Affaibli, Inaperçu, avec leurs effets (plafonds, facteurs, malus de réapparition). L'épuisement reste : pas de sprint quand l'endurance est vide, arc rouge.
