@@ -103,12 +103,15 @@ describe('client aim at creatures', () => {
     expect(aim.target()).toMatchObject({ x: 0, y: 65, z: -1 });
   });
 
-  it('outlines an open gate in front of a creature, which a blow would still hit', () => {
+  it('aims through an open gate at the creature behind it, and at the gate on its leaf', () => {
     const { s, c, eye, pitch, aim } = scene(-2.5);
     s.put(0, 65, -2, 'block:gate[facing4=s,open=1,half=lower]');
     s.put(0, 66, -2, 'block:gate[facing4=s,open=1,half=upper]');
+    // Through the doorway: the open leaf stands against the east side, the creature is aimed.
     aim.update(eye, 0, pitch, 0, false);
     expect(aim.creature?.id).toBe(c.id);
+    // At the leaf (x 13/16…1 of the cell): the gate is the target, nearer than anything behind.
+    aim.update(eye, Math.atan2(-0.4, 1.6), pitch, 0, false);
     expect(aim.target()).toMatchObject({ x: 0, z: -2 });
   });
 

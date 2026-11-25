@@ -136,9 +136,31 @@ function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue)
     }
   });
   if (stateTotal > MAX_STATES) add('blocks', `${stateTotal} block states exceed ${MAX_STATES}`);
+  pack.blocks.forEach((block, i) => {
+    checkDecay(block, `blocks[${i}].decay`, blockKeys, add);
+  });
   if (pack.blocks.filter((block) => block.blockEntity === 'grave').length > 1)
     add('blocks', 'at most one block may be a grave (the one a death leaves)');
   return blockKeys;
+}
+
+/** A decaying block's anchors exist, its radius is 1–7 and its delay is in order. */
+function checkDecay(
+  block: BlockDef,
+  path: string,
+  blockKeys: ReadonlySet<string>,
+  add: AddIssue,
+): void {
+  const decay = block.decay;
+  if (!decay) return;
+  decay.anchors.forEach((key, a) => {
+    if (!blockKeys.has(key)) add(`${path}.anchors[${a}]`, `unknown block "${key}"`);
+  });
+  if (decay.anchors.length === 0) add(`${path}.anchors`, 'needs at least one anchor');
+  if (!Number.isInteger(decay.radius) || decay.radius < 1 || decay.radius > 7)
+    add(`${path}.radius`, 'must be an integer 1–7');
+  const [min, max] = decay.seconds;
+  if (!(min >= 0 && max >= min)) add(`${path}.seconds`, 'must be [min, max] with 0 ≤ min ≤ max');
 }
 
 /** State properties and the references of `whenState` overrides. Returns the block's state count. */
@@ -158,6 +180,14 @@ function checkStates(
   });
   if (block.placement?.tall === 2 && !seen.has('half'))
     add(`${path}.placement.tall`, 'a tall block needs the "half" state');
+  if ((block.placement?.support === 'attach' || block.wallShape) && !seen.has('attach'))
+    add(`${path}.placement.support`, 'a block hung on walls needs the "attach" state');
+  if (seen.has('attach') && block.placement?.support !== 'attach')
+    add(`${path}.placement.support`, 'an "attach" block needs support "attach"');
+  if (seen.has('attach') && !block.wallShape)
+    add(`${path}.wallShape`, 'an "attach" block needs its wall shape');
+  if (block.decay && !seen.has('placed'))
+    add(`${path}.decay`, 'a decaying block needs the "placed" state (placed blocks never decay)');
   for (const [prop, override] of Object.entries(block.whenState ?? {})) {
     if (!seen.has(prop)) add(`${path}.whenState.${prop}`, `block has no "${prop}" state`);
     for (const [slot, key] of Object.entries(override?.textures ?? {})) {

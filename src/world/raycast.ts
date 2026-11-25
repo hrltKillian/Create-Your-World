@@ -5,7 +5,9 @@ import {
   FLAG_SOLID,
   PASS_NONE,
   type RawTables,
+  SHAPE_BOXES,
 } from '../content/registry.ts';
+import type { Box16 } from '../content/schema.ts';
 import type { VoxelWorld } from './VoxelWorld.ts';
 
 /** Result of a voxel raycast. Reused between calls (no allocation). */
@@ -40,6 +42,9 @@ export type RayMode =
   | typeof RAY_TARGET_LIQUIDS
   | typeof RAY_SOLID
   | typeof RAY_OPAQUE;
+
+/** Thinnest side (in sixteenths) a drawn box shape offers a target ray (a torch is 2 wide). */
+const TARGET_MIN = 4;
 
 export function createRayHit(): RayHit {
   return { hit: false, x: 0, y: 0, z: 0, nx: 0, ny: 0, nz: 0, distance: 0, state: 0 };
@@ -92,11 +97,42 @@ export function raycast(
         : state !== world.outside &&
           tables.pass[state] !== PASS_NONE &&
           (mode === RAY_TARGET_LIQUIDS || tables.collision[state] !== COLLISION_LIQUID);
-    // A block with collision boxes stops a solid ray only where the ray enters one of them.
-    const entry =
-      stops && mode === RAY_SOLID && tables.collision[state]! >= COLLISION_BOXES
-        ? boxEntry(tables, state, x, y, z, ox, oy, oz, dx, dy, dz, maxDistance)
-        : t;
+    // A block with collision boxes stops a solid ray only where the ray enters one of them; a
+    // drawn box shape (a torch, a door) stops a target ray only where it enters its boxes, so the
+    // aim passes beside a torch.
+    const entry = !stops
+      ? t
+      : mode === RAY_SOLID && tables.collision[state]! >= COLLISION_BOXES
+        ? boxEntry(
+            tables.collisionBoxes[tables.collision[state]! - COLLISION_BOXES]!,
+            0,
+            x,
+            y,
+            z,
+            ox,
+            oy,
+            oz,
+            dx,
+            dy,
+            dz,
+            maxDistance,
+          )
+        : flag === 0 && tables.shape[state] === SHAPE_BOXES
+          ? boxEntry(
+              tables.boxShapes[tables.boxShape[state]!]!,
+              TARGET_MIN,
+              x,
+              y,
+              z,
+              ox,
+              oy,
+              oz,
+              dx,
+              dy,
+              dz,
+              maxDistance,
+            )
+          : t;
     if (stops && entry <= maxDistance) {
       out.hit = true;
       out.x = x;
@@ -140,8 +176,8 @@ export function raycast(
  * `state` in cell (x, y, z) (the slab test), or +∞ when it misses them all.
  */
 function boxEntry(
-  tables: RawTables,
-  state: number,
+  boxes: readonly Box16[],
+  min: number,
   x: number,
   y: number,
   z: number,
@@ -153,25 +189,40 @@ function boxEntry(
   dz: number,
   max: number,
 ): number {
-  const boxes = tables.collisionBoxes[tables.collision[state]! - COLLISION_BOXES]!;
   let best = Number.POSITIVE_INFINITY;
   for (let i = 0; i < boxes.length; i++) {
     const b = boxes[i]!;
+    // Each side at least `min` sixteenths thick (around its middle, inside the cell).
+    const x0 = x + lowEdge(b[0], b[3], min) / 16;
+    const x1 = x0 + Math.max(b[3] - b[0], min) / 16;
+    const y0 = y + lowEdge(b[1], b[4], min) / 16;
+    const y1 = y0 + Math.max(b[4] - b[1], min) / 16;
+    const z0 = z + lowEdge(b[2], b[5], min) / 16;
+    const z1 = z0 + Math.max(b[5] - b[2], min) / 16;
     const t = Math.max(
       0,
-      slabEnter(ox, dx, x + b[0] / 16, x + b[3] / 16, max),
-      slabEnter(oy, dy, y + b[1] / 16, y + b[4] / 16, max),
-      slabEnter(oz, dz, z + b[2] / 16, z + b[5] / 16, max),
+      slabEnter(ox, dx, x0, x1, max),
+      slabEnter(oy, dy, y0, y1, max),
+      slabEnter(oz, dz, z0, z1, max),
     );
     const exit = Math.min(
       max,
-      slabExit(ox, dx, x + b[0] / 16, x + b[3] / 16),
-      slabExit(oy, dy, y + b[1] / 16, y + b[4] / 16),
-      slabExit(oz, dz, z + b[2] / 16, z + b[5] / 16),
+      slabExit(ox, dx, x0, x1),
+      slabExit(oy, dy, y0, y1),
+      slabExit(oz, dz, z0, z1),
     );
     if (t <= exit && t < best) best = t;
   }
   return best;
+}
+
+/**
+ * Low edge (in sixteenths) of a box side [lo, hi] widened to at least `min` around its middle,
+ * kept inside the cell.
+ */
+function lowEdge(lo: number, hi: number, min: number): number {
+  if (hi - lo >= min) return lo;
+  return Math.min(16 - min, Math.max(0, (lo + hi - min) / 2));
 }
 
 /** Where a ray along one axis enters [lo, hi] (−∞ when inside without moving, past `max` when never). */

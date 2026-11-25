@@ -1,16 +1,13 @@
 import { fuelSlotOf } from '../../content/crafting.ts';
-import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { OPEN_SLOTS_BASE } from '../../sim/commands.ts';
-import type { SimEvent } from '../../sim/events.ts';
 import { PHYSICS } from '../../sim/physics.ts';
 import { STAMINA } from '../../sim/player.ts';
-import { inBag, moveClicks } from '../../sim/testing/slotMoves.ts';
+import { moveClicks } from '../../sim/testing/slotMoves.ts';
 import type { App } from '../App.ts';
 import {
   blockEntityContents,
   click,
   framesFor,
-  give,
   look,
   openBlock,
   sendAndStep,
@@ -21,6 +18,8 @@ import { setStat } from '../survivalAutomation.ts';
 import {
   assert,
   type Cell,
+  eventsDuring,
+  holdInHand,
   needsFlatPlayer,
   noErrorsCase,
   PLAY_SCENES,
@@ -89,36 +88,6 @@ const airKey = (app: App) => stateKey(app, app.registry!.air);
 function speed(app: App): number {
   const body = app.session!.player.body;
   return Math.hypot(body.vx, body.vz);
-}
-
-/** The events of the ticks `run` steps. */
-function eventsDuring(app: App, run: () => void): SimEvent[] {
-  const listeners = app.session!.listeners;
-  const events: SimEvent[] = [];
-  const listener = (event: SimEvent) => events.push(event);
-  listeners.push(listener);
-  try {
-    run();
-  } finally {
-    listeners.splice(listeners.indexOf(listener), 1);
-  }
-  return events;
-}
-
-/** Puts `count` of an item in the hotbar (swapped there from the bag if need be) and selects it. */
-function holdInHand(app: App, item: string, count: number): void {
-  give(app, item, count);
-  const inventory = app.session!.player.inventory;
-  let slot = inventory.findIndex((stack, i) => i < HOTBAR_SLOTS && stack?.item === item);
-  if (slot < 0) {
-    const bag = inventory.findIndex((stack) => stack?.item === item);
-    assert(bag >= 0, `${item} did not reach the inventory (full?)`);
-    const clicks = moveClicks(app.registry!, bag, 0, inventory[bag]!, inventory[0]);
-    sendAndStep(app, ...inBag(...clicks));
-    slot = 0;
-  }
-  assert(inventory[slot]?.item === item, `${item} is not in hotbar slot ${slot}`);
-  app.input!.slot = slot;
 }
 
 /** The pack's fire that may be kept burning (the campfire), its block and its station. */

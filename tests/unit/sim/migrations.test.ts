@@ -111,7 +111,7 @@ describe('save versions', () => {
     expect(key(4, 69, 4)).toBe('block:air');
     expect(key(6, 64, 6)).toBe('block:air');
     expect(key(7, 64, 6)).toBe('block:grass');
-    expect(key(8, 65, 8)).toBe('block:torch');
+    expect(key(8, 65, 8)).toBe('block:torch[attach=floor]'); // an old key, read leniently
     expect(key(10, 65, 10)).toBe('block:broadleaf_log[axis=x]');
     expect(key(40, 70, 5)).toBe('block:stone');
   });
@@ -357,5 +357,18 @@ describe('save versions', () => {
     step(ticksOf(3) - 11);
     expect(bench.slots[0]).toEqual({ item: 'item:chest', count: 2 });
     expect(bench.craft).toEqual([]);
+  });
+
+  it('loads the v7 fixture with no block updates, and the v8 fixture with its updates', async () => {
+    for (const [version, updates] of [
+      [7, 0],
+      [8, 2],
+    ] as const) {
+      const storage = new MemoryStorage();
+      await storage.write({ ...fixture(version), removed: [] });
+      const { sim } = await restoreFrom(storage);
+      expect(sim.blockUpdates.size, `v${version}`).toBe(updates);
+    }
+    expect(migrate('world', { id: 'w' }, 7)).toEqual({ id: 'w', blockUpdates: [] });
   });
 });

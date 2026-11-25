@@ -56,7 +56,7 @@ describe('arena world', () => {
     expect(block(-8, G, 7)).toBe('block:sand');
     expect(block(-2, G, 7)).toBe('block:gravel');
     for (let y = G + 1; y <= G + 5; y++) expect(block(9, y, 5)).toBe('block:broadleaf_log[axis=y]');
-    expect(block(9, G + 6, 5)).toBe('block:foliage');
+    expect(block(9, G + 6, 5)).toBe('block:foliage[placed=0]');
     const ores = registry.pack.arena!.oreWall;
     ores.forEach((key, i) => {
       expect(block(-7 + i, G + 1, -8)).toBe(key);

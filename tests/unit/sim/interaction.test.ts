@@ -184,11 +184,38 @@ describe('placement', () => {
     s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -10, face: 2 } });
     expect(rejections(s.events)).toEqual(['reach']);
     s.events.length = 0;
-    s.put(0, 66, -3, 'block:stone');
+    // A torch never hangs from a ceiling: the bottom face of a block refuses it.
+    s.put(0, 67, -2, 'block:stone');
     s.tick(1, { secondary: false, slot: 1 });
-    s.tick(1, { secondary: true, slot: 1, target: { x: 0, y: 66, z: -3, face: 4 } });
+    s.tick(1, { secondary: true, slot: 1, target: { x: 0, y: 67, z: -2, face: 3 } });
     expect(rejections(s.events)).toEqual(['support']);
     expect(s.block(0, 66, -2)).toBe('block:air');
+  });
+
+  it('hangs a torch on the wall aimed at, and it falls with that wall', () => {
+    const s = setup();
+    s.give('item:torch', 3);
+    s.put(0, 66, -3, 'block:stone');
+    // The +z face of the stone: the torch goes in front of it, against its north wall.
+    s.tick(1, { secondary: true, target: { x: 0, y: 66, z: -3, face: 4 } });
+    expect(rejections(s.events)).toEqual([]);
+    expect(s.block(0, 66, -2)).toBe('block:torch[attach=n]');
+    // On the top of a block: on the floor.
+    s.tick(1, { secondary: false });
+    s.tick(1, { secondary: true, target: { x: 2, y: 64, z: -2, face: 2 } });
+    expect(s.block(2, 65, -2)).toBe('block:torch[attach=floor]');
+    // A torch on the west face of a dirt block hangs on its east wall; breaking the dirt pops it
+    // off the same tick, dropping itself (a world break: player id -1).
+    s.put(2, 66, -2, 'block:dirt');
+    s.tick(1, { secondary: false });
+    s.tick(1, { secondary: true, target: { x: 2, y: 66, z: -2, face: 1 } });
+    expect(s.block(1, 66, -2)).toBe('block:torch[attach=e]');
+    s.tick(1, { secondary: false });
+    expect(ticksToBreak(s, { target: { x: 2, y: 66, z: -2, face: 4 } })).toBeLessThan(400);
+    expect(s.block(1, 66, -2)).toBe('block:air');
+    const fallen = eventsOf(s.events, 'blockBroken').filter((e) => e.playerId === -1);
+    expect(fallen.map((e) => [e.x, e.y, e.z])).toEqual([[1, 66, -2]]);
+    expect(s.block(0, 66, -2)).toBe('block:torch[attach=n]');
   });
 
   it('repeats every 6 ticks while held', () => {
@@ -383,6 +410,15 @@ describe('doors (two-block gates)', () => {
       ['item:dirt', 1],
       ['item:gate', 1],
     ]);
+  });
+
+  it('opening a gate drops a torch hung on its side', () => {
+    const s = setup();
+    s.put(0, 65, -2, door(0, 'lower'));
+    s.put(0, 66, -2, door(0, 'upper'));
+    s.put(1, 65, -2, 'block:torch[attach=w]');
+    use(s, upper);
+    expect(s.block(1, 65, -2)).toBe('block:air');
   });
 
   it('opening a gate pops what stood on it (a door whole, for one item)', () => {

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -84,6 +84,14 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     world: (record) => record,
     player: (record) => ({ ...record, cursor: null }),
+    column: (record) => record,
+  },
+  // 7 → 8 (M14): the world keeps its block updates (supports, leaf decay) due or waiting; an
+  // older world had none. Its state keys still read as before (registry `resolveKey`: a torch is on
+  // the floor, leaves are not a player's).
+  {
+    world: (record) => ({ ...record, blockUpdates: [] }),
+    player: (record) => record,
     column: (record) => record,
   },
 ];

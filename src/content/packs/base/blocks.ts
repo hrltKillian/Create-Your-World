@@ -5,6 +5,14 @@ import { FUELS } from './recipes.ts';
 type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 
 const TORCH: readonly Box16[] = [[7, 0, 7, 9, 10, 9]];
+/** A torch hung on the north wall of its cell (turned to the wall's side). */
+const WALL_TORCH: readonly Box16[] = [[7, 3, 0, 9, 13, 2]];
+/** Leaves fall apart a few seconds after no log holds them (« Feuilles », M14). */
+export const LEAF_DECAY = {
+  anchors: ['block:broadleaf_log', 'block:conifer_log'],
+  radius: 5,
+  seconds: [2, 12],
+} as const;
 /** Gate panel on the north side when facing north and closed. */
 const GATE_CLOSED: readonly Box16[] = [[0, 0, 0, 16, 16, 3]];
 /** Swung open against the west side. */
@@ -165,6 +173,8 @@ export const blocks = [
   {
     key: 'block:foliage',
     nameKey: 'block.foliage',
+    states: ['placed'],
+    decay: LEAF_DECAY,
     shape: 'cube',
     pass: 'cutout',
     cullGroup: 'leaves',
@@ -247,7 +257,9 @@ export const blocks = [
   {
     key: 'block:torch',
     nameKey: 'block.torch',
+    states: ['attach'],
     shape: { boxes: TORCH },
+    wallShape: { boxes: WALL_TORCH },
     pass: 'cutout',
     textures: { all: 'tex:torch' },
     collision: 'none',
@@ -257,7 +269,7 @@ export const blocks = [
     heat: { celsius: 3, radius: 1 },
     hardness: 0,
     drops: 'self',
-    placement: { support: 'below' },
+    placement: { support: 'attach' },
     sound: 'wood',
   },
   {

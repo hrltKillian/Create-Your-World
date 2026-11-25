@@ -63,14 +63,20 @@ export function planPlacement(
   const cells = rules?.tall ?? 1;
   if (!replaceableCell(world, tables, x, y, z)) return 'occupied';
   if (cells === 2 && !replaceableCell(world, tables, x, y + 1, z)) return 'occupied';
-  if (rules?.support === 'below' && !solidCell(world, tables, x, y - 1, z)) return 'support';
-  if (rules?.support === 'face' && !solidCell(world, tables, x - hit.nx, y - hit.ny, z - hit.nz))
-    return 'support';
   let placed = state;
+  // A block that hangs (torch): on the wall aimed at, or on the floor; never on a ceiling.
+  if (registry.prop(state, 'attach') !== undefined) {
+    if (!intoHit && hit.ny < 0) return 'support';
+    const side = intoHit || hit.ny > 0 ? 'floor' : wallOf(hit.nx, hit.nz);
+    placed = registry.withState(placed, 'attach', side);
+  }
+  if (registry.prop(placed, 'placed') !== undefined)
+    placed = registry.withState(placed, 'placed', '1');
+  if (!supportHolds(world, registry, x, y, z, placed)) return 'support';
   if (rules?.orient === 'axis')
-    placed = registry.withState(state, 'axis', hit.nx !== 0 ? 'x' : hit.nz !== 0 ? 'z' : 'y');
+    placed = registry.withState(placed, 'axis', hit.nx !== 0 ? 'x' : hit.nz !== 0 ? 'z' : 'y');
   else if (rules?.orient === 'facing')
-    placed = registry.withState(state, 'facing4', facingTowards(placer.yaw));
+    placed = registry.withState(placed, 'facing4', facingTowards(placer.yaw));
   if ((tables.flags[placed]! & FLAG_SOLID) !== 0 && bodyInCell(entities, registry, x, y, z, cells))
     return 'occupied';
   out.x = x;
@@ -79,6 +85,44 @@ export function planPlacement(
   out.state = placed;
   out.upper = cells === 2 ? registry.withState(placed, 'half', 'upper') : -1;
   return null;
+}
+
+/**
+ * The `attach` side of a block hung on the face whose normal is (nx, nz): the wall lies against
+ * the normal (the +z face of a block is the north wall of the cell in front of it).
+ */
+function wallOf(nx: number, nz: number): string {
+  if (nx !== 0) return nx > 0 ? 'w' : 'e';
+  return nz > 0 ? 'n' : 's';
+}
+
+/** Cell offset of each wall side (n is −z), as x, z pairs. */
+const WALL_OFFSET: Readonly<Record<string, readonly [number, number]>> = {
+  n: [0, -1],
+  e: [1, 0],
+  s: [0, 1],
+  w: [-1, 0],
+};
+
+/**
+ * Whether what holds a block in a cell is there (`placement.support`): the solid block below, or
+ * for a hung block (`attach`) its floor or its wall. Blocks without a support rule always hold.
+ */
+export function supportHolds(
+  world: VoxelWorld,
+  registry: Registry,
+  x: number,
+  y: number,
+  z: number,
+  state: number,
+): boolean {
+  const support = registry.blockDef(state).placement?.support;
+  if (support === undefined) return true;
+  const tables = registry.tables;
+  const side = support === 'attach' ? registry.prop(state, 'attach') : 'floor';
+  const offset = side === undefined || side === 'floor' ? undefined : WALL_OFFSET[side];
+  if (!offset) return solidCell(world, tables, x, y - 1, z);
+  return solidCell(world, tables, x + offset[0], y, z + offset[1]);
 }
 
 /** Whether a block can go into the cell: inside the world height, loaded and replaceable. */

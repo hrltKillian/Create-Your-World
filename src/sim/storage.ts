@@ -45,6 +45,8 @@ export interface WorldRecord {
   /** Next entity id (ids are never reused). */
   readonly nextEntityId: number;
   readonly spawn: { readonly x: number; readonly y: number; readonly z: number };
+  /** Block updates due or waiting: x, y, z, kind and ticks left, flat (BlockUpdateQueue). */
+  readonly blockUpdates?: readonly number[];
 }
 
 /** Store `players`, key `[worldId, playerId]`. */

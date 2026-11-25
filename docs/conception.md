@@ -2158,6 +2158,15 @@ Ce plan v2 répond à chacun d'eux.
 - une ancienne sauvegarde s'ouvre ;
 - perf « coupe de 30 bûches » : étape 10 ≤ 0,5 ms en médiane.
 
+**Retenu à la réalisation** (choix les plus simples qui tiennent la spec) :
+
+- Les mises à jour des colonnes non simulées attendent avec leur colonne (dans la file, sauvegardée avec l'enregistrement du monde), au lieu d'un champ `ColumnRecord.updates`.
+- Pas de fonction `changeBlock` : `removeBlock` (le seul chemin de casse, `by` = joueur ou `BY_WORLD` = −1) avertit les voisins (`noteRemoved`) ; une porte qui s'ouvre avertit ceux qu'elle portait (`noteChanged`). Les remplissages de debug n'avertissent personne.
+- Les feuilles tiennent si une bûche se trouve à 5 blocs au plus (distance de Manhattan), sans exiger un chemin de feuilles : les couronnes générées ont des trous. Une colonne non chargée dans ce rayon compte comme une bûche (on ne fait jamais tomber sur l'inconnu). Les feuilles d'un tronc abattu tombent toutes, avec leur butin.
+- Le support `face`, jamais utilisé, est remplacé par `attach` ; la forme murale vient de `BlockDef.wallShape`, tournée vers le mur. La moitié haute d'une porte repose sur sa moitié basse.
+- La visée fine teste directement les boîtes dessinées (élargies à 4/16) ; la confirmation d'une cible vise aussi le milieu de la première boîte (une natte basse, un battant fin).
+- `GEN_VERSION` 4 (les clés des feuilles et des torches changent), `SAVE_VERSION` 8 (le monde garde ses mises à jour).
+
 ### M15 — L'eau, règles de Minecraft (retour 17)
 
 **États** : niveau `level` (0 = source, 1–7 = écoulement) et `falling`. Tables précalculées pour éviter `withState` dans les boucles chaudes.

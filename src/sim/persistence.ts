@@ -101,6 +101,7 @@ function worldRecord(sim: Simulation, info: WorldInfo): WorldRecord {
     time: serializeTime(sim.time),
     nextEntityId: sim.nextEntityId,
     spawn: { x: sim.spawn.x, y: sim.spawn.y, z: sim.spawn.z },
+    blockUpdates: sim.blockUpdates.serialize(sim.tick),
   };
 }
 
@@ -426,6 +427,7 @@ export async function restoreSim(
   });
   sim.tick = world.tick;
   Object.assign(sim.time, deserializeTime(world.time));
+  if (Array.isArray(world.blockUpdates)) sim.blockUpdates.restore(world.blockUpdates, sim.tick);
   const entities: Entity[] = [];
   for (const record of stored.players) restorePlayer(sim, record, entities);
   const remap = stateRemap(world.stateKeys, sim.registry);

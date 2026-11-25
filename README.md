@@ -138,32 +138,28 @@ of them:
 
 ## Try this milestone
 
-**M13 — Bag, cursor, Logbook and workbench** (plan v2, `docs/conception.md` « M13 »).
-`npm run dev`, then open `http://localhost:5173/?worldType=arena&skipMenu=1`: the arena has a
-workshop row (workbench, kiln, campfire, chest) just north of the spawn.
+**M14 — Block updates, falling leaves, torches on walls** (plan v2, `docs/conception.md` « M14 »).
+`npm run dev`, then open `http://localhost:5173/?skipMenu=1` and find a tree.
 
-- **Clicks, as in Minecraft**: open the bag (E) and click a stack: it rides on the cursor under the
-  mouse until a second click puts it down. A right click takes half, or puts one item down;
-  Shift+click sends a stack across; a click beside the panel throws it (right: one item); 1–8 over
-  a slot swaps it with the hotbar. Close the bag with a stack on the cursor: it goes back to the
-  bag. The simulation owns the cursor and checks every click (ready for a server).
-- **Stacks of 64**: materials stack to 64 (an item may set less); tools, weapons, gear and
-  containers to 1. A saved stack over its item's maximum is split when the world opens.
-- **The Bag's tabs**: Inventory (the worn items) and Logbook, beside the bag and the hotbar.
-- **The Logbook**: type in its search box (« córd » finds the Cord and every recipe that takes
-  one: case and accents do not matter), tick « Can craft now », and see the recipes still to
-  discover greyed at the bottom of each tab, their unseen ingredients as « ? » with where they are
-  found. The Bag's Logbook lists the hand recipes and « N more at the Workbench ».
-- **The workbench**: right-click it for its own screen: its Logbook (its recipes only), its queue of
-  5 and its 4 output slots. Click ×1 five times: one queue entry of 5, not five. The bench works on
-  with nobody near; full outputs pause it; breaking it spills its outputs and the reserved
-  ingredients.
-- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m13` carries, splits, throws and
-  Shift+clicks stacks by clicks on the screens, stacks 70 items into 64 and 6, queues five ×1 at
-  the workbench and takes its crafts, then searches and filters its Logbook.
+- **Leaves fall**: cut a tree's trunk and, within 2 to 12 seconds, its leaves fall apart as if
+  broken (with their sticks or resin). Leaves you placed yourself never fall; leaves another log
+  still holds (within 5 blocks) stay.
+- **Torches on walls**: aim at the side of a block and place a torch: it hangs on that wall. On the
+  top of a block it stands on the floor; never on a ceiling. Break the wall and the torch falls.
+- **A thin aim**: a torch, a door or a bedroll is aimed at where it is drawn: aim beside a torch
+  and you reach the wall behind it.
+- **Under the hood**: one block-update queue (tick step 10) runs what the world does by itself:
+  supports, decaying leaves (and water next). It runs near players only, at most 256 updates a
+  tick, and is saved with the world (save version 8). Old saves read their torches as standing on
+  the floor and their leaves as grown.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m14` fells a trunk by hand and watches its
+  canopy fall, hangs a torch on a wall, aims past it and breaks the wall.
 
 ### Earlier milestones
 
+- **M13, bag, cursor, Logbook and workbench**: Minecraft-style clicks with a stack on the cursor,
+  stacks of 64, the Bag's tabs, a Logbook with search, filter and greyed recipes, the workbench's
+  own screen and queue; `?worldType=arena&fixedStep=1&selftest=m0,m13`.
 - **M12, controls and fuel**: a held jump jumps again on each landing, forward tapped twice
   sprints, eating slows the player, Esc on a screen goes back to play, fires burn only while they
   work (the campfire's « Keep burning »); `?worldType=flat&fixedStep=1&selftest=m0,m12`.

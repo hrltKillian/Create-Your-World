@@ -1,6 +1,10 @@
+import { SHAPE_BOXES } from '../../content/registry.ts';
 import type { BlockDef } from '../../content/schema.ts';
+import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { i18nMissing } from '../../i18n/i18n.ts';
+import type { SimEvent } from '../../sim/events.ts';
 import type { Inventory } from '../../sim/inventory.ts';
+import { inBag, moveClicks } from '../../sim/testing/slotMoves.ts';
 import { ARENA_WORKSHOP } from '../../world/gen/arena.ts';
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
 import type { App } from '../App.ts';
@@ -10,8 +14,10 @@ import {
   frameOrFail,
   framesFor,
   freezeTime,
+  give,
   look,
   press,
+  sendAndStep,
   setTime,
   teleport,
   waitForChunks,
@@ -236,13 +242,23 @@ export async function lookAt(app: App, x: number, y: number, z: number): Promise
 /**
  * Turns the view to the middle of the side of a block that faces the eye (along the larger
  * horizontal offset), so the aim ray meets that block first, and checks the aim on the next frame.
+ * A box shape (a door) is aimed at the middle of its first box, where it is drawn.
  * With `height` (a fraction of a block) it aims at the middle of the cell at that height instead:
  * the top of a low block (a bedroll, a campfire) seen from above.
  */
 export async function aimAt(app: App, { x, y, z }: Cell, height?: number): Promise<void> {
   const session = app.session!;
   await frameOrFail();
-  if (height === undefined) {
+  const tables = app.registry!.tables;
+  const state = session.host.view.world.getBlock(x, y, z);
+  // A box shape (a door, a bedroll) is aimed at where it is drawn: the middle of its first box.
+  const box =
+    height === undefined && tables.shape[state] === SHAPE_BOXES
+      ? tables.boxShapes[tables.boxShape[state]!]![0]
+      : undefined;
+  if (box) {
+    turnTo(app, x + (box[0] + box[3]) / 32, y + (box[1] + box[4]) / 32, z + (box[2] + box[5]) / 32);
+  } else if (height === undefined) {
     const eye = session.rig.eye;
     const ox = x + 0.5 - eye.x;
     const oz = z + 0.5 - eye.z;
@@ -322,4 +338,34 @@ export function drawsCase(skip: (app: App) => string | null): SelftestCase {
       assert(calls <= MAX_DRAWS, `${calls} draws at render distance ${rd} (> ${MAX_DRAWS})`);
     },
   };
+}
+
+/** The events of the ticks `run` steps. */
+export function eventsDuring(app: App, run: () => void): SimEvent[] {
+  const listeners = app.session!.listeners;
+  const events: SimEvent[] = [];
+  const listener = (event: SimEvent) => events.push(event);
+  listeners.push(listener);
+  try {
+    run();
+  } finally {
+    listeners.splice(listeners.indexOf(listener), 1);
+  }
+  return events;
+}
+
+/** Puts `count` of an item in the hotbar (swapped there from the bag if need be) and selects it. */
+export function holdInHand(app: App, item: string, count: number): void {
+  give(app, item, count);
+  const inventory = app.session!.player.inventory;
+  let slot = inventory.findIndex((stack, i) => i < HOTBAR_SLOTS && stack?.item === item);
+  if (slot < 0) {
+    const bag = inventory.findIndex((stack) => stack?.item === item);
+    assert(bag >= 0, `${item} did not reach the inventory (full?)`);
+    const clicks = moveClicks(app.registry!, bag, 0, inventory[bag]!, inventory[0]);
+    sendAndStep(app, ...inBag(...clicks));
+    slot = 0;
+  }
+  assert(inventory[slot]?.item === item, `${item} is not in hotbar slot ${slot}`);
+  app.input!.slot = slot;
 }
