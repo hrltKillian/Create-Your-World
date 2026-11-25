@@ -103,6 +103,44 @@ export const creatureSkins = [
     palette: ['#8f7458', '#9e8264', '#ad9171'],
     seed: 325,
   },
+  // The Glimmerback (plan v3 « M25 »): a moss-brown coat with glowing spore spots.
+  {
+    key: 'tex:glimmerback_coat',
+    pattern: 'speckle',
+    palette: ['#4a4a36', '#555540', '#61604a', '#6e6c54'],
+    seed: 327,
+  },
+  {
+    key: 'tex:glimmerback_spots',
+    pattern: 'ore',
+    palette: ['#3b3550', '#4a4262', '#584f74', '#7fe0c8', '#d4fff2'],
+    seed: 329,
+  },
+  {
+    key: 'tex:glimmerback_legs',
+    pattern: 'speckle',
+    palette: ['#2e2c24', '#38352b', '#423e32'],
+    seed: 331,
+  },
+  // The Reedwader: silver-slate plumes, ochre legs, a dark beak.
+  {
+    key: 'tex:reedwader_plumes',
+    pattern: 'bark',
+    palette: ['#5e6670', '#6f7882', '#828b95', '#98a1aa'],
+    seed: 333,
+  },
+  {
+    key: 'tex:reedwader_legs',
+    pattern: 'speckle',
+    palette: ['#9a7a3a', '#a98744', '#b8954f'],
+    seed: 335,
+  },
+  {
+    key: 'tex:reedwader_beak',
+    pattern: 'speckle',
+    palette: ['#22201e', '#2e2b28', '#3a3632'],
+    seed: 337,
+  },
 ] as const satisfies readonly TextureDef[];
 
 /**
@@ -259,6 +297,63 @@ export const creatureModels = [
       }),
       part('tail', [-1.5, 5, 9], [1.5, 8, 14], [0, 7, 9], 'tex:shellback_skin', {
         parent: 'belly',
+      }),
+    ],
+  },
+  {
+    // Slender and long-necked like a grazer, its back strewn with glowing spore spots.
+    key: 'model:glimmerback',
+    gait: 'quadruped',
+    stride: 2.1,
+    parts: [
+      part('legFL', [-2.5, 0, -5.5], [-0.5, 8, -3.5], [-1.5, 8, -4.5], 'tex:glimmerback_legs'),
+      part('legFR', [0.5, 0, -5.5], [2.5, 8, -3.5], [1.5, 8, -4.5], 'tex:glimmerback_legs'),
+      part('legBL', [-2.5, 0, 3.5], [-0.5, 8, 5.5], [-1.5, 8, 4.5], 'tex:glimmerback_legs'),
+      part('legBR', [0.5, 0, 3.5], [2.5, 8, 5.5], [1.5, 8, 4.5], 'tex:glimmerback_legs'),
+      part('body', [-3.5, 7, -7], [3.5, 13.5, 6.5], [0, 10, 0], 'tex:glimmerback_coat'),
+      part('spots', [-3, 13.5, -5.5], [3, 15, 5], [0, 13.5, 0], 'tex:glimmerback_spots', {
+        parent: 'body',
+        emissive: true,
+      }),
+      part('neck', [-1.5, 11, -9.5], [1.5, 17, -6], [0, 12, -7.5], 'tex:glimmerback_coat', {
+        parent: 'body',
+      }),
+      part('head', [-2, 15, -12.5], [2, 19, -8], [0, 16, -8.5], 'tex:glimmerback_coat', {
+        parent: 'neck',
+      }),
+      part('antlerL', [-3.5, 19, -10], [-1.5, 23, -9], [-2.5, 19, -9.5], 'tex:glimmerback_spots', {
+        parent: 'head',
+        emissive: true,
+      }),
+      part('antlerR', [1.5, 19, -10], [3.5, 23, -9], [2.5, 19, -9.5], 'tex:glimmerback_spots', {
+        parent: 'head',
+        emissive: true,
+      }),
+      part('tail', [-1, 10, 6.5], [1, 13, 8.5], [0, 13, 6.5], 'tex:glimmerback_coat', {
+        parent: 'body',
+      }),
+    ],
+  },
+  {
+    // A wading bird of the lakes: two long legs, a round body, an S-neck and a dagger beak.
+    key: 'model:reedwader',
+    gait: 'biped',
+    stride: 1.8,
+    parts: [
+      part('legL', [-2, 0, -0.5], [-1, 12, 0.5], [-1.5, 12, 0], 'tex:reedwader_legs'),
+      part('legR', [1, 0, -0.5], [2, 12, 0.5], [1.5, 12, 0], 'tex:reedwader_legs'),
+      part('body', [-3.5, 11, -4.5], [3.5, 17, 5.5], [0, 14, 0], 'tex:reedwader_plumes'),
+      part('neck', [-1, 16, -6], [1, 24, -4], [0, 16, -5], 'tex:reedwader_plumes', {
+        parent: 'body',
+      }),
+      part('head', [-1.5, 23, -8], [1.5, 26, -4.5], [0, 24, -5], 'tex:reedwader_plumes', {
+        parent: 'neck',
+      }),
+      part('beak', [-0.5, 23.5, -14], [0.5, 24.5, -8], [0, 24, -5], 'tex:reedwader_beak', {
+        parent: 'head',
+      }),
+      part('tail', [-2.5, 13, 5.5], [2.5, 16, 9], [0, 15, 5.5], 'tex:reedwader_plumes', {
+        parent: 'body',
       }),
     ],
   },

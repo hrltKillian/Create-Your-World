@@ -48,6 +48,8 @@ describe('creatures of the base pack', () => {
       ['creature:prowler', 'hostile', 'stalker', 22, 2.2, 5, 7],
       ['creature:swarmling', 'hostile', 'swarmer', 8, 2.5, 6, 3],
       ['creature:shellback', 'territorial', 'charger', 45, 1.2, 7, 12],
+      ['creature:glimmerback', 'passive', 'grazer', 14, 1.4, 5.4, 0],
+      ['creature:reedwader', 'defensive', 'defender', 16, 1.5, 5, 4],
     ]);
     expect(creatures.map((c) => basePack.strings[c.nameKey])).toEqual([
       'Trotter',
@@ -55,6 +57,8 @@ describe('creatures of the base pack', () => {
       'Prowler',
       'Swarmling',
       'Shellback',
+      'Glimmerback',
+      'Reedwader',
     ]);
   });
 
@@ -120,7 +124,15 @@ describe('creatures of the base pack', () => {
 
   it('are box models with the legs of their gait', () => {
     const gaits = creatures.map((c) => registry.model(c.model)!.gait);
-    expect(gaits).toEqual(['quadruped', 'hexapod', 'quadruped', 'hexapod', 'quadruped']);
+    expect(gaits).toEqual([
+      'quadruped',
+      'hexapod',
+      'quadruped',
+      'hexapod',
+      'quadruped',
+      'quadruped',
+      'biped',
+    ]);
     for (const model of basePack.models!) {
       const legs = model.parts.filter((p) => p.name.startsWith('leg')).map((p) => p.name);
       expect(legs.sort(), model.key).toEqual(Object.keys(GAIT_LEGS[model.gait]).sort());
@@ -150,9 +162,10 @@ describe('creatures of the base pack', () => {
         expect(r! > g! && g! > b!, hex).toBe(true);
       }
     }
-    // Only the Prowler's eyes glow.
-    const glowing = basePack.models!.flatMap((m) => m.parts.filter((p) => p.emissive));
-    expect(glowing).toEqual(eyes);
+    // No other creature has glowing amber eyes (the Glimmerback's spots glow teal).
+    for (const model of basePack.models!.filter((m) => m.key !== prowler.model))
+      for (const part of model.parts.filter((p) => p.emissive))
+        expect(part.name.startsWith('eye'), `${model.key} ${part.name}`).toBe(false);
   });
 
   it('have their voices, an attack voice only when they attack', () => {

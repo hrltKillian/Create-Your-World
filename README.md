@@ -138,17 +138,20 @@ of them:
 
 ## Try this milestone
 
-**M24 — Caves to visit and common ores** (plan v3, `docs/conception.md` « M24 »). `npm run dev`,
-then open `http://localhost:5173/?skipMenu=1`.
+**M25 — Fauna of the new biomes** (plan v3, `docs/conception.md` « M25 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
 
-- **Wide caves**: tunnels you walk in (two blocks of headroom, mostly 3×3), and from nearly anywhere
-  on dry land a walkable cave entrance within 96 blocks. Lake beds stay whole.
-- **Common ores everywhere**: Emberstone and copper in the stone of every biome, more often and in
-  bigger veins; the dark stone starts below y 16. Tin, bog iron and fireclay stay in their biome.
-- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m24`; `?view=xray` shows the caves and ores.
+- **The Glimmerback** grazes the Capwood under the giant mushrooms, its spore spots and antlers
+  glowing in the dark; it bolts when startled.
+- **The Reedwader**, a wading bird on two long legs, stalks the shores of the Mirror Basin in
+  flocks; hurt one and the flock pecks back.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m25`;
+  `__game.entities.spawn('creature:reedwader', x, 'surface', z)`.
 
 ### Earlier milestones
 
+- **M24, caves to visit and common ores**: wide caves with walkable entrances near everywhere,
+  Emberstone and copper in every biome; `?seed=7&rd=4&fixedStep=1&selftest=m0,m24`.
 - **M23, the biomes of Veyra**: eight biomes with their signature trees, rare giants, groves and
   new plants; `?seed=7&rd=4&fixedStep=1&selftest=m0,m23`.
 - **M22, XP, levels and skills**: XP from quests and tasks, six skills on the Status page (U), level

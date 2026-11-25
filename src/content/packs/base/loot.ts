@@ -94,6 +94,22 @@ export const loot = [
     ],
   },
   {
+    key: 'loot:glimmerback',
+    rolls: [2, 2],
+    entries: [
+      { item: 'item:raw_meat', count: [1, 2], weight: 2 },
+      { item: 'item:raw_hide', count: [1, 1], weight: 1 },
+    ],
+  },
+  {
+    key: 'loot:reedwader',
+    rolls: [1, 2],
+    entries: [
+      { item: 'item:raw_meat', count: [1, 1], weight: 2 },
+      { item: 'item:plant_fiber', count: [1, 2], weight: 1 },
+    ],
+  },
+  {
     key: 'loot:shagback',
     rolls: [2, 2],
     // Sinew too: bronze tools stay within reach in worlds without hostiles (no structures yet).

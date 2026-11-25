@@ -6,6 +6,7 @@ import { persistentHash } from '../../../src/sim/persistence.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
 import { SPAWN, stepSpawning } from '../../../src/sim/spawning.ts';
 import { blockToColumn, columnKey } from '../../../src/world/coords.ts';
+import { findBiome } from '../../../src/world/gen/find.ts';
 import { skyOf } from '../../../src/world/light.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle } from '../../helpers/save.ts';
@@ -203,6 +204,31 @@ describe('spawning', () => {
 });
 
 describe('herds', () => {
+  it('place the herds of the new biomes there: Glimmerbacks in the Capwood, Reedwaders by the lakes', () => {
+    for (const [creature, biome] of [
+      ['creature:glimmerback', 'biome:capwood'],
+      ['creature:reedwader', 'biome:lake_basin'],
+    ] as const) {
+      const s = createTestSim({ seed: 'herds-veyra', worldType: 'default', allowDebug: true });
+      s.sim.addPlayer(1, 3);
+      settle(s.sim);
+      let found = 0;
+      // A few places of the biome, until a herd of it shows up.
+      for (let from = 0; from < 6 && found === 0; from++) {
+        const hit = findBiome(s.sim.ctx, biome, { x: from * 700, z: -from * 500 }, 1500);
+        expect(hit, biome).not.toBeNull();
+        s.host.send({ type: 'debug.teleport', x: hit!.x + 0.5, y: 'surface', z: hit!.z + 0.5 });
+        s.step(1);
+        settle(s.sim);
+        s.step(5);
+        found = [...s.sim.entities.values()].filter(
+          (e) => e.kind === 'creature' && e.creature === creature,
+        ).length;
+      }
+      expect(found, creature).toBeGreaterThan(0);
+    }
+  }, 60_000);
+
   it('are placed when a column is first generated, saved with it and never placed twice', async () => {
     const s = createTestSim({ seed: 'herds', worldType: 'default', allowDebug: true });
     s.sim.addPlayer(1, 4);

@@ -329,6 +329,8 @@ describe('creatures', () => {
       'creature:prowler': 1,
       'creature:swarmling': 0,
       'creature:shellback': 1,
+      'creature:glimmerback': 0,
+      'creature:reedwader': 0,
     });
     // Whatever its front plate or a recent blow.
     shellback.invulnerable = 5;

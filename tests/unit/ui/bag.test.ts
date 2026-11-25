@@ -509,7 +509,15 @@ describe('StationScreen', () => {
     bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, rows, [], [], STATUS);
     bag.show('bestiary');
     const cards = fake(bag.element).findAll((el) => el.getAttribute('data-creature') !== null);
-    expect(cards.map((el) => el.getAttribute('data-level'))).toEqual(['2', '0', '1', '0', '0']);
+    expect(cards.map((el) => el.getAttribute('data-level'))).toEqual([
+      '2',
+      '0',
+      '1',
+      '0',
+      '0',
+      '0',
+      '0',
+    ]);
     const text = (i: number) => cards[i]!.textContent ?? '';
     expect(text(1)).toContain('Unknown creature');
     expect(text(0)).toContain('Trotter');
