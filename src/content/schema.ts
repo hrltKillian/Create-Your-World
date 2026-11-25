@@ -600,13 +600,27 @@ export interface BiomeDef {
    */
   readonly features?: readonly { readonly feature: FeatureKey; readonly chance: number }[];
   readonly plants?: readonly { readonly block: BlockKey; readonly chance: number }[];
+  /**
+   * Sub-zones (plan v3 « M23 »): a slow noise of `scale` blocks multiplies the features' chances
+   * by 1 + `contrast` × n (n in −1…1, never below 0): clearings where it is low, dense groves
+   * where it is high.
+   */
+  readonly groves?: { readonly scale: number; readonly contrast: number };
 }
 
 /**
- * Decoration shapes: trees (trunk + canopy), giant mushrooms (stem + cap), boulders (a mound of
- * `block`), columns (a stack of `block`) and patches (`block` on the surface around the centre).
+ * Decoration shapes: trees (trunk + canopy: round, conical, or a willow's dome with hanging
+ * strands), giant mushrooms (stem + cap), boulders (a mound of `block`), columns (a stack of
+ * `block`) and patches (`block` on the surface around the centre).
  */
-export type FeatureKind = 'broadleaf' | 'conifer' | 'mushroom' | 'boulder' | 'column' | 'patch';
+export type FeatureKind =
+  | 'broadleaf'
+  | 'conifer'
+  | 'willow'
+  | 'mushroom'
+  | 'boulder'
+  | 'column'
+  | 'patch';
 
 /** A decoration feature. Every shape stays within 7 blocks of its centre horizontally. */
 export interface FeatureDef {
@@ -620,6 +634,8 @@ export interface FeatureDef {
   readonly size: readonly [number, number];
   /** The feature only grows on these surface blocks. */
   readonly soil: readonly BlockKey[];
+  /** A giant's 2×2 trunk and its wider crown (trees only; 1 when absent). */
+  readonly trunk?: 1 | 2;
 }
 
 /** Layout of the developer test scene (`?scene=testchunk`), described with the pack's own blocks. */

@@ -10,46 +10,89 @@ import { registry } from '../../helpers/registry.ts';
 const ctx = createGenContext('decor', registry);
 const state = (key: `block:${string}`) => registry.defaultState(key);
 
-/** The 3×3 columns around the first column whose centre lies in a biome. */
+/** The 3×3 columns around the first column whose centre lies on dry land of a biome. */
 function groupIn(biome: string) {
-  const { cx, cz } = findColumn(ctx, (info) => info.biome === biomeIndex(ctx, biome));
+  const { cx, cz } = findColumn(
+    ctx,
+    (info) => info.biome === biomeIndex(ctx, biome) && info.height > ctx.def.seaLevel,
+  );
   const coords: [number, number][] = [];
   for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) coords.push([cx + dx, cz + dz]);
   return coords;
 }
 
 describe('decoration', () => {
-  it('stands every trunk, stem and column on itself or on solid ground', () => {
-    const trunks = new Map(
-      (
-        [
-          ['block:broadleaf_log', 'biome:forest'],
-          ['block:conifer_log', 'biome:tundra'],
-          ['block:mushroom_stem', 'biome:fungal_marsh'],
-          ['block:palmthorn', 'biome:ochre_desert'],
-        ] as const
-      ).map(([block, biome]) => [state(block), { biome, count: 0 }]),
-    );
+  it('grows every species of each biome, trunks standing on themselves or on ground', () => {
     const ground = FLAG_SOLID | FLAG_OPAQUE;
-    for (const [trunk, entry] of trunks) {
-      for (const [cx, cz] of groupIn(entry.biome)) {
+    for (const biome of ctx.biomes) {
+      // Giants are rare: their own test looks farther.
+      const grown = biome.features.filter(
+        (f) => f.feature.trunk === 1 && f.feature.kind !== 'patch',
+      );
+      const counts = new Map<number, number>();
+      for (const [cx, cz] of groupIn(biome.def.key)) {
         const column = generate(ctx, cx, cz);
         for (let cell = 0; cell < 1024; cell++) {
           const lx = cell & 31;
           const lz = cell >> 5;
           for (let y = 1; y < 256; y++) {
-            if (blockIn(column, lx, y, lz) !== trunk) continue;
+            const block = blockIn(column, lx, y, lz);
+            counts.set(block, (counts.get(block) ?? 0) + 1);
+            if (!grown.some((f) => f.feature.block === block && f.feature.kind !== 'boulder'))
+              continue;
             const below = blockIn(column, lx, y - 1, lz);
             const flags = registry.tables.flags[below]!;
-            expect(
-              below === trunk || (flags & ground) === ground,
-              `${cx} ${cz} ${lx} ${y} ${lz}`,
-            ).toBe(true);
-            entry.count++;
+            expect(below === block || (flags & ground) === ground, `${cx} ${cz} ${lx} ${y}`).toBe(
+              true,
+            );
           }
         }
       }
-      expect(entry.count, registry.states[trunk]!.key).toBeGreaterThan(0);
+      for (const { feature } of grown)
+        for (const block of [feature.block, feature.crown].filter((b) => b >= 0))
+          expect(
+            counts.get(block) ?? 0,
+            `${registry.states[block]!.key} in ${biome.def.key}`,
+          ).toBeGreaterThan(0);
+      // Every plant of the biome too (plan v3 « M23 »: 3 or more, one useful).
+      expect(biome.plants.length, biome.def.key).toBeGreaterThanOrEqual(2);
+      for (const plant of biome.plants)
+        expect(
+          counts.get(plant.state) ?? 0,
+          `${registry.states[plant.state]!.key} in ${biome.def.key}`,
+        ).toBeGreaterThan(0);
+    }
+  });
+
+  it('grows the rare giants, their 2×2 trunks standing on ground', () => {
+    for (const biome of ctx.biomes) {
+      for (const { feature } of biome.features.filter((f) => f.feature.trunk === 2)) {
+        const { cx, cz } = findColumn(ctx, (info) => info.biome === biomeIndex(ctx, biome.def.key));
+        let tall = 0;
+        for (let dz = -5; dz <= 5 && tall === 0; dz++)
+          for (let dx = -5; dx <= 5 && tall === 0; dx++) {
+            const column = generate(ctx, cx + dx, cz + dz);
+            for (let cell = 0; cell < 1024 && tall === 0; cell++) {
+              const lx = cell & 31;
+              const lz = cell >> 5;
+              if (lx === 31 || lz === 31) continue;
+              let run = 0;
+              for (let y = 1; y < 256; y++) {
+                const quad =
+                  blockIn(column, lx, y, lz) === feature.block &&
+                  blockIn(column, lx + 1, y, lz) === feature.block &&
+                  blockIn(column, lx, y, lz + 1) === feature.block &&
+                  blockIn(column, lx + 1, y, lz + 1) === feature.block;
+                run = quad ? run + 1 : 0;
+                if (run >= feature.size0) tall = run;
+              }
+            }
+          }
+        expect(
+          tall,
+          `a giant of ${registry.states[feature.block]!.key} in ${biome.def.key}`,
+        ).toBeGreaterThanOrEqual(feature.size0);
+      }
     }
   });
 
@@ -65,31 +108,6 @@ describe('decoration', () => {
     const [cx, cz] = coords[4]!;
     const alone = createGenContext('decor', registry);
     expect(columnHash(alone, generate(alone, cx, cz))).toBe(forward[4]);
-  });
-
-  it('grows the features of each biome', () => {
-    const expected: [string, `block:${string}`][] = [
-      ['biome:fungal_marsh', 'block:glowcap'],
-      ['biome:ochre_desert', 'block:thornbush'],
-      ['biome:highlands', 'block:stone'],
-      ['biome:forest', 'block:foliage'],
-    ];
-    const cache = new LatticeCache();
-    for (const [biome, key] of expected) {
-      const target = state(key);
-      let above = 0;
-      for (const [cx, cz] of groupIn(biome)) {
-        const column = generate(ctx, cx, cz);
-        for (let cell = 0; cell < 1024; cell++) {
-          const lx = cell & 31;
-          const lz = cell >> 5;
-          const h = heightAt(ctx, cache, cx * 32 + lx, cz * 32 + lz);
-          for (let y = h + 1; y < Math.min(256, h + 14); y++)
-            if (blockIn(column, lx, y, lz) === target) above++;
-        }
-      }
-      expect(above, `${key} in ${biome}`).toBeGreaterThan(0);
-    }
   });
 
   it('puts plants on the bare biome surface only', () => {

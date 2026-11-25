@@ -58,9 +58,8 @@ describe('item models', () => {
     expect(torch.skin.ox).toBe(7 / 16);
   });
 
-  it('tints grass and foliage like the chunks, and cuts out the holes of coverage layers', () => {
+  it('tints grass like the chunks, and cuts out the holes of coverage layers', () => {
     const grass = boxTint(basePack.tints.grass);
-    const foliage = boxTint(basePack.tints.foliage);
     const skin = (key: string) => model(key).parts[0]!.skin;
     // Grass: tinted top and sides (alpha masks the tint), plain dirt below.
     expect(skin('item:grass')).toMatchObject({
@@ -69,11 +68,12 @@ describe('item models', () => {
       bottomTint: BOX_NO_TINT,
       cutout: false,
     });
+    // Leaves of Veyra keep their species' own colour (plan v3 « M23 »): cut out, not tinted.
     for (const key of ['item:foliage', 'item:needles'])
       expect(skin(key), key).toMatchObject({
-        sideTint: foliage,
-        topTint: foliage,
-        bottomTint: foliage,
+        sideTint: BOX_NO_TINT,
+        topTint: BOX_NO_TINT,
+        bottomTint: BOX_NO_TINT,
         cutout: true,
       });
     expect(skin('item:stone')).toMatchObject({

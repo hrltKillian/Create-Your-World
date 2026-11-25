@@ -49,6 +49,52 @@ const plant = (
   ...extra,
 });
 
+/** A tree trunk (plan v3 « M23 »: each species its own bark), a log of the recipes. */
+const log = (
+  key: `block:${string}`,
+  nameKey: PackI18nKey,
+  bark: `tex:${string}`,
+  rings: `tex:${string}`,
+): PackBlock => ({
+  key,
+  nameKey,
+  shape: 'cube',
+  pass: 'opaque',
+  textures: { side: bark, top: rings },
+  collision: 'full',
+  opaque: true,
+  hardness: 2,
+  tool: 'axe',
+  drops: 'self',
+  states: ['axis'],
+  placement: { orient: 'axis' },
+  sound: 'wood',
+  item: LOG_ITEM,
+});
+
+/** A species' leaves, its own colour (no biome tint), falling once no log holds them. */
+const leaves = (
+  key: `block:${string}`,
+  nameKey: PackI18nKey,
+  texture: `tex:${string}`,
+  drops: `loot:${string}`,
+): PackBlock => ({
+  key,
+  nameKey,
+  states: ['placed'],
+  decay: LEAF_DECAY,
+  shape: 'cube',
+  pass: 'cutout',
+  cullGroup: 'leaves',
+  textures: { all: texture },
+  collision: 'full',
+  opaque: false,
+  light: { filter: 1 },
+  hardness: 0.2,
+  drops,
+  sound: 'leaves',
+});
+
 /** Palmthorn trunk: a spiny 12/16 column. */
 const PALMTHORN = [[2, 0, 2, 14, 16, 14]] as const;
 
@@ -108,40 +154,31 @@ export const natureBlocks = [
       flow: { seconds: 0.5, holeSearch: 4, infinite: false },
     },
   },
-  {
-    key: 'block:conifer_log',
-    nameKey: 'block.conifer_log',
-    shape: 'cube',
-    pass: 'opaque',
-    textures: { side: 'tex:conifer_bark', top: 'tex:conifer_rings' },
-    collision: 'full',
-    opaque: true,
-    hardness: 2,
-    tool: 'axe',
-    drops: 'self',
-    states: ['axis'],
-    placement: { orient: 'axis' },
-    sound: 'wood',
-    item: LOG_ITEM,
-  },
-  {
-    key: 'block:needles',
-    nameKey: 'block.needles',
-    states: ['placed'],
-    decay: LEAF_DECAY,
-    shape: 'cube',
-    pass: 'cutout',
-    cullGroup: 'leaves',
-    textures: { all: 'tex:needles' },
-    tint: 'foliage',
-    collision: 'full',
-    opaque: false,
-    light: { filter: 1 },
-    hardness: 0.2,
-    drops: 'loot:needles',
-    sound: 'leaves',
-  },
+  // The species of Veyra (plan v3 « M23 »), one per biome: the Veilpine (conifer_log, needles)
+  // of the Veilwood, the Frostpine of the Rimefrost, the Twistpine of the Shard Highlands, the
+  // Mirror Willow of the Mirror Basin and the Podtree of the Sporefen; the Lanternwood
+  // (broadleaf_log, foliage) of the Amberfield lies with the base blocks.
+  log('block:conifer_log', 'block.conifer_log', 'tex:conifer_bark', 'tex:conifer_rings'),
+  leaves('block:needles', 'block.needles', 'tex:needles', 'loot:needles'),
+  log('block:frostpine_log', 'block.frostpine_log', 'tex:frostpine_bark', 'tex:frostpine_rings'),
+  leaves('block:frost_needles', 'block.frost_needles', 'tex:frost_needles', 'loot:needles'),
+  log('block:twistpine_log', 'block.twistpine_log', 'tex:twistpine_bark', 'tex:twistpine_rings'),
+  leaves('block:twist_needles', 'block.twist_needles', 'tex:twist_needles', 'loot:needles'),
+  log('block:willow_log', 'block.willow_log', 'tex:willow_bark', 'tex:willow_rings'),
+  leaves('block:willow_leaves', 'block.willow_leaves', 'tex:willow_leaves', 'loot:foliage'),
+  log('block:pod_log', 'block.pod_log', 'tex:pod_bark', 'tex:pod_rings'),
+  leaves('block:pod_leaves', 'block.pod_leaves', 'tex:pod_leaves', 'loot:pod_leaves'),
   plant('block:frost_lichen', 'block.frost_lichen', 'tex:frost_lichen'),
+  // Plants of Veyra (plan v3 « M23 »): one useful at least in every biome.
+  plant('block:amber_bell', 'block.amber_bell', 'tex:amber_bell'),
+  plant('block:veil_fern', 'block.veil_fern', 'tex:veil_fern'),
+  plant('block:cap_sprout', 'block.cap_sprout', 'tex:cap_sprout', { light: { emit: 3 } }),
+  plant('block:reed', 'block.reed', 'tex:reed', { drops: 'loot:tall_grass' }),
+  plant('block:frost_bulb', 'block.frost_bulb', 'tex:frost_bulb', { drops: 'loot:frost_bulb' }),
+  plant('block:crystal_sprout', 'block.crystal_sprout', 'tex:crystal_sprout', {
+    light: { emit: 4 },
+    drops: 'loot:crystal_sprout',
+  }),
   plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub', { drops: 'loot:dry_shrub' }),
   plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush', { drops: 'loot:berry_bush' }),
   plant('block:thornbush', 'block.thornbush', 'tex:thornbush', { contact: { damagePerSec: 1 } }),
@@ -165,6 +202,8 @@ export const natureBlocks = [
     placement: { support: 'below' },
     sound: 'wood',
   },
+  // The Capwood's giant mushrooms are trees (plan v3 « M23 »): the stem is a log, the cap falls
+  // once no stem holds it.
   {
     key: 'block:mushroom_stem',
     nameKey: 'block.mushroom_stem',
@@ -177,8 +216,11 @@ export const natureBlocks = [
     tool: 'axe',
     drops: 'self',
     sound: 'wood',
+    item: LOG_ITEM,
   },
   cube('block:glowcap', 'block.glowcap', 'tex:glowcap', 0.4, 'leaves', {
+    states: ['placed'],
+    decay: { anchors: ['block:mushroom_stem'], radius: 7, seconds: [2, 12] },
     light: { emit: 6 },
     tool: 'axe',
     item: { hintKey: 'where.glowcap' },

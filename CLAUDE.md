@@ -461,6 +461,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Biome checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m23` (`selftest/m23.ts`): a
+  teleport into each biome with trees finds its signature crown around. Species, giants
+  (`FeatureDef.trunk: 2`), the `willow` kind and sub-zones (`BiomeDef.groves`, `groveFactor` in
+  `world/gen/decor.ts`) are pack data; flora textures in `content/packs/base/texturesFlora.ts`.
 - Progression checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m22` (`selftest/m22.ts`):
   U opens the Status page, a point spent by its « + » (`data-action="skill-spend"`, `data-skill`),
   a task done claimed by its button (`data-task`, `data-action="task-claim"`). Hook (version 22):

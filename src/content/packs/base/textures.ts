@@ -60,21 +60,22 @@ export const textures = [
     seed: 19,
   },
   {
+    // Lanternwood (plan v3 « M23 »): grey-violet bark, yellow-green crown.
     key: 'tex:log_bark',
     pattern: 'bark',
-    palette: ['#3b2a1d', '#4a3524', '#5a422e', '#6b5039'],
+    palette: ['#3a3242', '#473e52', '#554a62', '#635873'],
     seed: 21,
   },
   {
     key: 'tex:log_rings',
     pattern: 'rings',
-    palette: ['#5a422e', '#9b7a52', '#b08d62', '#c4a174'],
+    palette: ['#554a62', '#a48f8a', '#b8a39c', '#cab6ad'],
     seed: 23,
   },
   {
     key: 'tex:foliage',
     pattern: 'leaves',
-    palette: ['#7f8a6c', '#97a27f', '#aeb993', '#c4cfa8'],
+    palette: ['#6f8a26', '#86a131', '#9db63e', '#b8cc4e'],
     seed: 25,
     alpha: 'coverage',
   },
@@ -203,21 +204,22 @@ export const textures = [
     alpha: 'coverage',
   },
   {
+    // Veilpine: rust bark, blue-green needles.
     key: 'tex:conifer_bark',
     pattern: 'bark',
-    palette: ['#2a1d16', '#35251c', '#412e23', '#4d382b'],
+    palette: ['#4a2416', '#5c2d1b', '#6f3822', '#82432a'],
     seed: 63,
   },
   {
     key: 'tex:conifer_rings',
     pattern: 'rings',
-    palette: ['#412e23', '#8a6b49', '#9c7b56', '#ad8b63'],
+    palette: ['#6f3822', '#a8724e', '#b9835c', '#c9946a'],
     seed: 65,
   },
   {
     key: 'tex:needles',
     pattern: 'leaves',
-    palette: ['#5e6a58', '#6f7c68', '#808e78', '#93a18a'],
+    palette: ['#2a5853', '#346a64', '#3f7c75', '#4d9088'],
     seed: 67,
     alpha: 'coverage',
   },

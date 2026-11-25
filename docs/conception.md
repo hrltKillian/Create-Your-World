@@ -2758,6 +2758,15 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - chapeaux et feuilles reliés à leur ancre ;
 - bordures nettes (test existant).
 
+**Retenu à la réalisation** :
+
+- Huit biomes : les sept clés existantes gardent leurs noms de Veyra, et le Capwood s'ajoute (`biome:capwood`, humidité > 0,4, T > −0,3, entre les Highlands et le Veilwood). L'Ashen Steppe optionnelle n'est pas retenue.
+- Essences : Lanternwood (`broadleaf_log`/`foliage` recolorés), Veilpine (`conifer_log`/`needles`), Frostpine, Twistpine, Saule-miroir (nouveau genre `willow` : dôme et brins pendants), Podtree (bas, sans champignon dans le Sporefen) et les champignons géants du Capwood (le pied est une bûche, le chapeau tombe sans pied : `decay` rayon 7). Les feuilles n'ont plus la teinte du biome : chaque essence a sa couleur.
+- Géants : `FeatureDef.trunk: 2` (tronc 2×2, couronne plus large et ronde) : Lanternwood géant (Amberfield) et Vieux Voile (Veilwood, 20 à 26 blocs). Les feuilles tombent dans un rayon 6.
+- Sous-zones : `BiomeDef.groves { scale, contrast }`, un bruit de valeurs lent (coins hachés, mélange lissé) qui multiplie les chances des éléments : clairières et bosquets (Amberfield, Veilwood, Capwood).
+- Plantes nouvelles (clochettes d'ambre, fougères voilées, pousses de chapeau, roseaux-lances, bulbes de givre, pousses de cristal) ; au moins une utile par biome (fibres, baies, bulbe de givre → Ice Bulb qui désaltère, éclat de cristal). Les rochers de grès du désert disparaissent : seuls les Shard Highlands en ont.
+- Tests : chaque essence, chaque plante et chaque géant poussent dans leur biome ; feuilles et chapeaux tiennent à leur ancre ; garanties à 1 km sur 20 graines (tests existants) ; selftest `m23` (`?seed=7&rd=4&fixedStep=1&selftest=m0,m23`). `GEN_VERSION` 8.
+
 ### M24 — Sous-sol praticable : grottes et minerais (retours 4, 5)
 
 **Grottes visitables** :

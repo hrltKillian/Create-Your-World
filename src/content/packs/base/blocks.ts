@@ -7,10 +7,20 @@ type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 const TORCH: readonly Box16[] = [[7, 0, 7, 9, 10, 9]];
 /** A torch hung on the north wall of its cell (turned to the wall's side). */
 const WALL_TORCH: readonly Box16[] = [[7, 3, 0, 9, 13, 2]];
-/** Leaves fall apart a few seconds after no log holds them (« Feuilles », M14). */
+/**
+ * Leaves fall apart a few seconds after no log holds them (« Feuilles », M14), whatever the
+ * species (a giant's crown reaches farther from its trunk: radius 6).
+ */
 export const LEAF_DECAY = {
-  anchors: ['block:broadleaf_log', 'block:conifer_log'],
-  radius: 5,
+  anchors: [
+    'block:broadleaf_log',
+    'block:conifer_log',
+    'block:frostpine_log',
+    'block:twistpine_log',
+    'block:willow_log',
+    'block:pod_log',
+  ],
+  radius: 6,
   seconds: [2, 12],
 } as const;
 /** Gate panel on the north side when facing north and closed. */
@@ -179,7 +189,6 @@ export const blocks = [
     pass: 'cutout',
     cullGroup: 'leaves',
     textures: { all: 'tex:foliage' },
-    tint: 'foliage',
     collision: 'full',
     opaque: false,
     light: { filter: 1 },

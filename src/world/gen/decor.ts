@@ -12,9 +12,10 @@ import { nearSite, type StructureSite } from './structures.ts';
 
 /*
  * Decoration (docs « Génération » step 7): plants per surface block, and features (trees, giant
- * mushrooms, boulders, columns, patches) with at most one candidate per 8×8 cell. A candidate is
- * a pure function of the seed, the surface height, the biome, the banks and the caves at its
- * centre. Every column replays the candidates around it in a fixed order and writes only its own
+ * mushrooms, boulders, columns, patches) with at most one candidate per 8×8 cell, its chances
+ * scaled by the biome's sub-zones (`groves`: clearings and dense groves, plan v3 « M23 »). A
+ * candidate is a pure function of the seed, the surface height, the biome, the banks and the caves
+ * at its centre. Every column replays the candidates around it in a fixed order and writes only its own
  * voxels, so the result does not depend on the order in which columns are generated.
  */
 
@@ -27,6 +28,8 @@ export interface ResolvedFeature {
   readonly size0: number;
   readonly size1: number;
   readonly soil: ReadonlySet<number>;
+  /** 2: a giant's 2×2 trunk and wider crown. */
+  readonly trunk: number;
 }
 
 /** Side of a candidate cell, and how far a feature reaches from its centre. */
@@ -86,9 +89,33 @@ export function placePlants(ctx: GenContext, column: Column, heights: Int16Array
   }
 }
 
-/** The feature a candidate cell draws (`u` in [0, 1)), or null. */
-function pickFeature(biome: ResolvedBiome, u: number): ResolvedFeature | null {
-  let rest = u;
+/** Smoothstep of t in [0, 1]. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * The biome's sub-zone factor at a point: 1 + contrast × n, n a value noise in −1…1 of lattice
+ * `scale` (hashed corners, smoothed bilinear blend), never below 0.
+ */
+function groveFactor(ctx: GenContext, biome: ResolvedBiome, x: number, z: number): number {
+  const groves = biome.def.groves;
+  if (!groves) return 1;
+  const gx = x / groves.scale;
+  const gz = z / groves.scale;
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const tx = smooth(gx - ix);
+  const tz = smooth(gz - iz);
+  const at = (dx: number, dz: number) => hashUnit(ctx.seedHash, ix + dx, iz + dz, 61);
+  const top = at(0, 0) + (at(1, 0) - at(0, 0)) * tx;
+  const bottom = at(0, 1) + (at(1, 1) - at(0, 1)) * tx;
+  const n = 2 * (top + (bottom - top) * tz) - 1;
+  return Math.max(0, 1 + groves.contrast * n);
+}
+
+/** The feature a candidate cell draws (`u` in [0, 1), the chances × `factor`), or null. */
+function pickFeature(biome: ResolvedBiome, u: number, factor: number): ResolvedFeature | null {
+  if (factor <= 0) return null;
+  let rest = u / factor;
   for (const option of biome.features) {
     if (rest < option.chance) return option.feature;
     rest -= option.chance;
@@ -126,7 +153,8 @@ export function placeFeatures(
       const h = heightAt(ctx, cache, px, pz, sample);
       if (h < ctx.def.seaLevel || h + 1 >= WORLD_HEIGHT) continue;
       const biome = ctx.biomes[biomeOf(ctx, cache, px, pz)]!;
-      const feature = pickFeature(biome, hashUnit(ctx.seedHash, cx, cz, 5));
+      const factor = groveFactor(ctx, biome, px, pz);
+      const feature = pickFeature(biome, hashUnit(ctx.seedHash, cx, cz, 5), factor);
       if (feature === null) continue;
       const bank = bankAt(ctx, px, pz, h);
       if (!feature.soil.has(bank >= 0 ? bank : biome.surface)) continue;
@@ -157,6 +185,9 @@ function writeFeature(
     case 'conifer':
       writeConifer(ctx, column, feature, x, h + size, z, size);
       break;
+    case 'willow':
+      writeWillow(ctx, column, feature, x, h + size, z);
+      break;
     case 'mushroom':
       writeCap(ctx, column, feature, x, h + size, z, 2 + (bits & 1));
       break;
@@ -169,11 +200,18 @@ function writeFeature(
       writePatch(ctx, column, heights, feature, x, z, size);
       return;
   }
-  // Trunks, stems and columns last: they replace anything (a neighbour's canopy, plants).
-  for (let y = h + 1; y <= h + size; y++) put(ctx, column, x, y, z, feature.block, false);
+  // Trunks, stems and columns last: they replace anything (a neighbour's canopy, plants). A
+  // giant's trunk is 2×2, towards +x and +z.
+  for (let dz = 0; dz < feature.trunk; dz++)
+    for (let dx = 0; dx < feature.trunk; dx++)
+      for (let y = h + 1; y <= h + size; y++)
+        put(ctx, column, x + dx, y, z + dz, feature.block, false);
 }
 
-/** Broadleaf canopy around the trunk top: radius 2 on three layers, then a radius 1 cap. */
+/**
+ * Broadleaf canopy around the trunk top: radius 2 on three layers, then a radius 1 cap; a giant's
+ * is two wider (radius 4 on five layers, then 3).
+ */
 function writeBroadleaf(
   ctx: GenContext,
   column: Column,
@@ -182,19 +220,22 @@ function writeBroadleaf(
   top: number,
   z: number,
 ): void {
-  for (let dy = -2; dy <= 1; dy++) {
-    const radius = dy === 1 ? 1 : 2;
+  const wide = 2 * (feature.trunk - 1);
+  for (let dy = -2 - wide; dy <= 1; dy++) {
+    const radius = (dy === 1 ? 1 : 2) + wide;
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dz = -radius; dz <= radius; dz++) {
         const corner = Math.abs(dx) === radius && Math.abs(dz) === radius;
         if (corner && hash32(ctx.seedHash, x + dx, top + dy, z + dz) % 3 !== 0) continue;
+        // A giant's crown is round: every leaf within the leaves' decay radius of its trunk.
+        if (Math.abs(dx) + Math.abs(dz) > radius + 2) continue;
         put(ctx, column, x + dx, top + dy, z + dz, feature.crown, true);
       }
     }
   }
 }
 
-/** Conifer: stacked rings that shrink towards the tip. */
+/** Conifer: stacked rings that shrink towards the tip (a giant's up to radius 5, not 3). */
 function writeConifer(
   ctx: GenContext,
   column: Column,
@@ -207,11 +248,43 @@ function writeConifer(
   for (let dy = -height + 3; dy <= 1; dy++) {
     const fromTop = 1 - dy;
     const radius =
-      fromTop <= 1 ? 0 : Math.min(3, 1 + ((fromTop - 1) >> 1) - (fromTop % 2 === 0 ? 1 : 0));
+      fromTop <= 1
+        ? 0
+        : Math.min(1 + 2 * feature.trunk, 1 + ((fromTop - 1) >> 1) - (fromTop % 2 === 0 ? 1 : 0));
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dz = -radius; dz <= radius; dz++) {
         if (Math.abs(dx) + Math.abs(dz) > radius + 1) continue;
         put(ctx, column, x + dx, top + dy, z + dz, feature.crown, true);
+      }
+    }
+  }
+}
+
+/**
+ * Willow: a dome of radius 3 over the trunk top and radius 2 above it, with strands hanging from
+ * about half of its rim cells, 2 to 4 blocks down.
+ */
+function writeWillow(
+  ctx: GenContext,
+  column: Column,
+  feature: ResolvedFeature,
+  x: number,
+  top: number,
+  z: number,
+): void {
+  for (let dy = 0; dy <= 1; dy++) {
+    const radius = 3 - dy;
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        const d = dx * dx + dz * dz;
+        if (d > radius * radius + 1) continue;
+        put(ctx, column, x + dx, top + dy, z + dz, feature.crown, true);
+        if (dy !== 0 || d < (radius - 1) * (radius - 1) + 1) continue;
+        const roll = hash32(ctx.seedHash, x + dx, top, z + dz);
+        if ((roll & 1) === 0) continue;
+        const length = 2 + ((roll >>> 1) % 3);
+        for (let s = 1; s <= length; s++)
+          put(ctx, column, x + dx, top - s, z + dz, feature.crown, true);
       }
     }
   }

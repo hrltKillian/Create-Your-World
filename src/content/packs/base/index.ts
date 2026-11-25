@@ -21,6 +21,7 @@ import { sfx } from './sfx.ts';
 import { sounds } from './sounds.ts';
 import { tasks } from './tasks.ts';
 import { crackTextures, textures } from './textures.ts';
+import { floraTextures } from './texturesFlora.ts';
 import { tiers, toolNames } from './tiers.ts';
 import { biomes, features, ores, worldgen } from './worldgen.ts';
 
@@ -43,6 +44,7 @@ export const basePack: ContentPack = {
   // Icons, cracks and creature skins go last so that block texture layers keep their indices.
   textures: [
     ...textures,
+    ...floraTextures,
     ...toolIcons,
     ...materialIcons,
     ...equipmentIcons,

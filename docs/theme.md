@@ -15,19 +15,25 @@ passant par le cuivre, le bronze et le fer.
 
 ## Les biomes
 
-Sept biomes de surface. Le froid est au nord (−z), la chaleur au sud (+z). L'apparition garantit
-le froid, la chaleur et le toxique à moins de 1 km (`worldgen.spawn.far`). Les clés restent celles
-du code ; seuls les noms affichés changent.
+Huit biomes de surface (plan v3 « M23 ») : une Terre familière aux couleurs un peu décalées, des
+écorces pas tout à fait brunes et des feuillages pas tout à fait verts. Chaque biome a son essence
+signature, reconnaissable de loin. Le froid est au nord (−z), la chaleur au sud (+z). L'apparition
+garantit le froid, la chaleur et le toxique à moins de 1 km (`worldgen.spawn.far`). Les clés
+restent celles du code ; seuls les noms affichés changent.
 
-| Clé                  | Nom             | Climat                         | Sol               | Flore et décor                                  | Minerai propre      |
-| -------------------- | --------------- | ------------------------------ | ----------------- | ----------------------------------------------- | ------------------- |
-| `biome:meadow`       | Amberfield      | doux                           | herbe ambrée      | hautes herbes, buissons à baies, feuillus épars | cuivre              |
-| `biome:forest`       | Veilwood        | doux, humide                   | herbe             | feuillus denses, conifères                      | cuivre              |
-| `biome:highlands`    | Shard Highlands | frais, en altitude             | herbe, rochers    | conifères, rochers (seul biome rocheux)         | cuivre              |
-| `biome:tundra`       | Rimefrost       | glacial                        | neige, permafrost | conifères, lichen de givre                      | cassitérite (étain) |
-| `biome:ochre_desert` | Ochre Waste     | brûlant le jour, froid la nuit | sable ocre        | palmépines, buissons d'épines                   | argile réfractaire  |
-| `biome:fungal_marsh` | Sporefen        | tiède, air toxique             | tourbe, limon     | champignons géants, fleurs luisantes            | fer des marais      |
-| `biome:lake_basin`   | Mirror Basin    | doux                           | sable, argile     | hautes herbes                                   | —                   |
+| Clé                  | Nom             | Climat                         | Sol               | Essence (géant rare)                                                                        | Plantes                                               | Minerai propre      |
+| -------------------- | --------------- | ------------------------------ | ----------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------- |
+| `biome:meadow`       | Amberfield      | doux                           | herbe ambrée      | Lanternwood : écorce gris-violet, couronne jaune-vert (géant 2×2)                           | hautes herbes, clochettes d'ambre, baies              | cuivre              |
+| `biome:forest`       | Veilwood        | doux, humide                   | herbe             | Veilpine : écorce rouille, aiguilles bleu-vert, en bosquets (Vieux Voile, plus de 20 blocs) | hautes herbes, fougères voilées, baies                | cuivre              |
+| `biome:capwood`      | Capwood         | doux, sombre                   | herbe             | champignons géants : pied et chapeau luisant, qui tombe sans pied                           | pousses de chapeau, fleurs luisantes, herbes          | —                   |
+| `biome:highlands`    | Shard Highlands | frais, en altitude             | herbe, rochers    | Twistpine : écorce olive ; rochers (seul biome rocheux)                                     | hautes herbes, lichen, pousses de cristal             | cuivre              |
+| `biome:tundra`       | Rimefrost       | glacial                        | neige, permafrost | Frostpine : écorce ardoise, aiguilles sarcelle                                              | lichen de givre, bulbes de givre (eau), buissons secs | cassitérite (étain) |
+| `biome:ochre_desert` | Ochre Waste     | brûlant le jour, froid la nuit | sable ocre        | palmépines, buissons d'épines                                                               | buissons secs, clochettes d'ambre                     | argile réfractaire  |
+| `biome:fungal_marsh` | Sporefen        | tiède, air toxique             | tourbe, limon     | Podtree : bas, écorce olive sombre, gousses ocre                                            | roseaux-lances (fibres), herbes, fleurs luisantes     | fer des marais      |
+| `biome:lake_basin`   | Mirror Basin    | doux                           | sable, argile     | Saule-miroir : écorce ardoise, feuilles argentées pendantes                                 | roseaux-lances, hautes herbes, fougères               | —                   |
+
+Des sous-zones naissent d'un bruit lent (`groves`) : clairières et bosquets denses dans
+l'Amberfield, le Veilwood et le Capwood. L'Ashen Steppe proposée au plan n'a pas été retenue.
 
 Les bordures entre biomes sont des lignes ondulées et nettes (un champ lisse décale les seuils,
 et aucune colonne ne reste seule dans un biome qu'aucune voisine ne partage).
@@ -70,9 +76,13 @@ bestiaire et un scanner) :
 
 ## La flore et les matériaux
 
-- **Bois** : feuillus et conifères (bûches, planches, bâtons, résine des aiguilles).
-- **Plantes** : hautes herbes (fibres), buissons à baies, palmépines (fruits, résine), champignons
-  géants à chapeau luisant (glowcap), fleurs luisantes (glowbloom), lichen de givre.
+- **Bois** : une essence par biome (bûches de Lanternwood, Veilpine, Frostpine, Twistpine,
+  Saule-miroir, Podtree, et pieds de champignon géant), toutes des bûches pour les recettes ; les
+  aiguilles et les gousses donnent de la résine. Feuilles et chapeaux tombent quand plus aucun bois
+  ne les tient.
+- **Plantes** : hautes herbes et roseaux-lances (fibres), buissons à baies, bulbes de givre (eau),
+  pousses de cristal (éclats de cristal), palmépines (fruits, résine), fleurs luisantes, pousses de
+  chapeau, clochettes d'ambre, fougères voilées, lichen de givre.
 - **Sols** : tourbe (combustible), limon, sable ocre, argile des rives, gravier (silex).
 - **Pierres** : pierre, pierre sombre en profondeur, magma au fond des grottes, cristal d'aube
   luisant sur les parois profondes, pierre ardente (combustible, 50 s).

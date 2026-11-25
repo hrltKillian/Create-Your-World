@@ -2,10 +2,14 @@ import type { ContentPack, FeatureKind, Spline, WorldgenDef } from './schema.ts'
 
 type AddIssue = (path: string, message: string) => void;
 
-/** Largest size of each feature kind (boulders and patches must stay within 7 blocks of their centre). */
+/**
+ * Largest size of each feature kind (boulders and patches must stay within 7 blocks of their
+ * centre); a giant tree's 2×2 trunk may stand 28 high.
+ */
 const FEATURE_MAX_SIZE: Readonly<Record<FeatureKind, number>> = {
-  broadleaf: 16,
-  conifer: 16,
+  broadleaf: 28,
+  conifer: 28,
+  willow: 16,
   mushroom: 16,
   boulder: 3,
   column: 16,
@@ -60,7 +64,7 @@ export function validateWorld(
     const path = `features[${i}]`;
     block(`${path}.block`, f.block);
     block(`${path}.crown`, f.crown);
-    const crowned = f.kind === 'broadleaf' || f.kind === 'conifer' || f.kind === 'mushroom';
+    const crowned = f.kind !== 'boulder' && f.kind !== 'column' && f.kind !== 'patch';
     if (crowned !== (f.crown !== undefined))
       add(`${path}.crown`, 'trees and mushrooms, and only they, need a crown');
     f.soil.forEach((key, s) => {
@@ -69,6 +73,8 @@ export function validateWorld(
     range(`${path}.size`, f.size);
     if (f.size[0] < 1 || f.size[1] > FEATURE_MAX_SIZE[f.kind])
       add(`${path}.size`, `must lie within 1–${FEATURE_MAX_SIZE[f.kind]} for a ${f.kind}`);
+    if (f.trunk === 2 && f.kind !== 'broadleaf' && f.kind !== 'conifer')
+      add(`${path}.trunk`, 'only broadleaf and conifer trees grow a 2×2 trunk');
   });
   const seen = new Set<string>();
   (pack.biomes ?? []).forEach((b, i) => {

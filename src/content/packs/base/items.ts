@@ -133,6 +133,8 @@ const consumables = [
     consume: { seconds: 1.2, hunger: 10, toxicity: 10 },
   }),
   item('grilled_meat', { consume: { seconds: 1.2, hunger: 30 } }),
+  // Melts in the mouth: water from the Rimefrost (plan v3 « M23 »).
+  found('ice_bulb', 'where.ice_bulb', { consume: { seconds: 0.8, thirst: 15 } }),
   // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).
   item('pack_frame', { consume: { seconds: 1.5, bagSlots: 8 } }),
   item('palmthorn_fruit', {

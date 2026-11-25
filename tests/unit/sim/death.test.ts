@@ -323,7 +323,11 @@ describe('death', () => {
       backs.push(back);
       s.step(far ? 300 : 40);
       const [fx, fy, fz] = [Math.floor(back!.x), back!.y, Math.floor(back!.z)];
-      expect([s.block(fx, fy, fz), s.block(fx, fy + 1, fz)]).toEqual(['block:air', 'block:air']);
+      // Feet and head in cells without collision nor harm (air, or a harmless plant).
+      for (const cy of [fy, fy + 1]) {
+        const def = registry.blockDef(s.sim.world.getBlock(fx, cy, fz));
+        expect([def.collision, def.contact], def.key).toEqual(['none', undefined]);
+      }
       expect(s.player.body.y).toBe(fy);
     }
     expect(backs[1]).toEqual(backs[0]);
