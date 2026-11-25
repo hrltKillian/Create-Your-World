@@ -101,7 +101,16 @@ const bubbles: SfxLayer[] = [
   ...moments(12, 9, 0.1).map((t) => tone('sine', 300, 1100, 0.08, 0.03, t)),
 ];
 
-/** The ambience loops (docs « Audio »: insects, wind, sand, bubbles, cave drips; no music). */
+/** Rain (plan v3 « M34 »): a steady wash and drops pattering on the leaves. */
+const rain: SfxLayer[] = [
+  bed({ type: 'bandpass', freq: 2200, q: 0.4 }, 0.09),
+  bed({ type: 'lowpass', freq: 500 }, 0.05),
+  ...moments(24, 10, 0.05).map((t) =>
+    noise({ type: 'bandpass', freq: 3200 + 1600 * hashUnit(11, t), q: 3 }, 0.05, 0.03, t),
+  ),
+];
+
+/** The ambience loops (docs « Audio »: insects, wind, sand, bubbles, cave drips, rain; no music). */
 export const ambienceSfx: readonly SfxDef[] = [
   { key: LOOPS.insectsDay, loop: true, layers: insectsDay },
   { key: LOOPS.insectsNight, loop: true, layers: insectsNight },
@@ -110,4 +119,5 @@ export const ambienceSfx: readonly SfxDef[] = [
   { key: LOOPS.sand, loop: true, layers: sand },
   { key: LOOPS.cave, loop: true, layers: cave },
   { key: LOOPS.bubbles, loop: true, layers: bubbles },
+  { key: LOOPS.rain, loop: true, layers: rain },
 ];

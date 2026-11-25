@@ -8,7 +8,8 @@ import { type CreatureState, creatureDef, dormant, isGone } from '../creatures.t
 import type { SimEvent } from '../events.ts';
 import type { Simulation } from '../Simulation.ts';
 import { departs } from '../spawning.ts';
-import { daylightAt, hourOf, phaseOf } from '../time.ts';
+import { hourOf, phaseOf } from '../time.ts';
+import { skyLight } from '../weather.ts';
 import { type AiTick, BRAIN, headsStraight, setMode } from './behaviours.ts';
 import { think } from './brains.ts';
 import { ASTAR } from './pathfind.ts';
@@ -48,7 +49,8 @@ const ai: AiTick = { daylight: 1, daytime: true, searches: 0 };
 export function stepCreatures(sim: Simulation, out: SimEvent[]): void {
   const hour = hourOf(sim.time.ticks);
   const phase = phaseOf(hour);
-  ai.daylight = daylightAt(hour);
+  // The sky's light under the weather's clouds (plan v3 « M34 »).
+  ai.daylight = skyLight(sim);
   ai.daytime = phase === 'day' || phase === 'dawn';
   ai.searches = ASTAR.searchesPerTick;
   for (const c of sim.entities.values()) {

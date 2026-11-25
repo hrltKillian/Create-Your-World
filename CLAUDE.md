@@ -277,6 +277,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `inv.sort {open}`, `inv.stackNearby`, event `stackedNearby`); a workbench's crafts take from
     `craftSources` (the inventory, then the chests near it: craftQueue.ts), its Logbook counts
     them (UiBridge); buttons `data-action` `bag-sort`, `stack-nearby`, `chest-sort`;
+  - weather (plan v3 « M34 »): `sim/weather.ts` (`weatherAt`: spells of `balance.weather`, a pure
+    function of the seed and the tick; `weatherOf(sim, tick?)` with `sim.weatherOverride` from
+    `debug.setWeather`; `fallingOn`/`fallsOn`: `BiomeDef.precipitation` under the open sky;
+    `skyLight`: the daylight under `dimOf` the clouds, read by spawns and the brains; tick step
+    after the clock `stepWeather`: `lightning` events in storms); chill and fire put out in
+    environment.ts/survival.ts; storms × `stormSpawns` candidates; rain stations
+    (`StationDef.rain`, processes `fuel: 'rain'`, `burnsFuel` in crafting.ts: `advanceStation`
+    reads each tick's weather); the client's `app/WeatherFeel.ts` (eased look, `WEATHER_FADE_SECONDS`)
+    → `WorldView.setWeather` (`WeatherLook`) and `render/Precipitation.ts`; sounds
+    `ambience.rain` (AudioBridge `hearWeather`) and `thunder`; hook `weather.get()/set()`
+    (`weatherView`, `setWeather` in automation.ts), `SimView.weather()`;
   - farming and fishing (plan v3 « M33 »): crops `sim/crops.ts` (`BlockDef.crop`: harvest,
     seconds, light; the `ripe` state, ripe by default; `isRipeCrop`, `harvestCrop` (secondary: the
     harvest popped out at its foot, the reference game's sweet berries), `stripCrop` (grazed bare),
@@ -534,6 +545,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Weather checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m34` (`selftest/m34.ts`):
+  rain eased in (drops, dim, the rain loop) putting a fire out, a rain barrel filling a flask, a
+  storm's thunder.
 - Farming checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m33` (`selftest/m33.ts`): a
   crop planted bare, ripened under the sky and picked by secondary; a rod's catch at a dug pool.
 - Inventory checks of plan v3: `?worldType=arena&fixedStep=1&selftest=m0,m32` (`selftest/m32.ts`):

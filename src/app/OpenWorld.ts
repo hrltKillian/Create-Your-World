@@ -154,7 +154,7 @@ export class OpenWorld {
   frame(dt: number): CameraPose {
     const session = this.session;
     const pose = session.frame(dt);
-    this.sounds.frame(dt, pose);
+    this.sounds.frame(dt, pose, session.weather);
     this.inventory?.bridge.frame(dt);
     this.hud?.frame(dt);
     this.onboarding?.frame(dt);

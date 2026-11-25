@@ -128,6 +128,19 @@ export const textures = [
   },
   { key: 'tex:gate', pattern: 'lattice', palette: ['#4a3220', '#6e4a2e', '#86603d'], seed: 37 },
   {
+    // Plan v3 « M34 »: staves and hoops, rainwater inside.
+    key: 'tex:rain_barrel_side',
+    pattern: 'planks',
+    palette: ['#2e2218', '#5a4028', '#6b4c30', '#7d5a3a'],
+    seed: 47,
+  },
+  {
+    key: 'tex:rain_barrel_top',
+    pattern: 'ripple',
+    palette: ['#3a2a1c', '#2f5f8c', '#3f78a8', '#6a9cc8'],
+    seed: 49,
+  },
+  {
     key: 'tex:kiln_side',
     pattern: 'bricks',
     palette: ['#5a3a30', '#7d5142', '#93604e', '#a8705b'],

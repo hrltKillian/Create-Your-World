@@ -138,6 +138,20 @@ of them:
 
 ## Try this milestone
 
+**M34 — Weather and ambience** (plan v3, `docs/conception.md` « M34 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **The weather** changes every few minutes: clear, rain, storm or fog, drawn from the seed. Rain
+  falls around you (snow in the Rimefrost, nothing in the Ochre Waste), stops at roofs, chills you
+  and puts out a fire on you.
+- **Storms** darken the sky: hostiles can come out by day, more of them, and lightning flashes
+  with its thunder after.
+- **A rain barrel** (workbench) fills empty flasks and waterskins with clean water in the rain.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m34`; in the console,
+  `__game.weather.set('storm')`.
+
+### Earlier milestones
+
 **M33 — Farming, cooking and fishing** (plan v3, `docs/conception.md` « M33 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 

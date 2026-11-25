@@ -16,6 +16,7 @@ export const LOOPS = {
   sand: 'sfx:amb_sand',
   cave: 'sfx:amb_cave',
   bubbles: 'sfx:amb_bubbles',
+  rain: 'sfx:amb_rain',
 } as const;
 
 const insects = { day: LOOPS.insectsDay, night: LOOPS.insectsNight } as const;
@@ -24,8 +25,8 @@ const windy = { day: LOOPS.wind, night: LOOPS.wind } as const;
 /**
  * One break, hit, place and step sound per sound material, the pickup sound, the UI click and the
  * craft, the blows of combat, the player's own sounds, doors and chests, lit stations, the dusk
- * and dawn stingers, and the ambient loops of each biome (insects, wind, sand), caves (drips) and
- * water (bubbles).
+ * and dawn stingers, the thunder, and the ambient loops of each biome (insects, wind, sand), caves
+ * (drips), water (bubbles) and the rain.
  */
 export const sounds: SoundBindings = {
   blocks: {
@@ -63,6 +64,7 @@ export const sounds: SoundBindings = {
     'station:bloomery': 'sfx:kiln',
   },
   clock: { dusk: 'sfx:dusk', dawn: 'sfx:dawn' },
+  thunder: 'sfx:thunder',
   ambience: {
     biomes: {
       'biome:meadow': insects,
@@ -76,5 +78,6 @@ export const sounds: SoundBindings = {
     fallback: insects,
     cave: LOOPS.cave,
     underwater: LOOPS.bubbles,
+    rain: LOOPS.rain,
   },
 };

@@ -1,4 +1,4 @@
-import { fuelSlotOf, outputSlotOf } from '../../content/crafting.ts';
+import { burnsFuel, fuelSlotOf, outputSlotOf } from '../../content/crafting.ts';
 import { blockItemKey } from '../../content/items.ts';
 import type { Ingredient, ProcessDef, RecipeDef, StationDef } from '../../content/schema.ts';
 import { type WorkbenchEntity, withinReach } from '../blockEntities.ts';
@@ -229,7 +229,7 @@ export abstract class Supplies extends Gathering {
    * made, so a bloomery gets it), as many as the runs burn through.
    */
   private fuelFor(process: ProcessDef, runs: number): { item: string; count: number } | null {
-    if (process.fuel === 'none') return null;
+    if (!burnsFuel(process.fuel)) return null;
     const crafting = this.registry.crafting;
     const burns = this.registry.items.filter((i) => crafting.burnSeconds(i.key, process.fuel) > 0);
     const gathered = burns.filter((i) => this.isRaw(i.key));

@@ -46,7 +46,8 @@ export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssu
     if (recipe.station !== undefined && !station)
       add(`${path}.station`, `unknown station "${recipe.station}"`);
     // A recipe made at a station goes through a workbench's queue.
-    if (station?.burns) add(`${path}.station`, `"${recipe.station}" is no workbench`);
+    if (station && processing(station))
+      add(`${path}.station`, `"${recipe.station}" is no workbench`);
     if (!(recipe.seconds > 0)) add(`${path}.seconds`, 'must be > 0');
     inputs(`${path}.inputs`, recipe.inputs);
     output(`${path}.output`, recipe.output);
@@ -56,15 +57,24 @@ export function validateCrafting(pack: ContentPack, refs: ItemRefs, add: AddIssu
     const path = `processes[${i}]`;
     unique(path, process.key, 'process:');
     const station = stations.get(process.station);
-    if (!station?.burns) add(`${path}.station`, `"${process.station}" is no processing station`);
+    if (!station || !processing(station))
+      add(`${path}.station`, `"${process.station}" is no processing station`);
     else if (process.inputs.length > station.inputSlots)
       add(`${path}.inputs`, `more inputs than the ${station.inputSlots} slots of the station`);
+    // A fire burns fuel or nothing; a rain station runs on the rain alone.
+    else if ((process.fuel === 'rain') !== (station.rain === true))
+      add(`${path}.fuel`, 'rain processes run at rain stations, and only there');
     if (!(process.seconds > 0)) add(`${path}.seconds`, 'must be > 0');
     if (process.fuel === 'charcoal' && !charcoal) add(`${path}.fuel`, 'no item is charcoal');
     inputs(`${path}.inputs`, process.inputs);
     output(`${path}.output`, process.output);
   });
   checkStructureLoot(pack, refs, add);
+}
+
+/** A processing station (slots, processes): one with a fire, or a rain station. */
+function processing(station: StationDef): boolean {
+  return station.burns === true || station.rain === true;
 }
 
 /** Stations, and the blocks naming them. Returns the stations by key. */
@@ -81,7 +91,9 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
     if (!isCount(station.outputSlots, 1)) add(`${path}.outputSlots`, 'must be an integer ≥ 1');
     if (station.burns && !(isCount(station.inputSlots, 1) && station.fuelSlot))
       add(path, 'a processing station needs input and fuel slots');
-    if (!station.burns && (station.inputSlots !== 0 || station.fuelSlot))
+    if (station.rain && (station.burns || !isCount(station.inputSlots, 1) || station.fuelSlot))
+      add(path, 'a rain station has no fire, inputs and no fuel slot');
+    if (!processing(station) && (station.inputSlots !== 0 || station.fuelSlot))
       add(path, 'a station without fire (a workbench) has no inputs and no fuel');
     if (station.keepLit && !station.burns) add(`${path}.keepLit`, 'only a fire can be kept lit');
   });
@@ -95,7 +107,7 @@ function checkStations(pack: ContentPack, add: AddIssue): Map<string, StationDef
       add(`${path}.station`, `a ${entity} entity names its station`);
     // A processing station keeps its slots and fire in a block entity; the fire lights it up. A
     // workbench keeps its queue and outputs in one.
-    const kind = station?.burns ? 'station' : 'workbench';
+    const kind = station && processing(station) ? 'station' : 'workbench';
     if (station && entity !== kind) add(`${path}.blockEntity`, `its station is a ${kind} entity`);
     if (station?.burns && !block.states?.includes('lit'))
       add(`${path}.states`, 'a processing station needs the "lit" state');

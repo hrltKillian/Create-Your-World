@@ -21,6 +21,7 @@ import { ClientAim } from './ClientAim.ts';
 import type { FreeCam } from './FreeCam.ts';
 import type { SessionSpans } from './perf.ts';
 import { ClientThrottle } from './throttle.ts';
+import { WeatherFeel } from './WeatherFeel.ts';
 
 const MAX_STEPS = 4;
 /** Closest third-person camera distance (m) at which the avatar is still drawn. */
@@ -47,6 +48,8 @@ export class GameSession {
   readonly rig = new CameraRig();
   /** Avatar, drops, particles, block overlays and the hand view. */
   readonly play: PlayView;
+  /** The weather shown (plan v3 « M34 »). */
+  readonly weather: WeatherFeel;
   readonly entities: EntityView;
   /** The creature or block under the crosshair and the placement ghost, from the client's eye. */
   readonly aim: ClientAim;
@@ -115,6 +118,7 @@ export class GameSession {
       air: registry.air,
     });
     this.play = new PlayView(view, this.host.view, this.rig);
+    this.weather = new WeatherFeel(view, this.host.view);
     this.entities = this.play.entities;
     this.aim = new ClientAim(this.host.view.world, registry, this.player, this.host.view.entities);
     // Puts the eye at the spawn before the first frame, so the first ticks aim from there.
@@ -207,7 +211,7 @@ export class GameSession {
     spans.upload = this.scheduler.uploadMs;
     spans.mesh = Math.max(0, this.lap() - spans.upload);
     const pose = this.render(dt);
-    this.updateEnvironment(pose);
+    this.updateEnvironment(pose, dt);
     spans.entities = this.lap();
     return pose;
   }
@@ -252,6 +256,7 @@ export class GameSession {
   /** The world is closed: its meshes and play objects leave the (shared) world view. */
   dispose(): void {
     this.play.dispose();
+    this.weather.dispose();
     this.view.chunks.clear();
   }
 
@@ -315,11 +320,15 @@ export class GameSession {
     return pose;
   }
 
-  /** Time of day (sky, fog, daylight) and the medium around the camera (underwater fog). */
-  private updateEnvironment(pose: CameraPose): void {
+  /**
+   * Time of day (sky, fog, daylight), the weather (clouds, fog, rain or snow) and the medium around
+   * the camera (underwater fog).
+   */
+  private updateEnvironment(pose: CameraPose, dt: number): void {
     const sim = this.host.view;
     const hour = hourOf(sim.time().ticks);
     this.view.setTime(hour, daylightAt(hour));
+    this.weather.frame(dt, pose);
     this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
   }
 
@@ -360,6 +369,7 @@ export class GameSession {
     for (const event of this.events) {
       this.scheduler.onEvent(event);
       this.play.onEvent(event);
+      this.weather.onEvent(event);
       for (const listener of this.listeners) listener(event);
     }
     this.events.length = 0;

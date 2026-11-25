@@ -3,6 +3,7 @@ import type { Action } from '../input/bindings.ts';
 import type { Command } from '../sim/commands.ts';
 import { serializeInventory } from '../sim/inventory.ts';
 import { type DayPhase, daylightAt, dayOf, hourOf, phaseOf } from '../sim/time.ts';
+import type { WeatherKind } from '../sim/weather.ts';
 import type { QueueView } from '../ui/screens/logbook.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { App } from './App.ts';
@@ -222,6 +223,28 @@ export function clock(app: App): ClockView | null {
 /** Moves the clock to an hour (0 ≤ hours < 24) of the current day, now (`debug.setTime`). */
 export function setTime(app: App, hours: number): void {
   sendNow(app, { type: 'debug.setTime', hours });
+}
+
+/**
+ * The weather (plan v3 « M34 »): the simulation's kind, what falls on the player (rain, snow or
+ * none) and what the client shows of it (eased: clouds, fog, flash, the sky's dim, rain, snow).
+ */
+export function weatherView(app: App) {
+  const session = app.session;
+  if (!session) return null;
+  const feel = session.weather;
+  return {
+    kind: session.host.view.weather(),
+    ...feel.state,
+    rain: feel.rain,
+    snow: feel.snow,
+    drops: feel.drops(),
+  };
+}
+
+/** Holds a weather for `seconds` now (`debug.setWeather`; null: back to the seed's weather). */
+export function setWeather(app: App, weather: WeatherKind | null, seconds = 600): void {
+  sendNow(app, { type: 'debug.setWeather', weather, seconds });
 }
 
 /** Stops or restarts the clock, now (`debug.freezeTime`). */

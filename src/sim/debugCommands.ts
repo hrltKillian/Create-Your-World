@@ -18,6 +18,7 @@ import type { Simulation } from './Simulation.ts';
 import { surfaceAt } from './surface.ts';
 import { clampGauge, DEATH_CAUSES, GAUGES } from './survival.ts';
 import { setHour } from './time.ts';
+import { holdWeather } from './weather.ts';
 
 /** Largest box a debug fill may touch. */
 const FILL_LIMIT = 65_536;
@@ -35,6 +36,11 @@ export function applyDebugCommand(
   }
   if (command.type === 'debug.setTime') {
     if (!setHour(sim.time, command.hours)) reject(out, playerId, command.type, 'invalid');
+    return;
+  }
+  if (command.type === 'debug.setWeather') {
+    if (!holdWeather(sim, command.weather, command.seconds))
+      reject(out, playerId, command.type, 'invalid');
     return;
   }
   if (command.type === 'debug.freezeTime') {

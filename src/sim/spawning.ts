@@ -27,7 +27,8 @@ import {
 } from './creatures.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { daylightAt, dayOf, hourOf, phaseOf } from './time.ts';
+import { dayOf, hourOf, phaseOf } from './time.ts';
+import { skyLight, weatherOf } from './weather.ts';
 
 /*
  * Creatures coming and going (docs « Créatures et combat », Apparition, Disparition; tick step
@@ -100,10 +101,13 @@ export function stepSpawning(sim: Simulation): void {
   const herdTick = sim.tick % SPAWN.herdEveryTicks === 0;
   const hostiles = sim.rules.hostiles && sim.tick >= sim.rules.graceTicks;
   if (!herdTick && !hostiles) return;
+  // A storm (plan v3 « M34 »): more candidates, and its dark lets hostiles out by day.
+  const w = sim.registry.pack.balance.weather;
+  const candidates = SPAWN.candidates * (weatherOf(sim) === 'storm' ? w.stormSpawns : 1);
   for (const player of sim.players.values()) {
     if (player.survival.health <= 0 || !sim.isActive(player)) continue;
     countAround(sim, player);
-    for (let i = 0; i < SPAWN.candidates; i++) trySpawn(sim, player, i, herdTick, hostiles);
+    for (let i = 0; i < candidates; i++) trySpawn(sim, player, i, herdTick, hostiles);
   }
 }
 
@@ -304,7 +308,7 @@ function trySpawn(
   const hour = hourOf(sim.time.ticks);
   const phase = phaseOf(hour);
   const night = phase === 'night' || phase === 'dusk';
-  const light = effectiveLight(packed, daylightAt(hour));
+  const light = effectiveLight(packed, skyLight(sim));
   allow.hostiles = hostiles;
   allow.others = herdTick;
   allow.capped = true;
@@ -326,7 +330,7 @@ function trySpawn(
     if (my < 0 || nearAPlayer(sim, mx + 0.5, mz + 0.5)) continue;
     const memberPacked = sim.world.getLight(mx, my, mz);
     if (skyOf(memberPacked) > 0 !== underSky) continue;
-    const memberLight = effectiveLight(memberPacked, daylightAt(hour));
+    const memberLight = effectiveLight(memberPacked, skyLight(sim));
     if (memberLight > (picked.spawn!.maxLight ?? MAX_LIGHT)) continue;
     const c = spawnCreature(sim, def, mx + 0.5, my, mz + 0.5, herd, cave);
     herd = c.herd;

@@ -10,6 +10,7 @@ import type { Entity, Simulation } from './Simulation.ts';
 import type { SpawnLogEntry } from './spawning.ts';
 import { stateHash } from './stateHash.ts';
 import type { TimeState } from './time.ts';
+import { type WeatherKind, weatherOf } from './weather.ts';
 
 /** Read-only view of the simulation for rendering, UI and audio. */
 export interface SimView {
@@ -27,6 +28,8 @@ export interface SimView {
   tick(): number;
   /** The world clock (time of day, day count, frozen). */
   time(): Readonly<TimeState>;
+  /** The weather now (plan v3 « M34 »). */
+  weather(): WeatherKind;
   /** Canonical state hash (determinism checks and tests). */
   hash(): number;
   columnState(cx: number, cz: number): number;
@@ -60,6 +63,7 @@ function makeView(sim: Simulation, playerId: number): SimView {
     spawnLog: sim.spawnLog,
     tick: () => sim.tick,
     time: () => sim.time,
+    weather: () => weatherOf(sim),
     hash: () => stateHash(sim),
     columnState: (cx, cz) => sim.columnState(cx, cz),
     player: (id = playerId) => sim.players.get(id),

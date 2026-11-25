@@ -2965,6 +2965,15 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 - L'orage rend la nuit plus dangereuse.
 - Sons synthétisés.
 
+**Retenu à la réalisation** :
+
+- La météo (`sim/weather.ts`) est une fonction pure de la graine et du tick : le temps est découpé en périodes de 4 minutes, chacune d'un genre tiré de la graine avec des poids (clair 55, pluie 25, orage 10, brouillard 10 ; les deux premières périodes d'un monde claires ; `balance.weather`). Rien à sauvegarder ; une station qui rattrape son retard connaît la pluie de chaque tick passé. `debug.setWeather {weather, seconds}` tient un genre un moment (non sauvegardé ; crochet `weather.get()/set()`).
+- Ce qui tombe dépend du biome (`BiomeDef.precipitation`) : la pluie par défaut, la neige au Rimefrost, rien dans l'Ochre Waste ; elle tombe sur ce qui n'a aucun bloc au-dessus. La pluie et la neige refroidissent le joueur dehors (−4 °C, −6 °C) et éteignent son feu, comme l'eau.
+- Les nuages atténuent la lumière du ciel (pluie ×0,7, orage ×0,25, brouillard ×0,8) : la règle d'apparition des hostiles et les créatures qui fuient la lumière la lisent (`skyLight`), si bien qu'un orage laisse sortir les hostiles en plein jour ; en orage, deux fois plus de tentatives d'apparition, et la foudre tombe près des joueurs (en moyenne toutes les 12 s, événement `lightning`).
+- Le tonneau de pluie (à l'établi : 6 planches, 2 cordes, 1 résine ; `StationDef.rain`, procédés `fuel: 'rain'`) remplit d'eau propre une gourde ou une outre vide en 30 s de pluie ou de neige sous le ciel.
+- Côté client (`app/WeatherFeel.ts`), la météo s'installe en 5 s : ciel gris et assombri, brouillard plus proche (épais par temps de brouillard), gouttes ou flocons autour de la caméra arrêtés par les toits (`render/Precipitation.ts`), éclair qui illumine tout un instant. Sons synthétisés : une boucle de pluie (plus douce sous un toit, muette dans l'eau et les grottes) et un tonnerre qui suit l'éclair avec le retard de la distance.
+- Selftest `m34` (`?worldType=flat&fixedStep=1&selftest=m0,m34`).
+
 ### M35 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
 
 - Animation pour manger et boire.

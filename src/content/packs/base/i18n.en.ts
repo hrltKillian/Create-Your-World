@@ -22,6 +22,7 @@ export const strings = {
   'block.gate': 'Gate',
   'block.kiln': 'Clay Kiln',
   'block.farmland': 'Farmland',
+  'block.rain_barrel': 'Rain Barrel',
   'block.copper_ore': 'Copper Ore',
   'block.snow': 'Snow',
   'block.permafrost': 'Permafrost',

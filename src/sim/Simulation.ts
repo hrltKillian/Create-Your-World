@@ -41,6 +41,7 @@ import { stepStations } from './stations.ts';
 import { stepSurvival } from './survival.ts';
 import { applyTidyCommand } from './tidying.ts';
 import { clockEvents, createTime, stepTime, type TimeState } from './time.ts';
+import { stepWeather, type WeatherOverride } from './weather.ts';
 
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
 export const INTEGRATE_PER_TICK = 2;
@@ -107,6 +108,8 @@ export class Simulation implements ColumnSink {
   tick = 0;
   /** The world clock (time of day, day count). */
   readonly time: TimeState = createTime();
+  /** A weather held by `debug.setWeather` (plan v3 « M34 »: weather.ts), not saved. */
+  weatherOverride: WeatherOverride | null = null;
   /** Edited sections of the unloaded columns. */
   readonly edits = new EditStore();
   /** Columns whose first generation placed a herd (saved: no second herd when they load again). */
@@ -229,6 +232,7 @@ export class Simulation implements ColumnSink {
     // The clock's messages cover this tick's time, a night slept through included.
     const clock = this.time.ticks;
     stepTime(this.time);
+    stepWeather(this, out);
     for (const player of this.players.values()) {
       const active = this.isActive(player);
       if (!stepPlayer(player, active, this.world, this.registry, TICK_SECONDS, out)) continue;
@@ -390,6 +394,7 @@ export class Simulation implements ColumnSink {
       case 'debug.give':
       case 'debug.setTime':
       case 'debug.freezeTime':
+      case 'debug.setWeather':
       case 'debug.open':
       case 'debug.spawn':
       case 'debug.killCreature':

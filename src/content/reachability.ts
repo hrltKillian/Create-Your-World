@@ -1,4 +1,4 @@
-import { Crafting } from './crafting.ts';
+import { burnsFuel, Crafting } from './crafting.ts';
 import { blockItemKey, harvests, packItems } from './items.ts';
 import type { BlockDef, ContentPack, Ingredient, ToolDef } from './schema.ts';
 
@@ -88,7 +88,7 @@ export function reachable(pack: ContentPack, rules: ReachRules): Reach {
     for (const process of crafting.processes) {
       if (!stationAt(process.station) || !process.inputs.every(has)) continue;
       const fuel =
-        process.fuel === 'none' ||
+        !burnsFuel(process.fuel) ||
         [...items].some((i) => crafting.burnSeconds(i, process.fuel) > 0);
       if (!fuel) continue;
       processes.add(process.key);

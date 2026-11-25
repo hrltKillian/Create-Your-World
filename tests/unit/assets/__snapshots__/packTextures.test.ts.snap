@@ -172,6 +172,8 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:prowler_crest": "a74887f1",
   "tex:prowler_eye": "8154ea88",
   "tex:prowler_hide": "53e35337",
+  "tex:rain_barrel_side": "fa0ca6c",
+  "tex:rain_barrel_top": "f17482b8",
   "tex:reed": "4f9c96c4",
   "tex:reedwader_beak": "115a7427",
   "tex:reedwader_legs": "1b0e3e7d",

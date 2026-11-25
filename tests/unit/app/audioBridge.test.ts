@@ -16,6 +16,8 @@ function setup() {
   const audio = new AudioEngine(registry.pack.sfx ?? [], { muted: true, now: () => clock });
   const bridge = new AudioBridge(audio, s.host.view);
   const pose: CameraPose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
+  /** The rain the client's WeatherFeel would hear (plan v3 « M34 »). */
+  const weather = { rain: 0 };
   /** `n` frames of 1/60 s heard from the player's eye, the events of the ticks before first. */
   const frames = (n: number) => {
     for (let i = 0; i < n; i++) {
@@ -26,12 +28,19 @@ function setup() {
       pose.y = b.y + EYE_HEIGHT;
       pose.z = b.z;
       clock += 1000 / 60;
-      bridge.frame(1 / 60, pose);
+      bridge.frame(1 / 60, pose, weather);
       audio.setListener(pose.x, pose.y, pose.z, pose.yaw, pose.pitch);
     }
   };
   frames(1);
-  return { s, audio, bridge, frames, heard: (key: string) => audio.log().includes(key) };
+  return {
+    s,
+    audio,
+    bridge,
+    frames,
+    weather,
+    heard: (key: string) => audio.log().includes(key),
+  };
 }
 
 describe('AudioBridge', () => {
@@ -78,6 +87,27 @@ describe('AudioBridge', () => {
     bridge.dispose();
     expect(audio.underwater()).toBe(false);
     expect(audio.ambience()).toEqual([]);
+  });
+
+  it('plays the rain over the place, softer under a roof; thunder after the light', () => {
+    const { s, audio, bridge, frames, weather, heard } = setup();
+    const rain = sounds.ambience.rain!;
+    const gain = () => audio.ambience().find((l) => l.key === rain)?.gain ?? 0;
+    frames(10);
+    expect(gain()).toBe(0);
+    weather.rain = 1;
+    frames(1);
+    expect(gain()).toBe(1);
+    s.put(0, 70, 0, 'block:stone');
+    frames(1);
+    expect(gain()).toBeLessThan(1);
+    expect(gain()).toBeGreaterThan(0);
+    // A strike 170 blocks off: its thunder half a second after the light.
+    bridge.onEvent({ type: 'lightning', x: 170, z: 0 });
+    frames(20);
+    expect(heard(sounds.thunder!)).toBe(false);
+    frames(20);
+    expect(heard(sounds.thunder!)).toBe(true);
   });
 });
 

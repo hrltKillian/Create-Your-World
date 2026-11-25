@@ -4,9 +4,11 @@ import { TICK_SECONDS, TICKS_PER_SECOND, ticksOf } from './clock.ts';
 import { type Contact, sampleEnvironment, touch } from './environment.ts';
 import { wearFilters } from './equipment.ts';
 import type { SimEvent } from './events.ts';
+import { eyeHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import { metabolismFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
+import { fallingOn } from './weather.ts';
 
 /*
  * Survival gauges (docs « Survie »): health, hunger, thirst, temperature, toxicity and breath, the
@@ -355,6 +357,11 @@ export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): v
     const z = Math.floor(body.z);
     if (editedNear(out, first, x, y, z, b.climate.editRadius)) s.sampleTicks = 1;
     touch(sim.registry, sim.world, player, exposure);
+    // Rain or snow falling on the player puts a fire out as water does (plan v3 « M34 »).
+    if (!exposure.douses && s.burnTicks > 0) {
+      const head = Math.floor(body.y + eyeHeight(body));
+      exposure.douses = fallingOn(sim, x, head, z) !== 'none';
+    }
     exposure.sprinting = player.sprinting;
     exposure.metabolism = metabolismFactor(player, b);
     exposure.underwater = body.headInWater;

@@ -316,6 +316,7 @@ export const en = {
   'station.processes': 'Processes',
   'station.charcoalOnly': 'Charcoal only',
   'station.noFuel': 'No fuel',
+  'station.rainOnly': 'Fills in the rain',
   'station.keepLit': 'Keep burning (warmth, light)',
   'workbench.outputs': 'Ready to take',
   'menu.play': 'Play',

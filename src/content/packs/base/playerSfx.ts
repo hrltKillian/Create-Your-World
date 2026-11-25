@@ -146,6 +146,15 @@ export const playerSfx: readonly SfxDef[] = [
       ...pops({ type: 'bandpass', freq: 1500, q: 1 }, 0.15, [0.05, 0.27]),
     ],
   },
+  // Thunder (plan v3 « M34 »): a crack, then a long low rumble rolling away.
+  {
+    key: sounds.thunder!,
+    layers: [
+      noise({ type: 'highpass', freq: 1800 }, 0.35, 0.12),
+      { ...noise({ type: 'lowpass', freq: 140 }, 0.6, 1.6, 0.05), attack: 0.25 },
+      { ...noise({ type: 'lowpass', freq: 320 }, 0.25, 1, 0.4), attack: 0.3 },
+    ],
+  },
   // Dusk: three notes falling away. Dawn: the same notes rising.
   {
     key: clock.dusk,

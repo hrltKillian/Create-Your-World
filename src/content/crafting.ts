@@ -83,7 +83,7 @@ export class Crafting {
   /** Seconds an item burns under a process's fuel rule; 0 when that rule does not accept it. */
   burnSeconds(item: string, fuel: ProcessFuel): number {
     const def = this.itemIndex.get(item)?.fuel;
-    if (def === undefined || fuel === 'none' || (fuel === 'charcoal' && !def.charcoal)) return 0;
+    if (def === undefined || !burnsFuel(fuel) || (fuel === 'charcoal' && !def.charcoal)) return 0;
     return def.seconds;
   }
 
@@ -103,6 +103,11 @@ export class Crafting {
       p.inputs.some((input) => this.matches(item, input.item)),
     );
   }
+}
+
+/** Whether a process burns fuel (any, or charcoal): `none` and `rain` (plan v3 « M34 ») do not. */
+export function burnsFuel(fuel: ProcessFuel): boolean {
+  return fuel === 'any' || fuel === 'charcoal';
 }
 
 /**

@@ -63,6 +63,17 @@ export const balance: BalanceDef = {
   breath: { seconds: 15, refillPerSec: 5, drowningPerSec: 5 },
   // The reference game's fire after lava: a few seconds, put out by water.
   fire: { minSeconds: 4, maxSeconds: 8, damagePerSec: 4 },
+  // Plan v3 « M34 »: spells of 4 minutes (a fifth of a day), mostly clear.
+  weather: {
+    spellSeconds: 240,
+    clearSpells: 2,
+    weights: { clear: 55, rain: 25, storm: 10, fog: 10 },
+    rainChillC: 4,
+    snowChillC: 6,
+    dim: { rain: 0.7, storm: 0.25, fog: 0.8 },
+    lightningSeconds: 12,
+    stormSpawns: 2,
+  },
   fall: { safeBlocks: 3.5, damagePerBlock: 6 },
   climate: {
     altitudeFrom: 100,

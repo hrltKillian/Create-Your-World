@@ -331,6 +331,8 @@ export interface AmbienceBindings {
   readonly fallback: DayNightLoops;
   readonly cave: SfxKey;
   readonly underwater: SfxKey;
+  /** Rain on the leaves and the ground (plan v3 « M34 »), over the place's loop while it rains. */
+  readonly rain?: SfxKey;
 }
 
 /**
@@ -370,6 +372,8 @@ export interface SoundBindings {
   readonly lit: Readonly<Partial<Record<StationKey, SfxKey>>>;
   /** Stingers: the sun sets (18:30), a night is survived (06:00). */
   readonly clock: { readonly dusk: SfxKey; readonly dawn: SfxKey };
+  /** A lightning strike's thunder, heard after the light (plan v3 « M34 »). */
+  readonly thunder?: SfxKey;
   readonly ambience: AmbienceBindings;
 }
 
@@ -674,6 +678,8 @@ export interface BiomeDef {
   readonly groves?: { readonly scale: number; readonly contrast: number };
   /** What a rod fishes out of its fishing waters, instead of the liquid's `fish` (plan v3 « M33 »). */
   readonly fish?: LootKey;
+  /** What falls there in wet weather (plan v3 « M34 »): rain by default, snow, or nothing. */
+  readonly precipitation?: 'rain' | 'snow' | 'none';
 }
 
 /**

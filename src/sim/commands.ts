@@ -1,6 +1,7 @@
 import { MAX_INVENTORY_SLOTS } from './inventory.ts';
 import type { Skill } from './progression.ts';
 import type { DeathCause, Gauge } from './survival.ts';
+import type { WeatherKind } from './weather.ts';
 
 /** Commands are the only way to change simulation state (they could travel over a network). */
 export type Command =
@@ -190,6 +191,12 @@ export type DebugCommand =
   | { readonly type: 'debug.setTime'; readonly hours: number }
   /** Stops or restarts the clock (the world keeps ticking). */
   | { readonly type: 'debug.freezeTime'; readonly frozen: boolean }
+  /** Holds a weather for `seconds` (plan v3 « M34 »); null: back to the seed's weather. */
+  | {
+      readonly type: 'debug.setWeather';
+      readonly weather: WeatherKind | null;
+      readonly seconds: number;
+    }
   /**
    * Opens the chest or station of a cell as secondary on it does (within 5 blocks, one player at a
    * time), whether or not the player aims at it: the hook's `ui.open(x, y, z)`.
