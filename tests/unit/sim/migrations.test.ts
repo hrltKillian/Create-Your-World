@@ -472,15 +472,24 @@ describe('save versions', () => {
     });
   });
 
+  it('makes a version 15 player’s waypoints flags of the first colour', () => {
+    const waypoints = [{ name: 'Camp', x: 1, z: 2 }, 'junk'];
+    expect(migrate('player', { playerId: 1, waypoints }, 15)).toEqual({
+      playerId: 1,
+      waypoints: [{ name: 'Camp', x: 1, z: 2, icon: 'flag', colour: 0 }, 'junk'],
+    });
+  });
+
   it('loads the v13 fixture: the columns explored and the well-formed waypoints', async () => {
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(13), removed: [] });
     const { sim } = await restoreFrom(storage);
     const player = [...sim.players.values()][0]!;
     expect(Object.keys(player.explored).sort()).toEqual(['-1,0', '0,-1', '0,0', '0,1', '1,0']);
+    // Marked before symbols and colours (plan v3 « M31 »): flags of the first colour.
     expect(player.waypoints).toEqual([
-      { name: 'Camp', x: 0, z: 0 },
-      { name: 'Cave', x: -40, z: 72 },
+      { name: 'Camp', x: 0, z: 0, icon: 'flag', colour: 0 },
+      { name: 'Cave', x: -40, z: 72, icon: 'flag', colour: 0 },
     ]);
   });
 });

@@ -148,7 +148,16 @@ export type ProgressCommand =
 /** Waypoints (plan v3 « M27 », sim/exploration.ts). */
 export type WaypointCommand =
   /** Marks the player's place (an empty name: its coordinates). */
-  | { readonly type: 'waypoint.add'; readonly name: string }
+  | {
+      readonly type: 'waypoint.add';
+      readonly name: string;
+      /** Its symbol and colour (`WAYPOINT_ICONS`, an index under `WAYPOINT_COLOURS`). */
+      readonly icon: string;
+      readonly colour: number;
+      /** The block column picked on the map; the player's feet without them. */
+      readonly x?: number;
+      readonly z?: number;
+    }
   | { readonly type: 'waypoint.remove'; readonly index: number };
 
 /** Developer commands, refused unless the world rules allow debugging. */

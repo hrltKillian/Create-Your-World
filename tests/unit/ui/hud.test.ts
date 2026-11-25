@@ -91,6 +91,7 @@ describe('compass', () => {
       quest: Number.NaN,
       graves: [0],
       waypoints: [],
+      waypointColours: [],
     });
     expect(north.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('1');
@@ -106,6 +107,7 @@ describe('compass', () => {
       quest: 0,
       graves: [],
       waypoints: [],
+      waypointColours: [],
     });
     expect(south.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('0');

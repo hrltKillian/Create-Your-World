@@ -19,7 +19,14 @@ import {
   isHostile,
   PATH_MAX,
 } from './creatures.ts';
-import { MAX_WAYPOINT_NAME, MAX_WAYPOINTS, type Waypoint } from './exploration.ts';
+import {
+  isWaypointColour,
+  isWaypointIcon,
+  MAX_WAYPOINT_NAME,
+  MAX_WAYPOINTS,
+  WAYPOINT_ICONS,
+  type Waypoint,
+} from './exploration.ts';
 import {
   deserializeInventory,
   deserializeSlots,
@@ -229,10 +236,17 @@ function readWaypoints(data: unknown): Waypoint[] {
   if (!Array.isArray(data)) return [];
   const waypoints: Waypoint[] = [];
   for (const saved of data.slice(0, MAX_WAYPOINTS) as Partial<Waypoint>[]) {
-    const { name, x, z } = saved ?? {};
+    const { name, x, z, icon, colour } = saved ?? {};
     if (typeof name !== 'string' || name.length > MAX_WAYPOINT_NAME) continue;
     if (!isWhole(x, -Infinity) || !isWhole(z, -Infinity) || !insideBorder(x, z)) continue;
-    waypoints.push({ name, x, z });
+    // A malformed symbol or colour falls back to the first ones.
+    waypoints.push({
+      name,
+      x,
+      z,
+      icon: isWaypointIcon(icon) ? icon : WAYPOINT_ICONS[0],
+      colour: isWaypointColour(colour) ? colour : 0,
+    });
   }
   return waypoints;
 }

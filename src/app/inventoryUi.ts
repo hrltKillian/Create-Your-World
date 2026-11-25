@@ -129,7 +129,7 @@ export class InventoryUi {
       () => input.keyLabel('inventory'),
       () => this.closeScreen(),
     );
-    this.maps = new MapModel(session.host.view.gen);
+    this.maps = new MapModel(session.host.view.gen, session.host.view.world, registry, layers);
     // The bridge refreshes this object's views (hotbar, hint line and screens).
     this.bridge = new UiBridge(session.host.view, input, this);
     session.listeners.push((event) => {

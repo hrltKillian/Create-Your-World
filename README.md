@@ -138,20 +138,23 @@ of them:
 
 ## Try this milestone
 
-**M30 — Feel and units from the fourth play test** (plan v3, `docs/conception.md` « M30 »).
-`npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
+**M31 — The detailed map** (plan v3, `docs/conception.md` « M31 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
 
-- **Everything counts in symbols**: foods restore ration pods and drops, blows deal vital cells,
-  shown with their symbol; vitality adds vital cells.
-- **Hunger as in Minecraft**: efforts tire you (sprinting, jumping, fighting, mining), a hidden
-  saturation goes first, standing still costs nothing; healing needs a full stomach.
-- **Water**: sprint while wading, sprint-swim under water along your view.
-- **The hand**: a bigger arm swinging from the shoulder; a held item is its slot's icon.
-- **Every plant gives something**: fibre or sticks.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m30`.
+- **A pixel a block**: the land as you saw it (trees, sand, water darker with depth, relief
+  shading), the minimap with your coordinates.
+- **The big map (M)**: drag it with the mouse, « Centre on me » brings it back, the coordinates
+  of you and of the pointer under it.
+- **Waypoints**: a name, one of six symbols and six colours, placed where you click on the map or
+  at your feet; listed with coordinates and distance, « Show » centres on one; drawn with their
+  names on the map and in their colour on the compass.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m31`.
 
 ### Earlier milestones
 
+- **M30, feel and units**: stats counted in symbols, Minecraft hunger with hidden saturation,
+  sprint and swim in water, useful plants, a held item as its icon;
+  `?worldType=flat&fixedStep=1&selftest=m0,m30`.
 - **M29, world and rules**: flowing lava and fire, a stone / dark stone band, thrown items picked
   up after two seconds; `?worldType=flat&fixedStep=1&selftest=m0,m29`.
 - **M28, interfaces**: gauges as rows of symbols over the hotbar, hover bubbles and fixed-size

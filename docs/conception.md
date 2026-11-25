@@ -2917,6 +2917,16 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 
 - Une carte plus fine (un bloc par pixel), ombrée par le relief, avec les blocs réellement posés quand ils sont chargés.
 - Des balises avec icône, couleur et nom, posées depuis la grande carte (clic à l'endroit voulu) ou aux pieds du joueur, affichées sur la carte, la minicarte et la boussole.
+- Les coordonnées partout (le joueur, le pointeur, chaque balise) et la grande carte qu'on fait glisser à la souris pour la voir en entier ; seule sa touche la ferme.
+
+**Retenu à la réalisation** :
+
+- Un pixel par bloc (`MAP_CELLS` 32 : une colonne fait 32 × 32 pixels). Une colonne chargée est lue telle quelle : la couleur moyenne de la face du dessus du bloc le plus haut, teintée par son biome comme les chunks (herbe, feuillage, eau), donc arbres, sable, constructions. Le relief l'éclaircit où le sol monte vers le nord et l'assombrit où il descend, comme la carte du jeu de référence ; l'eau fonce avec la profondeur. Une colonne déchargée garde ses couleurs telles que vues ; une colonne explorée avant la session et pas encore rechargée vient de la génération (le terrain seul). Une colonne n'est relue que si son contenu a changé (somme des versions de ses sections).
+- Minicarte : 128 pixels (±64 blocs), ronde, plus lisse ; dessous, les coordonnées du joueur (X, Z) et la touche de la grande carte.
+- Grande carte : 512 × 512 pixels à l'échelle 1. On la fait glisser à la souris (un bloc par pixel) et « Me recentrer » la ramène sur le joueur. Un clic sans glisser choisit l'endroit de la prochaine balise. Sous la carte : les coordonnées du joueur et du bloc pointé.
+- Balises (SAVE 16) : un nom, un symbole parmi six (drapeau, maison, étoile, grotte, minerai, danger) et une couleur parmi six (`core/waypoints.ts`). Elles se posent à l'endroit choisi sur la carte ou aux pieds du joueur (`waypoint.add {name, icon, colour, x?, z?}`, refusées hors du monde). La liste les donne avec leurs coordonnées et leur distance, et « Afficher » centre la carte sur une balise. La carte écrit leur nom à côté ; la minicarte les garde sur son bord quand elles sont plus loin ; la boussole prend leur couleur.
+- La grande carte ne se ferme qu'avec sa touche (les touches du sac ne la ferment plus), et sa touche ne ferme pas un autre écran.
+- Selftest `m31` (`?worldType=flat&fixedStep=1&selftest=m0,m31`).
 
 ### M32 — Confort d'inventaire
 

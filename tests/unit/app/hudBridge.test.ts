@@ -287,7 +287,7 @@ describe('HudBridge', () => {
     bridge.frame(0.05);
     expect(inventory.maps.radii).toHaveLength(1);
     const hint = bridge.hud.map.element.querySelector('.minimap-hint')!;
-    expect(hint.textContent).toBe('Right click · Map');
+    expect(hint.textContent).toBe('X 0 · Z 0 · Right click Map');
   });
 
   it('turns quests, the clock and the night into lines and banners', () => {
