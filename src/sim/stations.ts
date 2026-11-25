@@ -126,7 +126,7 @@ export function advanceStation(
 }
 
 /** Whether a block column is loaded, lit and within the simulation radius of some player. */
-function simulated(sim: Simulation, cx: number, cz: number): boolean {
+export function simulated(sim: Simulation, cx: number, cz: number): boolean {
   if (sim.columnState(cx, cz) < COLUMN_LIT) return false;
   for (const player of sim.players.values()) {
     const dx = cx - blockToColumn(player.body.x);

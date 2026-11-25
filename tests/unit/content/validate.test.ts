@@ -56,6 +56,44 @@ describe('content validation', () => {
     ]);
   });
 
+  it('checks hung blocks and decaying blocks: their states, wall shape, anchors and delays', () => {
+    const pack = broken((p) => {
+      const torch = p.blocks.find((b) => b.key === 'block:torch')!;
+      delete torch.wallShape;
+      const foliage = p.blocks.find((b) => b.key === 'block:foliage')!;
+      foliage.states = [];
+      foliage.decay = { anchors: ['block:nope'], radius: 9, seconds: [5, 2] };
+    });
+    const torchAt = pack.blocks.findIndex((b) => b.key === 'block:torch');
+    const leavesAt = pack.blocks.findIndex((b) => b.key === 'block:foliage');
+    expect(validatePack(pack).map((i) => i.path)).toEqual(
+      expect.arrayContaining([
+        `blocks[${torchAt}].wallShape`,
+        `blocks[${leavesAt}].decay`,
+        `blocks[${leavesAt}].decay.anchors[0]`,
+        `blocks[${leavesAt}].decay.radius`,
+        `blocks[${leavesAt}].decay.seconds`,
+      ]),
+    );
+  });
+
+  it('reads a state key written before its block gained or lost state values', () => {
+    const registry = buildRegistry(basePack);
+    expect(registry.states[registry.stateId('block:torch')]!.key).toBe('block:torch[attach=floor]');
+    expect(registry.states[registry.stateIdOrUnknown('block:foliage')]!.key).toBe(
+      'block:foliage[placed=0]',
+    );
+    // A value the block no longer has takes its default; an unknown block stays unknown.
+    expect(registry.states[registry.stateId('block:torch[attach=up]')]!.key).toBe(
+      'block:torch[attach=floor]',
+    );
+    expect(registry.states[registry.stateId('block:torch[attach=e,lit=1]')]!.key).toBe(
+      'block:torch[attach=e]',
+    );
+    expect(registry.stateIdOrUnknown('block:gone[a=1]')).toBe(registry.unknownBlock);
+    expect(() => registry.stateId('block:gone')).toThrow();
+  });
+
   it('refuses to build a registry from an invalid pack', () => {
     const pack = broken((p) => {
       p.blocks[5]!.states = ['wobble'];

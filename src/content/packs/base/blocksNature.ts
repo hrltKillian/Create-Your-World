@@ -1,5 +1,5 @@
 import type { BlockDef } from '../../schema.ts';
-import { LOG_ITEM, SAND_ITEM } from './blocks.ts';
+import { LEAF_DECAY, LOG_ITEM, SAND_ITEM } from './blocks.ts';
 import type { PackI18nKey } from './i18n.en.ts';
 import { FUELS } from './recipes.ts';
 
@@ -124,6 +124,8 @@ export const natureBlocks = [
   {
     key: 'block:needles',
     nameKey: 'block.needles',
+    states: ['placed'],
+    decay: LEAF_DECAY,
     shape: 'cube',
     pass: 'cutout',
     cullGroup: 'leaves',

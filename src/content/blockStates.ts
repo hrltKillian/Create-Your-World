@@ -39,13 +39,15 @@ export function effective(
   block: BlockDef,
   props: Readonly<Partial<Record<StateProp, string>>>,
 ): Effective {
+  // Hung on a wall: the wall boxes, turned to the wall's side (`boxFacing`).
+  const onWall = block.wallShape !== undefined && wallSide(props) !== undefined;
   let result: Effective = {
     opaque: block.opaque,
     emit: block.light?.emit ?? 0,
     filter: block.light?.filter ?? 0,
     collision: block.collision,
     textures: block.textures,
-    shape: block.shape,
+    shape: onWall ? block.wallShape! : block.shape,
     heat: block.heat,
   };
   for (const [prop, override] of Object.entries(block.whenState ?? {}) as [
@@ -64,6 +66,35 @@ export function effective(
     };
   }
   return result;
+}
+
+/** The side of the wall a block hangs on (`attach` n, e, s or w), undefined on the floor. */
+export function wallSide(props: Readonly<Partial<Record<StateProp, string>>>): string | undefined {
+  const attach = props.attach;
+  return attach !== undefined && attach !== 'floor' ? attach : undefined;
+}
+
+/** The facing a state's boxes turn to: its `facing4`, or the wall it hangs on. */
+export function boxFacing(props: Readonly<Partial<Record<StateProp, string>>>): string | undefined {
+  return props.facing4 ?? wallSide(props);
+}
+
+/**
+ * Parses a state's text key (`block:x[a=1,b=2]`) into its block key and state values; values not
+ * written are left out.
+ */
+export function parseStateKey(key: string): {
+  block: string;
+  props: Partial<Record<string, string>>;
+} {
+  const open = key.indexOf('[');
+  if (open < 0 || !key.endsWith(']')) return { block: key, props: {} };
+  const props: Partial<Record<string, string>> = {};
+  for (const pair of key.slice(open + 1, -1).split(',')) {
+    const eq = pair.indexOf('=');
+    if (eq > 0) props[pair.slice(0, eq)] = pair.slice(eq + 1);
+  }
+  return { block: key.slice(0, open), props };
 }
 
 /** Every combination of the values of `props`, in declaration order. */

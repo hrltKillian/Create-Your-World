@@ -1,4 +1,4 @@
-import type { RawTables } from '../content/registry.ts';
+import { type RawTables, SHAPE_BOXES } from '../content/registry.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
 import { createRayHit, FACE_NORMALS, type RayHit, raycast } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
@@ -63,7 +63,7 @@ function confirmTarget(
 /**
  * Whether a face of a cell is in sight of an eye: the face looks towards the eye, the cell is
  * within reach (+ slack) of it, and a ray towards a point just inside the face stops in that cell
- * (the ray's hit goes into `out`).
+ * (the ray's hit goes into `out`); a box shape may also be seen through the middle of its first box.
  */
 function faceInSight(
   world: VoxelWorld,
@@ -92,11 +92,57 @@ function faceInSight(
   const cz = Math.max(z, Math.min(z + 1, ez)) - ez;
   const reach = REACH + REACH_SLACK;
   if (cx * cx + cy * cy + cz * cz > reach * reach) return false;
-  const dx = fx - nx * 0.01 - ex;
-  const dy = fy - ny * 0.01 - ey;
-  const dz = fz - nz * 0.01 - ez;
+  // Towards a point just inside the face, on through the cell (√3): a box shape is hit where the
+  // ray enters its boxes. A low or thin one (a bedroll, a gate) may lie off that line: then towards
+  // the middle of its first box.
+  if (
+    rayStopsIn(
+      world,
+      tables,
+      ex,
+      ey,
+      ez,
+      fx - nx * 0.01,
+      fy - ny * 0.01,
+      fz - nz * 0.01,
+      1.74,
+      x,
+      y,
+      z,
+      out,
+    )
+  )
+    return true;
+  const state = world.getBlock(x, y, z);
+  if (tables.shape[state] !== SHAPE_BOXES) return false;
+  const box = tables.boxShapes[tables.boxShape[state]!]![0]!;
+  const bx = x + (box[0] + box[3]) / 32;
+  const by = y + (box[1] + box[4]) / 32;
+  const bz = z + (box[2] + box[5]) / 32;
+  return rayStopsIn(world, tables, ex, ey, ez, bx, by, bz, 0.01, x, y, z, out);
+}
+
+/** Whether a ray from the eye towards a point (and `beyond` it) stops first in cell (x, y, z). */
+function rayStopsIn(
+  world: VoxelWorld,
+  tables: RawTables,
+  ex: number,
+  ey: number,
+  ez: number,
+  px: number,
+  py: number,
+  pz: number,
+  beyond: number,
+  x: number,
+  y: number,
+  z: number,
+  out: RayHit,
+): boolean {
+  const dx = px - ex;
+  const dy = py - ey;
+  const dz = pz - ez;
   const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  raycast(world, tables, ex, ey, ez, dx / length, dy / length, dz / length, length + 0.01, out);
+  raycast(world, tables, ex, ey, ez, dx / length, dy / length, dz / length, length + beyond, out);
   return out.hit && out.x === x && out.y === y && out.z === z;
 }
 

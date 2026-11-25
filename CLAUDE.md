@@ -90,7 +90,18 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
     `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
     `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
-  - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`);
+  - voxel edits (heightmap, light, remesh): `sim/edits.ts` (`writeBlock`, `editBlock`); taking a
+    block out of the world (a player's break or the world's own, `BY_WORLD`): `sim/blockRemoval.ts`
+    (`removeBlock`, `removeWhole`, `forgetCell`); block updates (tick step 10, M14):
+    `sim/blockUpdates.ts` (`BlockUpdateQueue` on `sim.blockUpdates`, saved in the world record;
+    `noteRemoved`/`noteChanged` schedule the neighbours; kinds `UPDATE_SUPPORT`, `UPDATE_DECAY`;
+    at most `BLOCK_UPDATES.perTick`; updates of columns not simulated wait with them); the support
+    rule `supportHolds` (`sim/placement.ts`: `below`, or `attach` for blocks hung on walls, state
+    `attach`, `BlockDef.wallShape`); leaf decay `sim/leafDecay.ts` (`BlockDef.decay`: no anchor
+    within its radius, Manhattan; `placed=1` never decays); state keys read leniently
+    (`registry.stateId`/`stateIdOrUnknown` complete missing state values with defaults); a target
+    ray stops in a drawn box shape only where it enters its boxes (`world/raycast.ts`, at least
+    4/16 thick), sight checks aim at a box shape's middle too (`sim/targeting.ts`);
   - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
     sun and moon: `render/Sky.ts`;
   - world generation queries without generating (always the same arithmetic as the bulk pass):

@@ -61,6 +61,7 @@ export function stateHash(sim: Simulation): number {
   h = hashNumber(h, sim.time.ticks);
   h = fnv1aU32(h, sim.time.frozen ? 1 : 0);
   h = hashNumber(h, sim.nextEntityId);
+  for (const value of sim.blockUpdates.serialize(sim.tick)) h = hashNumber(h, value);
   for (const id of [...sim.entities.keys()].sort((a, b) => a - b)) {
     h = fnv1aString(canonicalJson(sim.entities.get(id)), h);
   }

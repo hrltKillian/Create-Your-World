@@ -8,6 +8,7 @@ import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { stepCreatures } from './ai/creatureStep.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import { applyBlockEntityCommand } from './blockEntityCommands.ts';
+import { BlockUpdateQueue, stepBlockUpdates } from './blockUpdates.ts';
 import { COLUMN_LIT, ColumnPipeline } from './ColumnPipeline.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { stepCombat } from './combat.ts';
@@ -112,6 +113,8 @@ export class Simulation implements ColumnSink {
   readonly parked = new Map<number, CreatureState[]>();
   /** The last hostile spawns (tests; not saved). */
   readonly spawnLog: SpawnLogEntry[] = [];
+  /** Block updates due or waiting (blockUpdates.ts, tick step 10). */
+  readonly blockUpdates = new BlockUpdateQueue();
   private readonly columns: ColumnPipeline;
   private readonly commands: StampedCommand[] = [];
 
@@ -235,6 +238,7 @@ export class Simulation implements ColumnSink {
       stepCrafting(this, player, out);
     }
     stepStations(this, out);
+    stepBlockUpdates(this, out);
     stepSurvival(this, out, first);
     stepItemDrops(this, out);
     stepSpawning(this);

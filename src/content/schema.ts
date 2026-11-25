@@ -53,7 +53,7 @@ export type SoundMaterial =
   | 'metal'
   | 'cloth';
 
-export type StateProp = 'axis' | 'facing4' | 'open' | 'lit' | 'half' | 'ripe';
+export type StateProp = 'axis' | 'facing4' | 'open' | 'lit' | 'half' | 'ripe' | 'attach' | 'placed';
 
 /** Possible values of each state property; the first one is the default. */
 export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
@@ -63,6 +63,10 @@ export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
   lit: ['0', '1'],
   half: ['lower', 'upper'],
   ripe: ['0', '1'],
+  /** Where a block hangs (torches): on the floor, or against the wall on that side of its cell. */
+  attach: ['floor', 'n', 'e', 's', 'w'],
+  /** Set by a player's placement: decaying blocks (leaves) placed by hand never decay. */
+  placed: ['0', '1'],
 };
 
 export type TextureSlot = 'all' | 'top' | 'bottom' | 'side' | 'front';
@@ -138,8 +142,27 @@ export interface BlockDef {
    * recipes; objectives may ask for one nearby.
    */
   readonly station?: StationKey;
+  /**
+   * Boxes of the block hung on a wall (`attach` ≠ floor), drawn against the north side of the cell
+   * and turned to the wall's side.
+   */
+  readonly wallShape?: { readonly boxes: readonly Box16[] };
+  /**
+   * Decays like leaves (sim/leafDecay.ts): unless placed by a player, the block falls apart (as if
+   * broken, with its drops) `seconds` after no `anchors` block lies within `radius` blocks of it
+   * (Manhattan distance).
+   */
+  readonly decay?: {
+    readonly anchors: readonly BlockKey[];
+    readonly radius: number;
+    readonly seconds: readonly [number, number];
+  };
   readonly placement?: {
-    readonly support?: 'below' | 'face';
+    /**
+     * What holds the block: the solid block below (`below`), or for an `attach` block the floor or
+     * the wall it hangs on (`attach`). Without it, it pops off (sim/support.ts).
+     */
+    readonly support?: 'below' | 'attach';
     readonly orient?: 'axis' | 'facing';
     /** Two cells high (doors): needs the `half` state; placed, toggled and broken whole. */
     readonly tall?: 2;

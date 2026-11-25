@@ -194,7 +194,10 @@ describe('melee', () => {
     };
     expect(run('block:tall_grass', 'creature:trotter', -1.5)).toEqual({ blows: 1, kept: true });
     expect(run('block:tall_grass', 'creature:swarmling', -1.5)).toEqual({ blows: 1, kept: true });
-    expect(run('block:torch', 'creature:swarmling', -3)).toEqual({ blows: 1, kept: true });
+    expect(run('block:torch[attach=floor]', 'creature:swarmling', -3)).toEqual({
+      blows: 1,
+      kept: true,
+    });
   });
 
   it('a solid block on the line shields a creature: primary mines the block', () => {

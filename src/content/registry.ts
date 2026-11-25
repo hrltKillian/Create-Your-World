@@ -1,4 +1,11 @@
-import { combinations, effective, internBoxes, stateKey } from './blockStates.ts';
+import {
+  boxFacing,
+  combinations,
+  effective,
+  internBoxes,
+  parseStateKey,
+  stateKey,
+} from './blockStates.ts';
 import { Crafting } from './crafting.ts';
 import { buildItemTables, type ItemTables, packItems } from './items.ts';
 import type {
@@ -17,6 +24,7 @@ import type {
   StateProp,
   TexKey,
 } from './schema.ts';
+import { STATE_VALUES } from './schema.ts';
 import { type ContentIssue, textureSets, validatePack } from './validate.ts';
 
 /** Face order used everywhere: +x, −x, +y, −y, +z, −z (north = −z). */
@@ -191,15 +199,42 @@ export class Registry {
     return this.defaults[index]!;
   }
 
-  /** State id for a text key; unknown keys map to the unknown block (used when loading saves). */
+  /**
+   * State id for a text key, the unknown block when the block is gone (loading saves). Read
+   * leniently (`resolveKey`): a key written before a block gained or lost state values still finds
+   * its state.
+   */
   stateIdOrUnknown(key: string): number {
-    return this.stateIndex.get(key) ?? this.unknownBlock;
+    return this.resolveKey(key) ?? this.unknownBlock;
   }
 
+  /** State id for a text key, read leniently (`resolveKey`); throws for an unknown block. */
   stateId(key: string): number {
-    const id = this.stateIndex.get(key);
+    const id = this.resolveKey(key);
     if (id === undefined) throw new Error(`Unknown block state "${key}"`);
     return id;
+  }
+
+  /**
+   * The state of a text key: the exact key, else the block's state keeping each written value it
+   * still has and the default for the others (`block:torch` before torches hung on walls is
+   * `block:torch[attach=floor]`); undefined when the block is unknown.
+   */
+  private resolveKey(key: string): number | undefined {
+    const exact = this.stateIndex.get(key);
+    if (exact !== undefined) return exact;
+    const parsed = parseStateKey(key);
+    const index = this.blockIndex.get(parsed.block as BlockKey);
+    if (index === undefined) return undefined;
+    const block = this.pack.blocks[index]!;
+    const defaults = this.states[this.defaults[index]!]!.props;
+    const props: Partial<Record<StateProp, string>> = {};
+    for (const name of block.states ?? []) {
+      const value = parsed.props[name];
+      props[name] =
+        value !== undefined && STATE_VALUES[name].includes(value) ? value : defaults[name];
+    }
+    return this.stateIndex.get(stateKey(block, props));
   }
 
   prop(stateId: number, prop: StateProp): string | undefined {
@@ -347,7 +382,7 @@ export function buildRegistry(pack: ContentPack): Registry {
     else if (typeof eff.collision === 'object') {
       const index = internBoxes(
         eff.collision.boxes,
-        state.props.facing4,
+        boxFacing(state.props),
         tables.collisionBoxes,
         collisionIndex,
       );
@@ -356,7 +391,7 @@ export function buildRegistry(pack: ContentPack): Registry {
     if (typeof eff.shape === 'object') {
       tables.boxShape[s] = internBoxes(
         eff.shape.boxes,
-        state.props.facing4,
+        boxFacing(state.props),
         tables.boxShapes,
         boxShapeIndex,
       );

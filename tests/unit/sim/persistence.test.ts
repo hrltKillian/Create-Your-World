@@ -218,7 +218,7 @@ describe('restoring a world', () => {
     expect(third.sim.edits.get(columnKey(0, 0))!.map((s) => s.sy)).toEqual([2, 5]);
     settle(third.sim);
     expect(stateKey(third.sim, 5, 70, 5)).toBe('block:stone');
-    expect(stateKey(third.sim, 6, 170, 6)).toBe('block:torch');
+    expect(stateKey(third.sim, 6, 170, 6)).toBe('block:torch[attach=floor]');
     expect([...stored.keys()]).toEqual([columnKey(0, 0)]);
   });
 
