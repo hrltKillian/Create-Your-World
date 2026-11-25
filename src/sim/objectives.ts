@@ -1,7 +1,9 @@
 import type { ObjectiveCondition } from '../content/schema.ts';
+import { WORLD_HEIGHT } from '../world/coords.ts';
+import { withinReach } from './blockEntities.ts';
 import { TICKS_PER_SECOND } from './clock.ts';
-import { stationNear } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
+import { bodyHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { nightsSurvived } from './time.ts';
@@ -13,6 +15,30 @@ import { nightsSurvived } from './time.ts';
  * as soon as the player gets there), and so does having drunk once; stations, the shelter and the
  * nights are read from the world and the clock. Nothing is allocated.
  */
+
+/** An objective's station counts within this distance of the player (blocks). */
+export const STATION_REACH = 4;
+
+/**
+ * Whether a block of a station stands within STATION_REACH of the player, for the objectives (the
+ * cells around them are read: placed, generated or filled blocks all count, and nothing is left
+ * to keep in sync).
+ */
+export function stationNear(sim: Simulation, player: PlayerState, station: string): boolean {
+  const b = player.body;
+  const r = STATION_REACH;
+  const y0 = Math.max(0, Math.floor(b.y - r));
+  const y1 = Math.min(WORLD_HEIGHT - 1, Math.floor(b.y + bodyHeight(b) + r));
+  for (let x = Math.floor(b.x - r); x <= Math.floor(b.x + r); x++) {
+    for (let z = Math.floor(b.z - r); z <= Math.floor(b.z + r); z++) {
+      for (let y = y0; y <= y1; y++) {
+        const def = sim.registry.blockDef(sim.world.getBlock(x, y, z));
+        if (def.station === station && withinReach(player, x, y, z, r)) return true;
+      }
+    }
+  }
+  return false;
+}
 
 /** Whether every part of an objective's condition holds for a player now. */
 export function conditionHolds(

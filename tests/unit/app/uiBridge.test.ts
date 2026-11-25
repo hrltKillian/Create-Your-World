@@ -5,16 +5,21 @@ import { addStrings } from '../../../src/i18n/i18n.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { BlockEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
+import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import type { Gear } from '../../../src/sim/environment.ts';
 import type { SimView } from '../../../src/sim/host.ts';
-import { createInventory, INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
+import { createInventory, type Inventory, type ItemStack } from '../../../src/sim/inventory.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
 import type { ContainerScreen } from '../../../src/ui/screens/container.ts';
 import type { LogbookState } from '../../../src/ui/screens/logbook.ts';
 import type { StationScreen, StationStatus } from '../../../src/ui/screens/station.ts';
+import type { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import { registry } from '../../helpers/registry.ts';
+
+/** The cursor stack a screen shows. */
+type Cursor = ItemStack | null;
 
 /** A screen stand-in that records its updates. */
 function screen<T extends unknown[]>() {
@@ -49,9 +54,10 @@ function setup(entity?: BlockEntity) {
       this.elapsed += dt;
     },
   };
-  const bag = screen<[Inventory, LogbookState, Gear]>();
-  const container = screen<[Inventory]>();
-  const station = screen<[Inventory, StationStatus]>();
+  const bag = screen<[Inventory, Cursor, LogbookState, Gear]>();
+  const container = screen<[Inventory, Cursor]>();
+  const station = screen<[Inventory, Cursor, StationStatus]>();
+  const workbench = screen<[Inventory, Cursor, LogbookState]>();
   const input = { slot: 0 };
   const player = {
     playerId: 1,
@@ -59,13 +65,13 @@ function setup(entity?: BlockEntity) {
     equipment: [null, null, null, null, null] as Inventory,
     seen: {},
     craft: [],
-    opened: entity ? { x: entity.x, y: entity.y, z: entity.z } : null,
+    cursor: null as Cursor,
+    screen: entity ? { kind: 'block', x: entity.x, y: entity.y, z: entity.z } : null,
   };
   const view = {
     registry,
     player: () => player,
     blockEntity: () => entity,
-    stationNear: () => true,
   };
   const bridge = new UiBridge(view as unknown as SimView, input as unknown as InputManager, {
     hotbar: hotbar as unknown as Hotbar,
@@ -73,8 +79,9 @@ function setup(entity?: BlockEntity) {
     bag: bag as unknown as BagScreen,
     container: container as unknown as ContainerScreen,
     station: station as unknown as StationScreen,
+    workbench: workbench as unknown as WorkbenchScreen,
   });
-  return { bridge, hotbar, bag, container, station, hint, input, player };
+  return { bridge, hotbar, bag, container, station, workbench, hint, input, player };
 }
 
 const FRAME = 1 / 60;
@@ -128,28 +135,37 @@ describe('UiBridge', () => {
     player.equipment[2] = { item: 'item:fur_coat', count: 1 };
     bridge.frame(FRAME);
     expect(bag.updates).toHaveLength(1);
-    // The inventory, then the worn items (slots 32–36) and what they protect from.
-    const [slots, logbook, gear] = bag.updates[0]!;
-    expect(slots).toHaveLength(INVENTORY_SLOTS + 5);
-    expect(slots[INVENTORY_SLOTS + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
+    // The inventory, then the worn items (slots 64–68) and what they protect from.
+    const [slots, cursor, logbook, gear] = bag.updates[0]!;
+    expect(cursor).toBeNull();
+    expect(slots).toHaveLength(OPEN_SLOTS_BASE + 5);
+    expect(slots[3]).toEqual({ item: 'item:broadleaf_log', count: 4 });
+    expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:fur_coat', count: 1 });
     expect(gear).toMatchObject({ armor: 2, warmth: 10, cooling: 0 });
     // The simulation's own count: a tag ingredient counts every item carrying it.
     expect(logbook.source.owned('tag:log')).toBe(4);
-    expect(logbook.source.stationNear('station:workbench')).toBe(true);
+    // The hand recipes, with the room the player's own queue has.
+    expect(logbook.source.station).toBeUndefined();
+    expect(logbook.source.room(registry.crafting.recipe('recipe:cord')!)).toBe(5 * 64);
     expect(logbook.queue).toEqual([]);
+    // The cursor stack the simulation holds for the player shows with the slots.
+    player.cursor = { item: 'item:flint', count: 3 };
+    bridge.onEvent({ type: 'inventoryChanged', playerId: 1 });
+    bridge.frame(FRAME);
+    expect(bag.updates.at(-1)![1]).toEqual({ item: 'item:flint', count: 3 });
   });
 
-  it('shows the open chest or station after the inventory, with the station fire', () => {
+  it('shows the open chest or station from slot 64 on, with the station fire', () => {
     const chest: BlockEntity = { kind: 'container', x: 0, y: 0, z: 0, slots: [null, null] };
     const a = setup(chest);
     a.container.open = true;
     a.bridge.frame(FRAME);
-    expect(a.container.updates[0]![0]).toHaveLength(a.player.inventory.length + 2);
+    expect(a.container.updates[0]![0]).toHaveLength(OPEN_SLOTS_BASE + 2);
     const b = setup(kiln());
     b.station.open = true;
     b.bridge.frame(FRAME);
-    const [slots, status] = b.station.updates[0]!;
-    expect(slots[b.player.inventory.length + 2]).toEqual({ item: 'item:charcoal', count: 2 });
+    const [slots, , status] = b.station.updates[0]!;
+    expect(slots[OPEN_SLOTS_BASE + 2]).toEqual({ item: 'item:charcoal', count: 2 });
     expect(status).toEqual({
       lit: true,
       flame: 0.25,
@@ -157,6 +173,29 @@ describe('UiBridge', () => {
       process: 'process:copper_ingot',
       keepLit: false,
     });
+  });
+
+  it("shows an open workbench's outputs and its Logbook: the bench's recipes and queue", () => {
+    const entry = { recipe: 'recipe:chest', count: 2, progressTicks: 45, reserved: [] };
+    const bench: BlockEntity = {
+      kind: 'workbench',
+      x: 0,
+      y: 0,
+      z: 0,
+      station: 'station:workbench',
+      slots: [{ item: 'item:chest', count: 1 }, null, null, null],
+      craft: [entry],
+      tick: 0,
+    };
+    const s = setup(bench);
+    s.workbench.open = true;
+    s.bridge.frame(FRAME);
+    const [slots, , logbook] = s.workbench.updates[0]!;
+    expect(slots[OPEN_SLOTS_BASE]).toEqual({ item: 'item:chest', count: 1 });
+    expect(logbook.source.station).toBe('station:workbench');
+    expect(logbook.queue).toEqual([queueView(registry, entry)]);
+    // The bench's queue: the chest's entry takes 62 more, then 4 free entries of 64.
+    expect(logbook.source.room(registry.crafting.recipe('recipe:chest')!)).toBe(62 + 4 * 64);
   });
 
   it("shows its player's hints, translated, and keeps the hint line's clock running", () => {

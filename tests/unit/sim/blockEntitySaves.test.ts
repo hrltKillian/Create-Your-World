@@ -4,6 +4,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry, type Registry } from '../../../src/content/registry.ts';
 import type { RecipeDef } from '../../../src/content/schema.ts';
 import type { ContainerEntity, StationEntity } from '../../../src/sim/blockEntities.ts';
+import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, snapshotSim } from '../../../src/sim/persistence.ts';
@@ -15,6 +16,7 @@ import {
   readPlayer,
 } from '../../../src/sim/saveRecords.ts';
 import type { SaveBatch } from '../../../src/sim/storage.ts';
+import { shiftClick, slotClick } from '../../../src/sim/testing/slotMoves.ts';
 import { cellKey } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle, TEST_WORLD } from '../../helpers/save.ts';
@@ -39,16 +41,18 @@ function furnish(s: TestSim): void {
   s.give('item:flint', 3);
   s.send(
     { type: 'container.open', x: 2, y: 65, z: 2 },
-    { type: 'container.move', from: 0 },
-    { type: 'container.move', from: 1, to: 40 },
+    shiftClick(0),
+    slotClick(1),
+    slotClick(OPEN_SLOTS_BASE + 8),
   );
   s.give('item:copper_ore', 3);
   s.give('item:charcoal', 1);
-  const fuel = 32 + fuelSlotOf(registry.crafting.station('station:kiln')!);
+  const fuel = OPEN_SLOTS_BASE + fuelSlotOf(registry.crafting.station('station:kiln')!);
   s.send(
     { type: 'container.open', x: -2, y: 65, z: 2 },
-    { type: 'station.move', from: 0 },
-    { type: 'station.move', from: 1, to: fuel },
+    shiftClick(0),
+    slotClick(1),
+    slotClick(fuel),
   );
   s.step(400);
   s.give('item:plant_fiber', 7);
@@ -106,7 +110,7 @@ describe('saving block entities and craft queues', () => {
     r.give('item:dirt', 5);
     expect(written(autosave())).toEqual([]);
     // Items moved into a chest change no block, but its column record must be written again.
-    r.send({ type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
+    r.send({ type: 'container.open', x: 2, y: 65, z: 2 }, shiftClick(0));
     expect(written(autosave())).toEqual([[0, 0]]);
     const chest = autosave().columns[0]!.blockEntities[0] as ContainerEntity;
     expect(chest.slots[0]).toEqual({ item: 'item:dirt', count: 5 });
@@ -131,7 +135,7 @@ describe('saving block entities and craft queues', () => {
     const s = flatSim('relics', extended);
     s.put(2, 65, 2, 'block:chest[facing4=n]');
     s.give('item:relic', 4);
-    s.send({ type: 'container.open', x: 2, y: 65, z: 2 }, { type: 'container.move', from: 0 });
+    s.send({ type: 'container.open', x: 2, y: 65, z: 2 }, shiftClick(0));
     s.give('item:plant_fiber', 2);
     s.send({ type: 'craft.enqueue', recipe: 'recipe:relic_cord', count: 1 });
     expect(countItem(s.sim.players.get(1)!.inventory, 'item:plant_fiber')).toBe(0);
@@ -155,7 +159,7 @@ describe('saving block entities and craft queues', () => {
   it('reads a malformed craft queue and seen set as defaults', () => {
     const spawn = { x: 0, y: 65, z: 0 };
     const empty = readPlayer({ playerId: 1, id: 1, craft: 'x', seen: 3 }, registry, spawn)!;
-    expect([empty.craft, empty.seen, empty.opened]).toEqual([[], {}, null]);
+    expect([empty.craft, empty.seen, empty.screen, empty.cursor]).toEqual([[], {}, null, null]);
     const craft = [
       { recipe: 'recipe:cord', count: 0 },
       { count: 2 },
@@ -206,11 +210,8 @@ describe('saving block entities and craft queues', () => {
     const s = flatSim('kept');
     s.put(2, 65, -2, 'block:campfire[lit=0]');
     s.give('item:broadleaf_log', 3);
-    const fuel = 32 + fuelSlotOf(registry.crafting.station('station:campfire')!);
-    s.send(
-      { type: 'container.open', x: 2, y: 65, z: -2 },
-      { type: 'station.move', from: 0, to: fuel },
-    );
+    const fuel = OPEN_SLOTS_BASE + fuelSlotOf(registry.crafting.station('station:campfire')!);
+    s.send({ type: 'container.open', x: 2, y: 65, z: -2 }, slotClick(0), slotClick(fuel));
     s.send({ type: 'station.keepLit' });
     s.step(10);
     const fire = s.sim.blockEntities.get(cellKey(2, 65, -2)) as StationEntity;

@@ -392,7 +392,7 @@ export interface SimHost {
 - **`RemoteSimHost`** (après la v1) : même interface, avec une réplique du monde et une prédiction locale via la fonction pure `stepBody()`.
 - **Déjà prêt pour le multijoueur en v1** :
   - `players: Map`, avec un rayon de vue par joueur (`client.view`) ;
-  - validation côté sim : portée, ligne de vue, propriété des emplacements, proximité des stations ;
+  - validation côté sim : portée, ligne de vue, propriété des emplacements (l'écran ouvert et la pile du curseur de chaque joueur), l'établi ouvert pour ses recettes ;
   - événements avec une `audience` ;
   - ids d'entités persistés et jamais réutilisés ;
   - règle de sommeil `allPlayersSleeping`.
@@ -485,7 +485,7 @@ renderer.setAnimationLoop((now: number) => {
 
 ```
 DOM → InputManager → CommandBuilder ─usercmd 30 Hz─┐
-Écrans UI (glisser-déposer, Logbook, stations) ────┤→ SimHost.send → Simulation.step
+Écrans UI (clics sur les cases, Logbook, stations) ┤→ SimHost.send → Simulation.step
 SimEvent[] → EventBus → MeshScheduler · EntityView · Particles · UiBridge · AudioEngine · SaveManager
 Rendu, UI et audio lisent SimView ; seule une commande modifie l'état.
 ```
@@ -542,7 +542,7 @@ src/render/                Renderer · textureArray · voxelMaterial · shaders/
                            Occlusion · Sky · BoxBatch · EntityView · rigs · CameraRig · ViewModel · Highlight · Particles · capture · debugViews
 src/audio/                 AudioEngine · cues · Ambience
 src/input/                 InputManager · bindings · keyLabels · pointerLock · CommandBuilder · LookTarget
-src/ui/                    signals (~80 lines) · h · UiRoot · store · drag · tooltip · hud/* · screens/* · onboarding · debug/DebugOverlay · styles/*.css
+src/ui/                    signals (~80 lines) · h · UiRoot · store · slotBoard · tooltip · hud/* · screens/* · onboarding · debug/DebugOverlay · styles/*.css
 src/i18n/                  i18n (t(), Intl.PluralRules) · fmt (Intl) · en
 tests/                     unit/** · golden/ · sim/ · balance/ · content/ (incl. altPack/) · architecture/ · perf/*.perf.ts · slow/*.slow.ts · fixtures/
 e2e/                       boot · selftest · save · input · perf (.spec.ts)
@@ -886,20 +886,23 @@ Les UV se déduisent de la position et de la face. Avec `RepeatWrapping`, la tex
 
 **Inventaire**
 
-- Barre de 8, sac de 24 (6×4), 5 emplacements d'équipement (tête, visage, torse, jambes, pieds).
-- Piles `{ item: ItemKey, count, durability?, charges?, orig? }`. Maximum : blocs 50, matériaux 30, nourriture 20, outils 1.
+- Barre de 8, sac de 24 (6×4), 5 emplacements d'équipement (tête, visage, torse, jambes, pieds). L'inventaire a de 32 à 64 cases (`inventorySize`, sa longueur ; les améliorations de M19 l'agrandissent).
+- Piles `{ item: ItemKey, count, durability?, charges?, orig? }`. Maximum : 64 (`DEFAULT_STACK`), ou le `maxStack` de l'objet ; outils, armes, équipements et récipients : 1 (`stackLimit`). Une pile au-delà d'un maximum abaissé est redécoupée au chargement (`fitStacks`).
 - Opérations pures qui renvoient le reste.
-- L'UI n'envoie que des commandes atomiques (`inv.move {from,to,count}`, `inv.split`, `inv.quickMove`, `inv.drop`, `equip`), validées par la sim.
+- L'UI n'envoie que des commandes, validées par la sim : `screen.open {kind: 'bag'}` / `screen.close`, `slot.click {slot, button, shift}`, `slot.hotkey {slot, hotbar}` (`sim/slotClicks.ts`, pile du curseur `PlayerState.cursor`), `inv.drop`. Les cases de l'écran ouvert sont numérotées à partir de 64 (`OPEN_SLOTS_BASE`).
 - Coffre de 18 emplacements, ouvert par un seul joueur à ≤ 5 blocs ; casser un conteneur répand son contenu.
 
 **Craft : le « Logbook »** (une liste originale, pas de grille)
 
 - Recettes `known: 'start'` connues dès le départ ; les autres sont **révélées dès qu'un de leurs ingrédients a été vu**.
 - Un ingrédient inconnu s'affiche avec un indice, par exemple « Found in the frozen lands to the north ».
-- File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation.
+- Recherche (noms du résultat et des ingrédients affichés, sans casse ni accents) et filtre « Can craft now » (M13).
+- Les recettes non découvertes sont listées en bas de leur onglet, grisées (M13) : leur résultat est visible, leurs ingrédients jamais vus s'affichent en « ? » avec leur indice. Elles ne se fabriquent pas, suivent l'onglet et la recherche, et le filtre les masque.
+- File de 5 ; ingrédients réservés à l'ajout et remboursés à l'annulation. Une recette déjà dans la file s'ajoute à son entrée, jusqu'à une pile du résultat (`entryCrafts`), puis une nouvelle entrée s'ouvre : cinq ×1 font la même file qu'un ×5 (M13).
 - Temps de craft à la main dans les données : 1 à 3 s (Flint Hatchet : 2 s).
-- Établi à ≤ 4 blocs, vérifié à l'ajout grâce à un index spatial des stations.
-- Le résultat va dans l'inventaire, ou au sol s'il est plein.
+- Recettes à la main : file du joueur ; le résultat va dans l'inventaire, ou au sol s'il est plein.
+- Recettes d'établi (M13, décision 18) : l'établi est une entité de bloc (`blockEntity: 'workbench'`) avec sa file de 5 et 4 cases de sortie. Ajouter à sa file exige l'établi ouvert ; les ingrédients sont réservés sur le joueur qui ajoute, et rendus à celui qui annule (`craft.cancel { workbench: true }`). L'établi fabrique seul vers ses sorties, avec le rattrapage des stations ; des sorties pleines mettent la file en pause. Casser l'établi répand ses sorties et ses réservations.
+- Les objectifs qui demandent une station la cherchent à ≤ 4 blocs du joueur (`stationNear`).
 
 **Stations de transformation**
 
@@ -1112,17 +1115,18 @@ Tous les textes ci-dessous sont en anglais dans le jeu (clés i18n, fichier `i18
 
 **Écrans**
 
-- **Bag** (E ou Tab) :
-  - à gauche, la silhouette et ses 5 emplacements, avec le détail des protections ;
-  - au centre, le sac 6×4 et la barre ;
-  - à droite, le **Logbook** :
-    - onglets, recettes faisables en premier ;
-    - pastilles possédé/requis, badge de station ;
+- **Bag** (E ou Tab) : une barre d'onglets, Inventory et Logbook (Quests, Bestiary et Status viendront avec M17 et M19), à côté du sac 6×4 et de la barre ; l'onglet choisi en dernier revient à l'ouverture (M13) :
+  - **Inventory** : la silhouette et ses 5 emplacements, avec le détail des protections ;
+  - **Logbook** :
+    - recherche et filtre « Can craft now » ;
+    - onglets, recettes à la main faisables en premier, les non découvertes grisées en bas ;
+    - pastilles possédé/requis ;
     - boutons ×1/×5/Max, file de 5 ;
-    - « Requires: Workbench nearby ».
+    - « N more at the Workbench » pour les recettes d'établi révélées.
+- **Établi** (M13) : son Logbook (ses recettes et sa file), ses 4 cases de sortie, le sac et la barre.
 - **Conteneur** : « Take all » / « Store all ».
 - **Station** : entrées, combustible (flamme), progression, sortie, procédés connus ; l'interrupteur « Keep burning » du feu de camp (M12).
-- **Manipulation** : glisser-déposer en pointer events, clic droit pour diviser, Maj+clic pour transférer, chiffre au survol pour échanger.
+- **Manipulation** (M13, décision 20) : clic gauche pour prendre ou poser une pile, qui suit la souris sur le curseur ; clic droit pour en prendre la moitié (arrondie au-dessus) ou poser un seul objet ; Maj+clic pour transférer ; un clic hors du panneau jette la pile (gauche) ou un objet (droit) ; chiffre au survol pour échanger. Fermer l'écran range la pile du curseur dans l'inventaire.
 
 **Menus**
 
@@ -1722,7 +1726,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   - atteignabilité pour chaque règle de monde ; persistance étendue ; clés inconnues.
 - **Fait quand** :
   - tests :
-    - 1 000 opérations d'inventaire conservent les totaux ; 70 objets à pile 50 → [50, 20] ;
+    - 1 000 opérations d'inventaire conservent les totaux ; 70 objets → [64, 6] (piles de 64 depuis M13) ;
     - craft : réservation, remboursement, établi, révélation dès qu'un ingrédient est vu ;
     - stations : alliage, pause, rejeu == tick par tick ;
     - conteneur cassé ;
@@ -1730,7 +1734,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
     - un objet inconnu au chargement devient `item:unknown` en gardant sa clé ;
   - navigateur sur `arena` :
     - clic sur « Flint Hatchet » puis `step(90)` → obtenue ; la bûche se casse au moins 1,9 fois plus vite ;
-    - four → `ui.screen() === 'station'` ; glisser-déposer puis `step(330)` → un lingot ;
+    - four → `ui.screen() === 'station'` ; minerai et combustible posés au clic (glisser-déposer avant M13) puis `step(330)` → un lingot ;
     - le coffre survit à `reload()` ; la porte fonctionne ;
     - `i18nMissing()` vide ;
   - checklist d'originalité (Logbook, écrans).

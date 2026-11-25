@@ -2,11 +2,12 @@ import type { Registry } from '../content/registry.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { StationEntity } from '../sim/blockEntities.ts';
 import { ticksOf } from '../sim/clock.ts';
-import type { CraftEntry } from '../sim/craftQueue.ts';
+import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
+import { type CraftEntry, queueRoom } from '../sim/craftQueue.ts';
 import { type Gear, wornGear } from '../sim/environment.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
-import { countMatching, INVENTORY_SLOTS } from '../sim/inventory.ts';
+import { countMatching, type Inventory } from '../sim/inventory.ts';
 import type { PlayerState } from '../sim/player.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
@@ -14,6 +15,7 @@ import type { BagScreen } from '../ui/screens/bag.ts';
 import type { ContainerScreen } from '../ui/screens/container.ts';
 import type { LogbookState, QueueView } from '../ui/screens/logbook.ts';
 import type { StationScreen, StationStatus } from '../ui/screens/station.ts';
+import type { WorkbenchScreen } from '../ui/screens/workbench.ts';
 
 /** Seconds between two refreshes of the HUD and the open screens (10 Hz). */
 const REFRESH_SECONDS = 0.1;
@@ -25,15 +27,17 @@ export interface InventoryViews {
   readonly bag: BagScreen;
   readonly container: ContainerScreen;
   readonly station: StationScreen;
+  readonly workbench: WorkbenchScreen;
 }
 
-type OpenScreen = 'bag' | 'container' | 'station' | null;
+type OpenScreen = 'bag' | 'container' | 'station' | 'workbench' | null;
 
 /**
- * Refreshes the hotbar and the open screen (the bag with its Logbook, a chest, a station) from the
- * player's live state: at 10 Hz, at once after an inventory, craft or block entity event, when the
- * selected slot changes and when a screen opens. The views diff what they show, so a refresh that
- * changes nothing touches no DOM. The player's hints (SimEvent `hint`) go to the HUD hint line.
+ * Refreshes the hotbar and the open screen (the bag with its Logbook, a chest, a station, a
+ * workbench with its own Logbook) with the cursor stack, from the player's live state: at 10 Hz,
+ * at once after an inventory, craft or block entity event, when the selected slot changes and when
+ * a screen opens. The views diff what they show, so a refresh that changes nothing touches no DOM.
+ * The player's hints (SimEvent `hint`) go to the HUD hint line.
  */
 export class UiBridge {
   private readonly view: SimView;
@@ -95,45 +99,69 @@ export class UiBridge {
   }
 
   private openScreen(): OpenScreen {
-    const { bag, container, station } = this.views;
+    const { bag, container, station, workbench } = this.views;
     if (bag.isOpen()) return 'bag';
     if (container.isOpen()) return 'container';
-    return station.isOpen() ? 'station' : null;
+    if (station.isOpen()) return 'station';
+    return workbench.isOpen() ? 'workbench' : null;
   }
 
-  /** The Logbook's view of the player: the simulation's own ingredient count and station rule. */
-  private logbook(): LogbookState {
-    const view = this.view;
-    const crafting = view.registry.crafting;
+  /**
+   * A Logbook's view of the player and a queue (the player's, for the hand recipes; a workbench's,
+   * for its station's): the simulation's own ingredient count and queue room.
+   */
+  private logbook(queue: readonly CraftEntry[], station?: string): LogbookState {
+    const registry = this.view.registry;
+    const crafting = registry.crafting;
     const player = this.player;
     return {
       source: {
         crafting,
+        ...(station === undefined ? {} : { station }),
         seen: player.seen,
         owned: (ingredient) =>
-          countMatching(player.inventory, 0, INVENTORY_SLOTS, crafting, ingredient),
-        stationNear: (station) => view.stationNear(station),
+          countMatching(player.inventory, 0, player.inventory.length, crafting, ingredient),
+        room: (recipe) => queueRoom(registry, queue, recipe),
       },
-      queue: player.craft.map((entry) => queueView(view.registry, entry)),
+      queue: queue.map((entry) => queueView(registry, entry)),
     };
   }
 
-  /** The Bag: the inventory then the worn items, their protection, and the Logbook. */
+  /** The Bag: the inventory then the worn items, the cursor stack, the protection and the Logbook. */
   private bagScreen(): void {
-    const { inventory, equipment } = this.player;
+    const { inventory, equipment, craft, cursor } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
-    this.views.bag.update([...inventory, ...equipment], this.logbook(), gear);
+    this.views.bag.update(screenSlots(inventory, equipment), cursor, this.logbook(craft), gear);
   }
 
-  /** The open chest or station: the inventory then its slots (and a station's fire). */
-  private blockScreen(open: 'container' | 'station'): void {
-    const cell = this.player.opened;
-    const entity = cell ? this.view.blockEntity(cell.x, cell.y, cell.z) : undefined;
+  /**
+   * The open chest, station or workbench: the inventory then its slots (and a station's fire, a
+   * workbench's Logbook).
+   */
+  private blockScreen(open: 'container' | 'station' | 'workbench'): void {
+    const screen = this.player.screen;
+    const entity =
+      screen?.kind === 'block' ? this.view.blockEntity(screen.x, screen.y, screen.z) : undefined;
     if (entity?.kind !== open) return;
-    const slots = [...this.player.inventory, ...entity.slots];
-    if (entity.kind === 'container') this.views.container.update(slots);
-    else this.views.station.update(slots, stationStatus(this.view.registry, entity));
+    const { inventory, cursor } = this.player;
+    const slots = screenSlots(inventory, entity.slots);
+    const { container, workbench, station } = this.views;
+    if (entity.kind === 'container') container.update(slots, cursor);
+    else if (entity.kind === 'workbench')
+      workbench.update(slots, cursor, this.logbook(entity.craft, entity.station));
+    else station.update(slots, cursor, stationStatus(this.view.registry, entity));
   }
+}
+
+/**
+ * The slots of a screen by slot number: the inventory, then the open block entity's or the worn
+ * items from OPEN_SLOTS_BASE (the slots between are empty).
+ */
+export function screenSlots(inventory: Inventory, open: Inventory): Inventory {
+  const slots: Inventory = new Array(OPEN_SLOTS_BASE + open.length).fill(null);
+  for (let i = 0; i < inventory.length; i++) slots[i] = inventory[i]!;
+  for (let i = 0; i < open.length; i++) slots[OPEN_SLOTS_BASE + i] = open[i]!;
+  return slots;
 }
 
 /** A queue entry as the Logbook shows it, with the progress of its craft under way. */

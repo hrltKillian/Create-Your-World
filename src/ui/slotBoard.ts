@@ -1,14 +1,8 @@
 import { HOTBAR_SLOTS } from '../core/player.ts';
 import { t } from '../i18n/i18n.ts';
 import type { Command } from '../sim/commands.ts';
+import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
-import {
-  dropCommand,
-  hotkeyCommand,
-  quickMoveCommand,
-  type SlotContext,
-  splitCount,
-} from './inventoryGestures.ts';
 import { type ItemArt, type Slots, SlotView, stackName } from './itemSlot.ts';
 
 /** Bag columns (6×4). */
@@ -27,24 +21,23 @@ export interface ScreenActions {
 export interface ScreenDeps {
   readonly art: ItemArt;
   readonly actions: ScreenActions;
-  /** Inventory slots (hotbar then bag); the open block entity's slots are numbered from there. */
+  /** Inventory slots (hotbar then bag). */
   readonly slotCount: number;
+  /**
+   * First slot number of the open block entity's slots, or of the Bag's worn items (the
+   * simulation's `OPEN_SLOTS_BASE`: past the largest inventory).
+   */
+  readonly openBase: number;
   /** Label of the key that opens and closes the screens, read at each opening. */
   readonly closeKey: () => string;
 }
 
-interface Drag {
-  readonly from: number;
-  readonly count: number;
-  readonly pointerId: number;
-  readonly ghost: HTMLElement;
-}
-
 /**
- * The shell of a slot screen (Bag, Container, Station): a full-screen section whose `[data-slot]`
- * views take the bag's gestures. Pointer drag and drop moves a stack, a right-button drag moves
- * half of it, Shift+click sends it across and a hotbar number key over a slot swaps it with that
- * hotbar slot. It only sends commands and shows what the simulation answers.
+ * The shell of a slot screen (Bag, Container, Station, Workbench): a full-screen section whose
+ * `[data-slot]` views send the simulation's slot clicks (sim/slotClicks.ts decides): a left or
+ * right button press on a slot, with Shift or not, one outside the panel (slot −1: throws the
+ * cursor stack), and a hotbar number key over a slot. It only sends commands and shows what the
+ * simulation answers: the slots, and the cursor stack (PlayerState.cursor) under the mouse.
  */
 export class SlotBoard {
   readonly element: HTMLElement;
@@ -52,42 +45,44 @@ export class SlotBoard {
   readonly caption: HTMLElement;
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
-  private readonly context: SlotContext;
+  /** Inventory slots (hotbar then bag). */
+  private readonly slotCount: number;
   private readonly closeHint: HTMLElement;
   private readonly closeKey: () => string;
   /** Views by slot number. */
   private readonly views: SlotView[] = [];
+  /** The cursor stack's view, under the mouse (it ignores the pointer); hidden while it is empty. */
+  private readonly cursor: SlotView;
   private slots: Slots = [];
   private hovered = -1;
-  private drag: Drag | null = null;
+  /** The pointer's last place in the viewport, where the cursor stack shows. */
+  private pointerX = 0;
+  private pointerY = 0;
 
-  /** `accepts`: which items the open block entity's slots take (a station), as in SlotContext. */
-  constructor(
-    deps: ScreenDeps,
-    move: SlotContext['move'],
-    id: string,
-    accepts?: SlotContext['accepts'],
-  ) {
+  constructor(deps: ScreenDeps, id: string) {
     this.art = deps.art;
     this.actions = deps.actions;
-    this.context = accepts
-      ? { base: deps.slotCount, move, accepts }
-      : { base: deps.slotCount, move };
+    this.slotCount = deps.slotCount;
     this.closeKey = deps.closeKey;
     this.caption = h('p', { class: 'bag-caption' });
     this.closeHint = h('p', { class: 'bag-close' });
-    this.element = h('section', {
-      id,
-      class: 'screen screen-slots',
-      on: {
-        pointerdown: this.onPointerDown,
-        pointermove: this.onPointerMove,
-        pointerup: this.onPointerUp,
-        pointercancel: this.endDrag,
-        pointerover: this.onPointerOver,
-        contextmenu: (event) => event.preventDefault(),
+    this.cursor = new SlotView(null, deps.art);
+    this.cursor.element.classList.add('slot-cursor');
+    this.cursor.element.hidden = true;
+    this.element = h(
+      'section',
+      {
+        id,
+        class: 'screen screen-slots',
+        on: {
+          pointerdown: this.onPointerDown,
+          pointermove: this.onPointerMove,
+          pointerover: this.onPointerOver,
+          contextmenu: (event) => event.preventDefault(),
+        },
       },
-    });
+      this.cursor.element,
+    );
     this.element.hidden = true;
   }
 
@@ -109,14 +104,13 @@ export class SlotBoard {
 
   /** Forgets the views from slot `from` on (the open block entity's, made again at each opening). */
   dropViews(from: number): void {
-    this.endDrag();
     this.views.length = Math.min(this.views.length, from);
   }
 
   /** The bag (6×4), then the hotbar, with their views. */
   inventory(): HTMLElement[] {
     return [
-      slotGrid(this.slotViews(HOTBAR_SLOTS, this.context.base), BAG_COLUMNS),
+      slotGrid(this.slotViews(HOTBAR_SLOTS, this.slotCount), BAG_COLUMNS),
       h('p', { class: 'bag-section' }, t('bag.hotbar')),
       slotGrid(this.slotViews(0, HOTBAR_SLOTS), HOTBAR_SLOTS),
     ];
@@ -135,7 +129,6 @@ export class SlotBoard {
 
   close(): void {
     if (!this.isOpen()) return;
-    this.endDrag();
     // A clicked button keeps the focus while hidden: Space or Enter would press it during play.
     const active = document.activeElement as HTMLElement | null | undefined;
     if (active && this.element.contains(active)) active.blur();
@@ -145,19 +138,25 @@ export class SlotBoard {
   }
 
   /**
-   * Shows the slots (the inventory, then the open block entity's): call when they change and
-   * regularly; unchanged slots cost nothing.
+   * Shows the slots (the inventory, then the open block entity's) and the cursor stack: call when
+   * they change and regularly; unchanged slots cost nothing.
    */
-  update(slots: Slots): void {
+  update(slots: Slots, cursor: Readonly<ItemStack> | null): void {
     this.slots = slots;
     for (let i = 0; i < this.views.length; i++) this.views[i]?.set(slots[i] ?? null);
     if (this.hovered >= 0) this.hover(this.hovered);
+    this.cursor.set(cursor);
+    const view = this.cursor.element;
+    if (view.hidden === (cursor !== null)) {
+      view.hidden = cursor === null;
+      this.placeCursor();
+    }
   }
 
-  /** A hotbar number key (slot 0–7) pressed while the screen is open. */
+  /** A hotbar number key (slot 0–7) pressed while the screen is open, over the hovered slot. */
   hotkey(hotbarSlot: number): void {
-    const command = hotkeyCommand(this.context, this.slots, this.hovered, hotbarSlot);
-    if (command) this.send(command);
+    if (this.hovered >= 0)
+      this.send({ type: 'slot.hotkey', slot: this.hovered, hotbar: hotbarSlot });
   }
 
   /** Sends a command with the click sound. */
@@ -173,62 +172,33 @@ export class SlotBoard {
     if (this.caption.textContent !== text) this.caption.textContent = text;
   }
 
+  /** Puts the cursor stack's view where the pointer last was (viewport pixels: main.css). */
+  private placeCursor(): void {
+    this.cursor.element.style.transform = `translate(${this.pointerX}px, ${this.pointerY}px)`;
+  }
+
   private readonly onPointerOver = (event: PointerEvent): void => {
     this.hover(slotOf(event.target));
   };
 
-  private readonly onPointerDown = (event: PointerEvent): void => {
-    const slot = slotOf(event.target);
-    const stack = slot >= 0 ? this.slots[slot] : null;
-    if (!stack || this.drag) return;
-    event.preventDefault();
-    if (event.button === MOUSE_LEFT && event.shiftKey) {
-      this.send(quickMoveCommand(this.context, slot));
-      return;
-    }
-    const source = this.views[slot]?.element;
-    if (!source || (event.button !== MOUSE_LEFT && event.button !== MOUSE_RIGHT)) return;
-    const count = event.button === MOUSE_RIGHT ? splitCount(stack.count) : stack.count;
-    const ghost = source.cloneNode(true) as HTMLElement;
-    ghost.removeAttribute('data-slot');
-    ghost.classList.add('slot-ghost');
-    const label = ghost.querySelector('.slot-count');
-    if (label && label.textContent !== '') label.textContent = String(count);
-    this.element.append(ghost);
-    source.classList.add('dragging');
-    this.element.setPointerCapture(event.pointerId);
-    this.drag = { from: slot, count, pointerId: event.pointerId, ghost };
-    this.moveGhost(event);
-  };
-
+  /** The cursor stack follows the pointer. */
   private readonly onPointerMove = (event: PointerEvent): void => {
-    if (this.drag?.pointerId === event.pointerId) this.moveGhost(event);
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    if (!this.cursor.element.hidden) this.placeCursor();
   };
 
-  private readonly onPointerUp = (event: PointerEvent): void => {
-    const drag = this.drag;
-    if (drag?.pointerId !== event.pointerId) return;
-    // The ghost ignores the pointer, so this finds the slot under it (or nothing).
-    const hit = document.elementFromPoint(event.clientX, event.clientY);
-    const to = hit && this.element.contains(hit) ? slotOf(hit) : -1;
-    this.endDrag();
-    const command = dropCommand(this.context, this.slots, drag.from, to, drag.count);
-    if (command) this.send(command);
+  /** A press on a slot clicks it; one outside the panel (the backdrop) is slot −1. */
+  private readonly onPointerDown = (event: PointerEvent): void => {
+    this.onPointerMove(event);
+    if (event.button !== MOUSE_LEFT && event.button !== MOUSE_RIGHT) return;
+    const slot = slotOf(event.target);
+    const outside = event.target instanceof Element && !event.target.closest('.bag-panel');
+    if (slot < 0 && !outside) return;
+    event.preventDefault();
+    const button = event.button === MOUSE_RIGHT ? 1 : 0;
+    this.send({ type: 'slot.click', slot, button, shift: slot >= 0 && event.shiftKey });
   };
-
-  private readonly endDrag = (): void => {
-    const drag = this.drag;
-    if (!drag) return;
-    this.drag = null;
-    drag.ghost.remove();
-    this.views[drag.from]?.element.classList.remove('dragging');
-    if (this.element.hasPointerCapture(drag.pointerId))
-      this.element.releasePointerCapture(drag.pointerId);
-  };
-
-  private moveGhost(event: PointerEvent): void {
-    this.drag!.ghost.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
-  }
 }
 
 /** A grid of slot views, `columns` wide. */

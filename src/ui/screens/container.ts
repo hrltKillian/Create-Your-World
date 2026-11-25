@@ -1,5 +1,6 @@
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
 import {
@@ -14,22 +15,25 @@ import { menuButton } from './menuParts.ts';
 /**
  * The Container screen (a chest, docs « Écrans »): its slots above the bag and the hotbar, « Take
  * all » (everything into the inventory) and « Store all » (the bag, not the hotbar, into the chest).
- * Slots take the bag's gestures; Shift+click sends a stack to the other side.
+ * Slots take the slot clicks; Shift+click sends a stack to the other side.
  */
 export class ContainerScreen {
   readonly element: HTMLElement;
   private readonly board: SlotBoard;
   private readonly actions: ScreenActions;
   private readonly base: number;
+  /** Inventory slots (hotbar then bag). */
+  private readonly slotCount: number;
   private readonly title: HTMLElement;
   private readonly chest: HTMLElement;
   private slots: Slots = [];
 
   constructor(deps: ScreenDeps) {
-    const board = new SlotBoard(deps, 'container.move', 'screen-container');
+    const board = new SlotBoard(deps, 'screen-container');
     this.board = board;
     this.actions = deps.actions;
-    this.base = deps.slotCount;
+    this.base = deps.openBase;
+    this.slotCount = deps.slotCount;
     this.element = board.element;
     this.title = h('h2');
     this.chest = h('div', { class: 'container-slots' });
@@ -68,29 +72,29 @@ export class ContainerScreen {
     this.board.close();
   }
 
-  /** Shows the inventory, then the container's slots. */
-  update(slots: Slots): void {
+  /** Shows the inventory, then the container's slots, and the cursor stack. */
+  update(slots: Slots, cursor: Readonly<ItemStack> | null): void {
     this.slots = slots;
-    this.board.update(slots);
+    this.board.update(slots, cursor);
   }
 
   hotkey(hotbarSlot: number): void {
     this.board.hotkey(hotbarSlot);
   }
 
-  /** One move per filled container slot, each into the inventory. */
+  /** One Shift+click per filled container slot, each into the inventory. */
   private readonly takeAll = (): void => {
     this.sendEach(this.base, this.slots.length);
   };
 
-  /** One move per filled bag slot, each into the container. */
+  /** One Shift+click per filled bag slot, each into the container. */
   private readonly storeAll = (): void => {
-    this.sendEach(HOTBAR_SLOTS, this.base);
+    this.sendEach(HOTBAR_SLOTS, this.slotCount);
   };
 
   private sendEach(from: number, to: number): void {
     for (let slot = from; slot < to; slot++)
-      if (this.slots[slot]) this.actions.send({ type: 'container.move', from: slot });
+      if (this.slots[slot]) this.actions.send({ type: 'slot.click', slot, button: 0, shift: true });
     this.actions.click();
   }
 }

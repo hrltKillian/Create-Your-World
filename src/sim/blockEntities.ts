@@ -2,6 +2,7 @@ import { stationSlotCount } from '../content/crafting.ts';
 import { hash32 } from '../core/hash.ts';
 import { cellKey } from '../world/coords.ts';
 import { structureLootAt } from '../world/gen/structures.ts';
+import type { CraftEntry } from './craftQueue.ts';
 import { addItem, type Inventory } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { rollLoot } from './loot.ts';
@@ -10,13 +11,15 @@ import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /**
- * Block entities (docs « Inventaire », « Stations de transformation », « Mort »): the state a block
- * keeps besides its voxel, plain JSON saved with its column. A chest holds 18 slots; a station
- * (campfire, kiln, bloomery) its inputs, fuel and outputs with its fire and progress (stepped by
- * stations.ts); an Abandoned Pack (`grave`) what a dead player carried (death.ts makes it). They
- * live in `Simulation.blockEntities` by cell key, loaded or not, like item drops. A placed block
- * gets an empty one; a generated chest gets its structure's loot the first time anyone opens or
- * breaks it. This module only stores them and spills what one holds when its block goes.
+ * Block entities (docs « Inventaire », « Stations de transformation », « Craft : le Logbook »,
+ * « Mort »): the state a block keeps besides its voxel, plain JSON saved with its column. A chest
+ * holds 18 slots; a station (campfire, kiln, bloomery) its inputs, fuel and outputs with its fire
+ * and progress (stepped by stations.ts); a workbench its craft queue and outputs (workbench.ts);
+ * an Abandoned Pack (`grave`) what a dead player carried (death.ts makes it). They live in
+ * `Simulation.blockEntities` by cell key, loaded or not, like item drops. A placed block gets an
+ * empty one, so does an older save's workbench when first opened; a generated chest gets its
+ * structure's loot the first time anyone opens or breaks it. This module only stores them and
+ * spills what one holds when its block goes.
  */
 
 /** Slots of a container block (a chest). */
@@ -61,6 +64,25 @@ export interface StationEntity {
 }
 
 /**
+ * A workbench: the crafts of its station's recipes, queued by whoever has it open (their
+ * ingredients reserved in the entries, as in a player's queue), done into its outputs.
+ */
+export interface WorkbenchEntity {
+  readonly kind: 'workbench';
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  /** Station key (the block's `station`): the recipes made here are this station's. */
+  readonly station: string;
+  /** The outputs (`StationDef.outputSlots`): the crafts done wait here; full ones pause the queue. */
+  slots: Inventory;
+  /** The craft queue (CRAFT_QUEUE entries, merged like a player's: craftQueue.ts). */
+  craft: CraftEntry[];
+  /** Last tick simulated: a workbench outside the simulation radius catches up from it. */
+  tick: number;
+}
+
+/**
  * An Abandoned Pack: every stack a dead player carried, the worn items apart (they go back on
  * where they were worn).
  */
@@ -75,7 +97,7 @@ export interface GraveEntity {
   worn: Inventory;
 }
 
-export type BlockEntity = ContainerEntity | StationEntity | GraveEntity;
+export type BlockEntity = ContainerEntity | StationEntity | WorkbenchEntity | GraveEntity;
 
 /**
  * Whether a block cell lies within `reach` blocks of a player: from the middle of the body to the
@@ -118,13 +140,16 @@ export function createBlockEntity(
   generated: boolean,
 ): BlockEntity | undefined {
   const def = sim.registry.blockDef(sim.world.getBlock(x, y, z));
+  const station =
+    def.station === undefined ? undefined : sim.registry.crafting.station(def.station);
   let entity: BlockEntity;
   if (def.blockEntity === 'container') {
     entity = { kind: 'container', x, y, z, slots: emptySlots(CONTAINER_SLOTS) };
     if (generated) fillFromStructure(sim, entity);
-  } else if (def.blockEntity === 'station' && def.station !== undefined) {
-    const station = sim.registry.crafting.station(def.station);
-    if (!station) return undefined;
+  } else if (def.blockEntity === 'workbench' && station) {
+    const slots = emptySlots(station.outputSlots);
+    entity = { kind: 'workbench', x, y, z, station: station.key, slots, craft: [], tick: sim.tick };
+  } else if (def.blockEntity === 'station' && station) {
     entity = {
       kind: 'station',
       x,
@@ -148,8 +173,9 @@ export function createBlockEntity(
 }
 
 /**
- * Removes the block entity of a cell, if any, spilling its items around the cell's centre (what
- * else a removed block leaves behind is `forgetCell`'s).
+ * Removes the block entity of a cell, if any, spilling its items around the cell's centre (a
+ * workbench's queued ingredients too: they come back to whoever picks them up; what else a
+ * removed block leaves behind is `forgetCell`'s).
  */
 export function removeBlockEntity(sim: Simulation, x: number, y: number, z: number): void {
   const key = cellKey(x, y, z);
@@ -158,9 +184,12 @@ export function removeBlockEntity(sim: Simulation, x: number, y: number, z: numb
   sim.blockEntities.delete(key);
   spill(sim, entity.slots, x, y, z);
   if (entity.kind === 'grave') spill(sim, entity.worn, x, y, z);
+  if (entity.kind === 'workbench')
+    for (const entry of entity.craft) spill(sim, entry.reserved, x, y, z);
 }
 
-function spill(sim: Simulation, slots: Inventory, x: number, y: number, z: number): void {
+/** Drops the stacks of a slot array around a cell's centre. */
+export function spill(sim: Simulation, slots: Inventory, x: number, y: number, z: number): void {
   for (const stack of slots) if (stack) spawnDrop(sim, stack, x + 0.5, y + 0.5, z + 0.5);
 }
 

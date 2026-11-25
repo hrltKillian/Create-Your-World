@@ -269,11 +269,12 @@ function isFormControl(target: EventTarget | null | undefined): boolean {
 }
 
 /**
- * A text box has the key (the New world name and seed): it is typed there, not a game key. Not a
- * slider, box or button, where keys type nothing. Read by tag and type, so Node tests can send
- * the screens' own stand-in elements.
+ * A text box has the key (the New world name and seed, the Logbook's search): it is typed there,
+ * not a game key. Not a slider, box or button, where keys type nothing. Read by tag and type, so
+ * Node tests can send the screens' own stand-in elements.
  */
 export function isTextField(target: EventTarget | null | undefined): boolean {
   const field = target as { readonly tagName?: unknown; readonly type?: unknown } | null;
-  return field?.tagName === 'TEXTAREA' || (field?.tagName === 'INPUT' && field.type === 'text');
+  if (field?.tagName === 'TEXTAREA') return true;
+  return field?.tagName === 'INPUT' && (field.type === 'text' || field.type === 'search');
 }

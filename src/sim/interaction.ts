@@ -256,7 +256,7 @@ function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const kind = sim.registry.blockDef(hit.state).blockEntity;
   let refusal: string | null = null;
   // The aim has confirmed the line of sight (a client target, or the simulation's own ray).
-  if (kind === 'container' || kind === 'station')
+  if (kind === 'container' || kind === 'station' || kind === 'workbench')
     refusal = openBlockEntity(sim, player, x, y, z, out, true);
   else if (kind === 'bed') sleepOn(sim, player, x, y, z, out);
   else if (kind === 'grave') refusal = recoverPack(sim, player, x, y, z, out);

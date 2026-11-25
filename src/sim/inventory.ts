@@ -3,9 +3,18 @@ import type { Registry } from '../content/registry.ts';
 import { isWhole } from '../core/guards.ts';
 import { HOTBAR_SLOTS } from '../core/player.ts';
 
-/** Hotbar (0–7) then bag (8–31, 6×4). */
-export const BAG_SLOTS = 24;
-export const INVENTORY_SLOTS = HOTBAR_SLOTS + BAG_SLOTS;
+/**
+ * Slots of an inventory (docs « Inventaire »): the hotbar (0–7) then the bag, 32 at first (a bag of
+ * 6×4), up to 64 with upgrades. Its size is its length: every rule reads `inventory.length`.
+ */
+export const BASE_INVENTORY_SLOTS = 32;
+export const MAX_INVENTORY_SLOTS = 64;
+
+/** The size rule: a whole number of slots within [BASE_INVENTORY_SLOTS, MAX_INVENTORY_SLOTS]. */
+export function inventorySize(slots: number): number {
+  const whole = Number.isInteger(slots) ? slots : BASE_INVENTORY_SLOTS;
+  return Math.min(MAX_INVENTORY_SLOTS, Math.max(BASE_INVENTORY_SLOTS, whole));
+}
 
 /** A stack of one item (text key, as saves store it). */
 export interface ItemStack {
@@ -23,8 +32,9 @@ export interface ItemStack {
 /** Plain JSON: one entry per slot, null when empty. */
 export type Inventory = (ItemStack | null)[];
 
-export function createInventory(): Inventory {
-  return new Array<ItemStack | null>(INVENTORY_SLOTS).fill(null);
+/** An empty inventory of `size` slots (kept to the size rule). */
+export function createInventory(size = BASE_INVENTORY_SLOTS): Inventory {
+  return new Array<ItemStack | null>(inventorySize(size)).fill(null);
 }
 
 /**
@@ -88,6 +98,21 @@ export function addToRange(
   return left;
 }
 
+/**
+ * Adds the items of `stack` (left as it is) to a list of stacks that grows (reserved ingredients,
+ * an Abandoned Pack's contents): onto matching stacks up to their maximum, the rest as new stacks
+ * of at most a maximum each.
+ */
+export function pileOnto(stacks: Inventory, registry: Registry, stack: Readonly<ItemStack>): void {
+  let left = addToRange(stacks, registry, 0, stacks.length, stack);
+  const max = registry.maxStack(stack.item);
+  while (left > 0) {
+    const count = Math.min(left, max);
+    stacks.push({ ...stack, count });
+    left -= count;
+  }
+}
+
 /** Whether all the items of `stack` fit in the slots [first, end) (the addToRange rule). */
 export function roomFor(
   slots: Inventory,
@@ -121,6 +146,22 @@ export function spendUses(registry: Registry, slots: Inventory, slot: number, us
   return true;
 }
 
+/**
+ * Cuts every stack of a slot array over its item's maximum down to it (a pack that lowered a
+ * maximum since the save). Returns the excess, one stack per cut stack (it may itself be over the
+ * maximum: `addToRange` splits it), for the caller to place.
+ */
+export function fitStacks(registry: Registry, slots: Inventory): ItemStack[] {
+  const excess: ItemStack[] = [];
+  for (const stack of slots) {
+    const max = stack ? registry.maxStack(stack.item) : 0;
+    if (!stack || stack.count <= max) continue;
+    excess.push({ ...stack, count: stack.count - max });
+    stack.count = max;
+  }
+  return excess;
+}
+
 /** Removes up to `count` items from a slot; returns what was removed (null if the slot is empty). */
 export function takeFromSlot(inventory: Inventory, slot: number, count: number): ItemStack | null {
   const stack = inventory[slot];
@@ -132,20 +173,10 @@ export function takeFromSlot(inventory: Inventory, slot: number, count: number):
 }
 
 /**
- * Moves `count` items (default: all) from one slot to another: into an empty slot, onto a matching
- * stack (up to its maximum), or swapping two whole stacks. Returns whether anything moved.
+ * Moves `count` items (default: all) from a slot of one slot array to a slot of another, or of
+ * the same: into an empty slot, onto a matching stack (up to its maximum), or swapping two whole
+ * stacks. Returns whether anything moved.
  */
-export function moveItems(
-  inventory: Inventory,
-  registry: Registry,
-  from: number,
-  to: number,
-  count?: number,
-): boolean {
-  return moveStack(registry, inventory, from, inventory, to, count);
-}
-
-/** moveItems from a slot of one slot array to a slot of another (inventory ⇄ chest). */
 export function moveStack(
   registry: Registry,
   source: Inventory,
@@ -179,7 +210,7 @@ export function moveStack(
 export function quickMove(inventory: Inventory, registry: Registry, slot: number): boolean {
   const toBag = slot < HOTBAR_SLOTS;
   const first = toBag ? HOTBAR_SLOTS : 0;
-  const end = toBag ? INVENTORY_SLOTS : HOTBAR_SLOTS;
+  const end = toBag ? inventory.length : HOTBAR_SLOTS;
   return moveInto(registry, inventory, slot, inventory, first, end);
 }
 
@@ -301,11 +332,12 @@ export function readStack(data: unknown, registry: Registry): ItemStack | null {
 }
 
 /**
- * Reads a saved inventory: malformed slots become empty, the slot count is fixed, unknown items
- * keep their key (loadItemKey).
+ * Reads a saved inventory: its size is the saved one kept to the size rule, malformed slots become
+ * empty, unknown items keep their key (loadItemKey).
  */
 export function deserializeInventory(data: unknown, registry: Registry): Inventory {
-  return deserializeSlots(data, INVENTORY_SLOTS, registry);
+  const size = inventorySize(Array.isArray(data) ? data.length : BASE_INVENTORY_SLOTS);
+  return deserializeSlots(data, size, registry);
 }
 
 /** deserializeInventory for any slot array of `size` slots (chests, stations). */

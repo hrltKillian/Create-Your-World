@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TICKS_PER_SECOND } from '../../../src/sim/clock.ts';
-import { STATION_REACH } from '../../../src/sim/craftQueue.ts';
-import { conditionHolds } from '../../../src/sim/objectives.ts';
+import { conditionHolds, STATION_REACH } from '../../../src/sim/objectives.ts';
 import { DAY_TICKS, HOUR_TICKS, nightsSurvived, START_HOUR } from '../../../src/sim/time.ts';
 import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';

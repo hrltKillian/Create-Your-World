@@ -8,17 +8,17 @@ import {
 import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
 import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
-import { closeBlockEntity } from './blockEntityCommands.ts';
 import { ticksOf } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { editBlock } from './edits.ts';
 import { wearSlotOf } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import { stopMining } from './interaction.ts';
-import { addItem, addToRange, type Inventory, type ItemStack } from './inventory.ts';
+import { addItem, type Inventory, type ItemStack, pileOnto } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
+import { closeScreen, stowCursor } from './screens.ts';
 import { collisionReader, surfaceAt } from './surface.ts';
 import { addEffect, createSurvival } from './survival.ts';
 
@@ -52,9 +52,10 @@ function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   stopMining(player, out);
   // A charge held at death is dropped (no blow at the respawn, no arm drawn back meanwhile).
   player.charge = -1;
-  if (player.opened) closeBlockEntity(player, out);
   player.sleeping = null;
+  // The cursor stack goes with the rest into the pack (not back to the inventory on closing).
   const stacks = carried(sim.registry, player);
+  closeScreen(sim, player, out);
   const worn = player.equipment.slice();
   player.equipment.fill(null);
   const any = stacks.length > 0 || worn.some((stack) => stack !== null);
@@ -71,8 +72,9 @@ function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 }
 
 /**
- * Takes everything a player carries but the worn items: the inventory, then the craft queue's
- * reserved ingredients (merged onto the stacks they match). The stacks keep their wear.
+ * Takes everything a player carries but the worn items: the inventory, then the cursor stack of an
+ * open screen and the craft queue's reserved ingredients (merged onto the stacks they match). The
+ * stacks keep their wear.
  */
 function carried(registry: Registry, player: PlayerState): ItemStack[] {
   const stacks: ItemStack[] = [];
@@ -81,13 +83,10 @@ function carried(registry: Registry, player: PlayerState): ItemStack[] {
     if (slots[i]) stacks.push(slots[i]!);
     slots[i] = null;
   }
-  for (const entry of player.craft) {
-    for (const stack of entry.reserved) {
-      if (!stack) continue;
-      const left = addToRange(stacks, registry, 0, stacks.length, stack);
-      if (left > 0) stacks.push({ ...stack, count: left });
-    }
-  }
+  const loose: Inventory = [player.cursor];
+  player.cursor = null;
+  for (const entry of player.craft) loose.push(...entry.reserved);
+  for (const stack of loose) if (stack) pileOnto(stacks, registry, stack);
   player.craft = [];
   return stacks;
 }
@@ -220,6 +219,8 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   // Far away, the player waits frozen (and the client shows its loading screen) until the
   // columns there are lit.
   sim.teleport(player, x, y, z);
+  // A cursor stack (a death keeps none: it went into the pack) is back in the inventory.
+  stowCursor(sim, player, out);
   // Fresh gauges; a debug immunity stays.
   Object.assign(s, createSurvival(sim.registry.pack.balance), { god: s.god });
   s.health = r.health;

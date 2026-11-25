@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { Rng } from '../../../src/core/rng.ts';
 import {
   addItem,
   addToRange,
+  BASE_INVENTORY_SLOTS,
   countItem,
   createInventory,
   deserializeInventory,
-  INVENTORY_SLOTS,
+  fitStacks,
   type Inventory,
+  inventorySize,
+  MAX_INVENTORY_SLOTS,
   moveInto,
-  moveItems,
   moveStack,
+  pileOnto,
   quickMove,
   sameStack,
   serializeInventory,
@@ -21,19 +25,22 @@ import { registry } from '../../helpers/registry.ts';
 const counts = (inventory: Inventory) => inventory.map((s) => s?.count ?? 0);
 
 describe('inventory', () => {
-  it('splits 70 blocks into stacks of 50 and 20, hotbar first', () => {
+  it('splits 100 blocks into stacks of 64 and 36, hotbar first', () => {
     const inventory = createInventory();
-    expect(inventory).toHaveLength(INVENTORY_SLOTS);
-    expect(addItem(inventory, registry, { item: 'item:dirt', count: 70 })).toBe(0);
-    expect(counts(inventory).slice(0, 3)).toEqual([50, 20, 0]);
+    expect(inventory).toHaveLength(BASE_INVENTORY_SLOTS);
+    expect(addItem(inventory, registry, { item: 'item:dirt', count: 100 })).toBe(0);
+    expect(counts(inventory).slice(0, 3)).toEqual([64, 36, 0]);
     expect(addItem(inventory, registry, { item: 'item:dirt', count: 35 })).toBe(0);
-    expect(counts(inventory).slice(0, 3)).toEqual([50, 50, 5]);
+    expect(counts(inventory).slice(0, 3)).toEqual([64, 64, 7]);
   });
 
   it('returns what does not fit and keeps tools apart', () => {
     const inventory = createInventory();
     expect(
-      addItem(inventory, registry, { item: 'item:stone', count: 50 * INVENTORY_SLOTS + 7 }),
+      addItem(inventory, registry, {
+        item: 'item:stone',
+        count: DEFAULT_STACK * BASE_INVENTORY_SLOTS + 7,
+      }),
     ).toBe(7);
     const tools = createInventory();
     expect(addItem(tools, registry, { item: 'item:flint_pickaxe', count: 2, durability: 60 })).toBe(
@@ -47,25 +54,66 @@ describe('inventory', () => {
 
   it('moves, merges, swaps and quick-moves between the hotbar and the bag', () => {
     const inventory = createInventory();
-    addItem(inventory, registry, { item: 'item:dirt', count: 60 });
+    addItem(inventory, registry, { item: 'item:dirt', count: 74 });
     addItem(inventory, registry, { item: 'item:sand', count: 5 });
-    // Slots: 0 dirt 50, 1 dirt 10, 2 sand 5.
-    expect(moveItems(inventory, registry, 1, 0)).toBe(false); // slot 0 is full
-    expect(moveItems(inventory, registry, 0, 9, 20)).toBe(true);
-    expect(counts(inventory).slice(0, 10)).toEqual([30, 10, 5, 0, 0, 0, 0, 0, 0, 20]);
-    expect(moveItems(inventory, registry, 1, 0)).toBe(true);
-    expect(inventory[0]).toEqual({ item: 'item:dirt', count: 40 });
-    expect(moveItems(inventory, registry, 2, 0, 1)).toBe(false); // part of a stack cannot swap
-    expect(moveItems(inventory, registry, 2, 0)).toBe(true);
+    // Slots: 0 dirt 64, 1 dirt 10, 2 sand 5.
+    expect(moveStack(registry, inventory, 1, inventory, 0)).toBe(false); // slot 0 is full
+    expect(moveStack(registry, inventory, 0, inventory, 9, 20)).toBe(true);
+    expect(counts(inventory).slice(0, 10)).toEqual([44, 10, 5, 0, 0, 0, 0, 0, 0, 20]);
+    expect(moveStack(registry, inventory, 1, inventory, 0)).toBe(true);
+    expect(inventory[0]).toEqual({ item: 'item:dirt', count: 54 });
+    // Part of a stack cannot swap.
+    expect(moveStack(registry, inventory, 2, inventory, 0, 1)).toBe(false);
+    expect(moveStack(registry, inventory, 2, inventory, 0)).toBe(true);
     expect(inventory[0]?.item).toBe('item:sand');
     expect(inventory[2]?.item).toBe('item:dirt');
-    expect(quickMove(inventory, registry, 2)).toBe(true); // 40 dirt join the 20 in the bag
-    expect(counts(inventory).slice(8, 11)).toEqual([10, 50, 0]);
+    expect(quickMove(inventory, registry, 2)).toBe(true); // 54 dirt join the 20 in the bag
+    expect(counts(inventory).slice(8, 11)).toEqual([10, 64, 0]);
     expect(inventory[8]?.item).toBe('item:dirt');
     expect(quickMove(inventory, registry, 9)).toBe(true);
-    expect(inventory[1]).toEqual({ item: 'item:dirt', count: 50 });
-    expect(takeFromSlot(inventory, 1, 60)).toEqual({ item: 'item:dirt', count: 50 });
+    expect(inventory[1]).toEqual({ item: 'item:dirt', count: 64 });
+    expect(takeFromSlot(inventory, 1, 70)).toEqual({ item: 'item:dirt', count: 64 });
     expect(inventory[1]).toBeNull();
+  });
+
+  it('keeps an inventory of 32 to 64 slots, its saved size read back within that rule', () => {
+    expect([0, 31.5, 32, 40, 64, 200].map(inventorySize)).toEqual([32, 32, 32, 40, 64, 64]);
+    expect(createInventory(40)).toHaveLength(40);
+    const grown = createInventory(40);
+    grown[39] = { item: 'item:dirt', count: 2 };
+    expect(deserializeInventory(serializeInventory(grown), registry)).toEqual(grown);
+    expect(deserializeInventory(new Array(100).fill(null), registry)).toHaveLength(64);
+    expect(deserializeInventory('junk', registry)).toHaveLength(BASE_INVENTORY_SLOTS);
+    expect(MAX_INVENTORY_SLOTS).toBe(64);
+  });
+
+  it('cuts stacks over their maximum down to it and returns the excess', () => {
+    const slots: Inventory = [
+      { item: 'item:dirt', count: 100 },
+      null,
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:flint_pickaxe', count: 3, durability: 7 },
+    ];
+    expect(fitStacks(registry, slots)).toEqual([
+      { item: 'item:dirt', count: 36 },
+      { item: 'item:flint_pickaxe', count: 2, durability: 7 },
+    ]);
+    expect(counts(slots)).toEqual([64, 0, 64, 1]);
+    expect(fitStacks(registry, slots)).toEqual([]);
+  });
+
+  it('piles stacks onto a growing list: matching ones topped up, the rest in stacks of 64', () => {
+    const stacks: Inventory = [{ item: 'item:dirt', count: 60 }];
+    pileOnto(stacks, registry, { item: 'item:dirt', count: 70 });
+    pileOnto(stacks, registry, { item: 'item:flint_pickaxe', count: 1, durability: 9 });
+    pileOnto(stacks, registry, { item: 'item:flint_pickaxe', count: 1, durability: 9 });
+    expect(stacks).toEqual([
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:dirt', count: 64 },
+      { item: 'item:dirt', count: 2 },
+      { item: 'item:flint_pickaxe', count: 1, durability: 9 },
+      { item: 'item:flint_pickaxe', count: 1, durability: 9 },
+    ]);
   });
 
   it('keeps item totals through 1000 random operations', () => {
@@ -73,7 +121,7 @@ describe('inventory', () => {
     const keys = ['item:dirt', 'item:stone', 'item:torch', 'item:flint_hatchet'];
     const inventory = createInventory();
     const expected = new Map(keys.map((k) => [k, 0]));
-    const slot = () => rng.int(INVENTORY_SLOTS);
+    const slot = () => rng.int(BASE_INVENTORY_SLOTS);
     for (let i = 0; i < 1000; i++) {
       const op = rng.int(4);
       if (op === 0) {
@@ -84,10 +132,11 @@ describe('inventory', () => {
         const left = addItem(inventory, registry, stack);
         expected.set(item, expected.get(item)! + count - left);
       } else if (op === 1) {
-        moveItems(
-          inventory,
+        moveStack(
           registry,
+          inventory,
           slot(),
+          inventory,
           slot(),
           rng.chance(0.5) ? rng.intRange(1, 60) : undefined,
         );
@@ -117,7 +166,7 @@ describe('inventory', () => {
     const total = (key: string) => countItem(inventory, key) + countItem(chest, key);
     const before = keys.map(total);
     const pick = (): [Inventory, number] =>
-      rng.chance(0.5) ? [inventory, rng.int(INVENTORY_SLOTS)] : [chest, rng.int(18)];
+      rng.chance(0.5) ? [inventory, rng.int(BASE_INVENTORY_SLOTS)] : [chest, rng.int(18)];
     for (let i = 0; i < 1000; i++) {
       const [source, from] = pick();
       if (rng.chance(0.3)) {
@@ -165,7 +214,7 @@ describe('inventory', () => {
       { item: registry.unknownItem, count: 3, original: 'item:gone' },
       null,
     ]);
-    expect(moveItems(inventory, registry, 1, 0)).toBe(true); // a swap, not a merge
+    expect(moveStack(registry, inventory, 1, inventory, 0)).toBe(true); // a swap, not a merge
     expect(inventory[0]).toMatchObject({ count: 3, original: 'item:gone' });
     inventory[8] = { ...stack!, count: 1 };
     expect(quickMove(inventory, registry, 8)).toBe(true);

@@ -4,10 +4,10 @@ import type { Registry } from '../content/registry.ts';
 import { createLogger } from '../core/log.ts';
 import { t } from '../i18n/i18n.ts';
 import { actionForCode, HOTBAR_CODES } from '../input/bindings.ts';
-import type { InputManager } from '../input/InputManager.ts';
+import { type InputManager, isTextField } from '../input/InputManager.ts';
+import { OPEN_SLOTS_BASE } from '../sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../sim/craftQueue.ts';
 import type { SimEvent } from '../sim/events.ts';
-import { INVENTORY_SLOTS } from '../sim/inventory.ts';
 import { Hotbar } from '../ui/hud/hotbar.ts';
 import { HudHint } from '../ui/hud/hudHint.ts';
 import type { ItemArt } from '../ui/itemSlot.ts';
@@ -15,6 +15,7 @@ import { BagScreen } from '../ui/screens/bag.ts';
 import { ContainerScreen } from '../ui/screens/container.ts';
 import { LogbookPanel } from '../ui/screens/logbook.ts';
 import { StationScreen } from '../ui/screens/station.ts';
+import { WorkbenchScreen } from '../ui/screens/workbench.ts';
 import type { ScreenActions, ScreenDeps } from '../ui/slotBoard.ts';
 import type { GameSession } from './GameSession.ts';
 import type { PlayGate } from './playGate.ts';
@@ -41,7 +42,7 @@ function itemIcons(registry: Registry, layers: readonly Uint8Array[]): Promise<s
 }
 
 /** The screens over the world (the hook's `ui.screen()` names them). */
-export type InventoryScreen = 'bag' | 'container' | 'station';
+export type InventoryScreen = 'bag' | 'container' | 'station' | 'workbench';
 
 /** What the controller needs from each screen. */
 interface ScreenView {
@@ -52,11 +53,14 @@ interface ScreenView {
 
 /**
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
- * Station): item icons, refresh, commands, sounds and keys. E or Tab opens the bag and closes any
- * screen, so does Esc (back to play either way, never the pause menu: PlayGate.closeScreen), a
- * hotbar key over a slot swaps. Chests and stations open from the simulation (secondary on the
- * block): their screen shows on its `blockEntityOpened` event and goes on `blockEntityClosed`;
- * closing one sends `container.close`.
+ * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
+ * Tab opens the bag and closes any screen, so does Esc (back to play either way, never the pause
+ * menu: PlayGate.closeScreen), a hotbar key over a slot swaps; keys typed in a text box (the
+ * Logbook's search) are its own, but Esc. The Bag opens in the simulation too (`screen.open`),
+ * whose slot clicks need it; chests, stations and workbenches open from the simulation (secondary
+ * on the block): their screen shows on its `blockEntityOpened` event and goes on
+ * `blockEntityClosed`. Closing a screen sends `screen.close` (the cursor stack goes back to the
+ * inventory).
  */
 export class InventoryUi {
   readonly hotbar: Hotbar;
@@ -64,6 +68,7 @@ export class InventoryUi {
   readonly bag: BagScreen;
   readonly container: ContainerScreen;
   readonly station: StationScreen;
+  readonly workbench: WorkbenchScreen;
   readonly bridge: UiBridge;
   private readonly session: GameSession;
   private readonly input: InputManager;
@@ -98,7 +103,8 @@ export class InventoryUi {
     const deps: ScreenDeps = {
       art,
       actions,
-      slotCount: INVENTORY_SLOTS,
+      slotCount: session.player.inventory.length,
+      openBase: OPEN_SLOTS_BASE,
       closeKey: () => input.keyLabel('inventory'),
     };
     this.hotbar = new Hotbar(art);
@@ -106,6 +112,7 @@ export class InventoryUi {
     this.bag = new BagScreen(deps, new LogbookPanel(art, actions, limits));
     this.container = new ContainerScreen(deps);
     this.station = new StationScreen(deps);
+    this.workbench = new WorkbenchScreen(deps, new LogbookPanel(art, actions, limits));
     // The bridge refreshes this object's views (hotbar, hint line and screens).
     this.bridge = new UiBridge(session.host.view, input, this);
     session.listeners.push((event) => {
@@ -118,6 +125,7 @@ export class InventoryUi {
       this.bag.element,
       this.container.element,
       this.station.element,
+      this.workbench.element,
     );
     window.addEventListener('keydown', this.onKeyDown);
   }
@@ -131,7 +139,8 @@ export class InventoryUi {
   screen(): InventoryScreen | null {
     if (this.bag.isOpen()) return 'bag';
     if (this.container.isOpen()) return 'container';
-    return this.station.isOpen() ? 'station' : null;
+    if (this.station.isOpen()) return 'station';
+    return this.workbench.isOpen() ? 'workbench' : null;
   }
 
   /** Opens the bag while playing, or closes the open screen. Returns whether it did either. */
@@ -140,6 +149,7 @@ export class InventoryUi {
     else if (this.gate.canOpenScreen()) {
       this.bag.open();
       this.gate.openScreen();
+      this.session.host.send({ type: 'screen.open', kind: 'bag' });
     } else return false;
     return true;
   }
@@ -156,7 +166,7 @@ export class InventoryUi {
     const open = this.openView();
     if (!open) return;
     open.close();
-    if (open !== this.bag) this.session.host.send({ type: 'container.close' });
+    this.session.host.send({ type: 'screen.close' });
   }
 
   private openView(): ScreenView | null {
@@ -170,20 +180,26 @@ export class InventoryUi {
     else if (event.type === 'blockEntityClosed') this.blockClosed();
   }
 
-  /** The simulation opened a chest or a station for the player: its screen shows (over the bag). */
+  /**
+   * The simulation opened a chest, a station or a workbench for the player: its screen shows (over
+   * the bag).
+   */
   private openBlock(x: number, y: number, z: number): void {
     const view = this.session.host.view;
     const registry = view.registry;
     const entity = view.blockEntity(x, y, z);
-    const station = entity?.kind === 'station' ? registry.crafting.station(entity.station) : null;
+    // A station or a workbench names its station (undefined: one the pack lacks, no screen).
+    const station =
+      entity && 'station' in entity ? registry.crafting.station(entity.station) : null;
     const showing = this.openView();
     if (!entity || station === undefined || (!showing && !this.gate.canOpenScreen())) {
       // No screen can show it (paused): the simulation closes it again.
-      this.session.host.send({ type: 'container.close' });
+      this.session.host.send({ type: 'screen.close' });
       return;
     }
     showing?.close();
-    if (station) this.station.open(station, t(station.nameKey));
+    if (entity.kind === 'workbench' && station) this.workbench.open(station, t(station.nameKey));
+    else if (station) this.station.open(station, t(station.nameKey));
     else {
       const name = registry.blockDef(view.world.getBlock(x, y, z)).nameKey;
       this.container.open(t(name), entity.slots.length);
@@ -192,9 +208,9 @@ export class InventoryUi {
   }
 
   /**
-   * The simulation closed the open chest or station (moved away, broken, another one opened, the
-   * player died). A death keeps the gate's screen: the death screen takes it over (HudBridge), so
-   * the game does not pause and Respawn captures the mouse again.
+   * The simulation closed the open chest, station or workbench (moved away, broken, another one
+   * opened, the player died). A death keeps the gate's screen: the death screen takes it over
+   * (HudBridge), so the game does not pause and Respawn captures the mouse again.
    */
   private blockClosed(): void {
     const open = this.openView();
@@ -204,7 +220,7 @@ export class InventoryUi {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat) return;
+    if (event.repeat || (event.code !== 'Escape' && isTextField(event.target))) return;
     const action = actionForCode(this.input.bindings, event.code);
     if (action === 'inventory') {
       // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.

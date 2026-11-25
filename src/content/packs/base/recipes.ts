@@ -27,11 +27,12 @@ const KILN = 'station:kiln';
 const BLOOMERY = 'station:bloomery';
 
 /**
- * Stations: the workbench is a place to craft at; the others are block entities with slots whose
- * fire burns only while they process. The campfire's may also be kept burning (warmth, light).
+ * Stations: the workbench makes its recipes through its own queue into its 4 outputs; the others
+ * are block entities with slots whose fire burns only while they process. The campfire's may also
+ * be kept burning (warmth, light).
  */
 export const stations = [
-  { key: BENCH, nameKey: 'block.workbench', inputSlots: 0, fuelSlot: false, outputSlots: 0 },
+  { key: BENCH, nameKey: 'block.workbench', inputSlots: 0, fuelSlot: false, outputSlots: 4 },
   {
     key: CAMPFIRE,
     nameKey: 'block.campfire',

@@ -2,6 +2,7 @@ import type { DebugStat } from '../sim/commands.ts';
 import { serializeInventory } from '../sim/inventory.ts';
 import { type Shelter, shelterOfBody } from '../sim/shelter.ts';
 import type { DeathCause } from '../sim/survival.ts';
+import { inBag, shiftClick } from '../sim/testing/slotMoves.ts';
 import type { App } from './App.ts';
 import { sendAndStep, sendNow } from './automation.ts';
 import { hudEffects } from './hudModel.ts';
@@ -28,11 +29,13 @@ export function god(app: App, on: boolean): void {
 }
 
 /**
- * Shift+click of a slot in the Bag (`equip.move` without a target): puts a wearable on (swapping
- * what was worn), takes a worn item (slots 32–36) off; fixed-step sessions apply it now.
+ * Shift+click of a slot in the Bag, opened for it in the simulation when no screen is: puts a
+ * wearable on (swapping what was worn), takes a worn item (slots 64–68) off; fixed-step sessions
+ * apply it now.
  */
 export function equip(app: App, slot: number): void {
-  sendAndStep(app, { type: 'equip.move', from: slot });
+  const click = shiftClick(slot);
+  sendAndStep(app, ...(app.session?.player.screen ? [click] : inBag(click)));
 }
 
 /** The shelter test of docs « Abri » at the player's head, now (null without a player). */

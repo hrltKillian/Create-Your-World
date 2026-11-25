@@ -13,8 +13,8 @@ import { queueView, stationStatus } from './UiBridge.ts';
  * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
  * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
  * keys and light, the world clock, what the hotbar shows, crafting, block entities (opening one
- * without aiming), clicks and drags on the screens, and saving or reloading the open world (the
- * survival ones: survivalAutomation.ts).
+ * without aiming), clicks on the screens (their buttons, their slots and beside their panel), and
+ * saving or reloading the open world (the survival ones: survivalAutomation.ts).
  */
 
 /** Resolves on the next animation frame (never while the page is hidden). */
@@ -133,11 +133,11 @@ export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 
   }
 }
 
-/** Sends a command; fixed-step sessions apply it now (one tick). */
-export function sendAndStep(app: App, command: Command): void {
+/** Sends commands in order; fixed-step sessions apply them now (one tick). */
+export function sendAndStep(app: App, ...commands: Command[]): void {
   const session = app.session;
   if (!session) return;
-  session.host.send(command);
+  for (const command of commands) session.host.send(command);
   if (app.params.fixedStep) session.step(1);
 }
 
@@ -250,7 +250,10 @@ export function openBlock(app: App, x: number, y: number, z: number): void {
   sendAndStep(app, { type: 'debug.open', x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
 }
 
-/** Queues `count` crafts of a recipe, as the Logbook's buttons do; fixed-step sessions apply it now. */
+/**
+ * Queues `count` crafts of a recipe, as the Logbook's buttons do (a workbench recipe in the open
+ * workbench's queue); fixed-step sessions apply it now.
+ */
 export function craft(app: App, recipe: string, count: number): void {
   sendAndStep(app, { type: 'craft.enqueue', recipe, count });
 }
@@ -264,8 +267,9 @@ export function craftQueue(app: App): QueueView[] | null {
 
 /**
  * What the block entity of a cell holds: a chest's slots, an Abandoned Pack's slots and worn items
- * (`worn`, head to feet), or a station's (inputs, fuel, outputs) with its flame, progress and
- * process. Null when the cell has none (a generated chest gets one when it is first opened).
+ * (`worn`, head to feet), a workbench's outputs and queue (`queue`, as the Logbook shows it), or a
+ * station's (inputs, fuel, outputs) with its flame, progress and process. Null when the cell has
+ * none (a generated chest gets one when it is first opened, an older save's workbench too).
  */
 export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const view = app.session?.host.view;
@@ -274,6 +278,10 @@ export function blockEntityContents(app: App, x: number, y: number, z: number) {
   const slots = serializeInventory(entity.slots);
   if (entity.kind === 'grave')
     return { kind: entity.kind, slots, worn: serializeInventory(entity.worn) };
+  if (entity.kind === 'workbench') {
+    const queue = entity.craft.map((entry) => queueView(view.registry, entry));
+    return { kind: entity.kind, station: entity.station, slots, queue };
+  }
   if (entity.kind !== 'station') return { kind: entity.kind, slots };
   return {
     kind: entity.kind,
@@ -298,32 +306,71 @@ function middleOf(element: Element): { clientX: number; clientY: number } {
   return { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
 }
 
-/**
- * Drags the stack of one slot onto another on the open slot screen (Bag, Container, Station) as
- * the mouse does: pointer down on the source, moved and released over the target, which the
- * screen finds under the pointer. Slots are numbered as in `[data-slot]` (0–31 the inventory, 32+
- * the open chest or station, or the Bag's worn items). Returns false (the drag cancelled) when a
- * slot is missing or covered.
- */
-export function dragSlot(from: number, to: number): boolean {
-  const screen = document.querySelector<HTMLElement>('.screen-slots:not([hidden])');
-  const source = screen?.querySelector(`[data-slot="${from}"]`);
-  const target = screen?.querySelector(`[data-slot="${to}"]`);
-  if (!screen || !source || !target) return false;
-  // The mouse's pointer id (1 in Chrome) is always active, so the screen may capture it.
-  const mouse = { bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 };
-  source.dispatchEvent(
-    new PointerEvent('pointerdown', { ...mouse, ...middleOf(source), buttons: 1 }),
+/** The open slot screen (Bag, Container, Station, Workbench), if one shows. */
+function slotScreen(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.screen-slots:not([hidden])');
+}
+
+/** The view of a slot on the open slot screen, if it shows (not on a hidden page of the Bag). */
+function slotView(slot: number): Element | null {
+  const view = slotScreen()?.querySelector(`[data-slot="${slot}"]`);
+  return view && view.getClientRects().length > 0 ? view : null;
+}
+
+/** A mouse button (0 left, 1 right) pressed on an element at a point, as the mouse does. */
+function pressOn(
+  target: Element,
+  button: 0 | 1,
+  shift: boolean,
+  at: { clientX: number; clientY: number },
+): void {
+  target.dispatchEvent(
+    new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      button: button === 1 ? 2 : 0,
+      buttons: button === 1 ? 2 : 1,
+      shiftKey: shift,
+      ...at,
+    }),
   );
-  const end = middleOf(target);
-  const under = document.elementFromPoint(end.clientX, end.clientY)?.closest('[data-slot]');
-  if (under !== target) {
-    screen.dispatchEvent(new PointerEvent('pointercancel', { ...mouse, ...end }));
-    return false;
-  }
-  screen.dispatchEvent(new PointerEvent('pointermove', { ...mouse, ...end, buttons: 1 }));
-  screen.dispatchEvent(new PointerEvent('pointerup', { ...mouse, ...end, buttons: 0 }));
+}
+
+/**
+ * Clicks a slot of the open slot screen as the mouse does: a left (0) or right (1) button press on
+ * its view, with Shift or not; the screen sends the simulation's `slot.click`. Slots are numbered
+ * as in `[data-slot]` (the inventory from 0; the open chest, station or workbench, or the Bag's
+ * worn items, from 64). Returns false when the slot does not show.
+ */
+export function clickSlot(slot: number, button: 0 | 1 = 0, shift = false): boolean {
+  const view = slotView(slot);
+  if (!view) return false;
+  pressOn(view, button, shift, middleOf(view));
   return true;
+}
+
+/**
+ * Clicks beside the open slot screen's panel, on its backdrop (its top left corner), as the mouse
+ * does: the screen sends `slot.click` on slot −1, which throws the cursor stack (left, 0) or one of
+ * its items (right, 1). Returns false when no slot screen is open.
+ */
+export function clickOutside(button: 0 | 1 = 0): boolean {
+  const screen = slotScreen();
+  if (!screen) return false;
+  const box = screen.getBoundingClientRect();
+  pressOn(screen, button, false, { clientX: box.left + 1, clientY: box.top + 1 });
+  return true;
+}
+
+/**
+ * Moves the stack of one slot to an empty one as the mouse does: a left click on each (taken onto
+ * the cursor, put down). Returns false, clicking nothing, when either slot does not show.
+ */
+export function moveSlot(from: number, to: number): boolean {
+  if (!slotView(from) || !slotView(to)) return false;
+  return clickSlot(from) && clickSlot(to);
 }
 
 /** Sets the view angles (radians; the pitch is clamped like the mouse look). */

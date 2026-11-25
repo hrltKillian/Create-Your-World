@@ -2,7 +2,6 @@ import { clampPitch, yawOf } from '../../core/angles.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import type { Rng } from '../../core/rng.ts';
 import type { Command } from '../commands.ts';
-import { INVENTORY_SLOTS } from '../inventory.ts';
 import { eyeHeight } from '../physics.ts';
 import type { PlayerState } from '../player.ts';
 import {
@@ -32,6 +31,7 @@ import {
   SECONDARY,
   startWalk,
 } from './botState.ts';
+import { inBag, shiftClick } from './slotMoves.ts';
 
 /*
  * How the wanderMineBuild bot looks after itself: it eats and drinks what it carries when a gauge
@@ -60,33 +60,32 @@ const CLOSE = 1.5;
 const SKY = 0.7;
 
 /**
- * At most one inventory command: a full hotbar sends the stack it needs least to the bag (or
- * throws it when the bag is full too), so the bare hand can sip; food or drink kept in the bag
- * comes to the hotbar when the bot needs it.
+ * At most one inventory chore, its commands into `out`: a full hotbar sends the stack it needs
+ * least to the bag (Shift+click in the Bag) or throws it when the bag is full too, so the bare
+ * hand can sip; food or drink kept in the bag comes to the hotbar when the bot needs it.
  */
-export function tidy(senses: BotSenses, player: Readonly<PlayerState>): Command | null {
+export function tidy(senses: BotSenses, player: Readonly<PlayerState>, out: Command[]): void {
   const inventory = player.inventory;
   if (emptySlot(inventory, 0, HOTBAR_SLOTS) < 0) {
     let slot = lastSlotWithout(senses, inventory, FOOD | DRINK | BLOCK | TOOL);
     if (slot < 0) slot = lastSlotWithout(senses, inventory, FOOD | DRINK);
     if (slot < 0) slot = HOTBAR_SLOTS - 1;
-    return emptySlot(inventory, HOTBAR_SLOTS, INVENTORY_SLOTS) >= 0
-      ? { type: 'inv.quickMove', slot }
-      : { type: 'inv.drop', slot, all: true };
+    if (emptySlot(inventory, HOTBAR_SLOTS, inventory.length) >= 0)
+      out.push(...inBag(shiftClick(slot)));
+    else out.push({ type: 'inv.drop', slot, all: true });
+    return;
   }
   const sv = player.survival;
-  return (
-    (sv.thirst < THIRSTY ? fetch(senses, player, DRINK) : null) ??
-    (sv.hunger < HUNGRY ? fetch(senses, player, FOOD) : null)
-  );
+  let slot = sv.thirst < THIRSTY ? fetch(senses, player, DRINK) : -1;
+  if (slot < 0 && sv.hunger < HUNGRY) slot = fetch(senses, player, FOOD);
+  if (slot >= 0) out.push(...inBag(shiftClick(slot)));
 }
 
-/** Moves a stack of a kind from the bag to the hotbar when the hotbar has none. */
-function fetch(senses: BotSenses, player: Readonly<PlayerState>, kind: number): Command | null {
+/** The bag slot of a stack of a kind to bring to the hotbar when the hotbar has none, else −1. */
+function fetch(senses: BotSenses, player: Readonly<PlayerState>, kind: number): number {
   const inventory = player.inventory;
-  if (slotWith(senses, inventory, kind, 0) >= 0) return null;
-  const slot = slotWith(senses, inventory, kind, 0, HOTBAR_SLOTS, INVENTORY_SLOTS);
-  return slot < 0 ? null : { type: 'inv.quickMove', slot };
+  if (slotWith(senses, inventory, kind, 0) >= 0) return -1;
+  return slotWith(senses, inventory, kind, 0, HOTBAR_SLOTS, inventory.length);
 }
 
 /** Thirst first, then hunger: starts a meal, a search or a roam; false when there is nothing to do. */
@@ -126,7 +125,7 @@ function care(
     s.pitch = SKY;
     return true;
   }
-  if (slotWith(senses, inventory, kind, avoid, HOTBAR_SLOTS, INVENTORY_SLOTS) >= 0) return false;
+  if (slotWith(senses, inventory, kind, avoid, HOTBAR_SLOTS, inventory.length) >= 0) return false;
   if (tick < s.scanAt[source]!) return false;
   s.scanAt[source] = tick + RESCAN_TICKS;
   if (!nearestSource(senses, source, player.body, s)) {

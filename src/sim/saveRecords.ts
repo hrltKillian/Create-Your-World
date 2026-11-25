@@ -126,8 +126,9 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     restTicks: player.restTicks,
     viewRadius: player.viewRadius,
     inventory: serializeInventory(player.inventory),
+    cursor: player.cursor ? savedStack(player.cursor) : null,
     interaction: { ...player.interaction },
-    craft: player.craft.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) })),
+    craft: savedCraft(player.craft),
     seen: Object.keys(player.seen).sort(),
     survival: { ...player.survival, effects: player.survival.effects.map((e) => ({ ...e })) },
     equipment: serializeInventory(player.equipment),
@@ -139,6 +140,11 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     invulnerable: player.invulnerable,
     attackCooldown: player.attackCooldown,
   };
+}
+
+/** A craft queue as saved: its reserved ingredients with text item keys. */
+function savedCraft(queue: readonly CraftEntry[]): CraftEntry[] {
+  return queue.map((entry) => ({ ...entry, reserved: savedStacks(entry.reserved) }));
 }
 
 /** The stacks of a slot array as saved, empty slots left out. */
@@ -235,6 +241,8 @@ export function readPlayer(
   player.prevZ = player.body.z;
   player.input = { ...NEUTRAL_INPUT, yaw: player.yaw, pitch: player.pitch };
   player.inventory = deserializeInventory(saved.inventory, registry);
+  // Without the screen it was on (screens are not saved): back in the inventory at the restore.
+  player.cursor = readStack(saved.cursor, registry);
   assignFields(player.interaction, saved.interaction);
   player.craft = readCraft(saved.craft, registry);
   player.seen = readSeen(saved.seen);
@@ -388,6 +396,8 @@ const savedSlots = (slots: Inventory): Inventory =>
 export function blockEntityRecord(entity: Readonly<BlockEntity>): BlockEntityRecord {
   if (entity.kind === 'grave')
     return { ...entity, slots: savedSlots(entity.slots), worn: savedSlots(entity.worn) };
+  if (entity.kind === 'workbench')
+    return { ...entity, slots: savedSlots(entity.slots), craft: savedCraft(entity.craft) };
   return { ...entity, slots: savedSlots(entity.slots) };
 }
 
@@ -396,9 +406,10 @@ const MAX_SLOTS = 256;
 
 /**
  * The block entity of a (migrated) record, or null if it is malformed. Unknown items keep their
- * key; a station of a station the pack lacks, and a pack, keep their slots (the former no longer
- * runs, but spills them when broken). `lastTick` is the column record's, for stations saved
- * without their own tick.
+ * key; a station or workbench of a station the pack lacks, and a pack, keep their slots (the
+ * former no longer run, but spill them when broken; a workbench's entries of recipes the pack
+ * lacks drop their ingredients when it next ticks). `lastTick` is the column record's, for
+ * stations saved without their own tick.
  */
 export function readBlockEntity(
   data: unknown,
@@ -431,8 +442,24 @@ export function readBlockEntity(
       worn: deserializeSlots(Array.isArray(worn) ? worn : [], WEAR_SLOTS.length, registry),
     };
   }
-  if (saved.kind !== 'station' || typeof saved.station !== 'string') return null;
+  if (typeof saved.station !== 'string') return null;
   const def = registry.crafting.station(saved.station);
+  const tick = isWhole(saved.tick, 0) ? saved.tick : lastTick;
+  if (saved.kind === 'workbench') {
+    const size = def ? def.outputSlots : Math.min(slots.length, MAX_SLOTS);
+    const craft = (saved as { craft?: unknown }).craft;
+    return {
+      kind: 'workbench',
+      x,
+      y,
+      z,
+      station: saved.station,
+      slots: deserializeSlots(slots, size, registry),
+      craft: readCraft(craft, registry),
+      tick,
+    };
+  }
+  if (saved.kind !== 'station') return null;
   const size = def ? stationSlotCount(def) : Math.min(slots.length, MAX_SLOTS);
   const whole = (v: unknown) => (isWhole(v, 0) ? v : 0);
   return {
@@ -449,6 +476,6 @@ export function readBlockEntity(
     lit: saved.lit === true,
     // Only a fire that may be kept burning keeps the toggle on.
     keepLit: saved.keepLit === true && def?.keepLit === true,
-    tick: isWhole(saved.tick, 0) ? saved.tick : lastTick,
+    tick,
   };
 }

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { PITCH_LIMIT } from '../../../src/core/angles.ts';
 import { HOTBAR_SLOTS } from '../../../src/core/player.ts';
 import type { Command } from '../../../src/sim/commands.ts';
+import type { PlayerState } from '../../../src/sim/player.ts';
 import { tidy } from '../../../src/sim/testing/botNeeds.ts';
 import {
   BLOCK,
+  type BotSenses,
   BUSH,
   botSenses,
   DRINK,
@@ -20,6 +22,7 @@ import {
 } from '../../../src/sim/testing/botSenses.ts';
 import { BOT_KINDS, type BotKind, createBot } from '../../../src/sim/testing/bots.ts';
 import { botTick } from '../../../src/sim/testing/runBot.ts';
+import { inBag, shiftClick, slotClick } from '../../../src/sim/testing/slotMoves.ts';
 import { FLAT_SURFACE } from '../../../src/world/gen/flat.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 
@@ -43,6 +46,12 @@ function drive(s: PlayerSim, ticks: number, kind: BotKind = 'wanderMineBuild'): 
   return top;
 }
 
+/** The commands of the bot's inventory chore this tick. */
+const chores = (senses: BotSenses, player: Readonly<PlayerState>): Command[] => {
+  const out: Command[] = [];
+  tidy(senses, player, out);
+  return out;
+};
 const consumed = (s: PlayerSim) => eventsOf(s.events, 'consumed').map((e) => e.item);
 const setStat = (s: PlayerSim, stat: 'thirst' | 'hunger' | 'toxicity', value: number) =>
   s.send({ type: 'debug.setStat', stat, value });
@@ -119,23 +128,24 @@ describe("the bot's inventory chores", () => {
     const s = fullHotbar();
     expect(s.player.inventory.slice(0, HOTBAR_SLOTS).every((stack) => stack)).toBe(true);
     const senses = botSenses(s.sim);
-    expect(tidy(senses, s.player)).toEqual({ type: 'inv.quickMove', slot: 5 });
+    expect(chores(senses, s.player)).toEqual(inBag(shiftClick(5)));
   });
 
   it('throws that stack when the bag is full too', () => {
     const s = fullHotbar();
     s.give('item:copper_pickaxe', s.player.inventory.length - HOTBAR_SLOTS);
-    expect(tidy(botSenses(s.sim), s.player)).toEqual({ type: 'inv.drop', slot: 5, all: true });
+    expect(chores(botSenses(s.sim), s.player)).toEqual([{ type: 'inv.drop', slot: 5, all: true }]);
   });
 
   it('brings a drink from the bag to the hotbar when thirsty, not before', () => {
     const s = playerTestSim({ seed: 'fetch' });
     s.give('item:flask_raw', 1);
-    s.send({ type: 'inv.move', from: 0, to: 12 });
+    s.send(...inBag(slotClick(0), slotClick(12)));
+    expect(s.player.inventory[12]?.item).toBe('item:flask_raw');
     const senses = botSenses(s.sim);
-    expect(tidy(senses, s.player)).toBeNull();
+    expect(chores(senses, s.player)).toEqual([]);
     setStat(s, 'thirst', 30);
-    expect(tidy(senses, s.player)).toEqual({ type: 'inv.quickMove', slot: 12 });
+    expect(chores(senses, s.player)).toEqual(inBag(shiftClick(12)));
   });
 });
 

@@ -1,7 +1,17 @@
 import type { BlockDef, BlockKey, ContentPack, ItemDef, ItemKey, ToolDef } from './schema.ts';
 
-/** Stack size of the implicit item of a block. */
-export const BLOCK_STACK = 50;
+/** Stack size of an item that gives none (docs « Inventaire »: every block and most items). */
+export const DEFAULT_STACK = 64;
+
+/**
+ * Most items of an item's stack (the rule, in one place): 1 for a tool, a weapon, a wearable or
+ * a water container (they keep their own wear or charges, so they never stack), else its
+ * `maxStack`, else DEFAULT_STACK.
+ */
+export function stackLimit(item: ItemDef): number {
+  if (item.tool || item.weapon || item.wear || item.container) return 1;
+  return item.maxStack ?? DEFAULT_STACK;
+}
 
 /**
  * Whether a tool (none: the hand) is the kind the block wants (docs « Casser »): only then do its
@@ -57,7 +67,6 @@ export function packItems(pack: ContentPack): ItemDef[] {
       key: blockItemKey(block.key),
       nameKey: block.nameKey,
       icon: { block: block.key },
-      maxStack: BLOCK_STACK,
       ...block.item,
     }),
   );
@@ -67,6 +76,7 @@ export function packItems(pack: ContentPack): ItemDef[] {
 /** Lookup tables indexed by numeric item id (the order of `packItems`). */
 export interface ItemTables {
   readonly count: number;
+  /** Most items of a stack (`stackLimit`). */
   readonly maxStack: Uint16Array;
   /** Mining speed of a matching tool (1 for items that are not tools). */
   readonly toolSpeed: Float64Array;
@@ -94,7 +104,7 @@ export function buildItemTables(
     places: new Int32Array(n).fill(-1),
   };
   items.forEach((item, i) => {
-    tables.maxStack[i] = item.maxStack;
+    tables.maxStack[i] = stackLimit(item);
     tables.toolSpeed[i] = item.tool?.speed ?? 1;
     tables.durability[i] =
       item.tool?.durability ?? item.weapon?.durability ?? item.wear?.durability ?? charges(item);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import type { GraveEntity } from '../../../src/sim/blockEntities.ts';
 import { ticksOf } from '../../../src/sim/clock.ts';
 import type { Inventory } from '../../../src/sim/inventory.ts';
@@ -7,6 +8,7 @@ import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash } from '../../../src/sim/persistence.ts';
 import type { PlayerState } from '../../../src/sim/player.ts';
 import { blockEntityRecord, playerRecord, readBlockEntity } from '../../../src/sim/saveRecords.ts';
+import { inBag, shiftClick } from '../../../src/sim/testing/slotMoves.ts';
 import { cellKey, WORLD_HEIGHT } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle } from '../../helpers/save.ts';
@@ -47,7 +49,7 @@ function equipped(seed: string) {
   s.give('item:dirt', 70);
   s.give('item:plant_fiber', 10);
   s.give('item:berries', 4);
-  s.send({ type: 'equip.move', from: 1 });
+  s.send(...inBag(shiftClick(1)));
   s.player.inventory[0]!.durability = 17;
   s.send({ type: 'craft.enqueue', recipe: 'recipe:cord', count: 2 });
   return s;
@@ -136,7 +138,7 @@ describe('death', () => {
     s.send({ type: 'player.respawn' });
     s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 2.5 });
     // A full bag first: only the matching stacks top up.
-    s.give('item:stone', 31 * 50);
+    s.give('item:stone', (s.player.inventory.length - 1) * DEFAULT_STACK);
     s.give('item:dirt', 20);
     const target = { target: { ...FEET, face: 4 } };
     s.tick(1, { ...target, secondary: true });
@@ -146,7 +148,7 @@ describe('death', () => {
     expect(s.player.equipment[2]?.item).toBe('item:fur_coat');
     expect(s.player.graves).toEqual([FEET]);
     // Room again: the rest comes back, the pack and its marker go.
-    for (let slot = 0; slot < 32; slot++)
+    for (let slot = 0; slot < s.player.inventory.length; slot++)
       if (s.player.inventory[slot]?.item === 'item:stone') s.player.inventory[slot] = null;
     s.tick(1, { ...target, secondary: true });
     s.tick(1);
@@ -162,7 +164,7 @@ describe('death', () => {
     // A spare body piece in the bag, before the coat in the pack's order.
     s.give('item:leather_tunic');
     s.give('item:fur_coat');
-    s.send({ type: 'equip.move', from: 1 });
+    s.send(...inBag(shiftClick(1)));
     s.give('item:waxed_boots');
     expect(s.player.equipment[2]?.item).toBe('item:fur_coat');
     s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
@@ -180,12 +182,12 @@ describe('death', () => {
   it('sends a worn item whose slot is taken again to the bag', () => {
     const s = playerTestSim({ seed: 'recover-taken' });
     s.give('item:fur_coat');
-    s.send({ type: 'equip.move', from: 0 });
+    s.send(...inBag(shiftClick(0)));
     s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
     s.send({ type: 'player.respawn' });
     s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 2.5 });
     s.give('item:leather_tunic');
-    s.send({ type: 'equip.move', from: 0 });
+    s.send(...inBag(shiftClick(0)));
     s.tick(1, { target: { ...FEET, face: 4 }, secondary: true });
     s.tick(1);
     expect(keysOf(s.player.equipment)).toEqual([null, null, 'item:leather_tunic', null, null]);
@@ -196,7 +198,7 @@ describe('death', () => {
   it('spills a pack filled over, worn items included, and forgets its marker', () => {
     const s = playerTestSim({ seed: 'pack-filled' });
     s.give('item:fur_coat');
-    s.send({ type: 'equip.move', from: 0 });
+    s.send(...inBag(shiftClick(0)));
     s.give('item:dirt', 4);
     s.send({ type: 'debug.setStat', stat: 'health', value: 0 });
     expect(s.player.graves).toEqual([FEET]);

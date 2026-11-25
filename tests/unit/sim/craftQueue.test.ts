@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { CRAFT_QUEUE, noteSeen, STATION_REACH } from '../../../src/sim/craftQueue.ts';
+import { DEFAULT_STACK } from '../../../src/content/items.ts';
+import { basePack } from '../../../src/content/packs/base/index.ts';
+import { buildRegistry } from '../../../src/content/registry.ts';
+import {
+  CRAFT_QUEUE,
+  entryCrafts,
+  MAX_CRAFT_COUNT,
+  noteSeen,
+  queueRoom,
+} from '../../../src/sim/craftQueue.ts';
 import { addItem, countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -65,8 +74,14 @@ describe('craft queue', () => {
     s.give('item:plant_fiber', 20);
     expect(rejections(s.enqueue('cord', 7))).toEqual(['ingredients']);
     expect(countItem(s.player.inventory, 'item:plant_fiber')).toBe(20);
-    for (let i = 0; i < CRAFT_QUEUE; i++) expect(rejections(s.enqueue('cord'))).toEqual([]);
+    // A tool stacks to 1: one craft per entry, so 5 knives fill the queue.
+    s.give('item:flint', 6);
+    s.give('item:stick', 6);
+    for (let i = 0; i < CRAFT_QUEUE; i++) expect(rejections(s.enqueue('flint_knife'))).toEqual([]);
+    expect(s.player.craft).toHaveLength(CRAFT_QUEUE);
+    expect(rejections(s.enqueue('flint_knife'))).toEqual(['queue full']);
     expect(rejections(s.enqueue('cord'))).toEqual(['queue full']);
+    expect(countItem(s.player.inventory, 'item:flint')).toBe(1);
     expect(
       rejections(
         s.send(
@@ -79,23 +94,62 @@ describe('craft queue', () => {
     ).toEqual(['invalid', 'invalid', 'unknown recipe', 'invalid']);
   });
 
-  it('needs a workbench within 4 blocks for workbench recipes, checked when queued', () => {
+  it('adds a recipe already queued to its entry: five ×1 make what one ×5 makes', () => {
+    const queued = (batches: readonly number[]) => {
+      const s = setup();
+      s.give('item:stick', 7);
+      s.give('item:plant_fiber', 11);
+      // Sent in one tick, so both queues have run the same ticks.
+      const commands = batches.map((count) => ({
+        type: 'craft.enqueue' as const,
+        recipe: 'recipe:torch',
+        count,
+      }));
+      expect(rejections(s.send(...commands))).toEqual([]);
+      return { queue: s.player.craft, inventory: s.player.inventory };
+    };
+    const ones = queued([1, 1, 1, 1, 1]);
+    const five = queued([5]);
+    expect(ones).toEqual(five);
+    expect(five.queue).toEqual([
+      {
+        recipe: 'recipe:torch',
+        count: 5,
+        progressTicks: 1,
+        reserved: [
+          { item: 'item:stick', count: 5 },
+          { item: 'item:plant_fiber', count: 10 },
+        ],
+      },
+    ]);
+    // Cancelling the entry gives every reserved ingredient back.
     const s = setup();
-    s.give('item:planks', 16);
-    s.give('item:cord', 2);
-    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
-    const at = (x: number, z: number, state: string) =>
-      s.send({ type: 'debug.fill', x0: x, y0: 65, z0: z, x1: x, y1: 65, z1: z, state });
-    at(STATION_REACH + 2, 0, 'block:workbench');
-    expect(s.host.view.stationNear('station:workbench')).toBe(false);
-    expect(rejections(s.enqueue('chest'))).toEqual(['station']);
-    at(3, 0, 'block:workbench');
-    expect(s.host.view.stationNear('station:workbench')).toBe(true);
-    expect(rejections(s.enqueue('chest'))).toEqual([]);
-    // Taking the workbench away does not stop what is queued.
-    at(3, 0, 'block:air');
-    s.step(90);
-    expect(countItem(s.player.inventory, 'item:chest')).toBe(1);
+    s.give('item:stick', 5);
+    s.give('item:plant_fiber', 10);
+    for (let i = 0; i < 5; i++) s.enqueue('torch');
+    s.send({ type: 'craft.cancel', index: 0 });
+    expect(s.player.craft).toEqual([]);
+    expect(countItem(s.player.inventory, 'item:stick')).toBe(5);
+    expect(countItem(s.player.inventory, 'item:plant_fiber')).toBe(10);
+  });
+
+  it('caps an entry at one stack of its output, then opens a new entry', () => {
+    const s = setup();
+    // Planks: 4 per craft, so an entry holds 16 crafts (64 planks).
+    const cap = entryCrafts(registry, registry.crafting.recipe('recipe:planks')!);
+    expect(cap).toBe(DEFAULT_STACK / 4);
+    s.give('item:broadleaf_log', cap + 4);
+    expect(rejections(s.enqueue('planks', cap - 2))).toEqual([]);
+    expect(rejections(s.enqueue('planks', 6))).toEqual([]);
+    expect(s.player.craft.map((entry) => entry.count)).toEqual([cap, 4]);
+    expect(s.player.craft[1]!.reserved).toEqual([{ item: 'item:broadleaf_log', count: 4 }]);
+    expect(queueRoom(registry, s.player.craft, registry.crafting.recipe('recipe:planks')!)).toBe(
+      (CRAFT_QUEUE - 1) * cap - 4,
+    );
+    // Never more than a save keeps of an entry, however large the stack.
+    const items = basePack.items!.map((i) => (i.key === 'item:cord' ? { ...i, maxStack: 999 } : i));
+    const big = buildRegistry({ ...basePack, items });
+    expect(entryCrafts(big, big.crafting.recipe('recipe:cord')!)).toBe(MAX_CRAFT_COUNT);
   });
 
   it('reveals a recipe once one of its ingredients has been seen (tags included)', () => {
@@ -117,7 +171,8 @@ describe('craft queue', () => {
     const s = setup();
     s.give('item:plant_fiber', 3);
     s.enqueue('cord');
-    addItem(s.player.inventory, registry, { item: 'item:stone', count: 50 * 32 });
+    const full = DEFAULT_STACK * s.player.inventory.length;
+    addItem(s.player.inventory, registry, { item: 'item:stone', count: full });
     s.step(30);
     const drops = [...s.sim.entities.values()].filter(
       (e): e is ItemDropState => e.kind === 'itemDrop',

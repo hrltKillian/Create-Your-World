@@ -1,16 +1,21 @@
 import { fuelSlotOf, outputSlotOf } from '../../content/crafting.ts';
 import { blockItemKey } from '../../content/items.ts';
 import type { Ingredient, ProcessDef, RecipeDef, StationDef } from '../../content/schema.ts';
+import { type WorkbenchEntity, withinReach } from '../blockEntities.ts';
 import { ticksOf } from '../clock.ts';
 import { OPEN_SLOTS_BASE } from '../commands.ts';
+import { MAX_CRAFT_COUNT, queueRoom } from '../craftQueue.ts';
 import { countMatching } from '../inventory.ts';
+import { STATION_REACH } from '../objectives.ts';
+import { moveClicks, shiftClick } from './slotMoves.ts';
 import { Gathering } from './walkGather.ts';
 import { type Cell, cellText, type WalkPort } from './walkPort.ts';
 
 /*
  * How the objectives walk (objectiveWalk.ts) gets its items, from the pack's data. A recipe is
- * crafted through the Logbook's queue at its station, a process run in its station (inputs, the
- * longest-burning gathered fuel, the outputs taken back). An item an objective names comes the
+ * crafted through the Logbook's queue: by hand, or at its workbench, open meanwhile (its outputs
+ * taken as they come); a process run in its station (inputs, the longest-burning gathered fuel,
+ * the outputs taken back). An item an objective names comes the
  * world's way whenever the world yields it (walkGather.ts): the blocks that drop it are broken, the
  * creatures that leave it struck down with the weapon that reaches farthest. Every other raw
  * material (logs, stone, clay, fuel, ores no objective names, hides, fur, resin) is given by
@@ -74,7 +79,7 @@ export abstract class Supplies extends Gathering {
   protected async station(key: string, depth: number): Promise<Cell> {
     await this.goHome();
     const placed = this.stations.get(key);
-    if (placed && this.view.stationNear(key)) return placed;
+    if (placed && this.stationAt(placed, key)) return placed;
     const block = this.registry.blocks.find((b) => b.station === key);
     if (!block) throw new Error(`no block is the station ${key}`);
     const item = blockItemKey(block.key);
@@ -95,6 +100,13 @@ export abstract class Supplies extends Gathering {
     return cell;
   }
 
+  /** Whether a station's block still stands at a cell within an objective's reach of the player. */
+  private stationAt(cell: Cell, key: string): boolean {
+    const { x, y, z } = cell;
+    const here = this.registry.blockDef(this.view.world.getBlock(x, y, z)).station === key;
+    return here && withinReach(this.me(), x, y, z, STATION_REACH);
+  }
+
   /** An item that fills an ingredient: itself, or the first item that carries the tag. */
   private itemFor(ingredient: string): string {
     if (this.registry.itemId(ingredient) >= 0) return ingredient;
@@ -110,21 +122,51 @@ export abstract class Supplies extends Gathering {
       for (const input of inputs) await this.obtain(input.item, input.count * times, depth + 1);
   }
 
-  /** Queues `crafts` crafts of a recipe (as the Logbook does) and waits until they are done. */
+  /**
+   * Queues `crafts` crafts of a recipe as the Logbook does, as many at a time as the queue takes,
+   * and waits until they are done: a workbench recipe at its bench, open meanwhile, whose outputs
+   * are taken as they come.
+   */
   private async craft(recipe: RecipeDef, crafts: number, depth: number): Promise<void> {
     // The station first: making it must not use up the inputs (a campfire burns logs).
-    if (recipe.station !== undefined) await this.station(recipe.station, depth);
+    const bench = recipe.station === undefined ? null : await this.station(recipe.station, depth);
     await this.inputs(recipe.inputs, crafts, depth);
-    // Gathering may have led the walk away from the station.
-    if (recipe.station !== undefined) await this.goHome();
-    const me = this.me();
-    this.port.send({ type: 'craft.enqueue', recipe: recipe.key, count: crafts });
-    if (me.craft.length === 0)
-      throw new Error(`${recipe.key} × ${crafts} was refused (queue empty after enqueue)`);
-    this.stepUntil(() => me.craft.length === 0, ticksOf(recipe.seconds) * crafts + SLACK_TICKS);
-    if (me.craft.length > 0) throw new Error(`${recipe.key} × ${crafts} is still queued`);
+    if (bench) {
+      // Gathering may have led the walk away from the bench.
+      await this.goHome();
+      this.open(bench);
+    }
+    const queue = () => (bench ? this.workbench(bench).craft : this.me().craft);
+    const done = () => {
+      if (bench) this.takeOutputs(bench);
+      return queue().length === 0;
+    };
+    for (let left = crafts; left > 0; ) {
+      const count = Math.min(left, MAX_CRAFT_COUNT, queueRoom(this.registry, queue(), recipe));
+      this.port.send({ type: 'craft.enqueue', recipe: recipe.key, count });
+      if (queue().length === 0)
+        throw new Error(`${recipe.key} × ${count} was refused (queue empty after enqueue)`);
+      if (!this.stepUntil(done, ticksOf(recipe.seconds) * count + SLACK_TICKS))
+        throw new Error(`${recipe.key} × ${count} is still queued`);
+      left -= count;
+    }
+    if (bench) this.port.send({ type: 'screen.close' });
     // The next tick notes the output seen (tick step 9 reads the inventory).
     this.port.step(1);
+  }
+
+  /** The workbench at a cell. */
+  private workbench(cell: Cell): Readonly<WorkbenchEntity> {
+    const entity = this.view.blockEntity(cell.x, cell.y, cell.z);
+    if (entity?.kind !== 'workbench') throw new Error(`no workbench at ${cellText(cell)}`);
+    return entity;
+  }
+
+  /** Shift+clicks every filled output of the open workbench at a cell into the inventory. */
+  private takeOutputs(cell: Cell): void {
+    const slots = this.workbench(cell).slots;
+    for (let slot = 0; slot < slots.length; slot++)
+      if (slots[slot]) this.port.send(shiftClick(OPEN_SLOTS_BASE + slot));
   }
 
   /** Runs a process `runs` times in its station: inputs and fuel in, the outputs taken back. */
@@ -137,10 +179,10 @@ export abstract class Supplies extends Gathering {
     await this.goHome();
     this.open(cell);
     process.inputs.forEach((input, slot) => {
-      this.load(input.item, input.count * runs, slot);
+      this.load(cell, input.item, input.count * runs, slot);
     });
-    if (fuel) this.load(fuel.item, fuel.count, fuelSlotOf(def));
-    this.port.send({ type: 'container.close' });
+    if (fuel) this.load(cell, fuel.item, fuel.count, fuelSlotOf(def));
+    this.port.send({ type: 'screen.close' });
     const want = runs * process.output.count;
     const made = () => this.outputs(cell, def, process.output.item);
     const ticks = ticksOf(process.seconds) * runs + SLACK_TICKS;
@@ -153,8 +195,8 @@ export abstract class Supplies extends Gathering {
     const out = outputSlotOf(def);
     for (let slot = out; slot < out + def.outputSlots; slot++)
       if (this.view.blockEntity(cell.x, cell.y, cell.z)?.slots[slot])
-        this.port.send({ type: 'station.move', from: OPEN_SLOTS_BASE + slot });
-    this.port.send({ type: 'container.close' });
+        this.port.send(shiftClick(OPEN_SLOTS_BASE + slot));
+    this.port.send({ type: 'screen.close' });
   }
 
   /** The station's outputs of an item. */
@@ -188,18 +230,25 @@ export abstract class Supplies extends Gathering {
   /** Opens a station's screen within reach (`debug.open`: no aiming). */
   private open(cell: Cell): void {
     this.port.send({ type: 'debug.open', ...cell });
-    if (!this.me().opened) throw new Error(`the station at ${cellText(cell)} did not open`);
+    if (this.me().screen?.kind !== 'block')
+      throw new Error(`the station at ${cellText(cell)} did not open`);
   }
 
-  /** Moves `count` items filling an ingredient from the inventory into a slot of the open station. */
-  private load(ingredient: string, count: number, slot: number): void {
+  /**
+   * Moves `count` items filling an ingredient from the inventory into a slot of the open station
+   * at a cell, by clicks.
+   */
+  private load(cell: Cell, ingredient: string, count: number, slot: number): void {
     const inventory = this.me().inventory;
+    const to = OPEN_SLOTS_BASE + slot;
     let left = count;
     for (let from = 0; from < inventory.length && left > 0; from++) {
       const stack = inventory[from];
       if (!stack || !this.registry.crafting.matches(stack.item, ingredient)) continue;
       const moved = Math.min(left, stack.count);
-      this.port.send({ type: 'station.move', from, to: OPEN_SLOTS_BASE + slot, count: moved });
+      const there = this.view.blockEntity(cell.x, cell.y, cell.z)?.slots[slot];
+      for (const click of moveClicks(this.registry, from, to, stack, there, moved))
+        this.port.send(click);
       left -= moved;
     }
   }

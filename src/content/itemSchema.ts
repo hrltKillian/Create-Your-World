@@ -102,7 +102,11 @@ export interface ItemDef {
   readonly nameKey: string;
   /** Icon texture, or the block whose faces draw it. */
   readonly icon: TexKey | { readonly block: BlockKey };
-  readonly maxStack: number;
+  /**
+   * Most items of a stack when it is not the default 64 (a tool, a weapon, a wearable and a water
+   * container stack to 1 whatever it says: content/items.ts `stackLimit`).
+   */
+  readonly maxStack?: number;
   /** Groups an ingredient can name instead of an item (`tag:log`). */
   readonly tags?: readonly TagKey[];
   readonly tool?: ToolDef;
@@ -195,10 +199,12 @@ export interface ProcessDef {
  */
 export interface StationDef {
   readonly key: StationKey;
-  /** Name shown on Logbook badges (« Requires: Workbench nearby »). */
+  /** Name of its screen and of the Logbook's « N more at the Workbench ». */
   readonly nameKey: string;
+  /** Inputs and fuel of a processing station (none for a workbench). */
   readonly inputSlots: number;
   readonly fuelSlot: boolean;
+  /** Where its processes, or a workbench's crafts, wait to be taken. */
   readonly outputSlots: number;
   /** A processing station: its fire burns fuel only while one of its processes runs. */
   readonly burns?: boolean;

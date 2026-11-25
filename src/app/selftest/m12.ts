@@ -4,6 +4,7 @@ import { OPEN_SLOTS_BASE } from '../../sim/commands.ts';
 import type { SimEvent } from '../../sim/events.ts';
 import { PHYSICS } from '../../sim/physics.ts';
 import { STAMINA } from '../../sim/player.ts';
+import { inBag, moveClicks } from '../../sim/testing/slotMoves.ts';
 import type { App } from '../App.ts';
 import {
   blockEntityContents,
@@ -25,6 +26,7 @@ import {
   PLAY_SCENES,
   playerSession,
   type SelftestCase,
+  slotsAt,
   standAt,
   stateKey,
 } from './support.ts';
@@ -111,7 +113,8 @@ function holdInHand(app: App, item: string, count: number): void {
   if (slot < 0) {
     const bag = inventory.findIndex((stack) => stack?.item === item);
     assert(bag >= 0, `${item} did not reach the inventory (full?)`);
-    sendAndStep(app, { type: 'inv.move', from: bag, to: 0 });
+    const clicks = moveClicks(app.registry!, bag, 0, inventory[bag]!, inventory[0]);
+    sendAndStep(app, ...inBag(...clicks));
     slot = 0;
   }
   assert(inventory[slot]?.item === item, `${item} is not in hotbar slot ${slot}`);
@@ -250,7 +253,7 @@ export const M12_SUITE: readonly SelftestCase[] = [
       tap('Escape', 'Escape');
       playing('Esc on the station');
       session.step(1);
-      assert(session.player.opened === null, 'the simulation kept the station open');
+      assert(session.player.screen === null, 'the simulation kept the station open');
       setBlock(app, fire.x, fire.y, fire.z, airKey(app));
       // Keys play at once: forward walks.
       key('keydown', 'KeyW', 'w');
@@ -283,7 +286,10 @@ export const M12_SUITE: readonly SelftestCase[] = [
       openBlock(app, cell.x, cell.y, cell.z);
       assert(app.inventory?.screen() === 'station', `the fire showed ${app.inventory?.screen()}`);
       const to = OPEN_SLOTS_BASE + fuelSlotOf(station);
-      sendAndStep(app, { type: 'station.move', from: app.input!.slot, to, count: 2 });
+      const hand = app.input!.slot;
+      const held = session.player.inventory[hand]!;
+      const there = slotsAt(app, cell)[fuelSlotOf(station)];
+      sendAndStep(app, ...moveClicks(registry, hand, to, held, there, 2));
       const contents = () =>
         blockEntityContents(app, cell.x, cell.y, cell.z) as {
           slots: { item: string; count: number }[];

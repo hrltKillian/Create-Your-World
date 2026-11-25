@@ -44,6 +44,12 @@ controls card of the first launch and in the hints.
 | Debug panel                            | F3, Backquote, IntlBackslash | F3 / `        | F3 (fn+F3) / @ |
 | Pause (Esc on a screen closes it)      | Escape                       | Esc           | Esc            |
 
+On the Bag, a chest, a station or the workbench, items move by clicks: a left click takes a stack
+onto the cursor, where it follows the mouse, and puts it down (merging, or swapping with another
+stack); a right click takes half a stack, or puts one item down; Shift+click sends a stack across
+(bag and hotbar, inventory and chest); a click beside the panel throws the stack (right: one item);
+1–8 over a slot swaps it with that hotbar slot. Closing the screen puts the cursor stack back.
+
 Click the game to capture the mouse. Esc on the bag, a chest or a station closes it back to play (if
 the browser does not capture the mouse again by itself, a light « Click to resume » shows while the
 game goes on); only Esc in play opens the pause menu. Ctrl, Cmd, Alt, F5, F11 and F12 are never
@@ -91,26 +97,26 @@ tips as in a new browser; by default they show once per browser, never under aut
 
 ## The `__game` hook (dev and bench builds)
 
-`window.__game` (version 12) drives and inspects the game from the console or Playwright. It is
+`window.__game` (version 13) drives and inspects the game from the console or Playwright. It is
 loaded by a dynamic import and never ships in a production build. Mutations go through the
 simulation's `debug.*` commands. With `?fixedStep=1` they apply at once, and `press` advances its
 ticks.
 
-| Group            | Entries                                                                                                                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lifecycle        | `version`, `params`, `ready()`, `errors()`, `state()`, `capabilities()`, `selftest(selection)`, `workers.ping()`, `workers.size()`                                                                                      |
-| sim, time        | `sim.step(n)`, `sim.tick()`, `sim.hash()`; `time.get()`, `time.set(hours)`, `time.freeze(frozen?)`                                                                                                                      |
-| input, camera    | `input.look(yaw, pitch)`, `input.press(action, ticks)`, `input.release()`, `input.keyLabel(action)`; `camera.get()`, `camera.set(pose)` (free camera), `camera.mode()`, `camera.toggle()`                               |
-| player           | `get()`, `teleport(x, y\|'surface', z)`, `setStat(stat, value)`, `stats()`, `give(item, count)`, `inventory()`, `equip(slot)`, `kill(cause?)`, `god(on?)`                                                               |
-| world            | `block()`, `setBlock()`, `fill()`, `light()`, `shelter()`, `biome(x, z)`, `findBiome()`, `findStructure()`, `waitForChunks()`, `pump(ms)`, `genHash()`, `setRenderDistance()`, `memory()`, `seed()`, `spawn()`          |
-| entities         | `spawn(creature, x, y\|'surface', z)`, `list()`, `kill(id)`, `census()`, `spawnLog()`                                                                                                                                   |
-| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)` (a station adds `lit`, `flame`, `progress`, `process`, `keepLit`)                                                                       |
-| objectives, bot  | `objectives.walk(maxRadius?)` (every objective in order, fixed steps); `bot.kinds()`, `bot.run(kind?, seconds?)` (game seconds; returns its tally and `errors`)                                                         |
-| ui, onboarding   | `ui.screen()`, `ui.open(x?, y?, z?)`, `ui.close()`, `ui.bag(open?)`, `ui.click(selector)`, `ui.drag(from, to)`, `ui.text(selector)`, `ui.hotbar()`, `ui.i18nMissing()`; `onboarding.state()`, `onboarding.restart(on?)` |
-| settings, save   | `settings.get()`, `settings.set(patch)`; `save.now()`, `save.reload()`, `save.worlds()`, `save.inspect(id?)`, `save.wipeAll()`                                                                                          |
-| render           | `info()`, `chunks()`, `occlusion(enabled?)`, `setQuality(preset)`, `rig(who)`, `target()`, `crack()`, `hand()`, `feel()`, `particles(on)`, `viewBob(on)`, `boxes()`, `sectionVersionLag()`, `debugView()`, `capture()`  |
-| perf             | `fps()`, `snapshot()` (frame work and 8 spans), `pool()`, `mesh()`, `editToMeshMs()`, `throttle()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig'\|'load')`                                                           |
-| audio            | `log()` (the last 256 sounds, logged even when muted), `state()`, `mark()`, `since(mark)`, `ambience()` (loops, gains, the underwater low-pass)                                                                         |
+| Group            | Entries                                                                                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lifecycle        | `version`, `params`, `ready()`, `errors()`, `state()`, `capabilities()`, `selftest(selection)`, `workers.ping()`, `workers.size()`                                                                                                                      |
+| sim, time        | `sim.step(n)`, `sim.tick()`, `sim.hash()`; `time.get()`, `time.set(hours)`, `time.freeze(frozen?)`                                                                                                                                                      |
+| input, camera    | `input.look(yaw, pitch)`, `input.press(action, ticks)`, `input.release()`, `input.keyLabel(action)`; `camera.get()`, `camera.set(pose)` (free camera), `camera.mode()`, `camera.toggle()`                                                               |
+| player           | `get()`, `teleport(x, y\|'surface', z)`, `setStat(stat, value)`, `stats()`, `give(item, count)`, `inventory()`, `equip(slot)`, `kill(cause?)`, `god(on?)`                                                                                               |
+| world            | `block()`, `setBlock()`, `fill()`, `light()`, `shelter()`, `biome(x, z)`, `findBiome()`, `findStructure()`, `waitForChunks()`, `pump(ms)`, `genHash()`, `setRenderDistance()`, `memory()`, `seed()`, `spawn()`                                          |
+| entities         | `spawn(creature, x, y\|'surface', z)`, `list()`, `kill(id)`, `census()`, `spawnLog()`                                                                                                                                                                   |
+| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)` (a station adds `lit`, `flame`, `progress`, `process`, `keepLit`)                                                                                                       |
+| objectives, bot  | `objectives.walk(maxRadius?)` (every objective in order, fixed steps); `bot.kinds()`, `bot.run(kind?, seconds?)` (game seconds; returns its tally and `errors`)                                                                                         |
+| ui, onboarding   | `ui.screen()`, `ui.open(x?, y?, z?)`, `ui.close()`, `ui.bag(open?)`, `ui.click(selector \| slot, button?, shift?)`, `ui.clickOutside(button?)`, `ui.text(selector)`, `ui.hotbar()`, `ui.i18nMissing()`; `onboarding.state()`, `onboarding.restart(on?)` |
+| settings, save   | `settings.get()`, `settings.set(patch)`; `save.now()`, `save.reload()`, `save.worlds()`, `save.inspect(id?)`, `save.wipeAll()`                                                                                                                          |
+| render           | `info()`, `chunks()`, `occlusion(enabled?)`, `setQuality(preset)`, `rig(who)`, `target()`, `crack()`, `hand()`, `feel()`, `particles(on)`, `viewBob(on)`, `boxes()`, `sectionVersionLag()`, `debugView()`, `capture()`                                  |
+| perf             | `fps()`, `snapshot()` (frame work and 8 spans), `pool()`, `mesh()`, `editToMeshMs()`, `throttle()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig'\|'load')`                                                                                           |
+| audio            | `log()` (the last 256 sounds, logged even when muted), `state()`, `mark()`, `since(mark)`, `ambience()` (loops, gains, the underwater low-pass)                                                                                                         |
 
 ## Tests in the browser
 
@@ -128,27 +134,39 @@ of them:
 | flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                               |
 | flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel |
 | flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                   |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio                                             |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench     |
 
 ## Try this milestone
 
-**M12 — Controls and fuel** (the first milestone of plan v2, `docs/conception.md` « Plan v2 »).
-`npm run dev`, then open `http://localhost:5173/?worldType=flat&skipMenu=1`.
+**M13 — Bag, cursor, Logbook and workbench** (plan v2, `docs/conception.md` « M13 »).
+`npm run dev`, then open `http://localhost:5173/?worldType=arena&skipMenu=1`: the arena has a
+workshop row (workbench, kiln, campfire, chest) just north of the spawn.
 
-- **Jump**: hold Space and the player jumps again on each landing (5 stamina each, never twice in
-  the air).
-- **Sprint**: tap forward twice within 300 ms and keep it held to sprint, as with Shift.
-- **Eating and drinking** slow the player to 40 % of the speed (`balance.consume.moveFactor`), with
-  no sprint: hold the right button on berries while walking.
-- **Esc on a screen**: open the bag (E) or a chest, then Esc: back to play at once, no pause menu
-  (a light « Click to resume » if the browser keeps the mouse free). Esc in play still pauses.
-- **Fuel**: every fire burns only while it works. A campfire with logs and nothing to cook stays
-  cold; its screen's « Keep burning (warmth, light) » toggle keeps it lit while it has fuel (it
-  warms and lights the camp). Campfires burning in older saves stay lit.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m12` holds jump, double-taps forward with
-  real key events, runs while eating, presses Esc on the bag and a campfire, and flips the toggle.
+- **Clicks, as in Minecraft**: open the bag (E) and click a stack: it rides on the cursor under the
+  mouse until a second click puts it down. A right click takes half, or puts one item down;
+  Shift+click sends a stack across; a click beside the panel throws it (right: one item); 1–8 over
+  a slot swaps it with the hotbar. Close the bag with a stack on the cursor: it goes back to the
+  bag. The simulation owns the cursor and checks every click (ready for a server).
+- **Stacks of 64**: materials stack to 64 (an item may set less); tools, weapons, gear and
+  containers to 1. A saved stack over its item's maximum is split when the world opens.
+- **The Bag's tabs**: Inventory (the worn items) and Logbook, beside the bag and the hotbar.
+- **The Logbook**: type in its search box (« córd » finds the Cord and every recipe that takes
+  one: case and accents do not matter), tick « Can craft now », and see the recipes still to
+  discover greyed at the bottom of each tab, their unseen ingredients as « ? » with where they are
+  found. The Bag's Logbook lists the hand recipes and « N more at the Workbench ».
+- **The workbench**: right-click it for its own screen: its Logbook (its recipes only), its queue of
+  5 and its 4 output slots. Click ×1 five times: one queue entry of 5, not five. The bench works on
+  with nobody near; full outputs pause it; breaking it spills its outputs and the reserved
+  ingredients.
+- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m13` carries, splits, throws and
+  Shift+clicks stacks by clicks on the screens, stacks 70 items into 64 and 6, queues five ×1 at
+  the workbench and takes its crafts, then searches and filters its Logbook.
 
 ### Earlier milestones
+
+- **M12, controls and fuel**: a held jump jumps again on each landing, forward tapped twice
+  sprints, eating slows the player, Esc on a screen goes back to play, fires burn only while they
+  work (the campfire's « Keep burning »); `?worldType=flat&fixedStep=1&selftest=m0,m12`.
 
 **M11 — Polish and performance.** `npm run dev`, then open `http://localhost:5173`.
 

@@ -84,7 +84,8 @@ function checkItems(
     } else if (!blockKeys.has(item.icon.block)) {
       add(`${path}.icon.block`, `unknown block "${item.icon.block}"`);
     }
-    if (!isCount(item.maxStack, 1) || item.maxStack > MAX_STACK)
+    const max = item.maxStack;
+    if (max !== undefined && (!isCount(max, 1) || max > MAX_STACK))
       add(`${path}.maxStack`, `must be an integer 1–${MAX_STACK}`);
     const tool = item.tool;
     if (tool) {
@@ -93,9 +94,10 @@ function checkItems(
       if (!positive(tool.speed)) add(`${path}.tool.speed`, 'must be > 0');
       checkDurability(tool.durability, `${path}.tool.durability`, add);
     }
-    // Tools, gear and water containers keep their own wear or charges, so they never stack.
-    if ((tool || item.wear || item.container) && item.maxStack !== 1)
-      add(`${path}.maxStack`, 'a tool, a wearable or a container must have maxStack 1');
+    // Tools, weapons, gear and water containers keep their own wear or charges, so they never
+    // stack (stackLimit): a pack may not say otherwise.
+    if ((tool || item.weapon || item.wear || item.container) && max !== undefined && max !== 1)
+      add(`${path}.maxStack`, 'a tool, a weapon, a wearable or a container must have maxStack 1');
   });
   return keys;
 }

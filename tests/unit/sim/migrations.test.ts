@@ -6,7 +6,9 @@ import type {
   ContainerEntity,
   GraveEntity,
   StationEntity,
+  WorkbenchEntity,
 } from '../../../src/sim/blockEntities.ts';
+import { ticksOf } from '../../../src/sim/clock.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import type { ItemDropState } from '../../../src/sim/itemDrops.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
@@ -211,7 +213,11 @@ describe('save versions', () => {
     const chest = { kind: 'container', x: 2, y: 65, z: 1, slots: [] };
     const column = migrate('column', { blockEntities: [grave, chest] }, 3);
     expect(column.blockEntities).toEqual([{ ...grave, worn: [] }, chest]);
-    expect(migrate('player', { playerId: 1 }, 3)).toEqual({ playerId: 1, drank: false });
+    expect(migrate('player', { playerId: 1 }, 3)).toEqual({
+      playerId: 1,
+      drank: false,
+      cursor: null,
+    });
   });
 
   it('loads the v5 fixture: a herd of Trotters, one hurt and fleeing, a Shagback, a herd flag', async () => {
@@ -309,5 +315,47 @@ describe('save versions', () => {
     const block = (x: number, z: number) => sim.registry.states[sim.world.getBlock(x, 65, z)]!.key;
     expect(block(3, -3)).toBe('block:campfire[lit=1]');
     expect(block(-3, -3)).toBe('block:campfire[lit=0]');
+    // Version 7: no cursor stack in an older save; its inventory keeps its 32 slots.
+    expect(sim.players.get(1)!.inventory).toHaveLength(32);
+  });
+
+  it('upgrades version 6 players: no cursor stack (no slot number of commands is saved)', () => {
+    const player = { playerId: 1, inventory: [null], equipment: [] };
+    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null });
+    expect(migrate('column', { blockEntities: [] }, 6)).toEqual({ blockEntities: [] });
+  });
+
+  it('loads the v7 fixture: a cursor stack back in an inventory of 40, a workbench at work', async () => {
+    const storage = new MemoryStorage();
+    const stored = fixture(7);
+    expect(stored.players[0]!.cursor).toEqual({ item: 'item:dirt', count: 10 });
+    await storage.write({ ...stored, removed: [] });
+    const { sim, step } = await restoreFrom(storage);
+    const player = sim.players.get(1)!;
+    expect([player.screen, player.cursor]).toEqual([null, null]);
+    expect(player.inventory).toHaveLength(40);
+    // The 10 on the cursor join the 10 left in their slot.
+    expect(player.inventory[0]).toEqual({ item: 'item:dirt', count: 20 });
+    expect(player.inventory[39]).toEqual({ item: 'item:stick', count: 1 });
+    const chest = sim.blockEntities.get(cellKey(2, 65, -2)) as ContainerEntity;
+    expect(chest.slots[0]).toEqual({ item: 'item:flint', count: 3 });
+    // A workbench with a chest made and another under way, its ingredients reserved.
+    const bench = sim.blockEntities.get(cellKey(4, 65, -2)) as WorkbenchEntity;
+    expect(bench.slots).toEqual([{ item: 'item:chest', count: 1 }, null, null, null]);
+    expect(bench.craft).toEqual([
+      {
+        recipe: 'recipe:chest',
+        count: 1,
+        progressTicks: 11,
+        reserved: [
+          { item: 'item:planks', count: 8 },
+          { item: 'item:cord', count: 1 },
+        ],
+      },
+    ]);
+    settle(sim);
+    step(ticksOf(3) - 11);
+    expect(bench.slots[0]).toEqual({ item: 'item:chest', count: 2 });
+    expect(bench.craft).toEqual([]);
   });
 });
