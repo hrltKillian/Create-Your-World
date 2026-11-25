@@ -2,43 +2,58 @@ import type { BalanceDef } from '../../content/schema.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { SurvivalState } from '../../sim/survival.ts';
 import { h } from '../h.ts';
+import { type GaugeSymbol, ROW_ICONS, symbolCount } from '../symbols.ts';
 
-/** Symbols in each row (each one a tenth of the gauge, shown full, half or empty). */
-export const ROW_ICONS = 10;
+export { ROW_ICONS };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
- * A gauge drawn as a row of ROW_ICONS symbols (plan v3 « M28 », the reference game's rows of
- * icons with our own symbols: never hearts or drumsticks), each full, half or empty: a level shows
- * as soon as it is above 0 (the last half rounds up). It pulses when `alarm`.
+ * A gauge drawn as a row of symbols (plan v3 « M28 », the reference game's rows of icons with our
+ * own symbols: never hearts or drumsticks), each full, half or empty: a level shows as soon as it
+ * is above 0 (the last half rounds up). A symbol is always `unit` points (« M30 »): a gauge larger
+ * than ROW_ICONS of them (health with vitality) has more, the extra ones on a row above. It pulses
+ * when `alarm`.
  */
 class IconRow {
   readonly element: HTMLElement;
   private readonly icons: HTMLElement[] = [];
+  private readonly kind: GaugeSymbol;
   private readonly labelKey: string;
-  /** Halves shown (NaN before the first update). */
+  /** Symbols and halves shown (NaN before the first update). */
+  private count = Number.NaN;
   private shown = Number.NaN;
 
-  constructor(kind: string, labelKey: string) {
+  constructor(kind: GaugeSymbol, labelKey: string) {
+    this.kind = kind;
     this.labelKey = labelKey;
-    for (let i = 0; i < ROW_ICONS; i++) this.icons.push(h('span', { class: 'stat-icon' }));
-    this.element = h(
-      'div',
-      { class: `icon-row row-${kind}`, attrs: { role: 'meter' } },
-      ...this.icons,
-    );
+    this.element = h('div', { class: `icon-row row-${kind}`, attrs: { role: 'meter' } });
   }
 
-  /** Shows `level` out of `max`; touches the DOM only when the halves or the alarm change. */
-  set(level: number, max: number, alarm: boolean): void {
+  /**
+   * Shows `level` out of `max`, `unit` points a symbol (a tenth of `max` by default); touches the
+   * DOM only when the symbols, the halves or the alarm change.
+   */
+  set(level: number, max: number, alarm: boolean, unit = max / ROW_ICONS): void {
     this.element.classList.toggle('alarm', alarm);
-    const halves = Math.ceil(clamp01(level / max) * ROW_ICONS * 2 - 1e-9);
-    if (halves === this.shown) return;
+    const count = Math.ceil(max / unit - 1e-9);
+    const halves = Math.min(count * 2, Math.ceil(Math.max(0, level / unit) * 2 - 1e-9));
+    if (halves === this.shown && count === this.count) return;
+    if (count !== this.count) this.resize(count);
     this.shown = halves;
-    for (let i = 0; i < ROW_ICONS; i++)
+    for (let i = 0; i < count; i++)
       this.icons[i]!.style.setProperty('--fill', String(clamp01((halves - 2 * i) / 2)));
-    this.element.setAttribute('aria-label', t(this.labelKey, { n: Math.round(level) }));
+    this.element.setAttribute('aria-label', t(this.labelKey, { n: symbolCount(halves / 2) }));
+  }
+
+  private resize(count: number): void {
+    this.count = count;
+    while (this.icons.length < count) {
+      const icon = h('span', { class: `stat-icon gauge-${this.kind}` });
+      this.icons.push(icon);
+      this.element.append(icon);
+    }
+    for (let i = 0; i < this.icons.length; i++) this.icons[i]!.hidden = i >= count;
   }
 }
 
@@ -134,7 +149,8 @@ export class Vitals {
   /** `status`: the thermal status (sim `thermalStatus`). */
   update(s: Readonly<SurvivalState>, status: number): void {
     const b = this.balance;
-    this.health.set(s.health, s.healthMax, s.health < b.health.lowAt);
+    // A vital cell is a tenth of the base health: vitality adds cells (plan v3 « M30 »).
+    this.health.set(s.health, s.healthMax, s.health < b.health.lowAt, b.health.max / ROW_ICONS);
     this.hunger.set(s.hunger, b.hunger.max, s.hunger < b.hunger.lowAt);
     this.thirst.set(s.thirst, b.thirst.max, s.thirst < b.thirst.lowAt);
     this.thermo.set(s, status);

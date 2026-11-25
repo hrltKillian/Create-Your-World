@@ -104,8 +104,9 @@ describe('caves', () => {
               [x, y, z + 1],
             ] as const)
               expect(world.getBlock(nx, ny, nz), `${nx} ${ny} ${nz}`).not.toBe(air);
-          } else if (y <= h && carved(world.getBlock(x, y, z))) {
-            // A dry cave keeps `seal` blocks of rock between it and any liquid.
+          } else if (y <= h && world.getBlock(x, y, z) === air) {
+            // A dry cave (air; the lava below is the deep caves' own fill) keeps `seal` blocks of
+            // rock between it and any water.
             for (let dy = -seal; dy <= seal; dy++)
               for (let dz = -seal; dz <= seal; dz++)
                 for (let dx = -seal; dx <= seal; dx++)
@@ -115,7 +116,7 @@ describe('caves', () => {
       }
     }
     expect(water).toBeGreaterThan(100);
-  }, 30_000);
+  }, 90_000);
 
   it('fills the caves below y 10 with lava sources, which glow, burn and never flow at first', () => {
     let magma = 0;

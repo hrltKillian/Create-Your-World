@@ -547,7 +547,8 @@ describe('StationScreen', () => {
     const text = (i: number) => cards[i]!.textContent ?? '';
     expect(text(1)).toContain('Unknown creature');
     expect(text(0)).toContain('Trotter');
-    expect(text(0)).toContain('Health 12');
+    // In vital cells: a tenth of the player's health each (plan v3 « M30 »).
+    expect(text(0)).toContain('Health 1.2');
     expect(text(2)).toContain('Prowler');
     expect(text(2)).toContain('Study it');
     expect(text(2)).not.toContain('Health');

@@ -10,7 +10,7 @@ import { createInventory, type Inventory, type ItemStack } from './inventory.ts'
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
 import { createSkills, type Skills, staminaMax, type TaskState } from './progression.ts';
 import type { QuestState } from './quests.ts';
-import { createSurvival, fallDamage, hurt, type SurvivalState } from './survival.ts';
+import { createSurvival, exhaust, fallDamage, hurt, type SurvivalState } from './survival.ts';
 
 /** Stamina rules (docs/conception.md « Survie »). */
 export const STAMINA = {
@@ -229,12 +229,11 @@ export function createPlayer(
   };
 }
 
-/** Spends stamina (it costs hunger: survival.ts); running dry locks sprinting until `recoverAt`. */
+/** Spends stamina; running dry locks sprinting until `recoverAt`. */
 export function spendStamina(player: PlayerState, amount: number): void {
   if (amount <= 0) return;
   const spent = Math.min(player.stamina, amount);
   player.stamina -= spent;
-  player.survival.staminaSpent += spent;
   player.restTicks = 0;
   if (player.stamina === 0) player.exhausted = true;
 }
@@ -259,6 +258,7 @@ const move: MoveInput = {
   crouch: false,
   speedFactor: 1,
   yaw: 0,
+  pitch: 0,
 };
 const stepResult: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
 
@@ -287,7 +287,9 @@ export function stepPlayer(
   // A dead player lies still until the respawn (death.ts).
   if (!active || player.survival.health <= 0) return false;
   const balance = registry.pack.balance;
-  const canSprint = !player.exhausted && player.stamina > 0;
+  // Sprinting needs stamina and, as in the reference game, more than a little hunger.
+  const canSprint =
+    !player.exhausted && player.stamina > 0 && player.survival.hunger > balance.hunger.sprintFrom;
   const slowed = consuming(player);
   move.forward = input.forward;
   move.strafe = input.strafe;
@@ -297,18 +299,30 @@ export function stepPlayer(
   move.crouch = input.crouch;
   move.speedFactor = slowed ? balance.consume.moveFactor : 1;
   move.yaw = input.yaw;
+  move.pitch = input.pitch;
   const result = stepBody(body, move, world, registry.tables, dt, stepResult);
+  const s = player.survival;
+  const effort = balance.hunger.exhaustion;
   if (result.jumped) {
     spendStamina(player, STAMINA.jump);
+    exhaust(s, result.sprinting ? effort.sprintJump : effort.jump);
     out.push({ type: 'playerJumped', playerId: player.playerId });
   }
   const moving = Math.abs(body.vx) + Math.abs(body.vz) > 0.1;
   player.sprinting = result.sprinting && moving;
   if (player.sprinting) spendStamina(player, STAMINA.sprintPerSecond * dt);
   else restStamina(player, dt, balance);
+  // The reference game's exhaustion per block sprinted or swum (plan v3 « M30 »).
+  const dx = body.x - player.prevX;
+  const dz = body.z - player.prevZ;
+  const blocks = Math.sqrt(dx * dx + dz * dz);
+  if (player.sprinting) exhaust(s, effort.sprintPerBlock * blocks);
+  else if (body.inWater) exhaust(s, effort.swimPerBlock * blocks);
   if (result.landedFrom > 0) {
     out.push({ type: 'playerLanded', playerId: player.playerId, fall: result.landedFrom });
-    hurt(player.survival, fallDamage(result.landedFrom, balance), 'fall');
+    const damage = fallDamage(result.landedFrom, balance);
+    hurt(s, damage, 'fall');
+    if (damage > 0) exhaust(s, effort.hurt);
   }
   return true;
 }

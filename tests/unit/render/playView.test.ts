@@ -190,6 +190,25 @@ describe('hand view inertia', () => {
   /** Translation x of the first box drawn (the forearm). */
   const armX = (hand: HandView) => hand.batch.mesh.instanceMatrix.array[12]!;
 
+  it('swings the arm from the shoulder: the fist goes down and towards the centre, then back', () => {
+    const hand = new HandView(shared, registry, items);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    const fist = () => {
+      const m = hand.batch.mesh.instanceMatrix.array;
+      return { x: m[12]!, y: m[13]! };
+    };
+    hand.draw(player, FRAME, true, 1, 0);
+    const rest = fist();
+    hand.strike();
+    // Half a stroke: the height of the blow.
+    hand.draw(player, 0.14, true, 1, 0);
+    const blow = fist();
+    expect(blow.y).toBeLessThan(rest.y - 0.1);
+    expect(blow.x).toBeLessThan(rest.x - 0.05);
+    hand.draw(player, 0.2, true, 1, 0);
+    expect(fist().x).toBeCloseTo(rest.x, 6);
+  });
+
   it('lags behind a turn of the view and eases back to rest', () => {
     const hand = new HandView(shared, registry, items);
     const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);

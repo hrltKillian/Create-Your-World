@@ -116,9 +116,9 @@ export const ONBOARDING_CASES: readonly SelftestCase[] = [
         press(app, 'primary', 2);
         await tipShows(app, t('tip.mine', { key: input.keyLabel('primary') }), 'the first mining');
 
-        setStat(app, 'thirst', balance.health.regenFedAt - 1);
+        setStat(app, 'thirst', balance.health.regenThirstAt - 1);
         const drink = t('tip.drink', { key: input.keyLabel('secondary') });
-        await tipShows(app, drink, `thirst set to ${balance.health.regenFedAt - 1}`);
+        await tipShows(app, drink, `thirst set to ${balance.health.regenThirstAt - 1}`);
 
         assert(
           phaseOf(BEFORE_DUSK) === 'day' && phaseOf(BEFORE_DUSK + 1) === 'dusk',

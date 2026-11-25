@@ -277,6 +277,9 @@ function readSurvival(data: unknown, balance: BalanceDef, max: number): Survival
   survival.healthMax = max;
   for (const gauge of GAUGES)
     survival[gauge] = clampGauge(gauge, survival[gauge], balance, survival);
+  // The hidden saturation never exceeds hunger; exhaustion is never negative (plan v3 « M30 »).
+  survival.saturation = Math.max(0, Math.min(survival.hunger, survival.saturation));
+  survival.exhaustion = Math.max(0, survival.exhaustion);
   const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
   if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
   return survival;

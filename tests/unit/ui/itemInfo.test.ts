@@ -3,6 +3,7 @@ import { toolBreakSeconds } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
 import { itemLines } from '../../../src/ui/itemInfo.ts';
+import { lineText } from '../../../src/ui/symbols.ts';
 import { registry } from '../../helpers/registry.ts';
 
 addStrings(basePack.strings);
@@ -27,15 +28,18 @@ describe('item descriptions', () => {
   });
 
   it('tells a weapon’s blow, a wearable’s protection, a food’s worth and a fuel’s time', () => {
+    // A blow in vital cells: a tenth of the player's health each (plan v3 « M30 »).
     const knife = registry.item('item:flint_knife')!.weapon!;
-    expect(itemLines(registry, 'item:flint_knife')).toContain(
-      `Damage ${knife.damage} · every ${knife.cooldown} s · reach ${knife.reach} b`,
+    const cells = knife.damage / (registry.pack.balance.health.max / 10);
+    expect(itemLines(registry, 'item:flint_knife').map(lineText)).toContain(
+      `Damage ${cells} vital cells · every ${knife.cooldown} s · reach ${knife.reach} b`,
     );
     expect(itemLines(registry, 'item:fur_hood')).toContain('Warmth +6 °C');
     expect(itemLines(registry, 'item:scanner')).toContain(
       'Studies a creature in 2 s within 24 blocks',
     );
-    expect(itemLines(registry, 'item:berries')).toEqual(['Food +6']);
+    // A food in ration pods.
+    expect(itemLines(registry, 'item:berries')).toEqual([{ text: 'Food +1', symbol: 'hunger' }]);
     expect(itemLines(registry, 'item:stick')).toContain('Burns 5 s');
     expect(itemLines(registry, 'tag:log')).toEqual([]);
   });

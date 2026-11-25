@@ -166,11 +166,13 @@ export class InventoryUi {
 
   /**
    * The key of a Bag page (Bag, Logbook, Bestiary): opens the bag on that page while playing; on
-   * the bag, shows the page, or closes it when it is the page on show; on another screen, closes
-   * it. Returns whether it did any.
+   * the bag, shows the page, or closes it when it is the page on show; on a chest, a station or a
+   * book, closes it; never the big map (only M closes it). Returns whether it did any.
    */
   toggleBag(page: BagPage = 'inventory'): boolean {
     const screen = this.screen();
+    // The big map closes with its own key only.
+    if (screen === 'map') return false;
     if (screen === 'bag' && this.bag.shown() !== page) this.bag.show(page);
     else if (screen) this.closeScreen();
     else if (this.gate.canOpenScreen()) {
@@ -182,11 +184,13 @@ export class InventoryUi {
   }
 
   /**
-   * The big map's key: opens it while playing, closes it when it shows, closes another screen.
-   * Returns whether it did any.
+   * The big map's key: opens it while playing, closes it when it shows; another screen keeps its
+   * own keys (each screen closes with the key that opened it). Returns whether it did any.
    */
   toggleMap(): boolean {
-    if (this.screen()) this.closeScreen();
+    const screen = this.screen();
+    if (screen === 'map') this.closeScreen();
+    else if (screen) return false;
     else if (this.gate.canOpenScreen()) {
       this.map.open();
       this.gate.openScreen();

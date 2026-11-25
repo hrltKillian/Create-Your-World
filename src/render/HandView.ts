@@ -7,38 +7,47 @@ import type { VoxelUniforms } from './voxelMaterial.ts';
 
 /** One stroke of the arm (s). */
 const STROKE_SECONDS = 0.28;
-/** The fist at rest in view space (camera at the origin looking down −z), and the arm's angles. */
-const REST_X = 0.36;
-const REST_Y = -0.32;
-const REST_Z = -0.5;
+/**
+ * The shoulder in view space (camera at the origin looking down −z), out of sight at the bottom
+ * right, and the arm's angles at rest: the arm hangs from it forwards, the fist ARM_LENGTH away
+ * (at about 0.36, −0.32, −0.5).
+ */
+const SHOULDER_X = 0.49;
+const SHOULDER_Y = -0.38;
+const SHOULDER_Z = 0.08;
 const REST_YAW = 0.22;
 const REST_PITCH = 0.1;
-/** At the height of a stroke the fist moves forward and down and the arm tips down. */
-const STROKE_DX = -0.1;
-const STROKE_DY = -0.06;
-const STROKE_DZ = -0.12;
-const STROKE_YAW = 0.25;
-const STROKE_PITCH = -1.0;
-/** Forearm box (m): it runs from the fist back towards the camera. */
-const ARM_WIDTH = 0.12;
+/**
+ * At the height of a stroke the arm swings from the shoulder, forwards, down and towards the
+ * screen's centre, like a blow (plan v3 « M30 »: never the elbow up), the shoulder pushed forward.
+ */
+const STROKE_YAW = 0.32;
+const STROKE_PITCH = -0.55;
+const STROKE_PUSH = -0.1;
+/** Forearm box (m): it runs from the shoulder to the fist. */
+const ARM_WIDTH = 0.17;
 const ARM_LENGTH = 0.6;
 /** Held block edge and held sprite item height (m). */
-const HELD_BLOCK = 0.24;
-const HELD_SPRITE = 0.42;
-/** A held sprite turns this much towards the screen centre (radians), mirrored. */
-const SPRITE_TURN = Math.PI - 0.9;
+const HELD_BLOCK = 0.3;
+const HELD_SPRITE = 0.36;
+/**
+ * A held sprite is its slot's icon in the hand (plan v3 « M30 »): facing the view as the icon
+ * shows, never turned, the icon (its centre at the origin, a unit wide) moved by SPRITE_GRIP so
+ * the hand holds it in its middle.
+ */
+const SPRITE_GRIP_X = 0.05;
+const SPRITE_GRIP_Y = 0.3;
 /**
  * Inertia of the hand (view-space metres): a turn of the view leaves it behind by LOOK_SWAY per
  * radian; moving shifts it against the motion by MOVE_SWAY per m/s across and along the view,
  * FALL_SWAY per m/s up and down; never more than MAX_SWAY on an axis. It eases back at SWAY_RATE
- * (1/s) and turns SWAY_TURN radians per metre it is off to the side.
+ * (1/s).
  */
 const LOOK_SWAY = 0.1;
 const MOVE_SWAY = 0.004;
 const FALL_SWAY = 0.002;
 const MAX_SWAY = 0.05;
 const SWAY_RATE = 9;
-const SWAY_TURN = 2;
 
 function clampSway(value: number): number {
   return Math.max(-MAX_SWAY, Math.min(MAX_SWAY, value));
@@ -165,27 +174,31 @@ export class HandView {
 
   private drawArm(player: Readonly<PlayerState>, sky: number, block: number): void {
     const s = Math.sin(Math.PI * this.swing);
-    const fist = this.fist.makeTranslation(
-      REST_X + STROKE_DX * s + this.swayX,
-      REST_Y + STROKE_DY * s + this.swayY,
-      REST_Z + STROKE_DZ * s + this.swayZ,
+    // The arm turns about the shoulder; the fist is at its far end.
+    const arm = this.fist.makeTranslation(
+      SHOULDER_X + this.swayX,
+      SHOULDER_Y + this.swayY,
+      SHOULDER_Z + STROKE_PUSH * s + this.swayZ,
     );
-    fist.multiply(this.step.makeRotationY(REST_YAW + STROKE_YAW * s + this.swayX * SWAY_TURN));
-    fist.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s));
+    arm.multiply(this.step.makeRotationY(REST_YAW + STROKE_YAW * s));
+    arm.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s));
     const half = ARM_WIDTH / 2;
-    this.box.makeScale(ARM_WIDTH, ARM_WIDTH, ARM_LENGTH).setPosition(-half, -half, 0);
-    this.batch.add(this.box.multiplyMatrices(fist, this.box), this.armSkin, sky, block);
+    this.box.makeScale(ARM_WIDTH, ARM_WIDTH, ARM_LENGTH).setPosition(-half, -half, -ARM_LENGTH);
+    this.batch.add(this.box.multiplyMatrices(arm, this.box), this.armSkin, sky, block);
     const stack = player.inventory[player.input.slot];
     const item = stack ? this.registry.itemId(stack.item) : -1;
     if (item < 0) return;
+    const fist = arm.multiply(this.step.makeTranslation(0, 0, -ARM_LENGTH));
     const model = this.items[item]!;
-    const held = this.box.copy(fist);
+    const held = this.box;
     if (model.sprite) {
-      // Mirrored so the head leans towards the screen centre; the handle (bottom left) in the fist.
-      held.multiply(this.step.makeRotationY(SPRITE_TURN));
+      // At the fist, without the arm's turn: the icon as its slot shows it.
+      const e = fist.elements;
+      held.makeTranslation(e[12]!, e[13]!, e[14]!);
       held.multiply(this.step.makeScale(HELD_SPRITE, HELD_SPRITE, HELD_SPRITE));
-      held.multiply(this.step.makeTranslation(0.35, 0.35, 0));
+      held.multiply(this.step.makeTranslation(SPRITE_GRIP_X, SPRITE_GRIP_Y, 0));
     } else {
+      held.copy(fist);
       held.multiply(this.step.makeTranslation(0, 0.03, -0.1));
       held.multiply(this.step.makeRotationY(0.75));
       held.multiply(this.step.makeScale(HELD_BLOCK, HELD_BLOCK, HELD_BLOCK));

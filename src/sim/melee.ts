@@ -14,6 +14,7 @@ import { eyeHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import { strengthFactor } from './progression.ts';
 import type { Entity, Simulation } from './Simulation.ts';
+import { exhaust } from './survival.ts';
 
 /*
  * The player's side of combat (docs « Combat », plan v3 « M19 »), at tick step 7: the press of
@@ -113,6 +114,7 @@ function attack(
   const b = player.body;
   const knockback = meleeKnockback(weapon, strong);
   if (hurtCreature(sim, c, damage, b.x, b.z, knockback, player.id, out) <= 0) return;
+  exhaust(player.survival, sim.registry.pack.balance.hunger.exhaustion.attack);
   wearWeapon(sim, player, out);
   const sfx = sim.registry.pack.sounds?.combat.hit;
   if (sfx)

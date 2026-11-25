@@ -16,7 +16,7 @@ import { rollLoot } from './loot.ts';
 import { bodyHeight, eyeHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { adjustGauges, hurt } from './survival.ts';
+import { adjustGauges, exhaust, hurt } from './survival.ts';
 import { dayOf } from './time.ts';
 
 /*
@@ -169,6 +169,7 @@ export function strike(
   const armor = wornGear(sim.registry, player.equipment, gear).armor;
   const damage = attack.damage * escalation(def, dayOf(sim.time.ticks)) * armorFactor(armor);
   hurt(player.survival, damage, 'creature');
+  exhaust(player.survival, sim.registry.pack.balance.hunger.exhaustion.hurt);
   wearGear(sim.registry, player, out);
   if (attack.toxicity)
     adjustGauges(player.survival, sim.registry.pack.balance, 0, 0, 0, attack.toxicity);

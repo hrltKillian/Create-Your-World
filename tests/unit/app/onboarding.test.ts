@@ -218,10 +218,10 @@ describe('tips', () => {
     const { onboarding, player, tip, gotIt } = setup();
     gotIt();
     const s = player.survival;
-    s.thirst = b.health.regenFedAt;
+    s.thirst = b.health.regenThirstAt;
     onboarding.frame(0.1);
     expect(tip.hidden).toBe(true);
-    s.thirst = b.health.regenFedAt - 1;
+    s.thirst = b.health.regenThirstAt - 1;
     s.dead = true;
     onboarding.frame(0.1);
     expect(tip.hidden).toBe(true);

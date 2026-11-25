@@ -5,7 +5,7 @@ import { freshStack, MAX_INVENTORY_SLOTS, spendUses, takeFromSlot } from './inve
 import { giveItems } from './inventoryCommands.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { adjustGauges } from './survival.ts';
+import { adjustGauges, saturate } from './survival.ts';
 import { aimedLiquid, fill, sip } from './water.ts';
 
 /*
@@ -101,6 +101,7 @@ function consume(sim: Simulation, player: PlayerState, def: ItemDef, out: SimEve
   }
   const b = registry.pack.balance;
   adjustGauges(player.survival, b, c.hunger ?? 0, c.thirst ?? 0, c.health ?? 0, c.toxicity ?? 0);
+  saturate(player.survival, c.saturation ?? 0);
   if ((c.thirst ?? 0) > 0) player.drank = true;
   const inventory = player.inventory;
   const slot = player.input.slot;

@@ -1,6 +1,7 @@
 import type { ProgressionBalance } from '../content/schema.ts';
 import { t } from '../i18n/i18n.ts';
 import type { Skill } from '../sim/progression.ts';
+import { type InfoLine, inSymbols, symbolCount } from './symbols.ts';
 
 /*
  * The Status page (plan v3 « M22 »), pure: the level, the XP into it, the skill points left and a
@@ -13,8 +14,8 @@ export interface SkillRow {
   readonly name: string;
   /** « 2/5 ». */
   readonly points: string;
-  /** The bonus now and per point, in the rule's own unit. */
-  readonly rule: string;
+  /** The bonus now and per point, in the rule's own unit (vitality in vital cells). */
+  readonly rule: InfoLine;
   readonly canSpend: boolean;
 }
 
@@ -42,10 +43,25 @@ function shown(skill: Skill, value: number): number {
   return Math.round((share ? value * 100 : value) * 10) / 10;
 }
 
+/** A skill's rule: vitality in vital cells (`healthMax` points to 10), the others as they are. */
+function ruleOf(skill: Skill, points: number, p: ProgressionBalance, healthMax: number): InfoLine {
+  if (skill === 'vitality') {
+    const cells = (n: number) => symbolCount(inSymbols(n, healthMax));
+    return {
+      text: t('skill.vitality.rule', { total: cells(p.skills.vitality * points) }),
+      symbol: 'health',
+      after: t('skill.vitality.after', { each: cells(p.skills.vitality) }),
+    };
+  }
+  const each = shown(skill, p.skills[skill]);
+  return t(`skill.${skill}.rule`, { total: shown(skill, p.skills[skill] * points), each });
+}
+
 export function statusView(
   progress: Progress,
   p: ProgressionBalance,
   order: readonly Skill[],
+  healthMax: number,
 ): StatusView {
   return {
     level: t('status.level', { n: progress.level }),
@@ -57,12 +73,11 @@ export function statusView(
     pointsLeft: t('status.points', { n: progress.pointsLeft }),
     skills: order.map((skill): SkillRow => {
       const points = progress.skills[skill];
-      const each = shown(skill, p.skills[skill]);
       return {
         skill,
         name: t(`skill.${skill}`),
         points: `${points}/${p.maxSkill}`,
-        rule: t(`skill.${skill}.rule`, { total: shown(skill, p.skills[skill] * points), each }),
+        rule: ruleOf(skill, points, p, healthMax),
         canSpend:
           progress.pointsLeft > 0 &&
           points < p.maxSkill &&

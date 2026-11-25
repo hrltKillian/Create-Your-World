@@ -2,13 +2,15 @@ import { toolBreakSeconds } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
 import type { BlockDef, ItemDef, ToolDef } from '../content/schema.ts';
 import { t } from '../i18n/i18n.ts';
+import { type InfoLine, inSymbols, symbolCount } from './symbols.ts';
 
 /*
  * An item's description (plan v3 « M18 »), written from its data: what a tool mines and how fast
  * on its favourite block, a weapon's blow, what a wearable protects from, what a food or a drink
  * gives, a fuel's time and the uses left of a fresh one; a journal's text and what a blueprint
- * teaches (plan v3 « M26 »). Shown under the hovered slot and with a
- * Logbook recipe. Pure.
+ * teaches (plan v3 « M26 »). Every gauge's number is in its symbols, the symbol drawn after it
+ * (plan v3 « M30 »: a blow in vital cells, a food in ration pods…). Shown in the bubble of a
+ * hovered slot or Logbook recipe. Pure.
  */
 
 /** One decimal at most (« 0.9 », « 2 »). */
@@ -34,10 +36,11 @@ function toolLines(registry: Registry, tool: ToolDef): string[] {
 }
 
 /** Every line describing an item (none for an unknown key or a tag). */
-export function itemLines(registry: Registry, key: string): string[] {
+export function itemLines(registry: Registry, key: string): InfoLine[] {
   const item: ItemDef | undefined = registry.item(key);
   if (!item) return [];
-  const lines: string[] = [];
+  const b = registry.pack.balance;
+  const lines: InfoLine[] = [];
   // A journal is read in a book of its own (secondary with it in hand), not in a bubble.
   if (item.lore) lines.push(t('info.read'));
   for (const recipe of item.blueprint ?? []) {
@@ -48,13 +51,11 @@ export function itemLines(registry: Registry, key: string): string[] {
   if (item.tool) lines.push(...toolLines(registry, item.tool));
   const weapon = item.weapon;
   if (weapon)
-    lines.push(
-      t('info.weapon', {
-        damage: short(weapon.damage),
-        cooldown: short(weapon.cooldown),
-        reach: short(weapon.reach),
-      }),
-    );
+    lines.push({
+      text: t('info.damage', { n: symbolCount(inSymbols(weapon.damage, b.health.max)) }),
+      symbol: 'health',
+      after: t('info.blowAfter', { cooldown: short(weapon.cooldown), reach: short(weapon.reach) }),
+    });
   const wear = item.wear;
   if (wear) {
     if (wear.armor) lines.push(t('info.armor', { n: wear.armor }));
@@ -68,12 +69,19 @@ export function itemLines(registry: Registry, key: string): string[] {
   }
   const food = item.consume;
   if (food) {
-    for (const gauge of ['hunger', 'thirst', 'health'] as const)
-      if (food[gauge]) lines.push(t(`info.${gauge}`, { n: food[gauge]! }));
-    if (food.toxicity)
-      lines.push(
-        t('info.toxicity', { n: food.toxicity > 0 ? `+${food.toxicity}` : food.toxicity }),
-      );
+    for (const gauge of ['hunger', 'thirst', 'health'] as const) {
+      const points = food[gauge];
+      if (!points) continue;
+      const n = symbolCount(inSymbols(points, b[gauge].max));
+      lines.push({ text: t(`info.${gauge}`, { n }), symbol: gauge });
+    }
+    if (food.toxicity) {
+      const n = symbolCount(inSymbols(food.toxicity, b.toxicity.max));
+      lines.push({
+        text: t('info.toxicity', { n: food.toxicity > 0 ? `+${n}` : n }),
+        symbol: 'toxicity',
+      });
+    }
   }
   if (item.container) lines.push(t('info.charges', { n: item.container.charges }));
   if (item.fuel) lines.push(t('info.fuel', { seconds: item.fuel.seconds }));

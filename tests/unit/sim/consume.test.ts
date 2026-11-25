@@ -11,7 +11,6 @@ import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
  */
 
 const b = registry.pack.balance;
-const MINUTE = 60 * TICKS_PER_SECOND;
 const consume = (item: string) => registry.item(item)!.consume!;
 /** Looking at the grass just north of the player. */
 const GROUND = { target: { x: 0, y: 64, z: -2, face: 2 } };
@@ -38,8 +37,9 @@ describe('consumables', () => {
     s.events.length = 0;
     s.tick(1, { ...GROUND, secondary: true });
     expect(s.player.inventory[0]!.count).toBe(2);
+    // Standing still costs no hunger (plan v3 « M30 »: the reference game's exhaustion).
     expect(s.player.survival.hunger).toBeCloseTo(
-      hunger + berries.hunger! - (b.hunger.perMin * hold) / MINUTE,
+      Math.min(b.hunger.max, hunger + berries.hunger!),
       6,
     );
     expect(eventsOf(s.events, 'consumed')).toEqual([

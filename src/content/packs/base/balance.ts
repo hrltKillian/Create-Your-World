@@ -2,25 +2,40 @@ import type { BalanceDef } from '../../schema.ts';
 
 /**
  * Survival numbers of the base pack (docs « Survie », « Joueur », « Eau potable », « Créatures et
- * combat »). An idle player empties hunger in 25 min and thirst in 16 min, then dies of thirst
- * after about 21.6 min.
+ * combat »). Hunger goes with the player's efforts (the reference game's exhaustion and hidden
+ * saturation); an idle player empties thirst in 16 min, then dies of thirst after about 21.6 min.
  */
 export const balance: BalanceDef = {
+  // The reference game's health and hunger (plan v3 « M30 »), in our units: a vital cell or a
+  // ration pod is 10 points, its half 5 (one point of the reference game's 20).
   health: {
     max: 100,
-    regenPerSec: 0.4,
-    regenFedAt: 50,
-    regenDelaySec: 6,
-    hungerPerPoint: 0.5,
+    regenHungerAt: 90,
+    regenThirstAt: 50,
+    regenAmount: 5,
+    regenSeconds: 4,
+    fastRegenSeconds: 0.5,
+    regenExhaustion: 6,
     lowAt: 25,
   },
   hunger: {
     max: 100,
-    perMin: 4,
-    sprintFactor: 2,
-    staminaPerPoint: 50,
+    startSaturation: 25,
+    exhaustionPerStep: 4,
+    step: 5,
+    exhaustion: {
+      sprintPerBlock: 0.1,
+      swimPerBlock: 0.01,
+      jump: 0.05,
+      sprintJump: 0.2,
+      attack: 0.1,
+      hurt: 0.1,
+      mine: 0.005,
+    },
+    sprintFrom: 30,
     lowAt: 15,
-    emptyDamagePerMin: 12,
+    starveDamage: 5,
+    starveSeconds: 4,
   },
   thirst: {
     max: 100,

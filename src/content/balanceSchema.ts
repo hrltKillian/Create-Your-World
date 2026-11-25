@@ -10,27 +10,50 @@ import type { WeaponDef } from './itemSchema.ts';
 
 export interface HealthBalance {
   readonly max: number;
-  /** Regeneration while fed (hunger and thirst ≥ `regenFedAt`). */
-  readonly regenPerSec: number;
-  readonly regenFedAt: number;
-  /** Seconds without damage before regeneration starts. */
-  readonly regenDelaySec: number;
-  /** Hunger consumed per point of health regenerated. */
-  readonly hungerPerPoint: number;
+  /**
+   * The reference game's regeneration (plan v3 « M30 »): with hunger from `regenHungerAt` and
+   * thirst from `regenThirstAt`, `regenAmount` every `regenSeconds`; with full hunger and some
+   * saturation left, every `fastRegenSeconds`. Each heal costs `regenExhaustion` exhaustion.
+   */
+  readonly regenHungerAt: number;
+  readonly regenThirstAt: number;
+  readonly regenAmount: number;
+  readonly regenSeconds: number;
+  readonly fastRegenSeconds: number;
+  readonly regenExhaustion: number;
   /** Below this, the heartbeat and the vignette (HUD). */
   readonly lowAt: number;
 }
 
+/**
+ * Hunger as the reference game has it (plan v3 « M30 »): the player's efforts add exhaustion; each
+ * `exhaustionPerStep` of it takes `step` from the hidden saturation, or from hunger once the
+ * saturation is gone. Standing still costs nothing. Foods give hunger and saturation (never more
+ * saturation than hunger).
+ */
 export interface HungerBalance {
   readonly max: number;
-  readonly perMin: number;
-  readonly sprintFactor: number;
-  /** Stamina spent per point of hunger. */
-  readonly staminaPerPoint: number;
-  /** Below this, the gauge warns (HUD only: no other effect). */
+  /** The hidden saturation of a new or respawned player. */
+  readonly startSaturation: number;
+  readonly exhaustionPerStep: number;
+  readonly step: number;
+  /** Exhaustion of each effort: per block sprinted or swum, a jump, a sprint jump, a blow struck, a blow or fall taken, a block broken. */
+  readonly exhaustion: {
+    readonly sprintPerBlock: number;
+    readonly swimPerBlock: number;
+    readonly jump: number;
+    readonly sprintJump: number;
+    readonly attack: number;
+    readonly hurt: number;
+    readonly mine: number;
+  };
+  /** Sprinting needs more hunger than this. */
+  readonly sprintFrom: number;
+  /** Below this, the gauge warns (HUD only). */
   readonly lowAt: number;
-  /** Health lost per minute at 0. */
-  readonly emptyDamagePerMin: number;
+  /** At 0: `starveDamage` health every `starveSeconds`. */
+  readonly starveDamage: number;
+  readonly starveSeconds: number;
 }
 
 export interface ThirstBalance {

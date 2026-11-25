@@ -116,6 +116,13 @@ describe('dust', () => {
     expect(aliveAfter(p, 1)).toBe(0);
   });
 
+  it('shows nothing for a block already gone (a plant broken at the first blow): no blank chip', () => {
+    const p = setup();
+    p.particles.mineDust(0, 63, 0, AIR, 0.5, 65.6, 3.5);
+    p.particles.burst(0, 63, 0, AIR);
+    expect(p.particles.alive()).toBe(0);
+  });
+
   it('throws more dust for a longer fall, none off solid ground', () => {
     const p = setup();
     p.particles.landDust(0.5, 64, 0.5, STONE, 2);

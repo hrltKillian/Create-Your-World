@@ -55,10 +55,14 @@ export interface SurvivalState {
   toxicity: number;
   /** Seconds of air left. */
   breath: number;
-  /** Ticks since the last damage (regeneration waits `health.regenDelaySec`). */
-  calmTicks: number;
-  /** Stamina spent since the last survival step (it costs hunger). */
-  staminaSpent: number;
+  /**
+   * The reference game's hidden saturation (plan v3 « M30 »): spent before hunger, never above it;
+   * and the exhaustion of the player's efforts, which takes from them `hunger.step` at a time.
+   */
+  saturation: number;
+  exhaustion: number;
+  /** Ticks towards the next regeneration or starvation blow (the reference game's food timer). */
+  foodTicks: number;
   /** What hurt last: the cause of death once health is 0 ('' before any damage). */
   cause: DeathCause | '';
   /** The death was handled (sim/death.ts): the pack is left, the player waits to respawn. */
@@ -88,8 +92,9 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     temperature: 0,
     toxicity: 0,
     breath: b.breath.seconds,
-    calmTicks: ticksOf(b.health.regenDelaySec),
-    staminaSpent: 0,
+    saturation: b.hunger.startSaturation,
+    exhaustion: 0,
+    foodTicks: 0,
     cause: '',
     dead: false,
     packLeft: false,
@@ -142,9 +147,20 @@ export function adjustGauges(
   toxicity: number,
 ): void {
   s.hunger = clamp(s.hunger + hunger, b.hunger.max);
+  s.saturation = Math.min(s.saturation, s.hunger);
   s.thirst = clamp(s.thirst + thirst, b.thirst.max);
   s.health = clamp(s.health + health, s.healthMax);
   s.toxicity = clamp(s.toxicity + toxicity, b.toxicity.max);
+}
+
+/** A food's hidden saturation, never above the hunger it leaves (plan v3 « M30 »). */
+export function saturate(s: SurvivalState, amount: number): void {
+  s.saturation = Math.min(s.hunger, s.saturation + Math.max(0, amount));
+}
+
+/** Adds the exhaustion of an effort (plan v3 « M30 »: sprinting, jumping, a blow, a block…). */
+export function exhaust(s: SurvivalState, amount: number): void {
+  if (amount > 0 && s.health > 0) s.exhaustion += amount;
 }
 
 /** Takes health for a cause (nothing once dead, nor while immune: `debug.god`). */
@@ -152,7 +168,6 @@ export function hurt(s: SurvivalState, amount: number, cause: DeathCause): void 
   if (amount <= 0 || s.health <= 0 || s.god) return;
   s.health = Math.max(0, s.health - amount);
   s.cause = cause;
-  s.calmTicks = 0;
 }
 
 /** Health a fall of `blocks` takes (docs « Joueur »: 6 per block beyond 3.5). */
@@ -195,11 +210,7 @@ function drift(value: number, target: number, b: BalanceDef, minutes: number): n
 /** One tick of the gauges, their damage and regeneration. */
 export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
   const minutes = TICK_SECONDS / 60;
-  const hunger =
-    b.hunger.perMin * (e.sprinting ? b.hunger.sprintFactor : 1) * e.metabolism * minutes;
-  const effort = (s.staminaSpent / b.hunger.staminaPerPoint) * e.metabolism;
-  s.hunger = clamp(s.hunger - hunger - effort, b.hunger.max);
-  s.staminaSpent = 0;
+  tire(s, b, e.metabolism);
   const thirst =
     b.thirst.perMin * (e.sprinting ? b.thirst.sprintFactor : 1) * e.metabolism * minutes;
   s.thirst = clamp(s.thirst - thirst, b.thirst.max);
@@ -210,14 +221,26 @@ export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure
   s.breath = e.underwater
     ? Math.max(0, s.breath - TICK_SECONDS)
     : Math.min(b.breath.seconds, s.breath + b.breath.refillPerSec * TICK_SECONDS);
-  s.calmTicks++;
   takeDamage(s, b, e, minutes);
-  regenerate(s, b);
+  feed(s, b);
+}
+
+/**
+ * The exhaustion gathered takes `hunger.step` at a time from the hidden saturation, else from
+ * hunger (the metabolism skill makes each step cost less).
+ */
+function tire(s: SurvivalState, b: BalanceDef, metabolism: number): void {
+  const h = b.hunger;
+  while (s.exhaustion >= h.exhaustionPerStep) {
+    s.exhaustion -= h.exhaustionPerStep;
+    const step = h.step * metabolism;
+    if (s.saturation > 0) s.saturation = Math.max(0, s.saturation - step);
+    else s.hunger = Math.max(0, s.hunger - step);
+  }
 }
 
 /** Damage over time of the empty or extreme gauges and of the blocks touched. */
 function takeDamage(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>, minutes: number) {
-  if (s.hunger === 0) hurt(s, b.hunger.emptyDamagePerMin * minutes, 'starvation');
   if (s.thirst === 0) hurt(s, b.thirst.emptyDamagePerMin * minutes, 'dehydration');
   const status = thermalStatus(s.temperature, b);
   if (status === -2 || status === 2)
@@ -243,14 +266,33 @@ function burn(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
   hurt(s, b.fire.damagePerSec * TICK_SECONDS, 'fire');
 }
 
-/** Health comes back while fed and calm for a while. */
-function regenerate(s: SurvivalState, b: BalanceDef): void {
+/**
+ * The reference game's food timer (plan v3 « M30 »): with full hunger and saturation left, health
+ * comes back every `fastRegenSeconds`; with hunger from `regenHungerAt` (and enough water) every
+ * `regenSeconds`, each heal tiring the player; starving at 0, it hurts every `starveSeconds`.
+ */
+function feed(s: SurvivalState, b: BalanceDef): void {
   const h = b.health;
-  if (s.health <= 0 || s.health >= s.healthMax || s.calmTicks < ticksOf(h.regenDelaySec)) return;
-  if (s.hunger < h.regenFedAt || s.thirst < h.regenFedAt) return;
-  const healed = Math.min(h.regenPerSec * TICK_SECONDS, s.healthMax - s.health);
-  s.health += healed;
-  s.hunger = Math.max(0, s.hunger - healed * h.hungerPerPoint);
+  if (s.health <= 0) return;
+  s.foodTicks++;
+  // Our thirst joins the reference game's rule: no healing without water.
+  const healing = s.health < s.healthMax && s.thirst >= h.regenThirstAt;
+  if (healing && s.hunger >= b.hunger.max && s.saturation > 0) {
+    if (s.foodTicks >= ticksOf(h.fastRegenSeconds)) heal(s, b);
+  } else if (healing && s.hunger >= h.regenHungerAt) {
+    if (s.foodTicks >= ticksOf(h.regenSeconds)) heal(s, b);
+  } else if (s.hunger <= 0) {
+    if (s.foodTicks >= ticksOf(b.hunger.starveSeconds)) {
+      s.foodTicks = 0;
+      hurt(s, b.hunger.starveDamage, 'starvation');
+    }
+  } else s.foodTicks = 0;
+}
+
+function heal(s: SurvivalState, b: BalanceDef): void {
+  s.foodTicks = 0;
+  s.health = Math.min(s.healthMax, s.health + b.health.regenAmount);
+  exhaust(s, b.health.regenExhaustion);
 }
 
 /** Whether a block changed this tick (events from `first`) within `radius` blocks of a cell. */

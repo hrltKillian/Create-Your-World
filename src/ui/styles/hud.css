@@ -287,7 +287,10 @@
 
 .icon-row {
   display: flex;
+  /* Ten a row; more (health with vitality) on rows above, as the reference game stacks them. */
+  flex-wrap: wrap-reverse;
   gap: 2px;
+  width: 198px;
   /* An outline around every symbol, whatever its shape. */
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
@@ -297,9 +300,11 @@
   flex-direction: row-reverse;
 }
 
+.stat-icon[hidden] {
+  display: none;
+}
+
 .stat-icon {
-  --full: #d8475c;
-  --empty: rgba(40, 14, 18, 0.85);
   width: 18px;
   height: 18px;
   background: linear-gradient(
@@ -318,20 +323,27 @@
   );
 }
 
+/*
+ * The gauges' symbols (plan v3 « M28 », « M30 »), on the HUD's rows and small in the texts that
+ * count in them (`.mini-icon`, always full).
+ */
+
 /* Health: vital cells (hexagons). */
-.row-health .stat-icon {
+.gauge-health {
+  --full: #d8475c;
+  --empty: rgba(40, 14, 18, 0.85);
   clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
 }
 
 /* Hunger: ration pods. */
-.row-hunger .stat-icon {
+.gauge-hunger {
   --full: #e0973c;
   --empty: rgba(52, 32, 12, 0.85);
   border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
 }
 
 /* Thirst: drops. */
-.row-thirst .stat-icon {
+.gauge-thirst {
   --full: #4598e0;
   --empty: rgba(12, 28, 48, 0.85);
   clip-path: polygon(
@@ -349,20 +361,32 @@
 }
 
 /* Toxicity: spore crystals. */
-.row-toxicity .stat-icon {
+.gauge-toxicity {
   --full: #86bd3c;
   --empty: rgba(22, 36, 10, 0.85);
   clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
 }
 
 /* Breath: bubbles. */
-.row-breath .stat-icon {
+.gauge-breath {
   --full: #a8dcff;
   --empty: rgba(20, 40, 60, 0.6);
+  border-radius: 50%;
+}
+
+.stat-icon.gauge-breath {
   width: 14px;
   height: 14px;
   margin: 2px;
-  border-radius: 50%;
+}
+
+.mini-icon {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0 0.15em 0 0.3em;
+  vertical-align: -0.12em;
+  background: var(--full);
 }
 
 .icon-row.alarm .stat-icon {

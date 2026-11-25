@@ -402,7 +402,7 @@ describe('save versions', () => {
     const survival = { health: 50, effects: [{ key: 'weakened', ticks: 9 }], shelter: 'enclosed' };
     expect(migrate('player', { playerId: 1, survival }, 9)).toEqual({
       playerId: 1,
-      survival: { health: 50, burnTicks: 0 },
+      survival: { health: 50, burnTicks: 0, saturation: 0, exhaustion: 0, foodTicks: 0 },
       ...V11,
     });
     const storage = new MemoryStorage();
@@ -454,13 +454,21 @@ describe('save versions', () => {
   it('starts a version 13 player unburnt and forgets the throwers of its drops', () => {
     expect(migrate('player', { playerId: 1, survival: { health: 9 } }, 13)).toEqual({
       playerId: 1,
-      survival: { health: 9, burnTicks: 0 },
+      survival: { health: 9, burnTicks: 0, saturation: 0, exhaustion: 0, foodTicks: 0 },
     });
     expect(migrate('player', { playerId: 1 }, 13)).toEqual({ playerId: 1 });
     const drop = { kind: 'itemDrop', id: 4, item: 'item:dirt', count: 1, thrower: 2 };
     const creature = { kind: 'creature', id: 5 };
     expect(migrate('column', { entities: [drop, creature] }, 13)).toEqual({
       entities: [{ kind: 'itemDrop', id: 4, item: 'item:dirt', count: 1 }, creature],
+    });
+  });
+
+  it('gives a version 14 player a hidden saturation of a quarter of its hunger, no old fields', () => {
+    const survival = { hunger: 80, calmTicks: 12, staminaSpent: 3, health: 70 };
+    expect(migrate('player', { playerId: 1, survival }, 14)).toEqual({
+      playerId: 1,
+      survival: { hunger: 80, health: 70, saturation: 20, exhaustion: 0, foodTicks: 0 },
     });
   });
 

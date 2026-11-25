@@ -124,18 +124,21 @@ const rowsCase: SelftestCase = {
     const session = await playerSession(app);
     const s = session.player.survival;
     const health = s.health;
-    s.health = s.healthMax * 0.45;
+    // A vital cell is a tenth of the base health; vitality (an earlier suite) adds cells.
+    const unit = app.registry!.pack.balance.health.max / ROW_ICONS;
+    const cells = Math.ceil(s.healthMax / unit);
+    s.health = 4.5 * unit;
     try {
       const fills = () =>
-        [...document.querySelectorAll<HTMLElement>('#hud-vitals .row-health .stat-icon')].map(
-          (icon) => icon.style.getPropertyValue('--fill'),
-        );
-      const expected = ['1', '1', '1', '1', '0.5', '0', '0', '0', '0', '0'];
+        [...document.querySelectorAll<HTMLElement>('#hud-vitals .row-health .stat-icon')]
+          .filter((icon) => !icon.hidden)
+          .map((icon) => icon.style.getPropertyValue('--fill'));
+      const expected = ['1', '1', '1', '1', '0.5', ...new Array(cells - 5).fill('0')];
       assert(
         await withinFrames(UI_FRAMES, () => fills().join() === expected.join()),
         `the health row shows ${fills().join(' ')}`,
       );
-      assert(fills().length === ROW_ICONS, 'not a row of 10 symbols');
+      assert(fills().length === cells, `not a row of ${cells} symbols`);
       // Over the hotbar.
       const rows = document.getElementById('hud-vitals')!.getBoundingClientRect();
       const hotbar = document.querySelector('.hotbar')!.getBoundingClientRect();

@@ -162,7 +162,7 @@ describe('InventoryUi', () => {
     expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'inventory']);
   });
 
-  it('opens the big map on M, the client’s alone; M closes it, and closes another screen', () => {
+  it('opens the big map on M, the client’s alone; only M closes it, and M closes no other screen', () => {
     const { ui, gate, sent } = setup();
     const press = (code: string) =>
       keydown({
@@ -177,8 +177,16 @@ describe('InventoryUi', () => {
     expect([ui.screen(), gate.screenOpen]).toEqual([null, false]);
     // No screen of the simulation's opened or closed for it.
     expect(sent).toEqual([]);
+    // Each screen closes with the key that opened it: the Bag's keys leave the map, M the Bag.
+    press('KeyM');
+    press('KeyE');
+    press('KeyL');
+    expect(ui.screen()).toBe('map');
+    press('KeyM');
     press('KeyE');
     press('KeyM');
+    expect(ui.screen()).toBe('bag');
+    press('KeyE');
     expect(ui.screen()).toBeNull();
   });
 

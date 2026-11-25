@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import type { BlockKey, CreatureDef } from '../content/schema.ts';
 import { MET, STUDIED } from '../core/creatures.ts';
 import { t } from '../i18n/i18n.ts';
+import { type InfoLine, inSymbols, symbolCount } from './symbols.ts';
 
 /*
  * The Bestiary page (docs plan v2 « M17 »), pure: one row per creature of the pack, in pack order,
@@ -15,7 +16,7 @@ export interface BestiaryRow {
   /** 0 not met, 1 met, 2 studied (sim/bestiary.ts MET, STUDIED). */
   readonly level: number;
   readonly name: string;
-  readonly lines: readonly string[];
+  readonly lines: readonly InfoLine[];
 }
 
 /** A creature's name for a player who has met it at `level` (unknown before). */
@@ -65,11 +66,15 @@ function dietText(registry: Registry, def: CreatureDef): string | null {
   return null;
 }
 
-/** Its numbers (studied only). */
-function statLines(def: CreatureDef): string[] {
-  const lines = [
-    t('bestiary.stats', {
-      health: def.health,
+/**
+ * Its numbers (studied only): health and blows in vital cells (plan v3 « M30 »: the player's
+ * unit, `healthMax` points to 10 of them).
+ */
+function statLines(def: CreatureDef, healthMax: number): InfoLine[] {
+  const cells = (points: number) => symbolCount(inSymbols(points, healthMax));
+  const lines: InfoLine[] = [
+    { text: t('bestiary.health', { n: cells(def.health) }), symbol: 'health' },
+    t('bestiary.moves', {
       walk: def.speed.walk,
       run: def.speed.run,
       stamina: def.stamina.runSeconds,
@@ -77,9 +82,11 @@ function statLines(def: CreatureDef): string[] {
   ];
   const attack = def.attack;
   if (attack)
-    lines.push(
-      t('bestiary.blow', { damage: attack.damage, reach: attack.reach, windup: attack.windup }),
-    );
+    lines.push({
+      text: t('bestiary.blow', { n: cells(attack.damage) }),
+      symbol: 'health',
+      after: t('bestiary.blowAfter', { reach: attack.reach, windup: attack.windup }),
+    });
   return lines;
 }
 
@@ -90,7 +97,7 @@ export function bestiaryRows(
 ): BestiaryRow[] {
   return (registry.pack.creatures ?? []).map((def) => {
     const level = bestiary[def.key] ?? 0;
-    const lines: string[] = [t(`bestiary.level.${level}`)];
+    const lines: InfoLine[] = [t(`bestiary.level.${level}`)];
     if (level >= MET) {
       lines.push(
         `${t(`bestiary.category.${def.category}`)} · ${t(`bestiary.brain.${def.brain}`)}`,
@@ -98,7 +105,7 @@ export function bestiaryRows(
       );
       const diet = dietText(registry, def);
       if (diet) lines.push(diet);
-      if (level >= STUDIED) lines.push(...statLines(def));
+      if (level >= STUDIED) lines.push(...statLines(def, registry.pack.balance.health.max));
       else lines.push(t('bestiary.hidden'));
     }
     return { creature: def.key, level, name: creatureName(def, level), lines };

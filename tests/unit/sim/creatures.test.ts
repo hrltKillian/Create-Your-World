@@ -26,6 +26,10 @@ type Harness = ReturnType<typeof playerTestSim>;
 function world(seed: string, hour = 12): Harness {
   const s = playerTestSim({ seed });
   s.send({ type: 'debug.setTime', hours: hour }, { type: 'debug.freezeTime', frozen: true });
+  // No healing between the blows these cases count (plan v3 « M30 »: a fed player heals fast).
+  const survival = s.player.survival;
+  survival.saturation = 0;
+  survival.hunger = s.sim.registry.pack.balance.health.regenHungerAt - 1;
   return s;
 }
 

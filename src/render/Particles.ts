@@ -3,6 +3,7 @@ import {
   FACE_SOUTH,
   FACE_UP,
   FLAG_SOLID,
+  PASS_NONE,
   PASS_OPAQUE,
   type RawTables,
 } from '../content/registry.ts';
@@ -134,7 +135,7 @@ export class Particles {
 
   /** Throws chips of a broken block (`state`: what it was) from its cell. */
   burst(x: number, y: number, z: number, state: number): void {
-    if (!this.on) return;
+    if (!this.on || this.tables.pass[state] === PASS_NONE) return;
     for (let k = 0; k < PER_BREAK; k++) {
       const seed = this.spawned++;
       const i = this.spawn(
@@ -167,7 +168,8 @@ export class Particles {
     ey: number,
     ez: number,
   ): void {
-    if (!this.on) return;
+    // A block broken at the first blow (a plant) is already air: nothing to show.
+    if (!this.on || this.tables.pass[state] === PASS_NONE) return;
     const px = Math.min(x + 1, Math.max(x, ex));
     const py = Math.min(y + 1, Math.max(y, ey));
     const pz = Math.min(z + 1, Math.max(z, ez));

@@ -189,17 +189,17 @@ describe('vitals and vignettes', () => {
     const fills = (kind: string) =>
       el
         .querySelector(`.row-${kind}`)!
-        .findAll((e) => e.className === 'stat-icon')
+        .findAll((e) => e.classList.contains('stat-icon'))
         .map((icon) => icon.style.getPropertyValue('--fill'));
     const s = createSurvival(b);
     vitals.update(s, 0);
     const health = el.querySelector('.row-health')!;
     expect(fills('health')).toEqual(new Array(ROW_ICONS).fill('1'));
-    expect(health.getAttribute('aria-label')).toBe(`Health ${b.health.max}`);
+    expect(health.getAttribute('aria-label')).toBe('Health: 10 vital cells');
     expect(el.querySelector('.row-toxicity')!.hidden).toBe(true);
     expect(el.querySelector('.row-breath')!.hidden).toBe(true);
     // A quarter of a symbol shows as a half (any health left shows).
-    s.health = s.healthMax * 0.225;
+    s.health = b.health.max * 0.225;
     s.toxicity = b.toxicity.harmAt;
     s.breath = b.breath.seconds / 2;
     vitals.update(s, 0);
@@ -213,6 +213,15 @@ describe('vitals and vignettes', () => {
     vitals.update(s, 0);
     expect(fills('health')[0]).toBe('0.5');
     expect(health.classList.contains('alarm')).toBe(true);
+    // Vitality adds vital cells of the same worth: 15 cells for half again the health.
+    s.healthMax = b.health.max * 1.5;
+    s.health = s.healthMax;
+    vitals.update(s, 0);
+    const shown = el
+      .querySelector('.row-health')!
+      .findAll((e) => e.classList.contains('stat-icon') && !e.hidden);
+    expect(shown).toHaveLength(15);
+    expect(health.getAttribute('aria-label')).toBe('Health: 15 vital cells');
   });
 
   it('hides the breath again at full air, also after a last refill too small to redraw', () => {

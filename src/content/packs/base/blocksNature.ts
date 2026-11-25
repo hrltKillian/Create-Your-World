@@ -168,11 +168,17 @@ export const natureBlocks = [
   leaves('block:willow_leaves', 'block.willow_leaves', 'tex:willow_leaves', 'loot:foliage'),
   log('block:pod_log', 'block.pod_log', 'tex:pod_bark', 'tex:pod_rings'),
   leaves('block:pod_leaves', 'block.pod_leaves', 'tex:pod_leaves', 'loot:pod_leaves'),
-  plant('block:frost_lichen', 'block.frost_lichen', 'tex:frost_lichen'),
-  // Plants of Veyra (plan v3 « M23 »): one useful at least in every biome.
-  plant('block:amber_bell', 'block.amber_bell', 'tex:amber_bell'),
-  plant('block:veil_fern', 'block.veil_fern', 'tex:veil_fern'),
-  plant('block:cap_sprout', 'block.cap_sprout', 'tex:cap_sprout', { light: { emit: 3 } }),
+  // Plants of Veyra (plan v3 « M23 »), none for nothing (« M30 »): the grass kin give fibre like
+  // the tall grass, the shrubs sticks, the others their own harvest.
+  plant('block:frost_lichen', 'block.frost_lichen', 'tex:frost_lichen', {
+    drops: 'loot:tall_grass',
+  }),
+  plant('block:amber_bell', 'block.amber_bell', 'tex:amber_bell', { drops: 'loot:tall_grass' }),
+  plant('block:veil_fern', 'block.veil_fern', 'tex:veil_fern', { drops: 'loot:tall_grass' }),
+  plant('block:cap_sprout', 'block.cap_sprout', 'tex:cap_sprout', {
+    light: { emit: 3 },
+    drops: 'loot:tall_grass',
+  }),
   plant('block:reed', 'block.reed', 'tex:reed', { drops: 'loot:tall_grass' }),
   plant('block:frost_bulb', 'block.frost_bulb', 'tex:frost_bulb', { drops: 'loot:frost_bulb' }),
   plant('block:crystal_sprout', 'block.crystal_sprout', 'tex:crystal_sprout', {
@@ -181,7 +187,10 @@ export const natureBlocks = [
   }),
   plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub', { drops: 'loot:dry_shrub' }),
   plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush', { drops: 'loot:berry_bush' }),
-  plant('block:thornbush', 'block.thornbush', 'tex:thornbush', { contact: { damagePerSec: 1 } }),
+  plant('block:thornbush', 'block.thornbush', 'tex:thornbush', {
+    contact: { damagePerSec: 1 },
+    drops: 'loot:dry_shrub',
+  }),
   plant('block:glowbloom', 'block.glowbloom', 'tex:glowbloom', {
     light: { emit: 5 },
     drops: 'self',
