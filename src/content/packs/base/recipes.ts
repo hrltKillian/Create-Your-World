@@ -98,7 +98,7 @@ const START = { known: 'start' } as const;
 const bench = (id: string, category: RecipeCategory, seconds: number, inputs: Inputs) =>
   recipe(id, category, seconds, inputs, { station: BENCH });
 
-/** Metal tools at the workbench: ingots, sticks and a leather grip; bronze adds a Prowler Sinew. */
+/** Metal tools at the workbench: ingots, sticks and a leather grip; bronze adds a sinew. */
 const metalTools = (metal: 'copper' | 'bronze' | 'iron') => {
   const grip: Inputs = metal === 'bronze' ? { leather: 1, prowler_sinew: 1 } : { leather: 1 };
   const ingot = `${metal}_ingot`;

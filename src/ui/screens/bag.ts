@@ -18,8 +18,8 @@ export type BagPage = (typeof BAG_PAGES)[number];
  * The Bag (E or Tab, docs « Écrans »): a tab bar over three pages beside the 6×4 bag and the hotbar,
  * the Inventory (the silhouette, its 5 equipment slots: slots 64–68 of the slot clicks, a wearable
  * only in its own, and what the worn items protect from), the Logbook of the hand recipes and the
- * Bestiary (ui/bestiary.ts). The
- * page chosen last shows at the next opening.
+ * Bestiary (ui/bestiary.ts). It opens on the page of the
+ * key pressed (Bag, Logbook or Bestiary: plan v3 « M18 »).
  */
 export class BagScreen {
   readonly element: HTMLElement;
@@ -70,7 +70,9 @@ export class BagScreen {
     return this.board.isOpen();
   }
 
-  open(): void {
+  /** Opens on a page (the one its key names: Bag, Logbook or Bestiary). */
+  open(page: BagPage = 'inventory'): void {
+    this.show(page);
     this.board.open();
   }
 

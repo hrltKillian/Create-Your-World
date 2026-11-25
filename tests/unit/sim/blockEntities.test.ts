@@ -13,13 +13,14 @@ import { createGenContext } from '../../../src/world/gen/generateColumn.ts';
 import { LatticeCache } from '../../../src/world/gen/sample.ts';
 import { siteIn, structureLootAt } from '../../../src/world/gen/structures.ts';
 import { blockOf } from '../../../src/world/light.ts';
+import { structureRegistry } from '../../fixtures/structures.ts';
 import { registry } from '../../helpers/registry.ts';
 import { settle } from '../../helpers/save.ts';
 import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
 /** A flat world (grass at y 64) with the player at (0.5, 65, 0.5); commands go through JSON. */
-function setup(seed = 'chests', worldType: 'flat' | 'default' = 'flat') {
-  const s = playerTestSim({ seed, worldType, serialize: true });
+function setup(seed = 'chests', worldType: 'flat' | 'default' = 'flat', reg = registry) {
+  const s = playerTestSim({ seed, worldType, serialize: true, registry: reg });
   return {
     ...s,
     entity: <T extends ContainerEntity | StationEntity>(x: number, y: number, z: number) =>
@@ -120,8 +121,9 @@ describe('chests', () => {
   });
 
   it('fills a generated chest from its structure loot table, the same in every run', () => {
+    // The base pack has no structures until plan v3's M26: the camp of the test pack.
     const seed = 'camp-loot';
-    const ctx = createGenContext(seed, registry);
+    const ctx = createGenContext(seed, structureRegistry);
     const cache = new LatticeCache();
     let chest: { x: number; y: number; z: number; table: string } | undefined;
     for (let r = 0; r < 400 && !chest; r++) {
@@ -139,9 +141,9 @@ describe('chests', () => {
     expect(table).toBe('loot:camp');
     expect(structureLootAt(ctx, x, y, z)).toBe('loot:camp');
     expect(structureLootAt(ctx, x, y + 1, z)).toBeUndefined();
-    const items = new Set<string>(registry.loot('loot:camp')!.entries.map((e) => e.item));
+    const items = new Set<string>(structureRegistry.loot('loot:camp')!.entries.map((e) => e.item));
     const opened = () => {
-      const s = setup(seed, 'default');
+      const s = setup(seed, 'default', structureRegistry);
       // On the camp's floor, east of the chest: its posts and roof hide it from the south.
       s.send({ type: 'debug.teleport', x: x + 2.5, y, z: z + 0.5 });
       settle(s.sim);

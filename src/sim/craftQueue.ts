@@ -125,17 +125,19 @@ function openWorkbench(sim: Simulation, player: PlayerState): WorkbenchEntity | 
 }
 
 /**
- * The queue a recipe goes to: the player's own for a hand recipe, else that of the workbench of
- * its station the player has open (undefined when none is).
+ * The queue a recipe goes to: that of the workbench the player has open, for its station's recipes
+ * and the hand ones alike (plan v3 « M18 »); else the player's own for a hand recipe (undefined:
+ * a station recipe with no such workbench open).
  */
 function queueOf(
   sim: Simulation,
   player: PlayerState,
   recipe: RecipeDef,
 ): CraftEntry[] | undefined {
-  if (recipe.station === undefined) return player.craft;
   const bench = openWorkbench(sim, player);
-  return bench?.station === recipe.station ? bench.craft : undefined;
+  if (bench && (recipe.station === undefined || recipe.station === bench.station))
+    return bench.craft;
+  return recipe.station === undefined ? player.craft : undefined;
 }
 
 /** Queues `count` crafts of a recipe, reserving their ingredients; returns the refusal, if any. */

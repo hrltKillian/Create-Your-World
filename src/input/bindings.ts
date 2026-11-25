@@ -15,6 +15,8 @@ export type Action =
   | 'primary'
   | 'secondary'
   | 'inventory'
+  | 'logbook'
+  | 'bestiary'
   | 'drop'
   | 'camera'
   | 'debug'
@@ -32,6 +34,8 @@ export const ACTIONS: readonly Action[] = [
   'primary',
   'secondary',
   'inventory',
+  'logbook',
+  'bestiary',
   'drop',
   'camera',
   'debug',
@@ -52,6 +56,8 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   primary: ['Mouse0'],
   secondary: ['Mouse2'],
   inventory: ['KeyE', 'Tab'],
+  logbook: ['KeyL'],
+  bestiary: ['KeyB'],
   drop: ['KeyG'],
   camera: ['KeyV'],
   debug: ['F3', 'Backquote', 'IntlBackslash'],
@@ -81,10 +87,10 @@ export const RESERVED_CODES: ReadonlySet<string> = new Set([
 export const MOUSE_CODES: readonly string[] = ['Mouse0', 'Mouse1', 'Mouse2'];
 
 /**
- * Actions read from key presses only (the bag, the debug overlay, pause and back listen to
+ * Actions read from key presses only (the bag and its pages, the debug overlay, pause and back listen to
  * keydown): a mouse button bound to one would do nothing.
  */
-const KEY_ONLY: readonly Action[] = ['inventory', 'debug', 'pause'];
+const KEY_ONLY: readonly Action[] = ['inventory', 'logbook', 'bestiary', 'debug', 'pause'];
 
 /**
  * A code `action` may take: a key, or a MOUSE_CODES button unless the action is KEY_ONLY; never a

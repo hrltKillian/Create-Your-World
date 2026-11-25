@@ -17,11 +17,14 @@ export interface GateEvents {
  * Click-to-play gate of a session (docs/conception.md « Pointer Lock »): before the first click
  * the game is paused and ignores the keyboard; the overlay shows the controls on the player's
  * layout and asks for that click. Losing the lock while playing (Esc) pauses the game (the app
- * shows the pause menu, whose Resume captures the mouse again).
+ * shows the pause menu). Esc only ever opens the pause menu (plan v3 « M18 »): over a screen too,
+ * which stays open.
  * Screens (the bag, a chest, a station) release the mouse themselves and the world keeps running
- * behind them. Closing one, whatever closed it (its key, Esc, the simulation), goes back to play
- * at once and captures the mouse again; when the browser refuses (Esc is no user gesture), play
- * goes on with the keyboard behind a light « Click to resume » prompt, never the pause menu.
+ * behind them. Closing one, whatever closed it (its key, the simulation), goes back to play at
+ * once and captures the mouse again; when the browser refuses, play goes on with the keyboard
+ * behind a light « Click to resume » prompt, never the pause menu. Resume does the same: play
+ * starts again at once, back to the open screen if any, and a refused lock (Chrome refuses one
+ * for about a second after Esc released it) only shows the prompt.
  * Without Pointer Lock (`?noLock=1`) there is no overlay and screens only take the keyboard.
  */
 export class PlayGate {
@@ -76,14 +79,14 @@ export class PlayGate {
     };
   }
 
-  /** True while playing: the mouse is captured (or there is no Pointer Lock) and no screen is up. */
-  canOpenScreen(): boolean {
-    return !this.screenOpen && this.playing;
+  /** The pause menu is up (over an open screen or not): the screens take no key meanwhile. */
+  menuIsUp(): boolean {
+    return this.menuPaused;
   }
 
-  /** The pause menu may open: no screen (the bag) is up. */
-  canPause(): boolean {
-    return !this.screenOpen;
+  /** True while playing: the mouse is captured (or there is no Pointer Lock) and no screen is up. */
+  canOpenScreen(): boolean {
+    return !this.screenOpen && this.playing && !this.menuPaused;
   }
 
   /**
@@ -127,17 +130,18 @@ export class PlayGate {
   }
 
   /**
-   * Resume (a click on the pause menu, a user gesture): captures the mouse, and play starts once
-   * it is captured (`playing()`); without Pointer Lock at once.
+   * Resume (a click on the pause menu): play starts again at once (`playing()`), back to the open
+   * screen if any (the mouse stays free for it); else the mouse is captured again, a refusal only
+   * showing the light prompt.
    */
   resume(): void {
     this.menuPaused = false;
+    this.setPlaying(true);
+    this.events.playing();
     const pointer = this.input.pointer;
-    if (pointer) pointer.request();
-    else {
-      this.setPlaying(true);
-      this.events.playing();
-    }
+    if (!pointer || this.screenOpen) return;
+    this.relocking = true;
+    pointer.request();
   }
 
   /** The world closes: the overlay goes and the lock no longer reports here. */
@@ -153,7 +157,8 @@ export class PlayGate {
   private setPlaying(playing: boolean): void {
     this.playing = playing;
     this.session.setPaused(!playing);
-    this.input.enabled = playing;
+    // An open screen keeps the keyboard.
+    this.input.enabled = playing && !this.screenOpen;
     if (!playing) this.input.releaseAll();
     if (this.click) this.click.hidden = playing;
   }

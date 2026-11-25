@@ -2,7 +2,7 @@ import { Matrix4 } from 'three';
 import type { Registry } from '../content/registry.ts';
 import type { CreatureDef } from '../content/schema.ts';
 import { CREATURE_EYE_SHARE, centreY, DYING_TICKS } from '../core/creatures.ts';
-import { EYE_HEIGHT } from '../core/player.ts';
+import { BODY_HEIGHT, CROUCH_BODY_HEIGHT } from '../core/player.ts';
 import type { CreatureState } from '../sim/creatures.ts';
 import type { Entity } from '../sim/Simulation.ts';
 import { blockOf, skyOf } from '../world/light.ts';
@@ -240,13 +240,17 @@ export class CreatureView {
     this.root.multiply(this.turn.makeScale(size, size, size));
   }
 
-  /** Head tilt towards the eyes of the player it watches, chases or winds up at (0: none). */
+  /**
+   * Head tilt towards the middle of the body of the player it watches, chases or winds up at (0:
+   * none): it aims at the player, not at the player's eyes (plan v3 « M18 »).
+   */
   private lookAt(c: Readonly<CreatureState>, def: CreatureDef): number {
     if (c.target < 0 || c.mode === 'flee' || c.mode === 'dying') return 0;
     const target = this.entities.get(c.target);
     if (target?.kind !== 'player') return 0;
     const t = target.body;
-    const rise = t.y + EYE_HEIGHT - (c.body.y + def.hitbox[1] * CREATURE_EYE_SHARE);
+    const middle = (t.crouching ? CROUCH_BODY_HEIGHT : BODY_HEIGHT) / 2;
+    const rise = t.y + middle - (c.body.y + def.hitbox[1] * CREATURE_EYE_SHARE);
     return -Math.atan2(rise, Math.hypot(t.x - c.body.x, t.z - c.body.z));
   }
 }

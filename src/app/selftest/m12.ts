@@ -20,6 +20,7 @@ import {
   type Cell,
   eventsDuring,
   holdInHand,
+  key,
   needsFlatPlayer,
   noErrorsCase,
   PLAY_SCENES,
@@ -28,6 +29,7 @@ import {
   slotsAt,
   standAt,
   stateKey,
+  tap,
 } from './support.ts';
 
 /**
@@ -54,20 +56,6 @@ const SPEED_EPS = 1e-6;
 const REFRESH_MS = 250;
 /** Wall time that sets two presses of forward farther apart than a double tap (300 ms). */
 const APART_MS = 400;
-
-/** A key pressed (or released) as the keyboard sends it: at the focused element, bubbling up. */
-function key(type: 'keydown' | 'keyup', code: string, name: string): void {
-  const target = document.activeElement ?? document.body;
-  target.dispatchEvent(
-    new KeyboardEvent(type, { code, key: name, bubbles: true, cancelable: true }),
-  );
-}
-
-/** A key pressed and released. */
-function tap(code: string, name: string): void {
-  key('keydown', code, name);
-  key('keyup', code, name);
-}
 
 /** The player standing still at a spot, nothing held, stamina full, looking north. */
 async function ready(app: App, spot: { x: number; z: number }): Promise<void> {
@@ -196,7 +184,7 @@ export const M12_SUITE: readonly SelftestCase[] = [
     },
   },
   {
-    name: 'Esc closes the bag and a station back to play without the pause menu; Esc in play pauses',
+    name: 'Esc only opens the pause menu: over the bag and a station, which stay open; E closes them',
     scenes: PLAY_SCENES,
     skip: needsFlatPlayer,
     run: async (app) => {
@@ -210,17 +198,33 @@ export const M12_SUITE: readonly SelftestCase[] = [
         assert(game.menus.screen() === null, `${what}: the ${game.menus.screen()} menu shows`);
         assert(!session.isPaused() && app.input!.enabled, `${what}: play is paused`);
       };
+      /** Esc over an open screen: the pause menu, the screen kept; Esc again resumes to it. */
+      const pauseOver = (screen: string) => {
+        tap('Escape', 'Escape');
+        assert(
+          game.menus.screen() === 'pause',
+          `Esc on the ${screen} showed ${game.menus.screen()}`,
+        );
+        assert(session.isPaused(), `Esc on the ${screen} did not pause play`);
+        assert(inventory.screen() === screen, `the pause closed the ${screen}`);
+        tap('Escape', 'Escape');
+        assert(game.menus.screen() === null, `Esc on the pause menu left ${game.menus.screen()}`);
+        assert(!session.isPaused(), 'play did not resume');
+        assert(inventory.screen() === screen, `the ${screen} is gone after the pause`);
+      };
       tap('KeyE', 'e');
       assert(inventory.screen() === 'bag', `E showed ${inventory.screen()}`);
-      tap('Escape', 'Escape');
-      playing('Esc on the bag');
-      // A station's screen too, which the simulation then closes.
+      pauseOver('bag');
+      tap('KeyE', 'e');
+      playing('E on the bag');
+      // A station's screen too.
       const fire = { x: ESC_SPOT.x, y: Math.floor(session.player.body.y), z: ESC_SPOT.z - 2 };
       setBlock(app, fire.x, fire.y, fire.z, stateKey(app, keptFire(app).state));
       openBlock(app, fire.x, fire.y, fire.z);
       assert(inventory.screen() === 'station', `the fire showed ${inventory.screen()}`);
-      tap('Escape', 'Escape');
-      playing('Esc on the station');
+      pauseOver('station');
+      tap('KeyE', 'e');
+      playing('E on the station');
       session.step(1);
       assert(session.player.screen === null, 'the simulation kept the station open');
       setBlock(app, fire.x, fire.y, fire.z, airKey(app));
@@ -228,7 +232,7 @@ export const M12_SUITE: readonly SelftestCase[] = [
       key('keydown', 'KeyW', 'w');
       session.step(RUN_TICKS);
       key('keyup', 'KeyW', 'w');
-      assert(Math.abs(speed(app) - PHYSICS.walk) < SPEED_EPS, `after Esc: ${speed(app)} m/s`);
+      assert(Math.abs(speed(app) - PHYSICS.walk) < SPEED_EPS, `after E: ${speed(app)} m/s`);
       session.step(RUN_TICKS);
       // Esc in play, no screen open: the pause menu; Esc again resumes (no Pointer Lock here).
       tap('Escape', 'Escape');

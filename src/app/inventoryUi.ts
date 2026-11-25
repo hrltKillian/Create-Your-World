@@ -11,7 +11,7 @@ import type { SimEvent } from '../sim/events.ts';
 import { Hotbar } from '../ui/hud/hotbar.ts';
 import { HudHint } from '../ui/hud/hudHint.ts';
 import type { ItemArt } from '../ui/itemSlot.ts';
-import { BagScreen } from '../ui/screens/bag.ts';
+import { type BagPage, BagScreen } from '../ui/screens/bag.ts';
 import { ContainerScreen } from '../ui/screens/container.ts';
 import { LogbookPanel } from '../ui/screens/logbook.ts';
 import { StationScreen } from '../ui/screens/station.ts';
@@ -54,9 +54,10 @@ interface ScreenView {
 /**
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
  * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
- * Tab opens the bag and closes any screen, so does Esc (back to play either way, never the pause
- * menu: PlayGate.closeScreen), a hotbar key over a slot swaps; keys typed in a text box (the
- * Logbook's search) are its own, but Esc. The Bag opens in the simulation too (`screen.open`),
+ * Tab opens the bag on its Inventory, L on its Logbook, B on its Bestiary (`toggleBag`); one of
+ * them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
+ * a slot swaps; keys typed in a text box (the Logbook's search) are its own. Esc is the pause
+ * menu's alone (Game.onPauseKey): it never closes a screen. The Bag opens in the simulation too (`screen.open`),
  * whose slot clicks need it; chests, stations and workbenches open from the simulation (secondary
  * on the block): their screen shows on its `blockEntityOpened` event and goes on
  * `blockEntityClosed`. Closing a screen sends `screen.close` (the cursor stack goes back to the
@@ -143,11 +144,17 @@ export class InventoryUi {
     return this.workbench.isOpen() ? 'workbench' : null;
   }
 
-  /** Opens the bag while playing, or closes the open screen. Returns whether it did either. */
-  toggleBag(): boolean {
-    if (this.screen()) this.closeScreen();
+  /**
+   * The key of a Bag page (Bag, Logbook, Bestiary): opens the bag on that page while playing; on
+   * the bag, shows the page, or closes it when it is the page on show; on another screen, closes
+   * it. Returns whether it did any.
+   */
+  toggleBag(page: BagPage = 'inventory'): boolean {
+    const screen = this.screen();
+    if (screen === 'bag' && this.bag.shown() !== page) this.bag.show(page);
+    else if (screen) this.closeScreen();
     else if (this.gate.canOpenScreen()) {
-      this.bag.open();
+      this.bag.open(page);
       this.gate.openScreen();
       this.session.host.send({ type: 'screen.open', kind: 'bag' });
     } else return false;
@@ -220,17 +227,13 @@ export class InventoryUi {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat || (event.code !== 'Escape' && isTextField(event.target))) return;
+    if (event.repeat || isTextField(event.target) || this.gate.menuIsUp()) return;
     const action = actionForCode(this.input.bindings, event.code);
-    if (action === 'inventory') {
+    if (action === 'inventory' || action === 'logbook' || action === 'bestiary') {
       // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.
-      if (this.toggleBag()) event.preventDefault();
+      if (this.toggleBag(action)) event.preventDefault();
     } else if (!this.screen()) return;
-    else if (action === 'pause') {
-      // Consumed: the same Esc must not also open the pause menu.
-      event.preventDefault();
-      this.closeScreen();
-    } else {
+    else {
       const slot = HOTBAR_CODES.indexOf(event.code);
       if (slot >= 0) this.openView()?.hotkey(slot);
     }

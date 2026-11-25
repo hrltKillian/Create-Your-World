@@ -13,16 +13,9 @@ import {
   toLocal,
   WORLD_HEIGHT,
 } from '../../world/coords.ts';
-import {
-  type FoundStructure,
-  findBiome,
-  findStructure,
-  type Place,
-  spiral,
-} from '../../world/gen/find.ts';
+import { findBiome, type Place, spiral } from '../../world/gen/find.ts';
 import { type GenContext, generateColumn } from '../../world/gen/generateColumn.ts';
 import { LatticeCache, pointInfo } from '../../world/gen/sample.ts';
-import { GROUND, regionOf, siteIn } from '../../world/gen/structures.ts';
 import type { App } from '../App.ts';
 import { framesFor, freezeTime, lightAt, look, setTime, waitUntil } from '../automation.ts';
 import { teleportAndWait } from '../bench/stage.ts';
@@ -46,9 +39,9 @@ import {
  * the flat and arena worlds and with ?fixedStep=1): the spawn stands on solid ground of a spawn biome with its feet and head free,
  * findBiome finds every biome near the spawn where generation agrees, an underground glowing
  * block (magma, dawn crystal) lights the open cell next to it, the 'xray' view renders and
- * changes the picture, the surface view keeps to the draw budget, and findStructure leads to a
- * camp or cairn generated as its template. The first case teleports back to the spawn and the
- * last one leaves it, so the suite can run again on the same page. Commands wait for the next
+ * changes the picture and the surface view keeps to the draw budget (structures come back with
+ * the lost colony's, plan v3 « M26 »). The first case teleports back to the spawn, so the suite
+ * can run again on the same page. Commands wait for the next
  * tick: waits are wall time.
  */
 
@@ -282,53 +275,5 @@ export const M6_SUITE: readonly SelftestCase[] = [
     },
   },
   drawsCase(needsRealTimeGeneratedPlayer),
-  {
-    name: `findStructure finds a camp or cairn within ${SEARCH_RADIUS} blocks, generated as its template`,
-    scenes: PLAY_SCENES,
-    timeoutMs: 60_000,
-    skip: needsRealTimeGeneratedPlayer,
-    run: async (app) => {
-      await playerSession(app);
-      const ctx = gen(app);
-      const from = spawnPlace(app);
-      let hit: FoundStructure | null = null;
-      let kind = '';
-      for (const structure of ctx.structures) {
-        const found = findStructure(ctx, structure.key, from, SEARCH_RADIUS);
-        if (!found || (hit && hit.distance <= found.distance)) continue;
-        hit = found;
-        kind = structure.key;
-      }
-      const kinds = ctx.structures.map((s) => s.key).join(', ');
-      assert(hit, `no structure (${kinds}) within ${SEARCH_RADIUS} blocks of the spawn`);
-      const where = `findStructure('${kind}') gave (${hit.x}, ${hit.z})`;
-      const site = siteIn(ctx, new LatticeCache(), regionOf(hit.x), regionOf(hit.z));
-      assert(site, `${where}, whose region has no site`);
-      const s = site.structure;
-      assert(s.key === kind, `${where}, whose region holds ${s.key}`);
-      // Two blocks off the north-west corner: features give way there, the view is open.
-      await visit(app, site.x0 - 1.5, 'surface', site.z0 - 1.5);
-      let wrong = 0;
-      let first = '';
-      for (let layer = 0; layer < s.height; layer++) {
-        for (let z = 0; z < s.depth; z++) {
-          for (let x = 0; x < s.width; x++) {
-            const want = s.cells[x + z * s.width + layer * s.width * s.depth]!;
-            if (want === GROUND) continue;
-            const [wx, wy, wz] = [site.x0 + x, site.y + layer, site.z0 + z];
-            const got = app.world!.getBlock(wx, wy, wz);
-            if (got === want) continue;
-            if (wrong === 0)
-              first = `(${wx}, ${wy}, ${wz}) is ${stateKey(app, got)}, not ${stateKey(app, want)}`;
-            wrong++;
-          }
-        }
-      }
-      assert(
-        wrong === 0,
-        `${s.key} at (${site.x0}, ${site.y}, ${site.z0}): ${wrong} cells differ from its template, first ${first}`,
-      );
-    },
-  },
   noErrorsCase('no errors and no missing strings after the m6 checks'),
 ];

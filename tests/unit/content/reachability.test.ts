@@ -38,16 +38,16 @@ describe('reachability from the start state (an empty inventory)', () => {
   it('only loses what hostile creatures alone drop when they are disabled', () => {
     expect(missing([...withHostiles.items], withoutHostiles.items)).toEqual(['item:toxic_gland']);
     expect(missing(keys(basePack.recipes), withoutHostiles.recipes)).toEqual([]);
-    // Cairns hold Prowler Sinew: bronze tools stay within reach.
+    // Shagbacks leave sinew too: bronze tools stay within reach.
     for (const tool of ['item:bronze_hatchet', 'item:bronze_pickaxe', 'item:bronze_blade'])
       expect(withoutHostiles.items.has(tool), tool).toBe(true);
   });
 
-  it('needs the cairn sinew for bronze tools without hostiles, not with them', () => {
+  it('needs the Shagback sinew for bronze tools without hostiles, not with them', () => {
     const pack: ContentPack = {
       ...basePack,
       loot: basePack.loot!.map((table) =>
-        table.key === 'loot:cairn'
+        table.key === 'loot:shagback'
           ? { ...table, entries: table.entries.filter((e) => e.item !== 'item:prowler_sinew') }
           : table,
       ),

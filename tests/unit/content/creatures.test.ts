@@ -109,7 +109,10 @@ describe('creatures of the base pack', () => {
       'item:raw_meat': [1, 2],
       'item:raw_hide': [1, 1],
     });
-    expect(dropRanges('creature:shagback')).toEqual({ 'item:fur': [1, 2] });
+    expect(dropRanges('creature:shagback')).toEqual({
+      'item:fur': [1, 2],
+      'item:prowler_sinew': [1, 1],
+    });
     expect(dropRanges('creature:prowler')).toEqual({ 'item:prowler_sinew': [1, 1] });
     expect(dropRanges('creature:swarmling')).toEqual({ 'item:toxic_gland': [0, 1] });
     expect(dropRanges('creature:shellback')).toEqual({ 'item:shell_plate': [1, 2] });

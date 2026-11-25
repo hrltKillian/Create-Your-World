@@ -3,6 +3,7 @@ import { t } from '../i18n/i18n.ts';
 import type { Command } from '../sim/commands.ts';
 import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
+import { itemLines } from './itemInfo.ts';
 import { type ItemArt, type Slots, SlotView, stackName } from './itemSlot.ts';
 
 /** Bag columns (6×4). */
@@ -43,6 +44,7 @@ export class SlotBoard {
   readonly element: HTMLElement;
   /** Name of the hovered stack. */
   readonly caption: HTMLElement;
+  private captionText = '';
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
   /** Inventory slots (hotbar then bag). */
@@ -165,11 +167,19 @@ export class SlotBoard {
     this.actions.click();
   }
 
+  /** The hovered slot's item: its name, then its description (ui/itemInfo.ts). */
   private hover(slot: number): void {
     this.hovered = slot;
     const stack = slot >= 0 ? this.slots[slot] : null;
-    const text = stack ? stackName(this.art, stack) : '';
-    if (this.caption.textContent !== text) this.caption.textContent = text;
+    const name = stack ? stackName(this.art, stack) : '';
+    const lines = stack ? itemLines(this.art.registry, stack.item) : [];
+    const text = [name, ...lines].join('\n');
+    if (text === this.captionText) return;
+    this.captionText = text;
+    this.caption.replaceChildren(
+      ...(name ? [h('strong', null, name)] : []),
+      ...lines.map((line) => h('span', { class: 'caption-line' }, line)),
+    );
   }
 
   /** Puts the cursor stack's view where the pointer last was (viewport pixels: main.css). */

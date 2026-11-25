@@ -56,16 +56,26 @@ const lying = (s: Setup) =>
     .sort();
 
 describe('workbenches', () => {
+  it('takes the hand recipes too while open, into its own queue (plan v3 « M18 »)', () => {
+    const s = setup();
+    s.send(open);
+    s.give('item:plant_fiber', 3);
+    expect(rejections(s.send(enqueue('cord')))).toEqual([]);
+    expect(s.player.craft).toEqual([]);
+    expect(s.bench().craft.map((entry) => entry.recipe)).toEqual(['recipe:cord']);
+  });
+
   it('queues its recipes only while open, reserving from the player, into its own queue', () => {
     const s = setup();
     expect(rejections(s.send(enqueue('chest')))).toEqual(['station']);
+    // A hand recipe goes to the player's own queue while no workbench is open.
+    s.give('item:plant_fiber', 3);
+    expect(rejections(s.send(enqueue('cord')))).toEqual([]);
     expect(eventsOf(s.send(open), 'blockEntityOpened')).toEqual([
       { type: 'blockEntityOpened', playerId: 1, kind: 'workbench', ...BENCH },
     ]);
     expect(s.player.screen).toEqual({ kind: 'block', ...BENCH });
-    s.give('item:plant_fiber', 3);
-    // A hand recipe still goes to the player's own queue.
-    expect(rejections(s.send(enqueue('chest', 2), enqueue('cord')))).toEqual([]);
+    expect(rejections(s.send(enqueue('chest', 2)))).toEqual([]);
     expect(s.player.craft.map((entry) => entry.recipe)).toEqual(['recipe:cord']);
     const bench = s.bench();
     expect(bench.craft).toEqual([

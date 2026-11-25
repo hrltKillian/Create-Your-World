@@ -79,15 +79,20 @@ export async function walkBenchmark(app: App, seconds: number = WALK.seconds) {
     const blocked = body.onGround && Math.hypot(body.vx, body.vz) < WALK.blockedSpeed;
     if (blocked || body.inWater) input.force('jump', 2);
   };
+  const ticksBefore = session.host.view.tick();
+  let ticks = 0;
   const frames = await staged(app, WALK.hour, async () => {
     try {
       input.force('forward', Math.ceil((seconds + 1) * TICKS_PER_SECOND));
-      return await sampleFrames(app, seconds, step);
+      const sampled = await sampleFrames(app, seconds, step);
+      ticks = session.host.view.tick() - ticksBefore;
+      return sampled;
     } finally {
       input.force('forward', 0);
       input.force('jump', 0);
       await teleportAndWait(app, start.x, start.y, start.z);
     }
   });
-  return { kind: 'walk' as const, seconds, distance, ...frames };
+  // `ticks`: the simulation's own time walked (a slow machine runs fewer ticks in `seconds`).
+  return { kind: 'walk' as const, seconds, distance, ticks, ...frames };
 }
