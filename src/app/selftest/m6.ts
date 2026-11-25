@@ -81,11 +81,14 @@ async function visit(app: App, x: number, y: number | 'surface', z: number): Pro
   await chunksMeshed(app, app.session!.loadingRadius(), VISIT_MS);
 }
 
-/** Switches the debug view, waits until every shown section is meshed for it, and captures it. */
+/**
+ * Switches the debug view, waits until every section of the loading radius is meshed for it (the
+ * nearest first: the farther ones may still be meshing on a slow renderer), and captures it.
+ */
 async function captureWith(app: App, view: DebugView): Promise<CaptureStats> {
   const session = app.session!;
   app.setDebugView(view);
-  await waitUntil(() => session.scheduler.idle() && session.chunksReady(session.loadingRadius()), {
+  await waitUntil(() => session.chunksReady(session.loadingRadius()), {
     timeoutMs: REMESH_MS,
     label: `the sections were not meshed again for the '${view}' view`,
     pump: () => session.pumpOnce(false),
