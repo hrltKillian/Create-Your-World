@@ -26,6 +26,7 @@ export interface Hook {
     screen(): string | null;
     hotbar(): { selected: number } | null;
     i18nMissing(): string[];
+    hudLayout(): { outside: string[]; over: string[] };
   };
   save: { now(): Promise<boolean> };
   bot: { run(kind: string, seconds: number): Promise<{ ticks: number; errors: string[] }> };

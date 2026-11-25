@@ -277,6 +277,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `inv.sort {open}`, `inv.stackNearby`, event `stackedNearby`); a workbench's crafts take from
     `craftSources` (the inventory, then the chests near it: craftQueue.ts), its Logbook counts
     them (UiBridge); buttons `data-action` `bag-sort`, `stack-nearby`, `chest-sort`;
+  - HUD readability (plan v3 « M35 »): eating animates the hand (`eating` in GameSession.ts →
+    `PlayFrame.eating` → `HandView.draw`); the top centre's messages in fixed slots (main.css
+    `.hud-hint`, hud.css); the interface's scale `uiScaleFor` (Game.ts: the setting × the window's
+    height over 800, at most 2, on resize); the layout check `app/hudLayout.ts` (`hudLayout`,
+    `HUD_LAYOUT_IDS`; hook `ui.hudLayout()`, `e2e/hud.spec.ts` at three sizes, selftest m35);
   - weather (plan v3 « M34 »): `sim/weather.ts` (`weatherAt`: spells of `balance.weather`, a pure
     function of the seed and the tick; `weatherOf(sim, tick?)` with `sim.weatherOverride` from
     `debug.setWeather`; `fallingOn`/`fallsOn`: `BiomeDef.precipitation` under the open sky;
@@ -545,6 +550,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- HUD checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m35` (`selftest/m35.ts`): the
+  HUD's layout at the window's size, the hand eating; `e2e/hud.spec.ts` at 1024×768, 1280×720 and
+  1920×1080.
 - Weather checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m34` (`selftest/m34.ts`):
   rain eased in (drops, dim, the rain loop) putting a fire out, a rain barrel filling a flask, a
   storm's thunder.

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from '../../../src/app/App.ts';
 import { type BootParams, DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
-import { Game, type GameHost } from '../../../src/app/Game.ts';
+import { Game, type GameHost, uiScaleFor } from '../../../src/app/Game.ts';
 import { applyQuality } from '../../../src/app/graphicsPreset.ts';
 import type { FrameStats } from '../../../src/app/perf.ts';
 import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
@@ -208,6 +208,17 @@ function press(s: ReturnType<typeof setup>, code: string, target?: FakeElement) 
   };
   s.win.dispatch('keydown', event);
 }
+
+describe('uiScaleFor', () => {
+  it('grows the interface with a tall window, from 800 pixels high, at most twice (plan v3 « M35 »)', () => {
+    expect(uiScaleFor(1, 720)).toBe(1);
+    expect(uiScaleFor(1, 800)).toBe(1);
+    expect(uiScaleFor(1, 1080)).toBeCloseTo(1.35, 9);
+    expect(uiScaleFor(1.25, 1080)).toBeCloseTo(1.6875, 9);
+    expect(uiScaleFor(1, 4000)).toBe(2);
+    expect(uiScaleFor(1.25, Number.NaN)).toBe(1.25);
+  });
+});
 
 describe('settings', () => {
   beforeEach(() => installFakeDom());

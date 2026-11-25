@@ -10,6 +10,7 @@ import {
   reloadWorld,
   saveNow,
 } from '../automation.ts';
+import { hudLayout } from '../hudLayout.ts';
 import { onboardingState, restartOnboarding } from '../onboardingAutomation.ts';
 import { byLastPlayed, deleteClosedWorld } from '../worlds.ts';
 
@@ -20,6 +21,8 @@ export function uiHook(app: App) {
     /** Text of the first match of a selector, e.g. `#hud-clock`, `#hud-effects`, `#screen-death`. */
     text: (selector: string) => document.querySelector(selector)?.textContent ?? null,
     toggleDebug: () => app.overlay?.toggle(),
+    /** The HUD's layout check (plan v3 « M35 »): elements out of the window or over another. */
+    hudLayout,
     /** Opens or closes the bag like its key does (no argument: toggles); returns whether it is open. */
     bag: (open?: boolean) => {
       const inventory = app.inventory;
