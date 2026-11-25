@@ -7,6 +7,7 @@ import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory, type ItemStack } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
+import { createSkills, type Skills, staminaMax, type TaskState } from './progression.ts';
 import type { QuestState } from './quests.ts';
 import { createSurvival, fallDamage, hurt, type SurvivalState } from './survival.ts';
 
@@ -127,6 +128,13 @@ export interface PlayerState {
   pinned: string | null;
   /** Biome keys the player has stood in (quests). */
   biomes: Record<string, true>;
+  /** Experience, skill points spent, tasks held (sim/progression.ts). */
+  xp: number;
+  skills: Skills;
+  tasks: TaskState[];
+  /** Tasks drawn so far (the next draw's number) and the day of the last redraw (−1: none). */
+  taskDraws: number;
+  rerollDay: number;
   /** Has drunk at least once: a sip, or a consumable that quenches thirst (quests). */
   drank: boolean;
   /** The bestiary: creature key → MET or STUDIED (sim/bestiary.ts). */
@@ -202,6 +210,11 @@ export function createPlayer(
     quests: {},
     pinned: null,
     biomes: {},
+    xp: 0,
+    skills: createSkills(),
+    tasks: [],
+    taskDraws: 0,
+    rerollDay: -1,
     drank: false,
     bestiary: {},
     scanId: -1,
@@ -220,11 +233,12 @@ export function spendStamina(player: PlayerState, amount: number): void {
   if (player.stamina === 0) player.exhausted = true;
 }
 
-/** Regenerates stamina after a rest delay. */
-export function restStamina(player: PlayerState, dt: number): void {
+/** Regenerates stamina after a rest delay, up to the largest (endurance: sim/progression.ts). */
+export function restStamina(player: PlayerState, dt: number, balance: BalanceDef): void {
   player.restTicks++;
   if (player.restTicks >= STAMINA.regenDelayTicks) {
-    player.stamina = Math.min(STAMINA.max, player.stamina + STAMINA.regenPerSecond * dt);
+    const top = staminaMax(player, balance, STAMINA.max);
+    player.stamina = Math.min(top, player.stamina + STAMINA.regenPerSecond * dt);
   }
   if (player.exhausted && player.stamina >= STAMINA.recoverAt) player.exhausted = false;
 }
@@ -285,7 +299,7 @@ export function stepPlayer(
   const moving = Math.abs(body.vx) + Math.abs(body.vz) > 0.1;
   player.sprinting = result.sprinting && moving;
   if (player.sprinting) spendStamina(player, STAMINA.sprintPerSecond * dt);
-  else restStamina(player, dt);
+  else restStamina(player, dt, balance);
   if (result.landedFrom > 0) {
     out.push({ type: 'playerLanded', playerId: player.playerId, fall: result.landedFrom });
     hurt(player.survival, fallDamage(result.landedFrom, balance), 'fall');

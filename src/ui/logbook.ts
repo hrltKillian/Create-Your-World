@@ -25,6 +25,8 @@ export interface LogbookSource {
   readonly station?: string;
   /** Items and tags the player has seen (the reveal rule). */
   readonly seen: Readonly<Record<string, boolean>>;
+  /** The player's level (recipes of a higher level never craft: plan v3 « M22 »). */
+  readonly level: number;
   /** Items in the inventory that fill an ingredient (an item, or a tag). */
   owned(ingredient: string): number;
   /** Crafts of a recipe its queue still takes (its entry's room, then the free entries). */
@@ -44,6 +46,8 @@ export interface RecipeRow {
   readonly recipe: LogbookRecipe;
   /** Made in this Logbook (else at `recipe.station`: shown by a search, never crafted here). */
   readonly here: boolean;
+  /** The level the recipe needs, when the player has not reached it (else 0). */
+  readonly needsLevel: number;
   readonly pips: readonly IngredientPip[];
   /**
    * Revealed (`Crafting.revealed`). An undiscovered recipe is listed greyed at the bottom: its
@@ -92,7 +96,9 @@ export function logbookRows(source: LogbookSource, maxCount: number): RecipeRow[
   for (const recipe of [...crafting.recipes, ...crafting.processes]) {
     const here = madeIn(recipe, source.station);
     const discovered = crafting.revealed(recipe, source.seen);
-    let max = discovered && here ? maxCount : 0;
+    const level = 'level' in recipe ? (recipe.level ?? 0) : 0;
+    const needsLevel = level > source.level ? level : 0;
+    let max = discovered && here && needsLevel === 0 ? maxCount : 0;
     const pips = recipe.inputs.map((input): IngredientPip => {
       const owned = source.owned(input.item);
       max = Math.min(max, Math.floor(owned / input.count));
@@ -104,7 +110,7 @@ export function logbookRows(source: LogbookSource, maxCount: number): RecipeRow[
       };
     });
     const room = here && 'category' in recipe ? source.room(recipe) : 0;
-    rows.push({ recipe, here, pips, discovered, max, craftable: max > 0, room });
+    rows.push({ recipe, here, needsLevel, pips, discovered, max, craftable: max > 0, room });
   }
   // Array.prototype.sort is stable: pack order is kept inside each group.
   return rows.sort((a, b) => rank(a) - rank(b));

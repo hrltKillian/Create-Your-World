@@ -8,6 +8,7 @@ import type { SimEvent } from './events.ts';
 import { countMatching, freshStack, type Inventory, pileOnto, takeMatching } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import type { PlayerState } from './player.ts';
+import { levelOf } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { openedEntity } from './screens.ts';
 
@@ -152,6 +153,7 @@ export function enqueueCraft(
   const recipe = crafting.recipe(key);
   if (!recipe) return 'unknown recipe';
   if (!crafting.revealed(recipe, player.seen)) return 'not revealed';
+  if ((recipe.level ?? 1) > levelOf(player.xp, registry.pack.balance.progression)) return 'level';
   const queue = queueOf(sim, player, recipe);
   if (!queue) return 'station';
   if (queueRoom(registry, queue, recipe) < count) return 'queue full';

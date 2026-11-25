@@ -25,10 +25,13 @@ import {
   SaveVersionError,
 } from '../../../src/world/codec/migrations.ts';
 import { cellKey, columnKey } from '../../../src/world/coords.ts';
+import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, settle } from '../../helpers/save.ts';
 
+/** What version 12 adds to every older player: no XP, skill, task, draw nor redraw. */
+const V12 = { xp: 0, skills: {}, tasks: [], taskDraws: 0, rerollDay: -1 };
 /** What version 11 adds to every older player: no quest, none pinned, no biome walked. */
-const V11 = { quests: {}, pinned: null, biomes: [] };
+const V11 = { quests: {}, pinned: null, biomes: [], ...V12 };
 
 /** A stored world from `tests/fixtures/saves/vN/world.json` (payloads in base64). */
 function fixture(version: number): StoredWorld {
@@ -418,6 +421,7 @@ describe('save versions', () => {
       quests: { 'quest:gather': { progress: 0, done: true, claimed: false } },
       pinned: null,
       biomes: [],
+      ...V12,
     });
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(11), removed: [] });
@@ -426,5 +430,21 @@ describe('save versions', () => {
     expect(player.quests['quest:hunt']).toEqual({ progress: 0, done: false, claimed: false });
     expect(player.pinned).toBe('quest:hunt');
     expect(player.biomes).toEqual({ 'biome:meadow': true });
+  });
+
+  it('starts a version 11 player at no XP, and loads the v12 fixture', async () => {
+    expect(migrate('player', { playerId: 1 }, 11)).toEqual({ playerId: 1, ...V12 });
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(12), removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = [...sim.players.values()][0]!;
+    expect(player.xp).toBe(260);
+    expect(player.skills).toMatchObject({ vitality: 1, carrying: 1, strength: 0 });
+    // Its largest health follows its vitality, whatever the save says.
+    expect(player.survival.healthMax).toBe(
+      registry.pack.balance.health.max + registry.pack.balance.progression.skills.vitality,
+    );
+    expect(player.tasks.map((task) => task.key)).toEqual(['task:dig', 'task:meals', 'task:night']);
+    expect([player.taskDraws, player.rerollDay]).toEqual([3, 1]);
   });
 });

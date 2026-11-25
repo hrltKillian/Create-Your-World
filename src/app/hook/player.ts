@@ -1,5 +1,6 @@
 import type { DebugStat } from '../../sim/commands.ts';
 import { serializeInventory } from '../../sim/inventory.ts';
+import type { Skill } from '../../sim/progression.ts';
 import type { DeathCause } from '../../sim/survival.ts';
 import { BOT_KINDS, type BotKind } from '../../sim/testing/bots.ts';
 import type { App } from '../App.ts';
@@ -19,6 +20,7 @@ import {
   placeCreature,
   spawnLog,
 } from '../creatureAutomation.ts';
+import { progressOf } from '../progressModel.ts';
 import { equip, god, kill, playerStats, setStat } from '../survivalAutomation.ts';
 import { walkQuestsHere } from '../walkAutomation.ts';
 
@@ -105,7 +107,7 @@ export function craftHooks(app: App) {
   };
 }
 
-/** `__game.quests`: the player's quests, their commands and the scripted walk (M11, M21). */
+/** `__game.quests`: quests, tasks and skills, their commands and the scripted walk (M11, M21, M22). */
 export function questsHook(app: App) {
   return {
     /** The quests unlocked, by key: `{ progress, done, claimed }`, and the one pinned. */
@@ -122,6 +124,17 @@ export function questsHook(app: App) {
      * none, the generated world, ?fixedStep=1; biomes searched within `maxRadius`); the keys done.
      */
     walk: (maxRadius = 3000) => walkQuestsHere(app, maxRadius),
+    /** The tasks held (`{ key, progress }`); claims one done, or redraws one (once a day). */
+    tasks: () => structuredClone(app.session?.player.tasks ?? []),
+    claimTask: (index: number) => sendAndStep(app, { type: 'task.claim', index }),
+    rerollTask: (index: number) => sendAndStep(app, { type: 'task.reroll', index }),
+    /** Level, XP into it and to the next one, points left and skills (plan v3 « M22 »). */
+    progress: () => {
+      const session = app.session;
+      return session ? progressOf(session.player, session.host.view.registry.pack.balance) : null;
+    },
+    /** Spends a skill point, applied at once in fixed steps. */
+    spend: (skill: Skill) => sendAndStep(app, { type: 'skill.spend', skill }),
   };
 }
 

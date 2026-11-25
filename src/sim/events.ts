@@ -183,6 +183,24 @@ export type SimEvent =
       readonly progress: number;
     }
   | { readonly type: 'questClaimed'; readonly playerId: number; readonly quest: string }
+  /** A task counted one more deed (it is done at its count). */
+  | {
+      readonly type: 'taskProgress';
+      readonly playerId: number;
+      readonly task: string;
+      readonly progress: number;
+    }
+  /** A task was claimed or redrawn: the player's tasks changed. */
+  | { readonly type: 'taskChanged'; readonly playerId: number }
+  /** XP gained (from a claim); `level` is the level now. */
+  | {
+      readonly type: 'xpGained';
+      readonly playerId: number;
+      readonly xp: number;
+      readonly level: number;
+    }
+  | { readonly type: 'levelUp'; readonly playerId: number; readonly level: number }
+  | { readonly type: 'skillSpent'; readonly playerId: number; readonly skill: string }
   /** A player's swing (a blow, or in the air): `strong` when it struck with a full gauge. */
   | { readonly type: 'playerSwung'; readonly playerId: number; readonly strong: boolean }
   /** A creature entered a player's bestiary, or was studied (`level`: MET or STUDIED). */

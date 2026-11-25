@@ -74,6 +74,7 @@ interface RecipeExtra {
   readonly count?: number;
   readonly station?: StationKey;
   readonly known?: 'start';
+  readonly level?: number;
 }
 
 /** A Logbook recipe named after its output: `recipe:<id>` makes `item:<id>`. */
@@ -91,6 +92,7 @@ const recipe = (
   inputs: ingredients(inputs),
   output: { item: `item:${id}`, count: extra.count ?? 1 },
   ...(extra.known ? { known: extra.known } : {}),
+  ...(extra.level ? { level: extra.level } : {}),
 });
 
 /** Known from the start (by hand), or made at the workbench. */
@@ -153,6 +155,24 @@ export const recipes: readonly RecipeDef[] = [
   bench('bronze_helmet', 'equipment', 4, { bronze_ingot: 4, leather: 1 }),
   bench('bronze_cuirass', 'equipment', 4, { bronze_ingot: 7, leather: 2 }),
   bench('shell_cuirass', 'equipment', 4, { shell_plate: 4, leather: 2, cord: 1 }),
+  // Level recipes (plan v3 « M22 »): never needed on the way to iron.
+  recipe(
+    'pack_frame',
+    'equipment',
+    4,
+    { leather: 4, stick: 6, cord: 2 },
+    { station: BENCH, level: 3 },
+  ),
+  recipe(
+    'scanner_mk2',
+    'equipment',
+    5,
+    { bronze_ingot: 2, cord: 2, resin: 2 },
+    {
+      station: BENCH,
+      level: 4,
+    },
+  ),
 ];
 
 /** A station process named after its output: `process:<id>` makes `item:<id>`. */

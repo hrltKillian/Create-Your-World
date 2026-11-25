@@ -1,7 +1,7 @@
 import type { ItemDef } from '../content/schema.ts';
 import { ticksOf } from './clock.ts';
 import type { SimEvent } from './events.ts';
-import { freshStack, spendUses, takeFromSlot } from './inventory.ts';
+import { freshStack, MAX_INVENTORY_SLOTS, spendUses, takeFromSlot } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
@@ -79,13 +79,26 @@ export function holdUse(
   return true;
 }
 
+/** HUD hint of a backpack frame used on a bag that cannot grow (engine i18n key). */
+export const BAG_FULL_HINT = 'hint.bagFull';
+
 /**
  * Eats or drinks one of the held item: its gauges, then one item fewer (and what it `returns`),
- * or one charge fewer for a container, which the last one leaves empty.
+ * or one charge fewer for a container, which the last one leaves empty. A backpack frame
+ * (`bagSlots`) adds its inventory slots instead, refused past the largest inventory.
  */
 function consume(sim: Simulation, player: PlayerState, def: ItemDef, out: SimEvent[]): void {
   const registry = sim.registry;
   const c = def.consume!;
+  const slots = c.bagSlots ?? 0;
+  if (slots > 0) {
+    // A backpack frame: never past the largest inventory (it stays in hand, with a hint).
+    if (player.inventory.length + slots > MAX_INVENTORY_SLOTS) {
+      out.push({ type: 'hint', playerId: player.playerId, key: BAG_FULL_HINT, params: {} });
+      return;
+    }
+    for (let i = 0; i < slots; i++) player.inventory.push(null);
+  }
   const b = registry.pack.balance;
   adjustGauges(player.survival, b, c.hunger ?? 0, c.thirst ?? 0, c.health ?? 0, c.toxicity ?? 0);
   if ((c.thirst ?? 0) > 0) player.drank = true;

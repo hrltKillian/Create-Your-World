@@ -144,10 +144,10 @@ describe('quests', () => {
     const sent: unknown[] = [];
     const panel = new QuestsPanel({ send: (c) => sent.push(c), click: () => {} });
     const el = fake(panel.element);
-    panel.update([]);
-    expect(el.textContent).toBe('No quest yet.');
+    panel.update([], []);
+    expect(el.textContent).toBe('QuestsNo quest yet.');
     const states = { [quests[0]!.key]: { ...open, done: true }, [hunt.key]: open };
-    panel.update(questRows(registry, states, null));
+    panel.update(questRows(registry, states, null), []);
     const button = (action: string) =>
       el.findAll((e) => e.getAttribute('data-action') === action)[0]!;
     button('quest-claim').dispatch('click');
@@ -156,7 +156,7 @@ describe('quests', () => {
       { type: 'quest.claim', quest: quests[0]!.key },
       { type: 'quest.pin', quest: hunt.key },
     ]);
-    panel.update(questRows(registry, states, hunt.key));
+    panel.update(questRows(registry, states, hunt.key), []);
     expect(button('quest-pin').getAttribute('aria-pressed')).toBe('true');
     button('quest-pin').dispatch('click');
     expect(sent.at(-1)).toEqual({ type: 'quest.pin', quest: null });

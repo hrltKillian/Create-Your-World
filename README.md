@@ -102,21 +102,21 @@ loaded by a dynamic import and never ships in a production build. Mutations go t
 simulation's `debug.*` commands. With `?fixedStep=1` they apply at once, and `press` advances its
 ticks.
 
-| Group            | Entries                                                                                                                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lifecycle        | `version`, `params`, `ready()`, `errors()`, `state()`, `capabilities()`, `selftest(selection)`, `workers.ping()`, `workers.size()`                                                                                                                      |
-| sim, time        | `sim.step(n)`, `sim.tick()`, `sim.hash()`; `time.get()`, `time.set(hours)`, `time.freeze(frozen?)`                                                                                                                                                      |
-| input, camera    | `input.look(yaw, pitch)`, `input.press(action, ticks)`, `input.release()`, `input.keyLabel(action)`; `camera.get()`, `camera.set(pose)` (free camera), `camera.mode()`, `camera.toggle()`                                                               |
-| player           | `get()`, `teleport(x, y\|'surface', z)`, `setStat(stat, value)`, `stats()`, `give(item, count)`, `inventory()`, `equip(slot)`, `kill(cause?)`, `god(on?)`                                                                                               |
-| world            | `block()`, `setBlock()`, `fill()`, `light()`, `biome(x, z)`, `findBiome()`, `findStructure()`, `waitForChunks()`, `pump(ms)`, `genHash()`, `setRenderDistance()`, `memory()`, `seed()`, `spawn()`                                                       |
-| entities         | `spawn(creature, x, y\|'surface', z)`, `list()`, `kill(id)`, `census()`, `spawnLog()`                                                                                                                                                                   |
-| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)` (a station adds `lit`, `flame`, `progress`, `process`, `keepLit`)                                                                                                       |
-| quests, bot      | `quests.list()`, `quests.claim(key)`, `quests.pin(key \| null)`, `quests.walk(maxRadius?)` (every quest in order, fixed steps); `bot.kinds()`, `bot.run(kind?, seconds?)` (game seconds; its tally and `errors`)                                        |
-| ui, onboarding   | `ui.screen()`, `ui.open(x?, y?, z?)`, `ui.close()`, `ui.bag(open?)`, `ui.click(selector \| slot, button?, shift?)`, `ui.clickOutside(button?)`, `ui.text(selector)`, `ui.hotbar()`, `ui.i18nMissing()`; `onboarding.state()`, `onboarding.restart(on?)` |
-| settings, save   | `settings.get()`, `settings.set(patch)`; `save.now()`, `save.reload()`, `save.worlds()`, `save.inspect(id?)`, `save.wipeAll()`                                                                                                                          |
-| render           | `info()`, `chunks()`, `occlusion(enabled?)`, `setQuality(preset)`, `rig(who)`, `target()`, `crack()`, `hand()`, `feel()`, `particles(on)`, `viewBob(on)`, `boxes()`, `sectionVersionLag()`, `debugView()`, `capture()`                                  |
-| perf             | `fps()`, `snapshot()` (frame work and 8 spans), `pool()`, `mesh()`, `editToMeshMs()`, `throttle()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig'\|'load')`                                                                                           |
-| audio            | `log()` (the last 256 sounds, logged even when muted), `state()`, `mark()`, `since(mark)`, `ambience()` (loops, gains, the underwater low-pass)                                                                                                         |
+| Group            | Entries                                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lifecycle        | `version`, `params`, `ready()`, `errors()`, `state()`, `capabilities()`, `selftest(selection)`, `workers.ping()`, `workers.size()`                                                                                                                                                                                            |
+| sim, time        | `sim.step(n)`, `sim.tick()`, `sim.hash()`; `time.get()`, `time.set(hours)`, `time.freeze(frozen?)`                                                                                                                                                                                                                            |
+| input, camera    | `input.look(yaw, pitch)`, `input.press(action, ticks)`, `input.release()`, `input.keyLabel(action)`; `camera.get()`, `camera.set(pose)` (free camera), `camera.mode()`, `camera.toggle()`                                                                                                                                     |
+| player           | `get()`, `teleport(x, y\|'surface', z)`, `setStat(stat, value)`, `stats()`, `give(item, count)`, `inventory()`, `equip(slot)`, `kill(cause?)`, `god(on?)`                                                                                                                                                                     |
+| world            | `block()`, `setBlock()`, `fill()`, `light()`, `biome(x, z)`, `findBiome()`, `findStructure()`, `waitForChunks()`, `pump(ms)`, `genHash()`, `setRenderDistance()`, `memory()`, `seed()`, `spawn()`                                                                                                                             |
+| entities         | `spawn(creature, x, y\|'surface', z)`, `list()`, `kill(id)`, `census()`, `spawnLog()`                                                                                                                                                                                                                                         |
+| craft, container | `craft.enqueue(recipe, count?)`, `craft.queue()`; `container.contents(x, y, z)` (a station adds `lit`, `flame`, `progress`, `process`, `keepLit`)                                                                                                                                                                             |
+| quests, bot      | `quests.list()`, `quests.claim(key)`, `quests.pin(key \| null)`, `quests.tasks()`, `quests.claimTask(i)`, `quests.rerollTask(i)`, `quests.progress()`, `quests.spend(skill)`, `quests.walk(maxRadius?)` (every quest in order, fixed steps); `bot.kinds()`, `bot.run(kind?, seconds?)` (game seconds; its tally and `errors`) |
+| ui, onboarding   | `ui.screen()`, `ui.open(x?, y?, z?)`, `ui.close()`, `ui.bag(open?)`, `ui.click(selector \| slot, button?, shift?)`, `ui.clickOutside(button?)`, `ui.text(selector)`, `ui.hotbar()`, `ui.i18nMissing()`; `onboarding.state()`, `onboarding.restart(on?)`                                                                       |
+| settings, save   | `settings.get()`, `settings.set(patch)`; `save.now()`, `save.reload()`, `save.worlds()`, `save.inspect(id?)`, `save.wipeAll()`                                                                                                                                                                                                |
+| render           | `info()`, `chunks()`, `occlusion(enabled?)`, `setQuality(preset)`, `rig(who)`, `target()`, `crack()`, `hand()`, `feel()`, `particles(on)`, `viewBob(on)`, `boxes()`, `sectionVersionLag()`, `debugView()`, `capture()`                                                                                                        |
+| perf             | `fps()`, `snapshot()` (frame work and 8 spans), `pool()`, `mesh()`, `editToMeshMs()`, `throttle()`, `benchmark('walk'\|'fly'\|'cave'\|'mobs'\|'dig'\|'load')`                                                                                                                                                                 |
+| audio            | `log()` (the last 256 sounds, logged even when muted), `state()`, `mark()`, `since(mark)`, `ambience()` (loops, gains, the underwater low-pass)                                                                                                                                                                               |
 
 ## Tests in the browser
 
@@ -125,36 +125,38 @@ boot; a case that needs another setup is skipped, and none may fail. `npm run e2
 each setup the suites need (`e2e/selftest.spec.ts`), and checks that every case ran in at least one
 of them:
 
-| Setup                  | Query                                                      | Runs                                                                                                                                          |
-| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| test chunk scene       | `scene=testchunk`                                          | m1                                                                                                                                            |
-| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                                                                                 |
-| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                                                                             |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the quests walk, the bot, m16 world                                                                                              |
-| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                                                                                |
-| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner, m18 controls, m19 combat, m20 survival, m21 quests |
-| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                                                                    |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                                                           |
+| Setup                  | Query                                                      | Runs                                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| test chunk scene       | `scene=testchunk`                                          | m1                                                                                                                                                        |
+| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                                                                                             |
+| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                                                                                         |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the quests walk, the bot, m16 world                                                                                                          |
+| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                                                                                            |
+| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner, m18 controls, m19 combat, m20 survival, m21 quests, m22 skills |
+| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                                                                                |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                                                                       |
 
 ## Try this milestone
 
-**M21 — Non-linear quests** (plan v3, `docs/conception.md` « M21 »). `npm run dev`, then open
+**M22 — XP, levels and skills** (plan v3, `docs/conception.md` « M22 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **A quest graph**: four branches open from the start (gather, drink, explore three biomes, hunt
-  a Trotter); each quest unlocks once those it requires are done, up to the first iron ingot. A
-  state you already reached (items had, a station near) does a quest the moment it unlocks, and
-  the HUD says « already done »; a counter (the hunt, the first night) counts only from its unlock.
-- **The Quests page** (J, or the Bag's tab): what is open, done and to claim (its rewards), and
-  claimed. **Pin** a quest: its line shows under the compass, and the journeys north and south
-  point the compass. The objectives panel at the top right is gone; quest messages show as one
-  line.
-- **Saves**: an older world's objectives become the quests of the same name, done (save 11).
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m21`; the quests walk on six seeds runs in
-  `npm run verify` (`tests/unit/sim/questWalk.test.ts`).
+- **XP** comes from claiming quests and tasks only. Each level gives a skill point.
+- **The Status page** (U): your level and XP, and six skills of up to 5 points, each with the
+  exact rule of its bonus: vitality (+10 health), endurance (+10 stamina), carrying (+4 bag slots),
+  metabolism (−6 % hunger and thirst), resistance (+1.5 °C of comfort each side) and strength
+  (+6 % melee damage and mining speed).
+- **Tasks**: three everyday tasks on the Quests page (break, place, hunt, eat, a night…), claimed
+  for XP and replaced; one may be redrawn once a game day.
+- **Level recipes**: the Backpack Frame (level 3, +8 slots) and the Scanner Mk II (level 4) at the
+  workbench; never needed on the way to iron.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m22`.
 
 ### Earlier milestones
 
+- **M21, non-linear quests**: a quest graph with four branches open from the start, a state
+  reached before an unlock done at it, the Quests page (J) with claims and a pin under the compass;
+  `?worldType=flat&fixedStep=1&selftest=m0,m21`.
 - **M20, simplified survival**: no status words, no shelter test (fires and clothes warm), sleep
   anywhere at night unless a hostile is within 8 blocks; `?worldType=flat&fixedStep=1&selftest=m0,m20`.
 - **M19, Minecraft-style combat**: an attack gauge, strong blows when full; `?worldType=flat&fixedStep=1&selftest=m0,m19`.

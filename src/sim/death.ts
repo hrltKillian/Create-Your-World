@@ -17,6 +17,7 @@ import { stopMining } from './interaction.ts';
 import { addItem, type Inventory, type ItemStack, pileOnto } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';
 import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
+import { staminaMax } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { closeScreen, stowCursor } from './screens.ts';
 import { collisionReader, surfaceAt } from './surface.ts';
@@ -221,12 +222,15 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   sim.teleport(player, x, y, z);
   // A cursor stack (a death keeps none: it went into the pack) is back in the inventory.
   stowCursor(sim, player, out);
-  // Fresh gauges; a debug immunity stays.
-  Object.assign(s, createSurvival(sim.registry.pack.balance), { god: s.god });
+  // Fresh gauges; a debug immunity and the skills' largest health stay.
+  Object.assign(s, createSurvival(sim.registry.pack.balance), {
+    god: s.god,
+    healthMax: s.healthMax,
+  });
   s.health = r.health;
   s.hunger = r.hunger;
   s.thirst = r.thirst;
-  player.stamina = STAMINA.max;
+  player.stamina = staminaMax(player, sim.registry.pack.balance, STAMINA.max);
   player.exhausted = false;
   out.push({ type: 'respawned', playerId: player.playerId, x, y, z });
 }

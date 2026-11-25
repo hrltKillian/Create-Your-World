@@ -4,7 +4,7 @@
  * events from its unlock on (`counter`); done, its `rewards` wait to be claimed. Re-exported by
  * `schema.ts`.
  */
-import type { CreatureKey, ItemCount, ItemKey, StationKey, TagKey } from './schema.ts';
+import type { BlockKey, CreatureKey, ItemCount, ItemKey, StationKey, TagKey } from './schema.ts';
 
 export type QuestKey = `quest:${string}`;
 
@@ -26,17 +26,17 @@ export interface QuestCondition {
   readonly met?: number;
 }
 
-/** Events a counter counts, each from the quest's unlock on. */
-export const QUEST_EVENTS = ['killed', 'night'] as const;
+/** Events a counter counts, each from the quest's (or task's) start on. */
+export const QUEST_EVENTS = ['killed', 'night', 'broken', 'placed', 'consumed'] as const;
 export type QuestEvent = (typeof QUEST_EVENTS)[number];
 
 /**
- * A count of the player's own deeds: creatures killed (of `target` when given), or nights survived
- * alive.
+ * A count of the player's own deeds: creatures killed, blocks broken or placed, items eaten or
+ * drunk (of `target` when given: a creature, block or item key), or nights survived alive.
  */
 export interface QuestCounter {
   readonly event: QuestEvent;
-  readonly target?: CreatureKey;
+  readonly target?: CreatureKey | BlockKey | ItemKey;
   readonly count: number;
 }
 
@@ -55,4 +55,19 @@ export interface QuestDef {
   readonly counter?: QuestCounter;
   /** Items given when the player claims the quest done. */
   readonly rewards?: readonly ItemCount[];
+  /** Experience given with the rewards (plan v3 « M22 »). */
+  readonly xp?: number;
+}
+
+export type TaskKey = `task:${string}`;
+
+/**
+ * A general task (plan v3 « M22 »): a counter drawn for a player among the pack's tasks, which pays
+ * its XP once claimed and is replaced by a new draw.
+ */
+export interface TaskDef {
+  readonly key: TaskKey;
+  readonly textKey: string;
+  readonly counter: QuestCounter;
+  readonly xp: number;
 }

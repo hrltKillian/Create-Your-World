@@ -9,6 +9,7 @@ import { breakSeconds } from '../mining.ts';
 import { eyeHeight } from '../physics.ts';
 import { bodyInCell } from '../placement.ts';
 import type { PlayerState } from '../player.ts';
+import { strengthFactor } from '../progression.ts';
 import { emptySlot } from './botSenses.ts';
 import { inBag, moveClicks } from './slotMoves.ts';
 import { type Cell, cellText, type Point, type WalkPort } from './walkPort.ts';
@@ -183,7 +184,8 @@ export abstract class Hands {
     if (!at) return false;
     const stack = this.me().inventory[slot];
     const item = stack ? this.registry.itemId(stack.item) : -1;
-    const seconds = breakSeconds(this.registry, state, item, this.me().exhausted);
+    const strength = strengthFactor(this.me(), this.registry.pack.balance);
+    const seconds = breakSeconds(this.registry, state, item, this.me().exhausted, strength);
     const ticks = Math.ceil(seconds * TICKS_PER_SECOND * MINING_SLACK) + 1;
     await this.port.hold('primary', slot, at, ticks, () => this.blockAt(cell) !== state);
     if (this.blockAt(cell) !== state) return true;

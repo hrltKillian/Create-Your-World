@@ -161,6 +161,33 @@ export interface CreatureBalance {
   readonly fall: { readonly safeBlocks: number; readonly damagePerBlock: number };
 }
 
+/**
+ * Experience and skills (plan v3 « M22 »): XP comes from quests and tasks only; level n needs
+ * `xpBase + xpStep × (n − 1)` more XP to reach n + 1, and each level gained gives a skill point;
+ * a skill takes at most `maxSkill` points, each worth its number here.
+ */
+export interface ProgressionBalance {
+  readonly xpBase: number;
+  readonly xpStep: number;
+  readonly maxSkill: number;
+  /** Tasks a player has at once. */
+  readonly tasks: number;
+  readonly skills: {
+    /** Health. */
+    readonly vitality: number;
+    /** Stamina. */
+    readonly endurance: number;
+    /** Inventory slots. */
+    readonly carrying: number;
+    /** Share of the hunger and thirst rates taken off. */
+    readonly metabolism: number;
+    /** °C added to each side of the comfort range. */
+    readonly resistance: number;
+    /** Share added to melee damage and mining speed. */
+    readonly strength: number;
+  };
+}
+
 /** Melee (docs « Combat »). */
 export interface CombatBalance {
   /** The empty hand, or a held item without `weapon`: the first row of the weapon table. */
@@ -182,4 +209,5 @@ export interface BalanceDef {
   readonly respawn: RespawnBalance;
   readonly creatures: CreatureBalance;
   readonly combat: CombatBalance;
+  readonly progression: ProgressionBalance;
 }

@@ -32,6 +32,14 @@ import {
 import type { DropBody, ItemDropState } from './itemDrops.ts';
 import { PHYSICS } from './physics.ts';
 import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
+import {
+  createSkills,
+  healthMax,
+  SKILLS,
+  type Skill,
+  type Skills,
+  type TaskState,
+} from './progression.ts';
 import type { QuestState } from './quests.ts';
 import type { BlockEntityRecord, CreatureRecord, DropRecord, PlayerRecord } from './storage.ts';
 import {
@@ -136,6 +144,11 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     quests: savedQuests(player.quests),
     pinned: player.pinned,
     biomes: Object.keys(player.biomes).sort(),
+    xp: player.xp,
+    skills: { ...player.skills },
+    tasks: player.tasks.map((task) => ({ ...task })),
+    taskDraws: player.taskDraws,
+    rerollDay: player.rerollDay,
     drank: player.drank,
     bestiary: { ...player.bestiary },
     fightTicks: player.fightTicks,
@@ -200,6 +213,25 @@ function readQuests(data: unknown): Record<string, QuestState> {
   return quests;
 }
 
+/** Saved skills: whole points within 0…`max` each, 0 for what is missing or malformed. */
+function readSkills(data: unknown, max: number): Skills {
+  const skills = createSkills();
+  const saved = (data ?? {}) as Partial<Record<Skill, unknown>>;
+  for (const skill of SKILLS) skills[skill] = wholeIn(saved[skill], 0, max, 0);
+  return skills;
+}
+
+/** Saved tasks: at most `held` well-formed ones (keys of other packs are dropped when drawn). */
+function readTasks(data: unknown, held: number): TaskState[] {
+  if (!Array.isArray(data)) return [];
+  const tasks: TaskState[] = [];
+  for (const saved of data.slice(0, held) as Partial<TaskState>[]) {
+    if (typeof saved?.key !== 'string' || !isWhole(saved.progress, 0)) continue;
+    tasks.push({ key: saved.key, progress: saved.progress });
+  }
+  return tasks;
+}
+
 /** The strings of a saved list (keys of other packs are kept: they cost nothing). */
 function readKeys(data: unknown): string[] {
   return Array.isArray(data) ? data.filter((key): key is string => typeof key === 'string') : [];
@@ -224,9 +256,11 @@ function readCell(data: unknown): BlockCell | null {
  * A saved survival state: full gauges for what is missing or malformed, the gauges kept within
  * their ranges.
  */
-function readSurvival(data: unknown, balance: BalanceDef): SurvivalState {
+function readSurvival(data: unknown, balance: BalanceDef, max: number): SurvivalState {
   const survival = assignFields(createSurvival(balance), data);
-  for (const gauge of GAUGES) survival[gauge] = clampGauge(gauge, survival[gauge], balance);
+  survival.healthMax = max;
+  for (const gauge of GAUGES)
+    survival[gauge] = clampGauge(gauge, survival[gauge], balance, survival);
   const saved = (data ?? {}) as Partial<Record<keyof SurvivalState, unknown>>;
   if (DEATH_CAUSES.includes(saved.cause as DeathCause)) survival.cause = saved.cause as DeathCause;
   return survival;
@@ -262,7 +296,9 @@ export function readPlayer(
   assignFields(player.interaction, saved.interaction);
   player.craft = readCraft(saved.craft, registry);
   player.seen = readSeen(saved.seen);
-  player.survival = readSurvival(saved.survival, registry.pack.balance);
+  const balance = registry.pack.balance;
+  player.skills = readSkills(saved.skills, balance.progression.maxSkill);
+  player.survival = readSurvival(saved.survival, balance, healthMax(player.skills, balance));
   player.equipment = deserializeSlots(saved.equipment, WEAR_SLOTS.length, registry);
   player.respawn = readCell(saved.respawn);
   const graves = Array.isArray(saved.graves) ? saved.graves.map(readCell) : [];
@@ -270,6 +306,10 @@ export function readPlayer(
   player.quests = readQuests(saved.quests);
   player.pinned = typeof saved.pinned === 'string' ? saved.pinned : null;
   player.biomes = readSeen(saved.biomes);
+  player.xp = wholeIn(saved.xp, 0, Number.MAX_SAFE_INTEGER, 0);
+  player.tasks = readTasks(saved.tasks, balance.progression.tasks);
+  player.taskDraws = wholeIn(saved.taskDraws, 0, Number.MAX_SAFE_INTEGER, 0);
+  player.rerollDay = wholeIn(saved.rerollDay, -1, Number.MAX_SAFE_INTEGER, -1);
   player.drank = saved.drank === true;
   player.bestiary = readBestiary(saved.bestiary, registry);
   // A fight in progress (no field before version 5: none).

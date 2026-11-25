@@ -6,28 +6,31 @@ import type { ItemStack } from '../../sim/inventory.ts';
 import type { BestiaryRow } from '../bestiary.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
-import type { QuestRow } from '../quests.ts';
+import type { QuestRow, TaskRow } from '../quests.ts';
 import { type ScreenActions, type ScreenDeps, SlotBoard } from '../slotBoard.ts';
+import type { StatusView } from '../status.ts';
 import { BestiaryPanel } from './bestiaryPanel.ts';
 import type { LogbookPanel, LogbookState } from './logbook.ts';
 import { QuestsPanel } from './questsPanel.ts';
+import { StatusPanel } from './statusPanel.ts';
 
-/** The Bag's pages (its tab bar); a later milestone adds Status. */
-export const BAG_PAGES = ['inventory', 'logbook', 'bestiary', 'quests'] as const;
+/** The Bag's pages (its tab bar), each opened by the key of the action of its name. */
+export const BAG_PAGES = ['inventory', 'logbook', 'bestiary', 'quests', 'status'] as const;
 export type BagPage = (typeof BAG_PAGES)[number];
 
 /**
- * The Bag (E or Tab, docs « Écrans »): a tab bar over four pages beside the 6×4 bag and the hotbar,
+ * The Bag (E or Tab, docs « Écrans »): a tab bar over five pages beside the 6×4 bag and the hotbar,
  * the Inventory (the silhouette, its 5 equipment slots: slots 64–68 of the slot clicks, a wearable
  * only in its own, and what the worn items protect from), the Logbook of the hand recipes, the
- * Bestiary (ui/bestiary.ts) and the Quests (ui/quests.ts). It opens on the page of the key pressed
- * (Bag, Logbook, Bestiary or Quests: plan v3 « M18 », « M21 »).
+ * Bestiary (ui/bestiary.ts), the Quests (ui/quests.ts) and the Status (ui/status.ts). It opens on
+ * the page of the key pressed (plan v3 « M18 », « M21 », « M22 »).
  */
 export class BagScreen {
   readonly element: HTMLElement;
   readonly logbook: LogbookPanel;
   readonly bestiary = new BestiaryPanel();
   readonly quests: QuestsPanel;
+  readonly status: StatusPanel;
   private readonly board: SlotBoard;
   private readonly actions: ScreenActions;
   private readonly protection: HTMLElement;
@@ -41,6 +44,7 @@ export class BagScreen {
     this.board = board;
     this.actions = deps.actions;
     this.quests = new QuestsPanel(deps.actions);
+    this.status = new StatusPanel(deps.actions);
     this.element = board.element;
     this.protection = h('p', { class: 'wear-stats' });
     const worn = board.slotViews(deps.openBase, deps.openBase + WEAR_SLOTS.length);
@@ -49,6 +53,7 @@ export class BagScreen {
       logbook: logbook.element,
       bestiary: this.bestiary.element,
       quests: this.quests.element,
+      status: this.status.element,
     };
     this.tabs = h('nav', { class: 'bag-tabs' });
     this.element.append(
@@ -64,6 +69,7 @@ export class BagScreen {
           this.pages.logbook,
           this.pages.bestiary,
           this.pages.quests,
+          this.pages.status,
           h('div', { class: 'bag-inventory' }, ...board.inventory(), board.caption),
         ),
         h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
@@ -76,7 +82,7 @@ export class BagScreen {
     return this.board.isOpen();
   }
 
-  /** Opens on a page (the one its key names: Bag, Logbook, Bestiary or Quests). */
+  /** Opens on a page (the one its key names). */
   open(page: BagPage = 'inventory'): void {
     this.show(page);
     this.board.open();
@@ -100,7 +106,7 @@ export class BagScreen {
 
   /**
    * Shows the inventory then the worn items, the cursor stack, their protection, the Logbook, the
-   * Bestiary and the Quests (call when they change and regularly).
+   * Bestiary, the Quests and the Status (call when they change and regularly).
    */
   update(
     slots: Slots,
@@ -109,13 +115,16 @@ export class BagScreen {
     gear: Readonly<Gear>,
     bestiary: readonly BestiaryRow[],
     quests: readonly QuestRow[],
+    tasks: readonly TaskRow[],
+    status: StatusView,
   ): void {
     this.board.update(slots, cursor);
     const text = t('wear.stats', { armor: gear.armor, warmth: gear.warmth, cooling: gear.cooling });
     if (this.protection.textContent !== text) this.protection.textContent = text;
     this.logbook.update(logbook);
     this.bestiary.update(bestiary);
-    this.quests.update(quests);
+    this.quests.update(quests, tasks);
+    this.status.update(status);
   }
 
   /** A hotbar number key (slot 0–7) pressed while the bag is open. */

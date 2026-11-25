@@ -15,7 +15,7 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 class Vial {
   readonly element: HTMLElement;
   private readonly value: HTMLElement;
-  private readonly max: number;
+  private max: number;
   private readonly labelKey: string;
   private shown = Number.NaN;
 
@@ -32,11 +32,15 @@ class Vial {
     );
   }
 
-  /** Shows a level (touches the DOM only when its rounded value or the alarm changes). */
-  set(level: number, alarm: boolean): void {
+  /**
+   * Shows a level out of `max` (the health vial's grows with vitality); touches the DOM only when
+   * its rounded value, its top or the alarm changes.
+   */
+  set(level: number, alarm: boolean, max = this.max): void {
     this.element.classList.toggle('alarm', alarm);
     const n = Math.round(level);
-    if (n === this.shown) return;
+    if (n === this.shown && max === this.max) return;
+    this.max = max;
     this.shown = n;
     this.element.style.setProperty('--fill', String(clamp01(n / this.max)));
     this.value.textContent = String(n);
@@ -163,7 +167,7 @@ export class Vitals {
   /** `status`: the thermal status (sim `thermalStatus`). */
   update(s: Readonly<SurvivalState>, status: number): void {
     const b = this.balance;
-    this.health.set(s.health, s.health < b.health.lowAt);
+    this.health.set(s.health, s.health < b.health.lowAt, s.healthMax);
     this.hunger.set(s.hunger, s.hunger < b.hunger.lowAt);
     this.thirst.set(s.thirst, s.thirst < b.thirst.lowAt);
     this.thermo.set(s, status);

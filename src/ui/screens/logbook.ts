@@ -258,6 +258,9 @@ export class LogbookPanel {
         { class: 'logbook-row-text' },
         h('span', { class: 'logbook-name' }, this.outputName(row)),
         row.here ? null : h('span', { class: 'logbook-station' }, this.madeAt(row)),
+        row.needsLevel === 0
+          ? null
+          : h('span', { class: 'logbook-station' }, t('logbook.level', { n: row.needsLevel })),
         h('span', { class: 'logbook-pips' }, ...row.pips.map((pip) => this.pip(row, pip))),
       ),
     );
@@ -311,6 +314,8 @@ export class LogbookPanel {
     if (!row.discovered)
       out.push(h('p', { class: 'logbook-undiscovered' }, t('logbook.undiscovered')));
     if (!row.here) out.push(h('p', { class: 'logbook-station' }, this.madeAt(row)));
+    if (row.needsLevel > 0)
+      out.push(h('p', { class: 'logbook-station' }, t('logbook.level', { n: row.needsLevel })));
     if (row.discovered)
       for (const line of itemLines(this.art.registry, recipe.output.item))
         out.push(h('p', { class: 'logbook-info' }, line));

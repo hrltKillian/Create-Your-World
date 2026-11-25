@@ -80,6 +80,8 @@ export interface ConsumeDef {
   readonly toxicity?: number;
   /** What the item turns into once consumed. */
   readonly returns?: ItemKey;
+  /** Inventory slots it adds once used (a backpack frame), up to the largest inventory. */
+  readonly bagSlots?: number;
 }
 
 export type ContainerContents = 'empty' | 'raw' | 'boiled' | 'foul';
@@ -183,6 +185,8 @@ export interface RecipeDef {
   readonly output: ItemCount;
   /** Known from the start; the others are revealed once one of their ingredients has been seen. */
   readonly known?: 'start';
+  /** Crafted only from this player level on (plan v3 « M22 »). */
+  readonly level?: number;
 }
 
 /** What a process burns: any fuel, charcoal-grade fuel only, or nothing. */

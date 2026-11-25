@@ -8,6 +8,7 @@ import type { Inventory, ItemStack } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
 import type { BlockCell, InteractionState } from './player.ts';
+import type { Skills, TaskState } from './progression.ts';
 import type { QuestState } from './quests.ts';
 import type { SurvivalState } from './survival.ts';
 import type { TimeState } from './time.ts';
@@ -88,6 +89,12 @@ export interface PlayerRecord {
   readonly pinned: string | null;
   /** Biome keys stood in, sorted (save version 11). */
   readonly biomes: readonly string[];
+  /** Experience, skill points, tasks held, draws and the last redraw's day (save version 12). */
+  readonly xp: number;
+  readonly skills: Readonly<Skills>;
+  readonly tasks: readonly TaskState[];
+  readonly taskDraws: number;
+  readonly rerollDay: number;
   /** Has drunk at least once (from save version 4). */
   readonly drank: boolean;
   /** Creature key → MET (1) or STUDIED (2) (version 9). */

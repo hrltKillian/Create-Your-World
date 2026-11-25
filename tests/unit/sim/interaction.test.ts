@@ -66,7 +66,7 @@ describe('mining', () => {
     const s = setup();
     const stone = registry.defaultState('block:stone');
     expect(canHarvest(registry, stone, -1)).toBe(false);
-    expect(breakSeconds(registry, stone, -1, false)).toBeCloseTo(1.5 * 1.5 * 3.3, 9);
+    expect(breakSeconds(registry, stone, -1, false, 1)).toBeCloseTo(1.5 * 1.5 * 3.3, 9);
     s.put(0, 66, -1, 'block:stone');
     expect(ticksToBreak(s)).toBe(Math.ceil(1.5 * 1.5 * 3.3 * 30));
     s.tick(5); // primary released: the next stone starts with ticksToBreak
@@ -114,7 +114,7 @@ describe('mining', () => {
     const s = setup();
     const dirt = registry.defaultState('block:dirt');
     const pickaxe = registry.itemId('item:flint_pickaxe');
-    expect(breakSeconds(registry, dirt, pickaxe, true)).toBeCloseTo(0.75 / 0.6, 9);
+    expect(breakSeconds(registry, dirt, pickaxe, true, 1)).toBeCloseTo(0.75 / 0.6, 9);
     s.give('item:flint_pickaxe');
     s.put(0, 66, -1, 'block:dirt');
     ticksToBreak(s);

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -129,6 +129,20 @@ export const MIGRATIONS: readonly MigrationStep[] = [
           };
       return { ...record, quests, pinned: null, biomes: [] };
     },
+    column: (record) => record,
+  },
+  // 11 → 12 (plan v3 « M22 »): no XP nor skill point yet; tasks are drawn at the first check. The
+  // quests done but not claimed give their XP when claimed.
+  {
+    world: (record) => record,
+    player: (record) => ({
+      ...record,
+      xp: 0,
+      skills: {},
+      tasks: [],
+      taskDraws: 0,
+      rerollDay: -1,
+    }),
     column: (record) => record,
   },
 ];

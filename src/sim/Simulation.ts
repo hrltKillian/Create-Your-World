@@ -28,6 +28,7 @@ import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
+import { applyProgressCommand } from './progression.ts';
 import { applyQuestCommand, stepQuests } from './quests.ts';
 import { applyScreenCommand, checkOpened } from './screens.ts';
 import { stepSleep } from './sleep.ts';
@@ -344,6 +345,13 @@ export class Simulation implements ColumnSink {
       case 'craft.cancel': {
         const player = this.players.get(playerId);
         if (player) applyCraftCommand(this, player, command, out);
+        break;
+      }
+      case 'skill.spend':
+      case 'task.claim':
+      case 'task.reroll': {
+        const player = this.players.get(playerId);
+        if (player) applyProgressCommand(this, player, command, out);
         break;
       }
       case 'quest.claim':

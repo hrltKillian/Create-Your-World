@@ -233,7 +233,7 @@ export const M10_SUITE: readonly SelftestCase[] = [
     skip: needsFlatPlayer,
     run: async (app) => {
       const session = await playerSession(app);
-      const full = app.registry!.pack.balance.health.max;
+      const full = session.player.survival.healthMax;
       const prowler = creatureWith(app, 'stalker');
       await standAt(app, HUNT);
       // North, along −z: « face au joueur ».

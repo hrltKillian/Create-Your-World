@@ -14,7 +14,7 @@ import type {
   StationDef,
   TierDef,
 } from './itemSchema.ts';
-import type { QuestDef } from './questSchema.ts';
+import type { QuestDef, TaskDef } from './questSchema.ts';
 
 export * from './balanceSchema.ts';
 export * from './creatureSchema.ts';
@@ -658,6 +658,8 @@ export interface ContentPack {
   readonly balance: BalanceDef;
   /** The quest graph: each quest after those it requires (plan v3 « M21 »). */
   readonly quests?: readonly QuestDef[];
+  /** General tasks drawn for each player (plan v3 « M22 »). */
+  readonly tasks?: readonly TaskDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

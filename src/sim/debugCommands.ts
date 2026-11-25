@@ -13,6 +13,7 @@ import { freshStack } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
+import { staminaMax } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { surfaceAt } from './surface.ts';
 import { clampGauge, DEATH_CAUSES, GAUGES } from './survival.ts';
@@ -94,11 +95,12 @@ export function applyDebugCommand(
 /** Sets a gauge, clamped to its range (survival.ts `clampGauge`); false for an unknown gauge. */
 function setStat(sim: Simulation, player: PlayerState, stat: DebugStat, value: number): boolean {
   if (stat === 'stamina') {
-    player.stamina = Math.max(0, Math.min(STAMINA.max, value));
+    const top = staminaMax(player, sim.registry.pack.balance, STAMINA.max);
+    player.stamina = Math.max(0, Math.min(top, value));
     return true;
   }
   if (!GAUGES.includes(stat)) return false;
-  player.survival[stat] = clampGauge(stat, value, sim.registry.pack.balance);
+  player.survival[stat] = clampGauge(stat, value, sim.registry.pack.balance, player.survival);
   return true;
 }
 

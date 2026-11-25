@@ -3,6 +3,7 @@ import { TICK_SECONDS, TICKS_PER_SECOND, ticksOf } from './clock.ts';
 import { type Contact, sampleEnvironment, touch } from './environment.ts';
 import { wearFilters } from './equipment.ts';
 import type { SimEvent } from './events.ts';
+import { metabolismFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 
 /*
@@ -39,6 +40,8 @@ export const DEATH_CAUSES: readonly DeathCause[] = [
 /** A player's survival state: plain data, hashed and saved whole. */
 export interface SurvivalState {
   health: number;
+  /** Largest health: the balance's plus vitality (sim/progression.ts `healthMax`). */
+  healthMax: number;
   hunger: number;
   thirst: number;
   /** −limit…+limit; drifts towards `target`. */
@@ -71,6 +74,7 @@ export interface SurvivalState {
 export function createSurvival(b: BalanceDef): SurvivalState {
   return {
     health: b.health.max,
+    healthMax: b.health.max,
     hunger: b.hunger.max,
     thirst: b.thirst.max,
     temperature: 0,
@@ -95,8 +99,8 @@ const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
 export type Gauge = 'health' | 'hunger' | 'thirst' | 'temperature' | 'toxicity' | 'breath';
 
 /** The top of each gauge's range: 0…top, the temperature −top…+top (the one range table). */
-const GAUGE_TOP: Readonly<Record<Gauge, (b: BalanceDef) => number>> = {
-  health: (b) => b.health.max,
+const GAUGE_TOP: Readonly<Record<Gauge, (b: BalanceDef, s: Readonly<SurvivalState>) => number>> = {
+  health: (_, s) => s.healthMax,
   hunger: (b) => b.hunger.max,
   thirst: (b) => b.thirst.max,
   temperature: (b) => b.temperature.limit,
@@ -105,9 +109,14 @@ const GAUGE_TOP: Readonly<Record<Gauge, (b: BalanceDef) => number>> = {
 };
 export const GAUGES = Object.keys(GAUGE_TOP) as readonly Gauge[];
 
-/** A value of a gauge kept within its range. */
-export function clampGauge(gauge: Gauge, value: number, b: BalanceDef): number {
-  const top = GAUGE_TOP[gauge](b);
+/** A value of a gauge kept within its range (a player's: their largest health). */
+export function clampGauge(
+  gauge: Gauge,
+  value: number,
+  b: BalanceDef,
+  s: Readonly<SurvivalState>,
+): number {
+  const top = GAUGE_TOP[gauge](b, s);
   return Math.max(gauge === 'temperature' ? -top : 0, Math.min(top, value));
 }
 
@@ -125,7 +134,7 @@ export function adjustGauges(
 ): void {
   s.hunger = clamp(s.hunger + hunger, b.hunger.max);
   s.thirst = clamp(s.thirst + thirst, b.thirst.max);
-  s.health = clamp(s.health + health, b.health.max);
+  s.health = clamp(s.health + health, s.healthMax);
   s.toxicity = clamp(s.toxicity + toxicity, b.toxicity.max);
 }
 
@@ -155,6 +164,8 @@ export function thermalStatus(temperature: number, b: BalanceDef): number {
 /** What a player does and touches this tick, besides the sampled environment. */
 export interface Exposure extends Contact {
   sprinting: boolean;
+  /** Factor on the hunger and thirst rates (the metabolism skill). */
+  metabolism: number;
   /** The head is under a liquid. */
   underwater: boolean;
 }
@@ -173,11 +184,13 @@ function drift(value: number, target: number, b: BalanceDef, minutes: number): n
 /** One tick of the gauges, their damage and regeneration. */
 export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
   const minutes = TICK_SECONDS / 60;
-  const hunger = b.hunger.perMin * (e.sprinting ? b.hunger.sprintFactor : 1) * minutes;
-  const effort = s.staminaSpent / b.hunger.staminaPerPoint;
+  const hunger =
+    b.hunger.perMin * (e.sprinting ? b.hunger.sprintFactor : 1) * e.metabolism * minutes;
+  const effort = (s.staminaSpent / b.hunger.staminaPerPoint) * e.metabolism;
   s.hunger = clamp(s.hunger - hunger - effort, b.hunger.max);
   s.staminaSpent = 0;
-  const thirst = b.thirst.perMin * (e.sprinting ? b.thirst.sprintFactor : 1) * minutes;
+  const thirst =
+    b.thirst.perMin * (e.sprinting ? b.thirst.sprintFactor : 1) * e.metabolism * minutes;
   s.thirst = clamp(s.thirst - thirst, b.thirst.max);
   s.temperature = drift(s.temperature, s.target, b, minutes);
   const sources = s.airToxicity + e.toxicity;
@@ -209,9 +222,9 @@ function takeDamage(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>, minu
 /** Health comes back while fed and calm for a while. */
 function regenerate(s: SurvivalState, b: BalanceDef): void {
   const h = b.health;
-  if (s.health <= 0 || s.health >= h.max || s.calmTicks < ticksOf(h.regenDelaySec)) return;
+  if (s.health <= 0 || s.health >= s.healthMax || s.calmTicks < ticksOf(h.regenDelaySec)) return;
   if (s.hunger < h.regenFedAt || s.thirst < h.regenFedAt) return;
-  const healed = Math.min(h.regenPerSec * TICK_SECONDS, h.max - s.health);
+  const healed = Math.min(h.regenPerSec * TICK_SECONDS, s.healthMax - s.health);
   s.health += healed;
   s.hunger = Math.max(0, s.hunger - healed * h.hungerPerPoint);
 }
@@ -236,7 +249,13 @@ function editedNear(
   return false;
 }
 
-const exposure: Exposure = { sprinting: false, underwater: false, toxicity: 0, damage: 0 };
+const exposure: Exposure = {
+  sprinting: false,
+  metabolism: 1,
+  underwater: false,
+  toxicity: 0,
+  damage: 0,
+};
 
 /**
  * Tick step 11 « Survie et environnement » for every living player in a loaded column. The
@@ -258,6 +277,7 @@ export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): v
     if (editedNear(out, first, x, y, z, b.climate.editRadius)) s.sampleTicks = 1;
     touch(sim.registry, sim.world, player, exposure);
     exposure.sprinting = player.sprinting;
+    exposure.metabolism = metabolismFactor(player, b);
     exposure.underwater = body.headInWater;
     stepGauges(s, b, exposure);
     if (sim.tick % TICKS_PER_SECOND === 0) wearFilters(sim.registry, player, out);

@@ -109,6 +109,8 @@ const tools = [
 const equipment = [
   // Studies a creature looked at for 2 s within 24 blocks (the bestiary), in place of a hood.
   gear('scanner', { slot: 'head', scanner: { seconds: 2, range: 24 }, durability: 600 }),
+  // Level 4 (plan v3 « M22 »): twice as quick and farther.
+  gear('scanner_mk2', { slot: 'head', scanner: { seconds: 1, range: 40 }, durability: 1200 }),
   gear('fur_hood', { slot: 'head', warmth: 6, durability: 300 }),
   gear('straw_hat', { slot: 'head', cooling: 6, durability: 200 }),
   gear('bronze_helmet', { slot: 'head', armor: 3, durability: 500 }),
@@ -131,6 +133,8 @@ const consumables = [
     consume: { seconds: 1.2, hunger: 10, toxicity: 10 },
   }),
   item('grilled_meat', { consume: { seconds: 1.2, hunger: 30 } }),
+  // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).
+  item('pack_frame', { consume: { seconds: 1.5, bagSlots: 8 } }),
   item('palmthorn_fruit', {
     hintKey: 'where.palmthorn_fruit',
     consume: { seconds: 1, hunger: 6, thirst: 10 },

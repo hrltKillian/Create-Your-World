@@ -1,6 +1,7 @@
 import type { Registry } from '../content/registry.ts';
 import type { QuestDef } from '../content/schema.ts';
 import { t } from '../i18n/i18n.ts';
+import type { TaskState } from '../sim/progression.ts';
 import type { QuestState } from '../sim/quests.ts';
 import { ingredientName } from './itemSlot.ts';
 
@@ -19,7 +20,7 @@ export interface QuestRow {
   readonly hint: string;
   /** « 1/3 » for a counter, else empty. */
   readonly progress: string;
-  /** « 4 Torch, 2 Cord », or empty. */
+  /** « 20 XP, 4 Torch », or empty. */
   readonly rewards: string;
   readonly pinned: boolean;
 }
@@ -53,12 +54,52 @@ export function questRows(
       name: t(quest.textKey),
       hint: quest.hintKey ? t(quest.hintKey) : '',
       progress: counter && !state.done ? `${state.progress}/${counter.count}` : '',
-      rewards: (quest.rewards ?? [])
-        .map((r) => t('quests.reward', { count: r.count, item: ingredientName(registry, r.item) }))
-        .join(', '),
+      rewards: [
+        ...(quest.xp ? [t('quests.xp', { xp: quest.xp })] : []),
+        ...(quest.rewards ?? []).map((r) =>
+          t('quests.reward', { count: r.count, item: ingredientName(registry, r.item) }),
+        ),
+      ].join(', '),
       pinned: pinned === quest.key,
     });
   }
   // A stable sort: the pack's order within each status.
   return rows.sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+}
+
+export interface TaskRow {
+  /** Its place among the player's tasks (the commands' `index`). */
+  readonly index: number;
+  readonly task: string;
+  readonly name: string;
+  /** « 12/64 ». */
+  readonly progress: string;
+  readonly xp: string;
+  readonly done: boolean;
+  /** Not done, and no task redrawn today. */
+  readonly canReroll: boolean;
+}
+
+/** The rows of the player's tasks (`reroll`: no task was redrawn today). */
+export function taskRows(
+  registry: Registry,
+  tasks: readonly Readonly<TaskState>[],
+  reroll: boolean,
+): TaskRow[] {
+  const rows: TaskRow[] = [];
+  tasks.forEach((held, index) => {
+    const def = registry.pack.tasks?.find((task) => task.key === held.key);
+    if (!def) return;
+    const done = held.progress >= def.counter.count;
+    rows.push({
+      index,
+      task: def.key,
+      name: t(def.textKey),
+      progress: `${Math.min(held.progress, def.counter.count)}/${def.counter.count}`,
+      xp: t('quests.xp', { xp: def.xp }),
+      done,
+      canReroll: reroll && !done,
+    });
+  });
+  return rows;
 }
