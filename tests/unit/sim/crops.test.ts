@@ -16,6 +16,7 @@ import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
  */
 
 const BUSH = 'block:berry_bush';
+const FARMLAND = 'block:farmland';
 const crop = registry.blockDef(registry.defaultState(BUSH)).crop!;
 const harvestItems = registry.loot(crop.harvest)!.entries.map((e) => e.item as string);
 const LONGEST = ticksOf(crop.seconds[1]);
@@ -57,8 +58,11 @@ describe('crops', () => {
     expect(s.block(0, 65, -3)).toBe(`${BUSH}[ripe=1]`);
   });
 
-  it('are planted bare from their harvest, not eaten, and ripen in the light', () => {
+  it('are planted bare from their harvest on watered farmland, not eaten, and ripen', () => {
     const s = field();
+    // Watered farmland (plan v3 « M33 »: farmland.ts), the pool two blocks off.
+    s.put(2, 64, -1, 'block:fresh_water');
+    s.put(0, 64, -1, `${FARMLAND}[moist=1]`);
     s.give(SEED, 2);
     s.send({ type: 'debug.setStat', stat: 'hunger', value: 20 });
     const hunger = s.player.survival.hunger;
@@ -75,14 +79,19 @@ describe('crops', () => {
     expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=1]`);
   });
 
-  it('are eaten where their harvest cannot be planted (looking at the sky)', () => {
+  it('are eaten where their harvest cannot be planted: grass, the sky', () => {
     const s = field();
-    s.give(SEED, 2);
+    s.give(SEED, 3);
     s.send({ type: 'debug.setStat', stat: 'hunger', value: 20 });
     const eat = ticksOf(registry.item(SEED)!.consume!.seconds);
     s.tick(eat, { secondary: true, pitch: 1.2 });
+    expect(countItem(s.player.inventory, SEED)).toBe(2);
+    // Grass is not farmland: the berries are eaten, nothing planted.
+    s.tick(1);
+    s.tick(eat, { secondary: true, target: { x: 0, y: 64, z: -1, face: 2 } });
+    expect(s.block(0, 65, -1)).toBe('block:air');
     expect(countItem(s.player.inventory, SEED)).toBe(1);
-    expect(eventsOf(s.events, 'consumed').map((e) => e.item)).toEqual([SEED]);
+    expect(eventsOf(s.events, 'consumed').map((e) => e.item)).toEqual([SEED, SEED]);
   });
 
   it('wait in the dark: no ripening shut in stone until the sky comes back', () => {

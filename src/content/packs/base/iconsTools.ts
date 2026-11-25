@@ -59,6 +59,25 @@ const HATCHET = [
   '...33...........',
   '................',
 ];
+/** A hoe (plan v3 « M33 »): a flat blade across the top of the handle. */
+const HOE = [
+  '................',
+  '................',
+  '..000000........',
+  '.01222210000....',
+  '.011111105543...',
+  '..0000000343....',
+  '.........343....',
+  '........343.....',
+  '.......343......',
+  '......343.......',
+  '.....343........',
+  '....343.........',
+  '...343..........',
+  '..343...........',
+  '..33............',
+  '................',
+];
 const PICKAXE = [
   '................',
   '.....0000.......',
@@ -139,6 +158,8 @@ export const toolIcons = [
   icon('tex:icon_flint_hatchet', 103, FLINT_TOOL, HATCHET),
   icon('tex:icon_flint_pickaxe', 107, FLINT_TOOL, PICKAXE),
   icon('tex:icon_flint_spear', 109, FLINT_TOOL, SPEAR),
+  icon('tex:icon_flint_hoe', 120, FLINT_TOOL, HOE),
+  icon('tex:icon_copper_hoe', 121, COPPER_TOOL, HOE),
   // Plan v3 « M33 »: pole shade, pole, line, float, grip.
   icon(
     'tex:icon_fishing_rod',

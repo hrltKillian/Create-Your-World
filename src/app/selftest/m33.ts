@@ -17,8 +17,9 @@ import {
 } from './support.ts';
 
 /*
- * M33 farming and fishing (plan v3 « M33 »): a crop planted from its harvest starts bare, ripens
- * in the light within its time, is picked by secondary (its harvest popped out at its foot, picked
+ * M33 farming and fishing (plan v3 « M33 »): a hoe tills the ground into farmland, watered by a
+ * pool nearby; a crop planted on it from its harvest starts bare, ripens in the light within its
+ * time, is picked by secondary (its harvest popped out at its foot, picked
  * up from one block away; the plant bare again); a rod held on a pool of water with fish lands a catch and wears. Crops, rods and fish
  * come from the pack's data.
  */
@@ -28,7 +29,7 @@ const SPOT = { x: 110, z: -60 };
 const SLOT = HOTBAR_SLOTS - 1;
 
 const cropCase: SelftestCase = {
-  name: 'a crop planted bare ripens in the light, is picked by secondary and grows back',
+  name: 'a hoe tills watered farmland; a crop planted there ripens, is picked and grows back',
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
   run: async (app) => {
@@ -43,15 +44,35 @@ const cropCase: SelftestCase = {
     const world = session.host.view.world;
     // One block ahead: its harvest drops within the player's reach.
     const cell = { x: SPOT.x, y: FLAT_SURFACE + 1, z: SPOT.z - 1 };
+    const ground = { ...cell, y: cell.y - 1 };
+    const pool = { x: SPOT.x + 2, y: FLAT_SURFACE, z: SPOT.z - 1 };
+    const under = world.getBlock(ground.x, ground.y, ground.z);
     const ripe = () => registry.prop(world.getBlock(cell.x, cell.y, cell.z), 'ripe');
+    const hoe = registry.items.find((item) => item.hoe);
+    const water = registry.pack.blocks.find((b) => b.liquid?.fish);
+    assert(hoe?.hoe && water, 'the pack has no hoe or no water');
     try {
       await standAt(app, SPOT);
-      // Planted from its harvest (berries), else from its own item.
-      const seed = registry.items.find((item) => item.places === crop.key)?.key;
-      inventory[SLOT] = { item: seed ?? blockItemKey(crop.key), count: 1 };
+      const { x, y, z } = pool;
+      fill(app, x, y, z, x, y, z, stateKey(app, registry.defaultState(water.key)));
+      // Tilled with a hoe: farmland, watered by the pool two blocks off.
+      inventory[SLOT] = { item: hoe.key, count: 1, durability: hoe.hoe.durability };
       app.input!.slot = SLOT;
       session.step(1);
-      await aimAt(app, { ...cell, y: cell.y - 1 }, 0.99);
+      await aimAt(app, ground, 0.99);
+      press(app, 'secondary', 1);
+      press(app, 'secondary', 0);
+      session.step(1);
+      const soil = world.getBlock(ground.x, ground.y, ground.z);
+      assert(
+        registry.blockDef(soil).soil && registry.prop(soil, 'moist') === '1',
+        `tilled, the ground is ${stateKey(app, soil)}`,
+      );
+      // Planted from its harvest (berries), else from its own item, on the farmland.
+      const seed = registry.items.find((item) => item.places === crop.key)?.key;
+      inventory[SLOT] = { item: seed ?? blockItemKey(crop.key), count: 1 };
+      session.step(1);
+      await aimAt(app, ground, 0.99);
       press(app, 'secondary', 1);
       press(app, 'secondary', 0);
       session.step(1);
@@ -69,6 +90,9 @@ const cropCase: SelftestCase = {
       assert(count() > before, 'the harvest did not reach the bag');
     } finally {
       fill(app, cell.x, cell.y, cell.z, cell.x, cell.y, cell.z, stateKey(app, registry.air));
+      fill(app, ground.x, ground.y, ground.z, ground.x, ground.y, ground.z, stateKey(app, under));
+      fill(app, pool.x, pool.y, pool.z, pool.x, pool.y, pool.z, stateKey(app, under));
+      inventory[SLOT] = null;
       app.input!.slot = 0;
       session.step(1);
     }

@@ -281,7 +281,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     seconds, light; the `ripe` state, ripe by default; `isRipeCrop`, `harvestCrop` (secondary: the
     harvest popped out at its foot, the reference game's sweet berries), `stripCrop` (grazed bare),
     planted from their harvest (`ItemDef.places`: a food that plants, on the press where it holds,
-    else eaten: `plantsHere` in interaction.ts), `scheduleRipening`/`ripenCrop` on block update
+    else eaten: `plantsHere` in interaction.ts) on farmland only (`sim/farmland.ts`: a hoe
+    `ItemDef.hoe` tills a block's `BlockDef.tills` (`till`, from the placement branch); farmland
+    `BlockDef.soil` with the `moist` state, checked on block update `UPDATE_SOIL` (`checkSoil`:
+    watered within `soil.irrigation`, else dry, dry and empty back to `soil.dries`), trampled by
+    a landing (`stepTrampling`), a dry one ripens crops twice as slowly (`soilFactor`); planting
+    elsewhere is refused `soil`, hint `hint.needsFarmland`), `scheduleRipening`/`ripenCrop` on block update
     `UPDATE_GROW`; planted bare by `planPlacement`; broken ripe: `dropHarvest`, over `dropLoot` of
     blockRemoval.ts); fishing `sim/fishing.ts` (`holdRod` before `holdUse`: `ItemDef.rod`,
     `LiquidDef.fish`, `BiomeDef.fish`; `aimedLiquidCell`, `held` of consume.ts; event

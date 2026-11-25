@@ -117,9 +117,10 @@ function checkItems(
     }
     // Tools, weapons, gear, rods and water containers keep their own wear or charges, so they
     // never stack (stackLimit): a pack may not say otherwise.
-    const wears = tool || item.weapon || item.wear || item.container || item.rod;
+    const wears = tool || item.weapon || item.wear || item.container || item.rod || item.hoe;
     if (wears && max !== undefined && max !== 1)
       add(`${path}.maxStack`, 'an item that wears or holds charges must have maxStack 1');
+    if (item.hoe) checkDurability(item.hoe.durability, `${path}.hoe.durability`, add);
     const rod = item.rod;
     if (rod) {
       checkDurability(rod.durability, `${path}.rod.durability`, add);

@@ -142,8 +142,10 @@ of them:
 then open `http://localhost:5173/?skipMenu=1`.
 
 - **Pick crops**: right click a ripe berry bush, frost bulb or palmthorn; the harvest pops out at
-  its foot and the plant grows back in a few minutes in the light. Right click the ground with
-  berries (or an ice bulb) to plant a new bush; anywhere else, they are eaten.
+  its foot and the plant grows back in a few minutes in the light.
+- **Farm**: till grass or dirt with a hoe (flint, by hand); water within 4 blocks keeps the
+  farmland wet. Right click farmland with berries (or an ice bulb) to plant; anywhere else they
+  are eaten. Dry farmland grows slowly and, left empty, turns back into dirt; don't jump on it.
 - **Cook**: at a campfire, a raw fish grills; raw meat with two berries makes a hearty stew, the
   most filling dish.
 - **Fish**: craft a fishing rod (3 sticks, 2 cords) and hold right click on fresh water; the

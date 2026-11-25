@@ -94,6 +94,9 @@ const tools = [
   hatchet('flint', 4),
   pickaxe('flint'),
   item('flint_spear', { weapon: weapon(6, 0.8, 4, 'flint') }),
+  // Plan v3 « M33 »: hoes till grass and dirt into farmland, wearing like the tools of their metal.
+  item('flint_hoe', { hoe: { durability: TOOL_TIERS.flint.durability } }),
+  item('copper_hoe', { hoe: { durability: TOOL_TIERS.copper.durability } }),
   // Plan v3 « M33 »: a bite every 5–12 s on water with fish.
   item('fishing_rod', { rod: { seconds: [5, 12], durability: 48 } }),
   hatchet('copper', 5),

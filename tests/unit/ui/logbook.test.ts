@@ -90,6 +90,7 @@ describe('Logbook', () => {
       'recipe:flint_knife',
       'recipe:flint_hatchet',
       'recipe:flint_pickaxe',
+      'recipe:flint_hoe',
     ]);
     expect(keys(rows).slice(0, craftable.length)).toEqual(craftable);
     // Then the other revealed ones, then the undiscovered ones, each in pack order.
@@ -199,10 +200,11 @@ describe('Logbook', () => {
           row(rows, key).recipe.inputs.some((input) => input.item === 'item:flint'),
         ),
       );
-      expect(flint.slice(0, 3)).toEqual([
+      expect(flint.slice(0, 4)).toEqual([
         'recipe:flint_knife',
         'recipe:flint_hatchet',
         'recipe:flint_pickaxe',
+        'recipe:flint_hoe',
       ]);
       // A tag is searched by its name (« Any Log »).
       expect(kept('any log')).toContain('recipe:planks');
@@ -238,6 +240,7 @@ describe('Logbook', () => {
         'recipe:flint_knife',
         'recipe:flint_hatchet',
         'recipe:flint_pickaxe',
+        'recipe:flint_hoe',
       ]);
       expect(kept('pickaxe', true)).toEqual(['recipe:flint_pickaxe']);
       expect(kept('shard', true)).toEqual([]);

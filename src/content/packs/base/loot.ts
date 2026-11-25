@@ -47,6 +47,12 @@ export const loot = [
     entries: [{ item: 'item:stick', count: [1, 2], weight: 1 }],
   },
   {
+    // Farmland gives its dirt back (plan v3 « M33 »).
+    key: 'loot:farmland',
+    rolls: [1, 1],
+    entries: [{ item: 'item:dirt', count: [1, 1], weight: 1 }],
+  },
+  {
     // Fishing (plan v3 « M33 »): fresh water gives a fish half the time, else what drifts in it.
     key: 'loot:fish',
     rolls: [1, 1],

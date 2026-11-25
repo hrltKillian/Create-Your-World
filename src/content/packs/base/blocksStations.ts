@@ -31,6 +31,22 @@ export const stationBlocks = [
     minTier: 1,
   }),
   {
+    // Plan v3 « M33 »: tilled with a hoe, watered within 4 blocks, crops planted on it.
+    key: 'block:farmland',
+    nameKey: 'block.farmland',
+    shape: 'cube',
+    pass: 'opaque',
+    textures: { top: 'tex:farmland', side: 'tex:dirt', bottom: 'tex:dirt' },
+    collision: 'full',
+    opaque: true,
+    hardness: 0.6,
+    drops: 'loot:farmland',
+    states: ['moist'],
+    whenState: { moist: { textures: { top: 'tex:farmland_moist' } } },
+    soil: { irrigation: 4, dries: 'block:dirt' },
+    sound: 'soil',
+  },
+  {
     key: 'block:glowbloom_lantern',
     nameKey: 'block.glowbloom_lantern',
     shape: { boxes: LANTERN },

@@ -115,6 +115,7 @@ export const blocks = [
     opaque: true,
     hardness: 0.5,
     drops: 'self',
+    tills: 'block:farmland',
     sound: 'soil',
   },
   {
@@ -129,6 +130,7 @@ export const blocks = [
     // Rooted turf is tougher than loose dirt, and gives dirt.
     hardness: 0.9,
     drops: 'loot:grass',
+    tills: 'block:farmland',
     sound: 'soil',
   },
   {

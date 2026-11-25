@@ -7,6 +7,7 @@ import { UPDATE_GROW } from './blockUpdates.ts';
 import { ticksOf } from './clock.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
+import { soilFactor } from './farmland.ts';
 import type { Simulation } from './Simulation.ts';
 
 /*
@@ -14,8 +15,9 @@ import type { Simulation } from './Simulation.ts';
  * its harvest while `ripe`. Secondary on a ripe one picks it: the harvest pops out at its foot, the
  * plant stays bare (broken ripe, it drops its harvest too; a grazing creature leaves it bare,
  * without the harvest). A bare one ripens `crop.seconds` later (block updates,
- * UPDATE_GROW) where the sky or a lamp gives it `crop.light`; in the dark it waits as long again.
- * A planted one starts bare (placement.ts); generated ones are ripe.
+ * UPDATE_GROW) where the sky or a lamp gives it `crop.light` (twice that on dry farmland); in the
+ * dark it waits as long again. A planted one starts bare, on farmland only (placement.ts,
+ * farmland.ts); generated ones are ripe.
  */
 
 /** Salts of the hashes (a crop's delay, its harvest roll). */
@@ -40,7 +42,7 @@ export function scheduleRipening(sim: Simulation, x: number, y: number, z: numbe
   const min = ticksOf(crop.seconds[0]);
   const span = ticksOf(crop.seconds[1]) - min + 1;
   const delay = min + (hash32(hash32(sim.ctx.seedHash, x, y, z), sim.tick, GROW_SALT) % span);
-  sim.blockUpdates.schedule(x, y, z, UPDATE_GROW, sim.tick + delay);
+  sim.blockUpdates.schedule(x, y, z, UPDATE_GROW, sim.tick + delay * soilFactor(sim, x, y, z));
 }
 
 /** Leaves the ripe crop at a cell bare (picked or grazed); it ripens again later. */

@@ -95,6 +95,14 @@ export interface RodDef {
   readonly durability: number;
 }
 
+/**
+ * A hoe (plan v3 « M33 »): secondary on a block that `tills` (grass, dirt) with air above turns it
+ * into farmland, one use of its `durability` each.
+ */
+export interface HoeDef {
+  readonly durability: number;
+}
+
 export type ContainerContents = 'empty' | 'raw' | 'boiled' | 'foul';
 
 /**
@@ -133,6 +141,7 @@ export interface ItemDef {
   readonly consume?: ConsumeDef;
   readonly container?: LiquidContainerDef;
   readonly rod?: RodDef;
+  readonly hoe?: HoeDef;
   readonly fuel?: FuelDef;
   /** Where the item is found (i18n key): the Logbook's hint for an ingredient not yet seen. */
   readonly hintKey?: string;

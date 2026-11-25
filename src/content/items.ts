@@ -9,7 +9,7 @@ export const DEFAULT_STACK = 64;
  * `maxStack`, else DEFAULT_STACK.
  */
 export function stackLimit(item: ItemDef): number {
-  if (item.tool || item.weapon || item.wear || item.container || item.rod) return 1;
+  if (item.tool || item.weapon || item.wear || item.container || item.rod || item.hoe) return 1;
   return item.maxStack ?? DEFAULT_STACK;
 }
 
@@ -125,6 +125,7 @@ export function buildItemTables(
       item.weapon?.durability ??
       item.wear?.durability ??
       item.rod?.durability ??
+      item.hoe?.durability ??
       charges(item);
     const block = item.places ?? placed.get(item.key);
     if (block !== undefined) tables.places[i] = blockState(block);

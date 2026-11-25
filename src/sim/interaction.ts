@@ -11,6 +11,7 @@ import { harvestCrop, isRipeCrop, scheduleRipening } from './crops.ts';
 import { recoverPack } from './death.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
+import { till } from './farmland.ts';
 import { holdRod } from './fishing.ts';
 import { spendUses, takeFromSlot } from './inventory.ts';
 import { meleeTarget, stepMelee } from './melee.ts';
@@ -35,6 +36,9 @@ import type { Simulation } from './Simulation.ts';
 import { sleepOn } from './sleep.ts';
 import { exhaust } from './survival.ts';
 import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
+
+/** HUD hint of a crop planted elsewhere than on farmland (engine i18n key). */
+export const SOIL_HINT = 'hint.needsFarmland';
 
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
 const BROKEN = 1 - 1e-9;
@@ -144,8 +148,8 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
 /**
  * Secondary button: an aimed interactive block on the press; else a journal in hand read on the
  * press; else a food that plants (berries) planted on the press where it holds; else what the hand
- * fishes, eats, drinks or fills while held; else a placement on the press, then every
- * PLACE_REPEAT_TICKS while held.
+ * fishes, eats, drinks or fills while held; else a hoe's tilling or a placement on the press, then
+ * every PLACE_REPEAT_TICKS while held.
  */
 function useButton(sim: Simulation, player: PlayerState, status: number, out: SimEvent[]): void {
   const st = player.interaction;
@@ -180,7 +184,9 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
   if (!pressed && --st.useCooldown > 0) return;
   st.useCooldown = PLACE_REPEAT_TICKS;
   if (status === AIM_OUT_OF_REACH) reject(out, player.playerId, 'input', 'reach');
-  else if (status === AIM_HIT) place(sim, player, out);
+  // A hoe tills the aimed block (plan v3 « M33 »); anything else is placed.
+  else if (status === AIM_HIT && !till(sim, player, hit.x, hit.y, hit.z, out))
+    place(sim, player, out);
 }
 
 /**
@@ -283,6 +289,8 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   );
   if (refusal) {
     reject(out, player.playerId, 'input', refusal);
+    if (refusal === 'soil')
+      out.push({ type: 'hint', playerId: player.playerId, key: SOIL_HINT, params: {} });
     return;
   }
   const { x, y, z } = placement;

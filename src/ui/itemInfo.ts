@@ -87,7 +87,13 @@ export function itemLines(registry: Registry, key: string): InfoLine[] {
   if (item.fuel) lines.push(t('info.fuel', { seconds: item.fuel.seconds }));
   const rod = item.rod;
   if (rod) lines.push(t('info.rod', { min: rod.seconds[0], max: rod.seconds[1] }));
-  const uses = item.tool?.durability ?? weapon?.durability ?? wear?.durability ?? rod?.durability;
+  if (item.hoe) lines.push(t('info.hoe'));
+  const uses =
+    item.tool?.durability ??
+    weapon?.durability ??
+    wear?.durability ??
+    rod?.durability ??
+    item.hoe?.durability;
   if (uses) lines.push(t('info.durability', { n: uses }));
   return lines;
 }

@@ -46,6 +46,13 @@ describe('HUD model', () => {
     expect(targetText(registry, ripe, -1, 'Right click').hint).toBe('Right click to pick');
     const bare = registry.withState(ripe, 'ripe', '0');
     expect(targetText(registry, bare, -1, 'Right click').hint).toBe('Growing back');
+    // Dry farmland says how to water it.
+    const farmland = registry.defaultState('block:farmland');
+    expect(targetText(registry, farmland, -1, 'Right click').hint).toBe(
+      'Dry: water within 4 blocks',
+    );
+    const watered = registry.withState(farmland, 'moist', '1');
+    expect(targetText(registry, watered, -1, 'Right click').hint).toBeNull();
     expect(targetText(registry, block(bed.key), -1, 'Right click').hint).toBe(
       'Right click to sleep',
     );
