@@ -83,6 +83,7 @@ export const natureBlocks = [
   {
     key: 'block:foul_water',
     nameKey: 'block.foul_water',
+    states: ['level', 'falling'],
     shape: 'liquid',
     pass: 'translucent',
     cullGroup: 'water',
@@ -103,6 +104,8 @@ export const natureBlocks = [
         'item:flask_empty': 'item:flask_foul',
         'item:waterskin_empty': 'item:waterskin_foul',
       },
+      // Thick and slow, and it never refills itself.
+      flow: { seconds: 0.5, holeSearch: 4, infinite: false },
     },
   },
   {

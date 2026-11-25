@@ -2195,6 +2195,14 @@ Ce plan v2 répond à chacun d'eux.
 - perf « barrage cédé dans une fosse de 20×20 » : tick p95 ≤ 4 ms sous Node ;
 - suite m15 dans la mare de l'arène.
 
+**Retenu à la réalisation** (choix les plus simples qui tiennent la spec) :
+
+- L'eau est une mise à jour de bloc de plus (genre `LIQUID`, `sim/liquids.ts`), due `flow.seconds` après un changement voisin : elle partage la file, la sauvegarde et le budget de l'étape 10 (256 par tick).
+- Les règles suivent celles de la référence, y compris une source en l'air qui déborde d'un bloc tout autour et l'eau à côté d'une chute qu'elle alimente déjà, qui ne va nulle part ailleurs. Les sources ne se vident jamais.
+- Toute modification de bloc (casse, pose, porte, sac abandonné récupéré) réveille les liquides voisins (`noteChanged`). La génération et les remplissages de debug ne réveillent rien : un monde chargé reste immobile tant qu'on n'y touche pas.
+- Hauteurs du dessus en seizièmes, du niveau 0 au niveau 7 : 14, 12, 10, 9, 7, 5, 3, 2 ; un écoulement qui tombe est plein (16). Eau croupie : un pas toutes les 0,5 s.
+- `GEN_VERSION` 5 (les clés d'eau gagnent `level` et `falling`) ; pas de nouvelle version de sauvegarde : la lecture tolérante des clés fait de l'eau d'une ancienne sauvegarde des sources.
+
 ### M16 — Biomes, grottes et minerais de la planète (retours 6, 16, le thème côté génération, le sous-sol)
 
 **Bible du thème** (`docs/theme.md`) : la planète, ses biomes, sa faune, sa flore, ses matériaux et le nom de chaque élément. Les noms sont proposés dans la PR ; tu peux les changer plus tard, ce ne sont que des chaînes.

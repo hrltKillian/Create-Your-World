@@ -51,8 +51,7 @@ const ORIGIN = 1 + PADDED + PADDED_AREA;
 
 const AO_SIDE_FULL = 3;
 const FACE_UP_INDEX = 2;
-/** Liquid surfaces sit 2/16 below the block top. */
-const LIQUID_DROP = 2;
+const FACE_DOWN_INDEX = 3;
 
 class QuadBuffer {
   data = new Uint32Array(QUAD_WORDS * 256);
@@ -334,10 +333,11 @@ function buildSliceMask(voxels: PaddedVoxels, tables: RawTables, face: number, w
       if (shape === SHAPE_CUBE) {
         if (pass === 0 || !faceVisible(tables, id, ids[p + step]!)) continue;
       } else if (shape === SHAPE_LIQUID && face === FACE_UP_INDEX) {
-        // Liquid surfaces are merged too: shown 2/16 lower unless the same liquid is above.
+        // Liquid surfaces are merged too, at the height of their level (equal heights only),
+        // unless the same liquid is above.
         const group = tables.cullGroup[id]!;
         if (group !== 0 && tables.cullGroup[ids[p + step]!] === group) continue;
-        lowered = 1;
+        lowered = 16 - tables.liquidHeight[id]!;
       } else {
         continue;
       }
@@ -418,7 +418,7 @@ function mergeSlice(face: number, plane: number, greedy: boolean): void {
       const tint = (key >>> 9) & 31;
       const flags = (key >>> 14) & 7;
       const w1Base = packW1(layer, face, 0, 0, tint, flags);
-      const drop = (key >>> 19) & 1 ? LIQUID_DROP : 0;
+      const drop = (key >>> 19) & 15;
       emitQuad(buffer, face, plane, drop, uu, vv, width, height, w1Base, a, b);
       uu += width;
     }
@@ -458,22 +458,44 @@ function meshLiquid(
   z: number,
 ): void {
   const { ids } = voxels;
-  const group = tables.cullGroup[id]!;
-  const above = ids[p + PADDED_AREA]!;
-  const top = group !== 0 && tables.cullGroup[above] === group ? 16 : 16 - LIQUID_DROP;
+  const top = liquidTop(tables, ids, p);
   for (let face = 0; face < 6; face++) {
     if (face === FACE_UP_INDEX) continue;
-    if (!faceVisible(tables, id, ids[p + FACE_STEP[face]!]!)) continue;
+    const neighbour = ids[p + FACE_STEP[face]!]!;
+    // Against the same liquid, only the part above a lower neighbour's surface shows.
+    let bottom = 0;
+    if (!faceVisible(tables, id, neighbour)) {
+      if (face === FACE_DOWN_INDEX || !sameLiquid(tables, id, neighbour)) continue;
+      bottom = liquidTop(tables, ids, p + FACE_STEP[face]!);
+      if (bottom >= top) continue;
+    }
     computeCorners(voxels, tables, p, face);
     const w1Base = faceW1(tables, id * 6 + face, face, 0, 0, biomeAt(voxels, p));
     tmpBounds[0] = x * 16;
-    tmpBounds[1] = y * 16;
+    tmpBounds[1] = y * 16 + bottom;
     tmpBounds[2] = z * 16;
     tmpBounds[3] = x * 16 + 16;
     tmpBounds[4] = y * 16 + top;
     tmpBounds[5] = z * 16 + 16;
     emitBox(buffer, face, tmpBounds, w1Base, true);
   }
+}
+
+/** Height (sixteenths) of the liquid surface of padded cell `p`: full under the same liquid. */
+function liquidTop(tables: RawTables, ids: Uint16Array, p: number): number {
+  const id = ids[p]!;
+  const group = tables.cullGroup[id]!;
+  if (group !== 0 && tables.cullGroup[ids[p + PADDED_AREA]!] === group) return 16;
+  return tables.liquidHeight[id]!;
+}
+
+/** Whether two states are liquids of one cull group (fresh and foul water). */
+function sameLiquid(tables: RawTables, a: number, b: number): boolean {
+  return (
+    tables.shape[b] === SHAPE_LIQUID &&
+    tables.cullGroup[a] !== 0 &&
+    tables.cullGroup[a] === tables.cullGroup[b]
+  );
 }
 
 function meshCross(

@@ -217,11 +217,10 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
   const door = registry.pack.sounds?.door;
   const sfx = door ? door[value === '1' ? 'open' : 'close'] : registry.blockSfx(next, 'place');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-  // An open gate bears nothing: what stood on it or hung on its sides checks its support.
-  if ((registry.tables.flags[next]! & FLAG_SOLID) === 0) {
-    noteChanged(sim, x, y, z);
-    if (other !== y) noteChanged(sim, x, other, z);
-  }
+  // An open gate bears nothing: what stood on it or hung on its sides checks its support (and
+  // liquids beside it flow anew).
+  noteChanged(sim, x, y, z);
+  if (other !== y) noteChanged(sim, x, other, z);
 }
 
 /** Places one of the held blocks against the aimed face. */
@@ -246,6 +245,8 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   editBlock(sim.world, sim.light, x, y, z, placement.state, out);
   // A tall block (door): its upper half goes in the cell above, checked free by planPlacement.
   if (placement.upper >= 0) editBlock(sim.world, sim.light, x, y + 1, z, placement.upper, out);
+  // A block placed in or beside a liquid changes its flow.
+  noteChanged(sim, x, y, z);
   // A placed chest or station starts empty (only generated chests hold loot).
   createBlockEntity(sim, x, y, z, false);
   takeFromSlot(player.inventory, player.input.slot, 1);

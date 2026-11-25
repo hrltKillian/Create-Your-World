@@ -125,38 +125,36 @@ boot; a case that needs another setup is skipped, and none may fail. `npm run e2
 each setup the suites need (`e2e/selftest.spec.ts`), and checks that every case ran in at least one
 of them:
 
-| Setup                  | Query                                                      | Runs                                                                         |
-| ---------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| test chunk scene       | `scene=testchunk`                                          | m1                                                                           |
-| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                |
-| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                            |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot                                    |
-| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                               |
-| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel |
-| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                   |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench     |
+| Setup                  | Query                                                      | Runs                                                                                |
+| ---------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| test chunk scene       | `scene=testchunk`                                          | m1                                                                                  |
+| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                       |
+| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                   |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot                                           |
+| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                      |
+| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel        |
+| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                          |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water |
 
 ## Try this milestone
 
-**M14 — Block updates, falling leaves, torches on walls** (plan v2, `docs/conception.md` « M14 »).
-`npm run dev`, then open `http://localhost:5173/?skipMenu=1` and find a tree.
+**M15 — Water** (plan v2, `docs/conception.md` « M15 »). `npm run dev`, then open
+`http://localhost:5173/?worldType=arena` and walk to the pond west of the spawn.
 
-- **Leaves fall**: cut a tree's trunk and, within 2 to 12 seconds, its leaves fall apart as if
-  broken (with their sticks or resin). Leaves you placed yourself never fall; leaves another log
-  still holds (within 5 blocks) stay.
-- **Torches on walls**: aim at the side of a block and place a torch: it hangs on that wall. On the
-  top of a block it stands on the floor; never on a ceiling. Break the wall and the torch falls.
-- **A thin aim**: a torch, a door or a bedroll is aimed at where it is drawn: aim beside a torch
-  and you reach the wall behind it.
-- **Under the hood**: one block-update queue (tick step 10) runs what the world does by itself:
-  supports, decaying leaves (and water next). It runs near players only, at most 256 updates a
-  tick, and is saved with the world (save version 8). Old saves read their torches as standing on
-  the floor and their leaves as grown.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m14` fells a trunk by hand and watches its
-  canopy fall, hangs a torch on a wall, aims past it and breaks the wall.
+- **Water flows**: break a block of the pond's sandy bank and the water pours out, one level
+  thinner a block (seven at most), down first, else towards the nearest drop within 4 blocks. Fill
+  the gap again and the flow dries up behind it. Two sources of fresh water make a third between
+  them (foul water never does, and flows half as fast). Plants in the way are washed away.
+- **Shallow water is shallow**: thin water is drawn lower, and you only swim where it is deep.
+- **Under the hood**: water is one more block update (tick step 10), saved with the world; generated
+  water never moves until something beside it changes (generation version 5).
+- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m15` digs a channel by the pond, breaks the
+  bank and reads the levels down to the fall.
 
 ### Earlier milestones
 
+- **M14, block updates, leaves, torches**: a felled trunk's canopy falls, torches hang on walls
+  and fall with them, a thin aim beside them; `?worldType=flat&fixedStep=1&selftest=m0,m14`.
 - **M13, bag, cursor, Logbook and workbench**: Minecraft-style clicks with a stack on the cursor,
   stacks of 64, the Bag's tabs, a Logbook with search, filter and greyed recipes, the workbench's
   own screen and queue; `?worldType=arena&fixedStep=1&selftest=m0,m13`.

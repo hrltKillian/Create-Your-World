@@ -26,7 +26,7 @@ import {
 } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 4;
+export const GEN_VERSION = 5;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;

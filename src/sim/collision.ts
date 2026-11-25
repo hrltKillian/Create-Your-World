@@ -158,7 +158,10 @@ export function solidCell(
   return (tables.flags[state]! & FLAG_SOLID) !== 0 || state === world.outside;
 }
 
-/** Whether the block containing a point is a liquid. */
+/**
+ * Whether a point is in a liquid: under the surface of the liquid of its cell (a thin flow is
+ * low: `liquidHeight`), or anywhere in a cell under the same liquid.
+ */
 export function isLiquid(
   world: VoxelWorld,
   tables: RawTables,
@@ -166,10 +169,13 @@ export function isLiquid(
   y: number,
   z: number,
 ): boolean {
-  return (
-    tables.collision[world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))] ===
-    COLLISION_LIQUID
-  );
+  const bx = Math.floor(x);
+  const by = Math.floor(y);
+  const bz = Math.floor(z);
+  const state = world.getBlock(bx, by, bz);
+  if (tables.collision[state] !== COLLISION_LIQUID) return false;
+  if ((y - by) * 16 < tables.liquidHeight[state]!) return true;
+  return tables.collision[world.getBlock(bx, by + 1, bz)] === COLLISION_LIQUID;
 }
 
 /** Whether something solid lies under the footprint of the AABB (crouch edge guard). */

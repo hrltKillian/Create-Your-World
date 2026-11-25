@@ -51,8 +51,8 @@ describe('arena world', () => {
 
   it('has a pond, gravel, a tree and a wall of every listed block', () => {
     const { block, world } = arenaWorld();
-    expect(block(-8, G, 3)).toBe('block:fresh_water');
-    expect(block(-8, G - 1, 3)).toBe('block:fresh_water');
+    expect(block(-8, G, 3)).toBe('block:fresh_water[level=0,falling=0]');
+    expect(block(-8, G - 1, 3)).toBe('block:fresh_water[level=0,falling=0]');
     expect(block(-8, G, 7)).toBe('block:sand');
     expect(block(-2, G, 7)).toBe('block:gravel');
     for (let y = G + 1; y <= G + 5; y++) expect(block(9, y, 5)).toBe('block:broadleaf_log[axis=y]');
