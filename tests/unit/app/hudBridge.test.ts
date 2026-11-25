@@ -10,6 +10,7 @@ import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { createPlayer, type PlayerState } from '../../../src/sim/player.ts';
 import { createTime } from '../../../src/sim/time.ts';
+import { MINIMAP_RADIUS } from '../../../src/ui/map.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -90,6 +91,13 @@ function setup(tips: { dusk(): boolean } | null = null) {
     },
     hideScreen() {
       this.open = null;
+    },
+    maps: {
+      radii: [] as number[],
+      view(_player: unknown, radius: number) {
+        this.radii.push(radius);
+        return { columns: [], player: { x: 0.5, z: 0.5, yaw: 0 }, waypoints: [] };
+      },
     },
   };
   const listeners: ((event: unknown) => void)[] = [];
@@ -269,6 +277,16 @@ describe('HudBridge', () => {
     for (let t = 0; t <= BIOME_SETTLE_SECONDS + 0.05; t += 0.1) bridge.frame(0.1);
     expect(banner.classList.contains('play')).toBe(true);
     expect(banner.textContent).toBe(basePack.strings[biomes[1]!.def.nameKey]);
+  });
+
+  it('draws the minimap at 10 Hz under the big map’s key', () => {
+    const { bridge, inventory } = setup();
+    bridge.frame(0.05);
+    expect(inventory.maps.radii).toEqual([MINIMAP_RADIUS]);
+    bridge.frame(0.05);
+    expect(inventory.maps.radii).toHaveLength(1);
+    const hint = bridge.hud.map.element.querySelector('.minimap-hint')!;
+    expect(hint.textContent).toBe('Right click · Map');
   });
 
   it('turns quests, the clock and the night into lines and banners', () => {

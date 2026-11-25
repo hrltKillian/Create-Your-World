@@ -51,6 +51,8 @@ export const FLAG_SOLID = 1;
 export const FLAG_OPAQUE = 2;
 export const FLAG_LIQUID = 4;
 export const FLAG_REPLACEABLE = 8;
+/** A ladder: bodies climb in it (sim/physics.ts). */
+export const FLAG_CLIMBABLE = 16;
 
 /** Per-face flags (also written into vertices). */
 export const FACEFLAG_SWAY = 1;
@@ -365,7 +367,8 @@ export function buildRegistry(pack: ContentPack): Registry {
       (collides ? FLAG_SOLID : 0) |
       (eff.opaque ? FLAG_OPAQUE : 0) |
       (block.shape === 'liquid' ? FLAG_LIQUID : 0) |
-      (block.replaceable ? FLAG_REPLACEABLE : 0);
+      (block.replaceable ? FLAG_REPLACEABLE : 0) |
+      (block.climbable ? FLAG_CLIMBABLE : 0);
     tables.emit[s] = eff.emit;
     tables.lightFilter[s] = eff.opaque ? 15 : eff.filter;
     tables.pass[s] = passCode(block.pass, block.shape);

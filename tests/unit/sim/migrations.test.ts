@@ -28,8 +28,10 @@ import { cellKey, columnKey } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, settle } from '../../helpers/save.ts';
 
+/** What version 13 adds to every older player: nothing explored, no waypoint. */
+const V13 = { explored: [], waypoints: [] };
 /** What version 12 adds to every older player: no XP, skill, task, draw nor redraw. */
-const V12 = { xp: 0, skills: {}, tasks: [], taskDraws: 0, rerollDay: -1 };
+const V12 = { xp: 0, skills: {}, tasks: [], taskDraws: 0, rerollDay: -1, ...V13 };
 /** What version 11 adds to every older player: no quest, none pinned, no biome walked. */
 const V11 = { quests: {}, pinned: null, biomes: [], ...V12 };
 
@@ -434,6 +436,7 @@ describe('save versions', () => {
 
   it('starts a version 11 player at no XP, and loads the v12 fixture', async () => {
     expect(migrate('player', { playerId: 1 }, 11)).toEqual({ playerId: 1, ...V12 });
+    expect(migrate('player', { playerId: 1 }, 12)).toEqual({ playerId: 1, ...V13 });
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(12), removed: [] });
     const { sim } = await restoreFrom(storage);
@@ -446,5 +449,17 @@ describe('save versions', () => {
     );
     expect(player.tasks.map((task) => task.key)).toEqual(['task:dig', 'task:meals', 'task:night']);
     expect([player.taskDraws, player.rerollDay]).toEqual([3, 1]);
+  });
+
+  it('loads the v13 fixture: the columns explored and the well-formed waypoints', async () => {
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(13), removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = [...sim.players.values()][0]!;
+    expect(Object.keys(player.explored).sort()).toEqual(['-1,0', '0,-1', '0,0', '0,1', '1,0']);
+    expect(player.waypoints).toEqual([
+      { name: 'Camp', x: 0, z: 0 },
+      { name: 'Cave', x: -40, z: 72 },
+    ]);
   });
 });

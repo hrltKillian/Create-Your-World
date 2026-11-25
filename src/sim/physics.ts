@@ -1,4 +1,4 @@
-import type { RawTables } from '../content/registry.ts';
+import { FLAG_CLIMBABLE, type RawTables } from '../content/registry.ts';
 import { BODY_HEIGHT, CROUCH_BODY_HEIGHT, CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { aabb, isLiquid, moveAxis, overlapsSolid, solidCell, supported } from './collision.ts';
@@ -29,6 +29,9 @@ export const PHYSICS = {
    */
   jumpCooldownTicks: 10,
   swimUp: 3.2,
+  /** On a ladder (plan v3 « M27 »): the climbing speed, and the slide down while nothing is held. */
+  climb: 2.4,
+  climbSlide: 2,
   /** Height the feet clear above a bank's top when climbing out of water. */
   bankClearance: 0.1,
 } as const;
@@ -47,6 +50,8 @@ export interface Body {
   /** The feet touch a liquid (water exit boost). */
   feetInWater: boolean;
   headInWater: boolean;
+  /** Feet or middle in a ladder: forward or jump climbs, crouch holds, nothing slides down. */
+  onLadder: boolean;
   /** Direction (−1, 0, 1) of horizontal moves blocked last tick, per axis (climbing out of water). */
   wallX: number;
   wallZ: number;
@@ -95,6 +100,7 @@ export function createBody(x: number, y: number, z: number): Body {
     vz: 0,
     onGround: false,
     inWater: false,
+    onLadder: false,
     feetInWater: false,
     headInWater: false,
     wallX: 0,
@@ -186,6 +192,10 @@ export function stepBody(
   body.inWater = isLiquid(world, tables, body.x, body.y + 0.4, body.z);
   body.feetInWater = body.inWater || isLiquid(world, tables, body.x, body.y + 0.05, body.z);
   body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
+  body.onLadder =
+    !body.inWater &&
+    (climbableAt(world, tables, body.x, body.y + 0.05, body.z) ||
+      climbableAt(world, tables, body.x, body.y + 0.9, body.z));
   const sprinting = input.sprint && !body.crouching && !body.inWater && input.forward > 0;
   out.sprinting = sprinting;
   accelerate(body, input, world, tables, sprinting, dt);
@@ -197,6 +207,12 @@ export function stepBody(
   body.y = aabb[1]!;
   body.z = (aabb[2]! + aabb[5]!) / 2;
   return out;
+}
+
+/** Whether the cell at a point holds a ladder. */
+function climbableAt(world: VoxelWorld, tables: RawTables, x: number, y: number, z: number) {
+  const state = world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
+  return (tables.flags[state]! & FLAG_CLIMBABLE) !== 0;
 }
 
 /** Crouch phase: follows the input (never in water), but standing up needs head room. */
@@ -300,6 +316,13 @@ function jumpAndGravity(
     body.vy = Math.max(-PHYSICS.swim * 1.5, body.vy - g * dt);
     return dy;
   }
+  if (body.onLadder) {
+    // Forward or jump climbs, crouch holds on, nothing held slides down slowly.
+    if (input.forward > 0 || input.jump) body.vy = PHYSICS.climb;
+    else if (input.crouch) body.vy = 0;
+    else body.vy = Math.max(-PHYSICS.climbSlide, body.vy - PHYSICS.gravity * dt);
+    return body.vy * dt;
+  }
   if (exit > 0) body.vy = Math.max(body.vy, exit);
   const canJump = ready && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
   if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
@@ -337,7 +360,8 @@ function moveY(
     body.fallStartY = aabb[1]!;
   } else {
     body.airTicks++;
-    if (body.inWater) body.fallStartY = aabb[1]!;
+    // Water and ladders break a fall.
+    if (body.inWater || body.onLadder) body.fallStartY = aabb[1]!;
     else body.fallStartY = Math.max(body.fallStartY, aabb[1]!);
   }
 }

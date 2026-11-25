@@ -7,6 +7,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { addStrings } from '../../../src/i18n/i18n.ts';
 import { DEFAULT_BINDINGS } from '../../../src/input/bindings.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
+import type { Command } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -51,7 +52,16 @@ afterEach(() => {
 function setup() {
   const s = playerTestSim({ seed: 'inventory-ui' });
   const listeners: ((event: SimEvent) => void)[] = [];
-  const session = { host: s.host, player: s.player, listeners };
+  /** The types of the commands the screens send. */
+  const sent: string[] = [];
+  const host = {
+    view: s.host.view,
+    send: (command: Command) => {
+      sent.push(command.type);
+      s.host.send(command);
+    },
+  };
+  const session = { host, player: s.player, listeners };
   const gate = {
     screenOpen: false,
     closes: 0,
@@ -86,7 +96,7 @@ function setup() {
     for (const event of s.send(...commands)) for (const listener of listeners) listener(event);
   };
   s.put(CAMPFIRE.x, CAMPFIRE.y, CAMPFIRE.z, 'block:campfire[lit=0]');
-  return { ...s, ui, gate, send };
+  return { ...s, ui, gate, send, sent };
 }
 
 describe('InventoryUi', () => {
@@ -150,6 +160,26 @@ describe('InventoryUi', () => {
     // Reopened by E: the Inventory, whatever was shown last.
     press('KeyE');
     expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'inventory']);
+  });
+
+  it('opens the big map on M, the client’s alone; M closes it, and closes another screen', () => {
+    const { ui, gate, sent } = setup();
+    const press = (code: string) =>
+      keydown({
+        code,
+        repeat: false,
+        defaultPrevented: false,
+        preventDefault() {},
+      } as KeyboardEvent);
+    press('KeyM');
+    expect([ui.screen(), gate.screenOpen]).toEqual(['map', true]);
+    press('KeyM');
+    expect([ui.screen(), gate.screenOpen]).toEqual([null, false]);
+    // No screen of the simulation's opened or closed for it.
+    expect(sent).toEqual([]);
+    press('KeyE');
+    press('KeyM');
+    expect(ui.screen()).toBeNull();
   });
 
   it("cancels Tab's focus move when it closes the bag, a clicked button holding the focus", () => {

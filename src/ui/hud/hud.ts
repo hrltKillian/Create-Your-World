@@ -5,6 +5,7 @@ import { AttackGauge } from './attackGauge.ts';
 import { CombatMarks } from './combatMarks.ts';
 import { Compass } from './compass.ts';
 import { Flash } from './flash.ts';
+import { Minimap } from './minimap.ts';
 import { PickupFeed } from './pickups.ts';
 import { PinnedQuest } from './pinnedQuest.ts';
 import { ScanRing } from './scanRing.ts';
@@ -17,7 +18,7 @@ import { Vitals } from './vitals.ts';
  * The survival HUD of a play session (docs « Interface », original layout): vignettes under
  * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc, the
  * hit marker and the damage arcs around the crosshair; the compass, the clock and the target name
- * and the pinned quest at the top centre; the day's banners, the
+ * and the pinned quest at the top centre; the minimap at the top right; the day's banners, the
  * biome's name on entering it and the sleep fade; and the death screen. Built once;
  * `app/HudBridge.ts` refreshes it.
  */
@@ -31,6 +32,7 @@ export class Hud {
   readonly attack = new AttackGauge();
   readonly combat = new CombatMarks();
   readonly compass = new Compass();
+  readonly map = new Minimap();
   readonly clock: HTMLElement;
   readonly target = new TargetLine();
   readonly quest = new PinnedQuest();
@@ -61,6 +63,7 @@ export class Hud {
       this.attack.element,
       this.combat.element,
       this.vitals.element,
+      this.map.element,
       this.pickups.element,
       this.banner.element,
       this.biome.element,

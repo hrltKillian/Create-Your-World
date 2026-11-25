@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { MapModel } from '../../../src/app/mapModel.ts';
 import { queueView, stationStatus, UiBridge } from '../../../src/app/UiBridge.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { addStrings } from '../../../src/i18n/i18n.ts';
@@ -12,9 +13,11 @@ import { createInventory, type Inventory, type ItemStack } from '../../../src/si
 import { createSkills } from '../../../src/sim/progression.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
+import { BIG_MAP_RADIUS, type MapView } from '../../../src/ui/map.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
 import type { ContainerScreen } from '../../../src/ui/screens/container.ts';
 import type { LogbookState } from '../../../src/ui/screens/logbook.ts';
+import type { MapScreen } from '../../../src/ui/screens/mapScreen.ts';
 import type { StationScreen, StationStatus } from '../../../src/ui/screens/station.ts';
 import type { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -59,6 +62,14 @@ function setup(entity?: BlockEntity) {
   const container = screen<[Inventory, Cursor]>();
   const station = screen<[Inventory, Cursor, StationStatus]>();
   const workbench = screen<[Inventory, Cursor, LogbookState]>();
+  const map = screen<[MapView]>();
+  const maps = {
+    radii: [] as number[],
+    view(_player: unknown, radius: number) {
+      this.radii.push(radius);
+      return { columns: [], player: { x: 0, z: 0, yaw: 0 }, waypoints: [] };
+    },
+  };
   const input = { slot: 0 };
   const player = {
     playerId: 1,
@@ -89,8 +100,10 @@ function setup(entity?: BlockEntity) {
     container: container as unknown as ContainerScreen,
     station: station as unknown as StationScreen,
     workbench: workbench as unknown as WorkbenchScreen,
+    map: map as unknown as MapScreen,
+    maps: maps as unknown as MapModel,
   });
-  return { bridge, hotbar, bag, container, station, workbench, hint, input, player };
+  return { bridge, hotbar, bag, container, station, workbench, map, maps, hint, input, player };
 }
 
 const FRAME = 1 / 60;
@@ -205,6 +218,16 @@ describe('UiBridge', () => {
     expect(logbook.queue).toEqual([queueView(registry, entry)]);
     // The bench's queue: the chest's entry takes 62 more, then 4 free entries of 64.
     expect(logbook.source.room(registry.crafting.recipe('recipe:chest')!)).toBe(62 + 4 * 64);
+  });
+
+  it('draws the big map while it shows, with the columns within its radius', () => {
+    const { bridge, map, maps } = setup();
+    bridge.frame(FRAME);
+    expect(map.updates).toHaveLength(0);
+    map.open = true;
+    bridge.frame(FRAME);
+    expect(map.updates).toHaveLength(1);
+    expect(maps.radii).toEqual([BIG_MAP_RADIUS]);
   });
 
   it("shows its player's hints, translated, and keeps the hint line's clock running", () => {

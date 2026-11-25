@@ -16,6 +16,7 @@ import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
+import { MINIMAP_RADIUS } from '../ui/map.ts';
 import { questLine } from '../ui/quests.ts';
 import type { GameSession } from './GameSession.ts';
 import { BiomeWatch, targetText } from './hudModel.ts';
@@ -33,7 +34,7 @@ const REFRESH_SECONDS = 0.1;
 
 /**
  * Keeps the survival HUD in step with the local player: the compass and the pickup lines every
- * frame, the rest at 10 Hz and at once after the player's quest, death and respawn events.
+ * frame, the rest (the minimap too) at 10 Hz and at once after the player's quest, death and respawn events.
  * Shows the day's banners (the first sunset's goes to the onboarding's dusk tip when it shows
  * one), the biome entered, the sleep fade, the quest messages and the pinned quest, the items
  * picked up, the hit marker and the damage arcs, and runs the death screen: it takes the open
@@ -67,6 +68,7 @@ export class HudBridge {
     moon: Number.NaN,
     quest: Number.NaN,
     graves: [] as number[],
+    waypoints: [] as number[],
   };
 
   /** `layer`: the world's play layer (the HUD goes under its overlays, the death screen over). */
@@ -188,6 +190,7 @@ export class HudBridge {
     this.updateTarget();
     this.updateTargets(hour);
     this.updateBiome(dt);
+    hud.map.update(this.inventory.maps.view(player, MINIMAP_RADIUS), this.input.keyLabel('map'));
     this.syncDeath();
   }
 
@@ -252,7 +255,7 @@ export class HudBridge {
     return this.session.host.view.registry.pack.quests?.find((quest) => quest.key === key);
   }
 
-  /** Bearings of the sun or moon, the pinned quest's direction and the player's packs. */
+  /** Bearings of the sun or moon, the pinned quest's direction, the player's packs and waypoints. */
   private updateTargets(hour: number): void {
     const targets = this.targets;
     const sun = sunBearing(hour);
@@ -266,6 +269,12 @@ export class HudBridge {
     for (let i = 0; i < graves.length; i++) {
       const grave = graves[i]!;
       targets.graves[i] = bearingOf(grave.x + 0.5 - body.x, grave.z + 0.5 - body.z);
+    }
+    const waypoints = this.session.player.waypoints;
+    targets.waypoints.length = waypoints.length;
+    for (let i = 0; i < waypoints.length; i++) {
+      const w = waypoints[i]!;
+      targets.waypoints[i] = bearingOf(w.x + 0.5 - body.x, w.z + 0.5 - body.z);
     }
   }
 

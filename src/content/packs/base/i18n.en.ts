@@ -14,6 +14,8 @@ export const strings = {
   'block.foliage': 'Lanternwood Leaves',
   'block.planks': 'Planks',
   'block.glass': 'Glass',
+  'block.ladder': 'Ladder',
+  'block.trapdoor': 'Trapdoor',
   'block.fresh_water': 'Water',
   'block.tall_grass': 'Tall Grass',
   'block.torch': 'Torch',

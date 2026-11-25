@@ -5,6 +5,7 @@ import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
 import { consuming, NO_USE } from './consume.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
+import type { Waypoint } from './exploration.ts';
 import { createInventory, type Inventory, type ItemStack } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
 import { createSkills, type Skills, staminaMax, type TaskState } from './progression.ts';
@@ -135,6 +136,9 @@ export interface PlayerState {
   /** Tasks drawn so far (the next draw's number) and the day of the last redraw (−1: none). */
   taskDraws: number;
   rerollDay: number;
+  /** Columns explored (`cx,cz` keys) and the places marked (sim/exploration.ts). */
+  explored: Record<string, true>;
+  waypoints: Waypoint[];
   /** Has drunk at least once: a sip, or a consumable that quenches thirst (quests). */
   drank: boolean;
   /** The bestiary: creature key → MET or STUDIED (sim/bestiary.ts). */
@@ -215,6 +219,8 @@ export function createPlayer(
     tasks: [],
     taskDraws: 0,
     rerollDay: -1,
+    explored: {},
+    waypoints: [],
     drank: false,
     bestiary: {},
     scanId: -1,

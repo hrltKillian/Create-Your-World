@@ -2827,6 +2827,14 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - Carte du monde découverte (onglet Carte), balises sur la boussole.
 - Échelles et trappes pour les grottes et les puits.
 
+**Retenu à la réalisation** :
+
+- Échelles : `BlockDef.climbable` (drapeau `FLAG_CLIMBABLE`). Dans une échelle, avancer ou sauter fait monter à `PHYSICS.climb` (2,4 blocs/s), s'accroupir y tient immobile, sinon on glisse à `PHYSICS.climbSlide` (2 blocs/s) au plus. La chute repart du barreau quitté : une échelle ne blesse pas. Elle s'accroche au mur visé (`attach`), sans collision, texture ajourée (motif `ladder`). Recette à la main : 7 bâtons donnent 3 échelles.
+- Trappes : posée en haut de sa case, au ras du sol autour d'un puits ; fermée, on marche dessus ; ouverte (état `open`, comme la porte), elle se dresse contre le côté nord et laisse passer. Recette à l'établi : 3 planches. Les faces des blocs en boîtes prennent la lumière la plus forte entre leur case et celle qu'elles regardent (une porte ou une trappe fermées ne restent plus noires).
+- Exploration : chaque seconde, les colonnes à 2 colonnes ou moins du joueur sont marquées explorées (`player.explored`, `sim/exploration.ts`). Balises : 8 au plus, nommées (24 caractères, le nom vide devient les coordonnées), posées aux pieds du joueur par `waypoint.add` et retirées par `waypoint.remove` ; la boussole les montre en losanges. SAVE 13.
+- Carte : d'abord prévue en onglet du sac, elle passe sur le HUD après la troisième partie test (le joueur veut la voir tout le temps). Une **minicarte** ronde en haut à droite montre ±4 colonnes autour du joueur, nord en haut, le joueur au centre en flèche, les balises en losanges (gardées au bord quand elles sont plus loin). La touche **M** (`Semicolon` aussi, là où le M est imprimé sur un clavier AZERTY) ouvre la **grande carte** (±12 colonnes), un écran de taille fixe propre au client (la simulation n'y ouvre rien), avec la liste des balises (« Retirer », la liste défile) et un champ de nom avec « Marquer ce lieu ». Les deux sont colorées depuis la génération elle-même (eau sous la mer, herbe du biome éclaircie avec l'altitude ; rien à charger ; l'herbe du premier biome dans les mondes plats de test) : elles montrent le terrain généré, pas les constructions.
+- Selftest `m27` (`?worldType=flat&fixedStep=1&selftest=m0,m27`).
+
 ### M28 — Confort d'inventaire
 
 - Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.

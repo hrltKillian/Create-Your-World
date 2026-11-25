@@ -77,11 +77,13 @@ export interface CompassTargets {
   readonly quest: number;
   /** The player's Abandoned Packs. */
   readonly graves: readonly number[];
+  /** The player's waypoints (plan v3 « M27 »). */
+  readonly waypoints: readonly number[];
 }
 
 /**
  * The compass strip at the top centre (docs « Interface »): N/E/S/W and the points between, the
- * sun or moon, the pinned quest's direction and a marker for each Abandoned Pack. Marks only
+ * sun or moon, the pinned quest's direction and a marker for each Abandoned Pack and waypoint. Marks only
  * move through CSS variables; `update` may run every frame.
  */
 export class Compass {
@@ -91,6 +93,7 @@ export class Compass {
   private readonly moon = new Mark('compass-moon');
   private readonly quest = new Mark('compass-quest');
   private readonly graves: Mark[] = [];
+  private readonly waypoints: Mark[] = [];
   private readonly strip: HTMLElement;
 
   constructor() {
@@ -120,13 +123,18 @@ export class Compass {
     this.sun.place(targets.sun, heading);
     this.moon.place(targets.moon, heading);
     this.quest.place(targets.quest, heading);
-    const graves = targets.graves;
-    while (this.graves.length < graves.length) {
-      const mark = new Mark('compass-grave');
-      this.graves.push(mark);
+    this.placeAll(this.graves, 'compass-grave', targets.graves, heading);
+    this.placeAll(this.waypoints, 'compass-waypoint', targets.waypoints, heading);
+  }
+
+  /** A pool of marks of one kind at the given bearings (marks are made as needed, never dropped). */
+  private placeAll(pool: Mark[], className: string, bearings: readonly number[], heading: number) {
+    while (pool.length < bearings.length) {
+      const mark = new Mark(className);
+      pool.push(mark);
       this.strip.append(mark.element);
     }
-    for (let i = 0; i < this.graves.length; i++)
-      this.graves[i]!.place(i < graves.length ? graves[i]! : Number.NaN, heading);
+    for (let i = 0; i < pool.length; i++)
+      pool[i]!.place(i < bearings.length ? bearings[i]! : Number.NaN, heading);
   }
 }

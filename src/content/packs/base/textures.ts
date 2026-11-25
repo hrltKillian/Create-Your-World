@@ -368,6 +368,19 @@ export const textures = [
     seed: 123,
   },
   {
+    key: 'tex:ladder',
+    pattern: 'ladder',
+    palette: ['#4a3220', '#7a5434', '#96683f'],
+    seed: 451,
+    alpha: 'coverage',
+  },
+  {
+    key: 'tex:trapdoor',
+    pattern: 'planks',
+    palette: ['#4a3220', '#6e4a2e', '#86603d', '#9a7048', '#b08456'],
+    seed: 453,
+  },
+  {
     key: 'tex:bricks',
     pattern: 'bricks',
     palette: ['#4a2a22', '#8a4a38', '#9c5743', '#ae654f'],

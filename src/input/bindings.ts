@@ -19,6 +19,7 @@ export type Action =
   | 'bestiary'
   | 'quests'
   | 'status'
+  | 'map'
   | 'drop'
   | 'camera'
   | 'debug'
@@ -40,6 +41,7 @@ export const ACTIONS: readonly Action[] = [
   'bestiary',
   'quests',
   'status',
+  'map',
   'drop',
   'camera',
   'debug',
@@ -64,6 +66,8 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   bestiary: ['KeyB'],
   quests: ['KeyJ'],
   status: ['KeyU'],
+  // M where it is printed: KeyM on QWERTY, Semicolon on AZERTY (keyLabel shows the letter).
+  map: ['KeyM', 'Semicolon'],
   drop: ['KeyG'],
   camera: ['KeyV'],
   debug: ['F3', 'Backquote', 'IntlBackslash'],
@@ -102,6 +106,7 @@ const KEY_ONLY: readonly Action[] = [
   'bestiary',
   'quests',
   'status',
+  'map',
   'debug',
   'pause',
 ];

@@ -138,21 +138,24 @@ of them:
 
 ## Try this milestone
 
-**M26 — The lost colony** (plan v3, `docs/conception.md` « M26 »). `npm run dev`, then open
+**M27 — Exploration** (plan v3, `docs/conception.md` « M27 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **Your crashed capsule** lies near where you wake: its salvage locker keeps the capsule's parts
-  (the Field Scanner is made from them) and your log.
-- **The colony's sites**: the outpost 120–250 blocks away, the north relay in the Rimefrost and the
-  marsh station in the Sporefen, each with its journal; ruins everywhere keep torn pages.
-- **Blueprints** teach the Colony Lamp and Colony Bricks at the workbench; journals are read in
-  their description.
-- **Story quests** follow the colonists from the crash to the relay and the station.
-- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m26`;
-  `__game.world.findStructure('structure:outpost')`.
+- **The minimap** at the top right: the land you walked around you, coloured by biome and height,
+  you as an arrow; **M** opens the big map.
+- **Waypoints**: name a place and mark it on the big map; it shows on the minimap and on the
+  compass as a diamond wherever you go (eight at most, removed from the list).
+- **Ladders** (7 sticks make 3, by hand) hang on the wall you aim at: forward or jump climbs,
+  crouch holds, letting go slides down unhurt.
+- **Trapdoors** (3 planks at the workbench) close a shaft flush with the floor; secondary opens
+  and closes them.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m27`.
 
 ### Earlier milestones
 
+- **M26, the lost colony**: the crashed capsule near the spawn, the outpost, the north relay and
+  the marsh station with their journals, blueprints for the Colony Lamp and Bricks, story quests;
+  `?seed=7&rd=4&fixedStep=1&selftest=m0,m26`.
 - **M25, fauna of the new biomes**: the Glimmerback of the Capwood and the Reedwader of the Mirror
   Basin; `?worldType=flat&fixedStep=1&selftest=m0,m25`.
 - **M24, caves to visit and common ores**: wide caves with walkable entrances near everywhere,

@@ -141,9 +141,13 @@ export class InputManager {
     return command;
   }
 
-  /** Label of the first key bound to an action, on the player's keyboard layout. */
+  /** Label of the key bound to an action on the player's keyboard layout: the first, or the first printed with a letter. */
   keyLabel(action: Action): string {
-    return this.labels.label(this.bindings[action].find((code) => code !== UNBOUND) ?? '');
+    const labels = this.bindings[action]
+      .filter((code) => code !== UNBOUND)
+      .map((code) => this.labels.label(code));
+    // A key bound twice for two layouts (the map's M) shows the one printed with a letter.
+    return labels.find((label) => /^\p{L}$/u.test(label)) ?? labels[0] ?? this.labels.label('');
   }
 
   dispose(): void {

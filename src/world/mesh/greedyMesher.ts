@@ -543,8 +543,6 @@ function meshBoxes(
 ): void {
   const { ids, light } = voxels;
   const cellLight = light[p]!;
-  const sky = skyOf(cellLight) * 4;
-  const blk = blockOf(cellLight) * 4;
   const boxes = tables.boxShapes[tables.boxShape[id]!] ?? [];
   for (const box of boxes) {
     const [bx0, by0, bz0, bx1, by1, bz1] = box;
@@ -562,7 +560,13 @@ function meshBoxes(
         (face === 3 && by0 === 0) ||
         (face === 4 && bz1 === 16) ||
         (face === 5 && bz0 === 0);
-      if (onBoundary && (tables.flags[ids[p + FACE_STEP[face]!]!]! & FLAG_OPAQUE) !== 0) continue;
+      const front = p + FACE_STEP[face]!;
+      if (onBoundary && (tables.flags[ids[front]!]! & FLAG_OPAQUE) !== 0) continue;
+      // A face is seen from the cell it looks into: a box that filters light (a closed gate or
+      // trapdoor) keeps none in its own cell, so the brighter of the two lights it.
+      const frontLight = light[front]!;
+      const sky = Math.max(skyOf(cellLight), skyOf(frontLight)) * 4;
+      const blk = Math.max(blockOf(cellLight), blockOf(frontLight)) * 4;
       const w1 = faceW1(tables, id * 6 + face, face, sky, blk, biomeAt(voxels, p));
       emitBox(buffer, face, tmpBounds, w1, false);
     }

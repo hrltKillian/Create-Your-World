@@ -22,6 +22,7 @@ import { applyDebugCommand } from './debugCommands.ts';
 import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
 import type { SimEvent } from './events.ts';
+import { applyWaypointCommand, stepExploration } from './exploration.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
 import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
@@ -253,6 +254,7 @@ export class Simulation implements ColumnSink {
     this.columns.promote(out);
     this.columns.stream(out);
     stepQuests(this, out, first);
+    stepExploration(this);
   }
 
   /** Integrates and requests outside play (loading screen, tests). */
@@ -345,6 +347,12 @@ export class Simulation implements ColumnSink {
       case 'craft.cancel': {
         const player = this.players.get(playerId);
         if (player) applyCraftCommand(this, player, command, out);
+        break;
+      }
+      case 'waypoint.add':
+      case 'waypoint.remove': {
+        const player = this.players.get(playerId);
+        if (player) applyWaypointCommand(player, command, out);
         break;
       }
       case 'skill.spend':

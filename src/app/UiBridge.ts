@@ -13,13 +13,16 @@ import { levelOf, SKILLS } from '../sim/progression.ts';
 import { bestiaryRows } from '../ui/bestiary.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
+import { BIG_MAP_RADIUS } from '../ui/map.ts';
 import { questRows, taskRows } from '../ui/quests.ts';
 import type { BagScreen } from '../ui/screens/bag.ts';
 import type { ContainerScreen } from '../ui/screens/container.ts';
 import type { LogbookState, QueueView } from '../ui/screens/logbook.ts';
+import type { MapScreen } from '../ui/screens/mapScreen.ts';
 import type { StationScreen, StationStatus } from '../ui/screens/station.ts';
 import type { WorkbenchScreen } from '../ui/screens/workbench.ts';
 import { statusView } from '../ui/status.ts';
+import type { MapModel } from './mapModel.ts';
 import { canReroll, progressOf } from './progressModel.ts';
 
 /** Seconds between two refreshes of the HUD and the open screens (10 Hz). */
@@ -33,13 +36,15 @@ export interface InventoryViews {
   readonly container: ContainerScreen;
   readonly station: StationScreen;
   readonly workbench: WorkbenchScreen;
+  readonly map: MapScreen;
+  readonly maps: MapModel;
 }
 
-type OpenScreen = 'bag' | 'container' | 'station' | 'workbench' | null;
+type OpenScreen = 'bag' | 'container' | 'station' | 'workbench' | 'map' | null;
 
 /**
  * Refreshes the hotbar and the open screen (the bag with its Logbook, a chest, a station, a
- * workbench with its own Logbook) with the cursor stack, from the player's live state: at 10 Hz,
+ * workbench with its own Logbook, the big map) with the cursor stack, from the player's live state: at 10 Hz,
  * at once after an inventory, craft or block entity event, when the selected slot changes and when
  * a screen opens. The views diff what they show, so a refresh that changes nothing touches no DOM.
  * The player's hints (SimEvent `hint`) go to the HUD hint line.
@@ -100,15 +105,18 @@ export class UiBridge {
     const inventory = this.player.inventory;
     hotbar.update(inventory, this.input.slot);
     if (open === 'bag') this.bagScreen();
+    else if (open === 'map')
+      this.views.map.update(this.views.maps.view(this.player, BIG_MAP_RADIUS));
     else if (open) this.blockScreen(open);
   }
 
   private openScreen(): OpenScreen {
-    const { bag, container, station, workbench } = this.views;
+    const { bag, container, station, workbench, map } = this.views;
     if (bag.isOpen()) return 'bag';
     if (container.isOpen()) return 'container';
     if (station.isOpen()) return 'station';
-    return workbench.isOpen() ? 'workbench' : null;
+    if (workbench.isOpen()) return 'workbench';
+    return map.isOpen() ? 'map' : null;
   }
 
   /**

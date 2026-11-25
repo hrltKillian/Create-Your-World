@@ -85,7 +85,13 @@ describe('compass', () => {
     const marks = fake(compass.element).findAll((e) => e.className.includes('compass-mark'));
     const north = marks.find((m) => m.textContent === 'N')!;
     const south = marks.find((m) => m.textContent === 'S')!;
-    compass.update(0, { sun: QUARTER / 2, moon: Number.NaN, quest: Number.NaN, graves: [0] });
+    compass.update(0, {
+      sun: QUARTER / 2,
+      moon: Number.NaN,
+      quest: Number.NaN,
+      graves: [0],
+      waypoints: [],
+    });
     expect(north.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('1');
     expect(south.style.getPropertyValue('--o')).toBe('0');
@@ -94,7 +100,13 @@ describe('compass', () => {
     const graves = () =>
       fake(compass.element).findAll((e) => e.className.includes('compass-grave'));
     expect(graves()).toHaveLength(1);
-    compass.update(Math.PI, { sun: Number.NaN, moon: Number.NaN, quest: 0, graves: [] });
+    compass.update(Math.PI, {
+      sun: Number.NaN,
+      moon: Number.NaN,
+      quest: 0,
+      graves: [],
+      waypoints: [],
+    });
     expect(south.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('0');
     expect(graves()[0]!.style.getPropertyValue('--o')).toBe('0');

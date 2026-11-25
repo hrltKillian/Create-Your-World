@@ -239,6 +239,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
     `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
     `sim/time.ts`;
+  - exploration (plan v3 « M27 »): `sim/exploration.ts` (`stepExploration` once a second marks
+    `player.explored` (`exploredKey`) within `EXPLORE_RADIUS` columns; `player.waypoints`, at most
+    `MAX_WAYPOINTS`, commands `waypoint.add {name}`/`waypoint.remove {index}`, event
+    `waypointsChanged`); the maps: colours `app/mapModel.ts` (`MapModel.view(player, radius)`:
+    from the generation, no column loaded; `InventoryUi.maps`), `ui/map.ts` (`MAP_CELLS`,
+    `MINIMAP_RADIUS`/`BIG_MAP_RADIUS`, sides, `MapView`), the canvas `ui/mapCanvas.ts`
+    (`MapCanvas`, centred on the player, `UNEXPLORED`), the HUD's minimap `ui/hud/minimap.ts`
+    (`#hud-map`, HudBridge at 10 Hz) and the big map screen `ui/screens/mapScreen.ts` (key M,
+    `ui.screen()` 'map', `#screen-map`, the client's alone: `InventoryUi.toggleMap`; `data-action`
+    `waypoint-name`/`waypoint-add`/`waypoint-remove`, rows `data-waypoint`); waypoints on the compass (`CompassTargets.waypoints`,
+    `.compass-waypoint`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
+    `climbSlide`, `Body.onLadder`, no fall damage); trapdoors use the gate's `open` state; box
+    faces are lit by the brighter of their cell and the cell they face (greedyMesher `meshBoxes`);
   - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
     `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
     `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),
@@ -461,6 +474,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Exploration checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m27` (`selftest/m27.ts`):
+  a ladder placed on a wall climbed and slid down unhurt, a trapdoor opened and closed, the
+  minimap drawn, M opens the big map, a waypoint marked by its button shows on the compass and is
+  removed by its button.
 - Colony checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m26` (`selftest/m26.ts`): every
   story site in its range of the spawn, the nearest one's chest keeping its loot. Story sites
   (`StructureDef.place`), `columnSites`, `structureLootAt` and `findStructure` live in
