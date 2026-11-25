@@ -29,6 +29,12 @@ function midGame() {
   player.quests['quest:first'] = { progress: 2, done: true, claimed: false };
   player.pinned = 'quest:first';
   player.biomes['biome:tundra'] = true;
+  player.xp = 420;
+  player.skills.vitality = 2;
+  player.survival.healthMax += 20;
+  player.tasks[0] = { key: 'task:dig', progress: 9 };
+  player.taskDraws = 4;
+  player.rerollDay = 0;
   player.drank = true;
   s.step(45);
   return { ...s, player };

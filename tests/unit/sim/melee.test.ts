@@ -65,13 +65,15 @@ const blows = (s: Harness) => eventsOf(s.events, 'creatureHurt').map((e) => e.am
 
 describe('melee formulas', () => {
   it('strong blows deal ×1.8 and knock back ×1.5, stealthy ones ×1.5', () => {
-    expect(meleeDamage(spear, false, false)).toBe(6);
-    expect(meleeDamage(spear, false, true)).toBeCloseTo(9, 9);
-    expect(meleeDamage(knife, true, false)).toBeCloseTo(4 * 1.8, 9);
-    expect(meleeDamage(knife, true, true)).toBeCloseTo(4 * 1.8 * 1.5, 9);
+    expect(meleeDamage(spear, false, false, 1)).toBe(6);
+    expect(meleeDamage(spear, false, true, 1)).toBeCloseTo(9, 9);
+    expect(meleeDamage(knife, true, false, 1)).toBeCloseTo(4 * 1.8, 9);
+    expect(meleeDamage(knife, true, true, 1)).toBeCloseTo(4 * 1.8 * 1.5, 9);
     expect(meleeKnockback(hand, false)).toBe(1);
     expect(meleeKnockback(hand, true)).toBe(1.5);
     expect(MELEE.strongDamage).toBe(1.8);
+    // Strength (plan v3 « M22 »): its factor on every blow.
+    expect(meleeDamage(spear, false, false, 1.12)).toBeCloseTo(6 * 1.12, 9);
   });
 
   it('armour lets 20/(20 + A) of the damage through', () => {

@@ -89,7 +89,7 @@ const coldCase: SelftestCase = {
     const session = await playerSession(app);
     const b = app.registry!.pack.balance;
     await standAt(app, SPOT);
-    const max = b.health.max;
+    const max = session.player.survival.healthMax;
     setStat(app, 'health', max);
     setStat(app, 'temperature', -(b.temperature.severeAt - 10));
     session.step(5 * 30);

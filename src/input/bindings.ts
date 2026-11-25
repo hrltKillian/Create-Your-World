@@ -18,6 +18,7 @@ export type Action =
   | 'logbook'
   | 'bestiary'
   | 'quests'
+  | 'status'
   | 'drop'
   | 'camera'
   | 'debug'
@@ -38,6 +39,7 @@ export const ACTIONS: readonly Action[] = [
   'logbook',
   'bestiary',
   'quests',
+  'status',
   'drop',
   'camera',
   'debug',
@@ -61,6 +63,7 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   logbook: ['KeyL'],
   bestiary: ['KeyB'],
   quests: ['KeyJ'],
+  status: ['KeyU'],
   drop: ['KeyG'],
   camera: ['KeyV'],
   debug: ['F3', 'Backquote', 'IntlBackslash'],
@@ -98,6 +101,7 @@ const KEY_ONLY: readonly Action[] = [
   'logbook',
   'bestiary',
   'quests',
+  'status',
   'debug',
   'pause',
 ];

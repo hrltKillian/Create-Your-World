@@ -21,6 +21,8 @@ afterEach(removeFakeDom);
 addStrings(basePack.strings);
 
 const LIMITS = { queue: CRAFT_QUEUE, maxCount: MAX_CRAFT_COUNT };
+/** An empty Status page. */
+const STATUS = { level: 'Level 1', xp: '', pointsLeft: '', skills: [] };
 
 function deps(label = () => 'E') {
   const sent: Command[] = [];
@@ -50,6 +52,7 @@ function logbookSource(owned: Record<string, number>, station?: string): Logbook
     crafting: registry.crafting,
     ...(station === undefined ? {} : { station }),
     seen,
+    level: 1,
     owned: (ingredient) => owned[ingredient] ?? 0,
     room: () => MAX_CRAFT_COUNT,
   };
@@ -130,6 +133,7 @@ describe('BagScreen', () => {
       'logbook',
       'bestiary',
       'quests',
+      'status',
     ]);
     expect([bag.shown(), wear.hidden, fake(logbook.element).hidden]).toEqual([
       'inventory',
@@ -166,13 +170,13 @@ describe('BagScreen', () => {
     const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
     const state = { source: logbookSource({}), queue: [] };
     fake(bag.element).dispatch('pointermove', { clientX: 120, clientY: 80 });
-    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear, [], []);
+    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear, [], [], [], STATUS);
     expect(cursor.hidden).toBe(false);
     expect(cursor.textContent).toContain('3');
     expect(cursor.style.transform).toBe('translate(120px, 80px)');
     fake(bag.element).dispatch('pointermove', { clientX: 200, clientY: 90 });
     expect(cursor.style.transform).toBe('translate(200px, 90px)');
-    bag.update(slots, null, state, gear, [], []);
+    bag.update(slots, null, state, gear, [], [], [], STATUS);
     expect(cursor.hidden).toBe(true);
   });
 
@@ -182,7 +186,7 @@ describe('BagScreen', () => {
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[9] = { item: 'item:fur_hood', count: 1 };
     const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
-    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], []);
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], [], [], STATUS);
     expect(fake(bag.element).querySelector('.wear-stats')?.textContent).toBe(
       'Armor 3 · Warmth +16 °C · Cooling −0 °C',
     );
@@ -502,7 +506,7 @@ describe('StationScreen', () => {
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
     const rows = bestiaryRows(registry, { 'creature:trotter': 2, 'creature:prowler': 1 });
-    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, rows, []);
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, rows, [], [], STATUS);
     bag.show('bestiary');
     const cards = fake(bag.element).findAll((el) => el.getAttribute('data-creature') !== null);
     expect(cards.map((el) => el.getAttribute('data-level'))).toEqual(['2', '0', '1', '0', '0']);

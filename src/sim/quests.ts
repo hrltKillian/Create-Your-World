@@ -1,4 +1,4 @@
-import type { QuestCondition, QuestDef } from '../content/schema.ts';
+import type { QuestCondition, QuestCounter, QuestDef, TaskDef } from '../content/schema.ts';
 import { MET } from '../core/creatures.ts';
 import { WORLD_HEIGHT } from '../world/coords.ts';
 import { withinReach } from './blockEntities.ts';
@@ -11,16 +11,17 @@ import { freshStack } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { bodyHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
+import { fillTasks, gainXp } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 
 /*
  * Quests (plan v3 « M21 », tick step 16): a graph in the pack's data. A quest exists for a player
  * once every quest it requires is done; a counter then counts the player's deeds of this tick on
- * (creatures killed, nights survived), and a condition (items had, stations near, a drink, biomes
+ * (creatures killed, nights survived, blocks broken or placed, items consumed: tasks too), and a condition (items had, stations near, a drink, biomes
  * walked, creatures met) is read once a second, so a state already reached does the quest as soon
  * as it unlocks (`questDone` with `already`). The pack lists each quest after those it requires:
  * one pass unlocks and does a whole chain. A quest done waits to be claimed for its rewards
- * (`quest.claim`); one may be pinned to the compass (`quest.pin`). Nothing is allocated per tick
+ * (`quest.claim`, with its XP: progression.ts); one may be pinned to the compass (`quest.pin`). Nothing is allocated per tick
  * but a quest's first state.
  */
 
@@ -98,28 +99,48 @@ function complete(
   out.push({ type: 'questDone', playerId: player.playerId, quest: quest.key, already });
 }
 
-/** Counts this tick's deeds (events from `first`) for a player's open counters. */
+/** The deed an event is for a player (and its target in `deed`), or '' when none. */
+const deed = { event: '', target: '' };
+function deedOf(sim: Simulation, player: PlayerState, e: SimEvent): boolean {
+  deed.target = '';
+  if (e.type === 'creatureDied' && e.attacker === player.id) {
+    deed.event = 'killed';
+    deed.target = e.creature;
+  } else if (e.type === 'nightSurvived') deed.event = 'night';
+  else if (!('playerId' in e) || e.playerId !== player.playerId) return false;
+  else if (e.type === 'blockBroken' || e.type === 'blockPlaced') {
+    deed.event = e.type === 'blockBroken' ? 'broken' : 'placed';
+    deed.target = sim.registry.blockDef(e.state).key;
+  } else if (e.type === 'consumed') {
+    deed.event = 'consumed';
+    deed.target = e.item;
+  } else return false;
+  return true;
+}
+
+/** Whether a counter counts the deed in `deed`. */
+function counts(counter: QuestCounter): boolean {
+  return (
+    counter.event === deed.event && (counter.target === undefined || counter.target === deed.target)
+  );
+}
+
+/** Counts this tick's deeds (events from `first` to `last`) for a player's quests and tasks. */
 function countDeeds(
-  quests: readonly QuestDef[],
+  sim: Simulation,
   player: PlayerState,
   out: SimEvent[],
   first: number,
   last: number,
 ): void {
+  const quests = sim.registry.pack.quests ?? [];
+  const tasks = sim.registry.pack.tasks ?? [];
   for (let i = first; i < last; i++) {
-    const e = out[i]!;
-    let deed: string;
-    let target = '';
-    if (e.type === 'creatureDied' && e.attacker === player.id) {
-      deed = 'killed';
-      target = e.creature;
-    } else if (e.type === 'nightSurvived') deed = 'night';
-    else continue;
+    if (!deedOf(sim, player, out[i]!)) continue;
     for (const quest of quests) {
       const counter = quest.counter;
       const state = player.quests[quest.key];
-      if (!counter || !state || state.done || counter.event !== deed) continue;
-      if (counter.target !== undefined && counter.target !== target) continue;
+      if (!counter || !state || state.done || !counts(counter)) continue;
       state.progress++;
       out.push({
         type: 'questProgress',
@@ -128,6 +149,18 @@ function countDeeds(
         progress: state.progress,
       });
       if (state.progress >= counter.count) complete(player, state, quest, false, out);
+    }
+    for (const held of player.tasks) {
+      let task: TaskDef | undefined;
+      for (const def of tasks) if (def.key === held.key) task = def;
+      if (!task || held.progress >= task.counter.count || !counts(task.counter)) continue;
+      held.progress++;
+      out.push({
+        type: 'taskProgress',
+        playerId: player.playerId,
+        task: task.key,
+        progress: held.progress,
+      });
     }
   }
 }
@@ -156,16 +189,20 @@ function checkQuests(
   }
 }
 
-/** Tick step 16: every living, active player's counters, and once a second their quests. */
+/**
+ * Tick step 16: every living, active player's counters, and once a second their quests and the
+ * tasks they hold.
+ */
 export function stepQuests(sim: Simulation, out: SimEvent[], first: number): void {
-  const quests = sim.registry.pack.quests;
-  if (!quests) return;
+  const quests = sim.registry.pack.quests ?? [];
   // The deeds counted are those before this step: its own events are no deeds.
   const last = out.length;
   for (const player of sim.players.values()) {
     if (player.survival.dead || !sim.isActive(player)) continue;
-    countDeeds(quests, player, out, first, last);
-    if (sim.tick % TICKS_PER_SECOND === 0) checkQuests(sim, quests, player, out);
+    countDeeds(sim, player, out, first, last);
+    if (sim.tick % TICKS_PER_SECOND !== 0) continue;
+    checkQuests(sim, quests, player, out);
+    fillTasks(sim, player);
   }
 }
 
@@ -196,4 +233,5 @@ export function applyQuestCommand(
   for (const reward of quest.rewards ?? [])
     giveItems(sim, player, freshStack(sim.registry, reward.item, reward.count), out);
   out.push({ type: 'questClaimed', playerId: player.playerId, quest: quest.key });
+  gainXp(sim, player, quest.xp ?? 0, out);
 }

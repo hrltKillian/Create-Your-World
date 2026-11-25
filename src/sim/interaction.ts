@@ -28,6 +28,7 @@ import {
   planPlacement,
 } from './placement.ts';
 import { type PlayerState, STAMINA, spendStamina } from './player.ts';
+import { strengthFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { sleepOn } from './sleep.ts';
 import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
@@ -68,7 +69,8 @@ function heldItem(sim: Simulation, player: PlayerState): number {
 function mine(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const st = player.interaction;
   const itemId = heldItem(sim, player);
-  const seconds = breakSeconds(sim.registry, hit.state, itemId, player.exhausted);
+  const strength = strengthFactor(player, sim.registry.pack.balance);
+  const seconds = breakSeconds(sim.registry, hit.state, itemId, player.exhausted, strength);
   if (seconds === Number.POSITIVE_INFINITY) {
     stopMining(player, out);
     return;

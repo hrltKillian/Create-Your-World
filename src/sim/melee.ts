@@ -12,6 +12,7 @@ import type { SimEvent } from './events.ts';
 import { type ItemStack, spendUses } from './inventory.ts';
 import { eyeHeight } from './physics.ts';
 import type { PlayerState } from './player.ts';
+import { strengthFactor } from './progression.ts';
 import type { Entity, Simulation } from './Simulation.ts';
 
 /*
@@ -44,10 +45,15 @@ export function heldWeapon(sim: Simulation, player: Readonly<PlayerState>): Weap
   return weaponOf(sim.registry, player.inventory[player.input.slot]);
 }
 
-/** Damage of a blow before the creature's own armour. */
-export function meleeDamage(weapon: WeaponDef, strong: boolean, stealth: boolean): number {
+/** Damage of a blow before the creature's own armour (`strength`: the skill's factor). */
+export function meleeDamage(
+  weapon: WeaponDef,
+  strong: boolean,
+  stealth: boolean,
+  strength: number,
+): number {
   const power = strong ? MELEE.strongDamage : 1;
-  return weapon.damage * power * (stealth ? MELEE.stealthDamage : 1);
+  return weapon.damage * power * (stealth ? MELEE.stealthDamage : 1) * strength;
 }
 
 /** Knockback factor of a blow (1 = a normal hit). */
@@ -102,7 +108,8 @@ function attack(
   out: SimEvent[],
 ): void {
   const def = creatureDef(sim, c);
-  const damage = meleeDamage(weapon, strong, unawareOf(c, def, player));
+  const strength = strengthFactor(player, sim.registry.pack.balance);
+  const damage = meleeDamage(weapon, strong, unawareOf(c, def, player), strength);
   const b = player.body;
   const knockback = meleeKnockback(weapon, strong);
   if (hurtCreature(sim, c, damage, b.x, b.z, knockback, player.id, out) <= 0) return;

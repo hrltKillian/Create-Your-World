@@ -9,6 +9,7 @@ import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import type { Gear } from '../../../src/sim/environment.ts';
 import type { SimView } from '../../../src/sim/host.ts';
 import { createInventory, type Inventory, type ItemStack } from '../../../src/sim/inventory.ts';
+import { createSkills } from '../../../src/sim/progression.ts';
 import type { Hotbar } from '../../../src/ui/hud/hotbar.ts';
 import type { HudHint } from '../../../src/ui/hud/hudHint.ts';
 import type { BagScreen } from '../../../src/ui/screens/bag.ts';
@@ -66,6 +67,10 @@ function setup(entity?: BlockEntity) {
     bestiary: {},
     quests: {},
     pinned: null,
+    xp: 0,
+    skills: createSkills(),
+    tasks: [],
+    rerollDay: -1,
     seen: {},
     craft: [],
     cursor: null as Cursor,
@@ -75,6 +80,7 @@ function setup(entity?: BlockEntity) {
     registry,
     player: () => player,
     blockEntity: () => entity,
+    time: () => ({ ticks: 0 }),
   };
   const bridge = new UiBridge(view as unknown as SimView, input as unknown as InputManager, {
     hotbar: hotbar as unknown as Hotbar,

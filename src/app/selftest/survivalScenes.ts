@@ -120,7 +120,7 @@ export function feetCell(app: App): Cell {
 /** Full health, hunger and thirst, no toxicity, the body at 0: a check measures from there. */
 export function freshGauges(app: App): void {
   const b = balance(app);
-  setStat(app, 'health', b.health.max);
+  setStat(app, 'health', app.session!.player.survival.healthMax);
   setStat(app, 'hunger', b.hunger.max);
   setStat(app, 'thirst', b.thirst.max);
   setStat(app, 'toxicity', 0);

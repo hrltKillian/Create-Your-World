@@ -83,4 +83,18 @@ export const balance: BalanceDef = {
     fall: { safeBlocks: 3, damagePerBlock: 2 },
   },
   combat: { hand: { damage: 2, cooldown: 0.4, reach: 3, knockback: 1 } },
+  progression: {
+    xpBase: 100,
+    xpStep: 50,
+    maxSkill: 5,
+    tasks: 3,
+    skills: {
+      vitality: 10,
+      endurance: 10,
+      carrying: 4,
+      metabolism: 0.06,
+      resistance: 1.5,
+      strength: 0.06,
+    },
+  },
 };

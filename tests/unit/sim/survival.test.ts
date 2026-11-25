@@ -58,7 +58,13 @@ function thermalIn(biome: string, day: number, gear = gearOf()) {
   return input;
 }
 
-const idle: Exposure = { sprinting: false, underwater: false, toxicity: 0, damage: 0 };
+const idle: Exposure = {
+  sprinting: false,
+  metabolism: 1,
+  underwater: false,
+  toxicity: 0,
+  damage: 0,
+};
 
 /**
  * Steps a fresh survival state (its environment set by `setup`) tick by tick; returns the minutes
@@ -81,7 +87,7 @@ function minutesUntil(
 
 /** Sets the temperature target of a thermal input. */
 const towards = (input: ThermalInput) => (s: SurvivalState) => {
-  s.target = targetTemperature(feltTemperature(input, b.climate), b);
+  s.target = targetTemperature(feltTemperature(input, b.climate), b, 0);
 };
 
 const cold = (s: SurvivalState) => thermalStatus(s.temperature, b) <= -1;
@@ -164,7 +170,7 @@ describe('temperature', () => {
     expect(dayFactor(1)).toBe(1);
     const fire = { ...thermalIn('biome:tundra', 0), heat: 20 };
     expect(feltTemperature(fire, b.climate)).toBeCloseTo(4, 6);
-    expect(targetTemperature(feltTemperature(fire, b.climate), b)).toBeCloseTo(-30, 6);
+    expect(targetTemperature(feltTemperature(fire, b.climate), b, 0)).toBeCloseTo(-30, 6);
   });
 
   it('tundra without gear: Cold at about 2.5 min and Freezing at about 4.4, day or night', () => {
@@ -183,7 +189,7 @@ describe('temperature', () => {
   it('tundra in fur: comfort by day, Cold without damage at night, never Freezing', () => {
     const fur = gearOf('item:fur_hood', 'item:fur_coat');
     const day = thermalIn('biome:tundra', 1, fur);
-    expect(targetTemperature(feltTemperature(day, b.climate), b)).toBe(0);
+    expect(targetTemperature(feltTemperature(day, b.climate), b, 0)).toBe(0);
     expect(minutesUntil(towards(day), cold)).toBe(Number.POSITIVE_INFINITY);
     const night = thermalIn('biome:tundra', 0, fur);
     expect(minutesUntil(towards(night), freezing, 120)).toBe(Number.POSITIVE_INFINITY);

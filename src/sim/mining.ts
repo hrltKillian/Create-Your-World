@@ -47,15 +47,16 @@ export function weakToolParams(
 
 /**
  * Seconds to break a block with the held item (`toolBreakSeconds`, content/items.ts), ÷0.6 while
- * exhausted. Infinity for unbreakable blocks.
+ * exhausted, ÷ the player's `strength` factor (sim/progression.ts). Infinity for unbreakable blocks.
  */
 export function breakSeconds(
   registry: Registry,
   state: number,
   itemId: number,
   exhausted: boolean,
+  strength: number,
 ): number {
-  const seconds = toolBreakSeconds(registry.blockDef(state), heldTool(registry, itemId));
+  const seconds = toolBreakSeconds(registry.blockDef(state), heldTool(registry, itemId)) / strength;
   return exhausted ? seconds / MINING.exhaustedSpeed : seconds;
 }
 

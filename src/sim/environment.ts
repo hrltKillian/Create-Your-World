@@ -6,6 +6,7 @@ import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Inventory } from './inventory.ts';
 import { eyeHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
+import { comfortBonus } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { daylightAt, hourOf, NIGHT_DAYLIGHT } from './time.ts';
 
@@ -54,12 +55,17 @@ export function feltTemperature(input: Readonly<ThermalInput>, c: ClimateBalance
   return t;
 }
 
-/** Thermal model step 7: where the temperature gauge drifts to (0 within the comfort range). */
-export function targetTemperature(felt: number, b: BalanceDef): number {
+/**
+ * Thermal model step 7: where the temperature gauge drifts to (0 within the comfort range, widened
+ * by `bonus` °C on each side: the resistance skill).
+ */
+export function targetTemperature(felt: number, b: BalanceDef, bonus: number): number {
   const c = b.climate;
   const limit = b.temperature.limit;
-  if (felt < c.comfortMinC) return -Math.min(limit, c.targetPerDegree * (c.comfortMinC - felt));
-  if (felt > c.comfortMaxC) return Math.min(limit, c.targetPerDegree * (felt - c.comfortMaxC));
+  const low = c.comfortMinC - bonus;
+  const high = c.comfortMaxC + bonus;
+  if (felt < low) return -Math.min(limit, c.targetPerDegree * (low - felt));
+  if (felt > high) return Math.min(limit, c.targetPerDegree * (felt - high));
   return 0;
 }
 
@@ -213,7 +219,7 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   thermal.warmth = gear.warmth;
   thermal.cooling = gear.cooling;
   s.ambient = feltTemperature(thermal, b.climate);
-  s.target = targetTemperature(s.ambient, b);
+  s.target = targetTemperature(s.ambient, b, comfortBonus(player, b));
   const air = biome.toxicityPerMin;
   s.airToxicity = air ? lerp(air.night, air.day, day) * gear.airFilter : 0;
   return true;

@@ -2708,6 +2708,15 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - Tâches générales tirées du tableau de quêtes, une relance par jour.
 - `reachable` sans les recettes à niveau atteint toujours le fer.
 
+**Retenu à la réalisation** :
+
+- XP : seulement en réclamant une quête (`QuestDef.xp`, de 20 à 150) ou une tâche. Le niveau n demande `xpBase + xpStep × (n − 1)` XP de plus (100, 150, 200…) ; chaque niveau gagné donne un point de compétence, 5 au plus par compétence (`balance.progression`).
+- Compétences (`sim/progression.ts`) lues là où vit la règle : vitalité +10 PV (`SurvivalState.healthMax`, gardé à la réapparition), endurance +10 d'endurance (`staminaMax`), portage +4 cases ajoutées au moment de la dépense (refusé au-delà de 64), métabolisme −6 % des taux de faim et de soif (`Exposure.metabolism`), résistance +1,5 °C de confort de chaque côté (`targetTemperature`), force +6 % de dégâts au corps à corps et de vitesse de minage.
+- Tâches générales (`pack.tasks`, `TaskDef`) : trois tenues à la fois, tirées de la graine du monde et du nombre de tirages ; compteurs `broken`, `placed`, `consumed`, `killed`, `night` (ajoutés aux quêtes aussi). Réclamer donne l'XP et retire une tâche ; « Nouvelle tâche » une fois par jour de jeu. Le « palier du joueur » de l'ancien M19 a été écarté (KISS).
+- Recettes à niveau (`RecipeDef.level`) : armature de sac (niveau 3, +8 cases à l'usage, refusée sac plein) et Scanner Mk II (niveau 4 : 1 s, 40 blocs). Le Logbook les montre avec « Niveau requis » ; `reachable` prend `levels` et atteint le fer sans elles.
+- Onglet État (U) : niveau, XP, points, et la règle exacte de chaque compétence avec son bonus actuel. L'onglet Quêtes liste les tâches avant les quêtes.
+- SAVE 12 : pas d'XP ni de point ; les quêtes faites et non réclamées donnent leur XP à la réclamation.
+
 ### M23 — Les biomes de Veyra (retours 8 et biomes, décision 24)
 
 **Principes** :

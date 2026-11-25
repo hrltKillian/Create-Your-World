@@ -11,7 +11,7 @@ type QuestId = PackI18nKey extends infer K
 /** A quest whose key, text and hint follow its id; `requires` by id. */
 const quest = (
   id: QuestId,
-  goal: Pick<QuestDef, 'condition' | 'counter' | 'rewards' | 'compass'>,
+  goal: Pick<QuestDef, 'condition' | 'counter' | 'rewards' | 'compass' | 'xp'>,
   requires: readonly QuestId[] = [],
 ): QuestDef => ({
   key: `quest:${id}`,
@@ -30,27 +30,39 @@ const quest = (
  */
 export const quests: readonly QuestDef[] = [
   quest('gather', {
+    xp: 20,
     condition: { items: ['item:plant_fiber', 'item:stick', 'item:flint'] },
     rewards: [{ item: 'item:torch', count: 4 }],
   }),
-  quest('drink', { condition: { drank: true }, rewards: [{ item: 'item:berries', count: 4 }] }),
+  quest('drink', {
+    xp: 20,
+    condition: { drank: true },
+    rewards: [{ item: 'item:berries', count: 4 }],
+  }),
   quest('explore', {
+    xp: 40,
     condition: { biomes: 3 },
     rewards: [{ item: 'item:grilled_meat', count: 2 }],
   }),
   quest('hunt', {
+    xp: 30,
     counter: { event: 'killed', target: 'creature:trotter', count: 1 },
     rewards: [{ item: 'item:bandage', count: 2 }],
   }),
-  quest('tools', { condition: { items: ['item:flint_hatchet', 'item:torch'] } }, ['gather']),
-  quest('flask', { condition: { items: ['item:flask_empty'] } }, ['drink']),
-  quest('workbench', { condition: { stations: ['station:workbench'] } }, ['tools']),
-  quest('camp', { condition: { items: ['item:bedroll'], stations: ['station:campfire'] } }, [
-    'workbench',
+  quest('tools', { xp: 30, condition: { items: ['item:flint_hatchet', 'item:torch'] } }, [
+    'gather',
   ]),
+  quest('flask', { xp: 30, condition: { items: ['item:flask_empty'] } }, ['drink']),
+  quest('workbench', { xp: 40, condition: { stations: ['station:workbench'] } }, ['tools']),
+  quest(
+    'camp',
+    { xp: 40, condition: { items: ['item:bedroll'], stations: ['station:campfire'] } },
+    ['workbench'],
+  ),
   quest(
     'night',
     {
+      xp: 60,
       counter: { event: 'night', count: 1 },
       rewards: [{ item: 'item:grilled_meat', count: 3 }],
     },
@@ -58,25 +70,23 @@ export const quests: readonly QuestDef[] = [
   ),
   quest(
     'creatures',
-    {
-      condition: { met: 3 },
-      rewards: [{ item: 'item:antidote_tea', count: 1 }],
-    },
+    { xp: 50, condition: { met: 3 }, rewards: [{ item: 'item:antidote_tea', count: 1 }] },
     ['hunt'],
   ),
-  quest('copper', { condition: { stations: ['station:kiln'], items: ['item:copper_ingot'] } }, [
-    'workbench',
-  ]),
+  quest(
+    'copper',
+    { xp: 60, condition: { stations: ['station:kiln'], items: ['item:copper_ingot'] } },
+    ['workbench'],
+  ),
   quest(
     'copper_tools',
-    {
-      condition: { items: ['item:copper_pickaxe', 'item:copper_hatchet'] },
-    },
+    { xp: 60, condition: { items: ['item:copper_pickaxe', 'item:copper_hatchet'] } },
     ['copper'],
   ),
   quest(
     'north',
     {
+      xp: 80,
       condition: { items: ['item:cassiterite', 'item:fur_hood', 'item:fur_coat'] },
       compass: 'north',
     },
@@ -85,20 +95,24 @@ export const quests: readonly QuestDef[] = [
   quest(
     'south',
     {
+      xp: 80,
       condition: { items: ['item:fireclay', 'item:straw_hat', 'item:fiber_veil'] },
       compass: 'south',
     },
     ['copper_tools', 'explore'],
   ),
-  quest('bronze', { condition: { items: ['item:bronze_ingot'] } }, ['north']),
+  quest('bronze', { xp: 80, condition: { items: ['item:bronze_ingot'] } }, ['north']),
   quest(
     'bronze_tools',
-    {
-      condition: { items: ['item:prowler_sinew', 'item:bronze_pickaxe'] },
-    },
+    { xp: 80, condition: { items: ['item:prowler_sinew', 'item:bronze_pickaxe'] } },
     ['bronze', 'hunt'],
   ),
-  quest('marsh', { condition: { items: ['item:bog_iron', 'item:filter_mask'] } }, ['south']),
-  quest('bloomery', { condition: { stations: ['station:bloomery'] } }, ['bronze_tools', 'south']),
-  quest('iron', { condition: { items: ['item:iron_ingot'] } }, ['bloomery', 'marsh']),
+  quest('marsh', { xp: 80, condition: { items: ['item:bog_iron', 'item:filter_mask'] } }, [
+    'south',
+  ]),
+  quest('bloomery', { xp: 100, condition: { stations: ['station:bloomery'] } }, [
+    'bronze_tools',
+    'south',
+  ]),
+  quest('iron', { xp: 150, condition: { items: ['item:iron_ingot'] } }, ['bloomery', 'marsh']),
 ];

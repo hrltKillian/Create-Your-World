@@ -239,10 +239,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
     `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
     `sim/time.ts`;
+  - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
+    `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
+    `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),
+    `comfortBonus` (`targetTemperature`), `strengthFactor` (`meleeDamage`, `breakSeconds`), carrying
+    slots added on `skill.spend`; tasks `fillTasks`/`TaskState` drawn from the seed, `task.claim`,
+    `task.reroll` once a game day; numbers in `balance.progression`); `RecipeDef.level` (refused
+    'level' in `enqueueCraft`, « Needs level » in the Logbook, `reachable(pack, { levels })`); a
+    backpack frame `ConsumeDef.bagSlots`; the Status page `ui/status.ts` (`statusView`) and
+    `ui/screens/statusPanel.ts`, its numbers `app/progressModel.ts` (`progressOf`, `canReroll`);
+    tasks on the Quests page (`taskRows`);
   - quests (plan v3 « M21 »): the graph in data `content/packs/base/quests.ts` (`QuestDef`,
     `content/questSchema.ts`: `requires` earlier quests, exactly one of a `condition` (items seen,
     stations within crafting reach, a drink, `biomes` walked, creatures `met`) and a `counter`
-    (`killed`, `night`, counted from the unlock on), `rewards`, a `compass` point while pinned;
+    (`killed`, `night`, `broken`, `placed`, `consumed`, counted from the unlock on), `rewards`, a `compass` point while pinned;
     `content/validateQuests.ts`), tick step 16 `stepQuests` (`sim/quests.ts`: counters every tick
     from the tick's events, unlocks and conditions once a second in one pass, `conditionHolds`,
     `stationNear`/`STATION_REACH`; `player.quests` (`QuestState { progress, done, claimed }`),
@@ -273,7 +283,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
   - plan v3 controls (M18): Esc only opens the pause menu, over an open screen too (`Game.onPauseKey`;
     `PlayGate.resume` plays at once, a refused lock showing the light prompt); the Bag's page keys
-    `inventory`/`logbook`/`bestiary`/`quests` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
+    `inventory`/`logbook`/`bestiary`/`quests`/`status` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
     jump cooldown `PHYSICS.jumpCooldownTicks`; item descriptions `ui/itemInfo.ts` (`itemLines`)
     over the shared break rule `toolBreakSeconds` (`content/items.ts`); creatures look at and
     strike the middle of the body (`BODY_HEIGHT`, core/player.ts); the base pack has no structure
@@ -451,6 +461,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Progression checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m22` (`selftest/m22.ts`):
+  U opens the Status page, a point spent by its « + » (`data-action="skill-spend"`, `data-skill`),
+  a task done claimed by its button (`data-task`, `data-action="task-claim"`). Hook (version 22):
+  `quests.tasks()`, `claimTask(i)`, `rerollTask(i)`, `progress()`, `spend(skill)`.
 - Quest checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m21` (`selftest/m21.ts`): J
   opens the Quests page, a quest done ahead is done at its unlock (« already done »), a claim by
   its button pays, a pinned quest shows under the compass. Hook (version 21): `quests.list()`,

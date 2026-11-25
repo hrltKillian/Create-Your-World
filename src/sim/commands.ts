@@ -1,4 +1,5 @@
 import { MAX_INVENTORY_SLOTS } from './inventory.ts';
+import type { Skill } from './progression.ts';
 import type { DeathCause, Gauge } from './survival.ts';
 
 /** Commands are the only way to change simulation state (they could travel over a network). */
@@ -20,6 +21,7 @@ export type Command =
   | BlockEntityCommand
   | CraftCommand
   | QuestCommand
+  | ProgressCommand
   /** Comes back after a death (the death screen's Respawn button); refused while alive. */
   | { readonly type: 'player.respawn' }
   | DebugCommand;
@@ -132,6 +134,15 @@ export type QuestCommand =
   | { readonly type: 'quest.claim'; readonly quest: string }
   /** Pins an unlocked quest not claimed yet to the compass; null unpins. */
   | { readonly type: 'quest.pin'; readonly quest: string | null };
+
+/** Skills and tasks (plan v3 « M22 », sim/progression.ts). */
+export type ProgressCommand =
+  /** Spends a skill point (one left, the skill under its maximum). */
+  | { readonly type: 'skill.spend'; readonly skill: Skill }
+  /** Takes a task done's XP; another task is drawn in its place. */
+  | { readonly type: 'task.claim'; readonly index: number }
+  /** Draws another task in place of one not done, once a game day. */
+  | { readonly type: 'task.reroll'; readonly index: number };
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =

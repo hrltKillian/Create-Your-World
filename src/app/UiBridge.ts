@@ -9,15 +9,18 @@ import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import { countMatching, type Inventory } from '../sim/inventory.ts';
 import type { PlayerState } from '../sim/player.ts';
+import { levelOf, SKILLS } from '../sim/progression.ts';
 import { bestiaryRows } from '../ui/bestiary.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
-import { questRows } from '../ui/quests.ts';
+import { questRows, taskRows } from '../ui/quests.ts';
 import type { BagScreen } from '../ui/screens/bag.ts';
 import type { ContainerScreen } from '../ui/screens/container.ts';
 import type { LogbookState, QueueView } from '../ui/screens/logbook.ts';
 import type { StationScreen, StationStatus } from '../ui/screens/station.ts';
 import type { WorkbenchScreen } from '../ui/screens/workbench.ts';
+import { statusView } from '../ui/status.ts';
+import { canReroll, progressOf } from './progressModel.ts';
 
 /** Seconds between two refreshes of the HUD and the open screens (10 Hz). */
 const REFRESH_SECONDS = 0.1;
@@ -121,6 +124,7 @@ export class UiBridge {
         crafting,
         ...(station === undefined ? {} : { station }),
         seen: player.seen,
+        level: levelOf(player.xp, registry.pack.balance.progression),
         owned: (ingredient) =>
           countMatching(player.inventory, 0, player.inventory.length, crafting, ingredient),
         room: (recipe) => queueRoom(registry, queue, recipe),
@@ -134,7 +138,13 @@ export class UiBridge {
     const { inventory, equipment, craft, cursor } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
     const bestiary = bestiaryRows(this.view.registry, this.player.bestiary);
-    const quests = questRows(this.view.registry, this.player.quests, this.player.pinned);
+    const registry = this.view.registry;
+    const player = this.player;
+    const quests = questRows(registry, player.quests, player.pinned);
+    const reroll = canReroll(player, this.view.time().ticks);
+    const tasks = taskRows(registry, player.tasks, reroll);
+    const balance = registry.pack.balance;
+    const status = statusView(progressOf(player, balance), balance.progression, SKILLS);
     this.views.bag.update(
       screenSlots(inventory, equipment),
       cursor,
@@ -142,6 +152,8 @@ export class UiBridge {
       gear,
       bestiary,
       quests,
+      tasks,
+      status,
     );
   }
 

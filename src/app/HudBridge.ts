@@ -7,6 +7,7 @@ import { ticksOf } from '../sim/clock.ts';
 import type { SimEvent } from '../sim/events.ts';
 import { attackGauge } from '../sim/melee.ts';
 import { STAMINA } from '../sim/player.ts';
+import { staminaMax } from '../sim/progression.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import { dayOf, hourOf } from '../sim/time.ts';
 import { creatureName } from '../ui/bestiary.ts';
@@ -142,6 +143,18 @@ export class HudBridge {
         this.elapsed = REFRESH_SECONDS;
         break;
       }
+      case 'xpGained':
+        this.questLines.push(t('hud.xp', { xp: event.xp }));
+        break;
+      case 'levelUp':
+        this.questLines.push(t('hud.levelUp', { n: event.level }));
+        break;
+      case 'taskProgress': {
+        const task = this.session.host.view.registry.pack.tasks?.find((d) => d.key === event.task);
+        if (task && event.progress === task.counter.count)
+          this.questLines.push(t('hud.taskDone', { name: t(task.textKey) }));
+        break;
+      }
       case 'slept':
         hud.sleep.show(t('hud.slept'));
         break;
@@ -165,7 +178,7 @@ export class HudBridge {
     const player = this.session.player;
     const s = player.survival;
     hud.vitals.update(s, thermalStatus(s.temperature, balance));
-    hud.stamina.update(player.stamina, STAMINA.max, player.exhausted);
+    hud.stamina.update(player.stamina, staminaMax(player, balance, STAMINA.max), player.exhausted);
     hud.vignettes.update(vignetteLevels(s, balance, player.body.headInWater, this.levels));
     const ticks = view.time().ticks;
     const hour = hourOf(ticks);
