@@ -52,7 +52,7 @@ const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const creature = meleeTarget(sim, player, creatureAt);
   const status = aim(sim.world, sim.registry.tables, player, hit);
-  const attacking = stepMelee(sim, player, creature, out);
+  const attacking = stepMelee(sim, player, creature, status === AIM_HIT, out);
   if (player.input.primary && status === AIM_HIT && !attacking) mine(sim, player, out);
   else stopMining(player, out);
   const shielded = creature !== undefined && creatureAt.distance < hit.distance;

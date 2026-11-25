@@ -230,15 +230,20 @@ describe('hand view inertia', () => {
     expect(Math.abs(hand.swayX) + Math.abs(hand.swayY) + Math.abs(hand.swayZ)).toBeLessThan(1e-3);
   });
 
-  it('flags the frame an attack is released', () => {
+  it('flags the frame of a strong swing (from a full gauge), not of a plain one', () => {
     const hand = new HandView(shared, registry, items);
     const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
-    player.charge = 4;
     hand.draw(player, FRAME, true, 1, 0);
     expect(hand.released).toBe(false);
-    player.charge = -1;
+    // A swing from a full gauge: its ticks left rise from 0.
+    player.attackCooldown = 12;
     hand.draw(player, FRAME, true, 1, 0);
     expect(hand.released).toBe(true);
+    player.attackCooldown = 8;
+    hand.draw(player, FRAME, true, 1, 0);
+    expect(hand.released).toBe(false);
+    // A swing before the gauge is full: plain, no trail.
+    player.attackCooldown = 12;
     hand.draw(player, FRAME, true, 1, 0);
     expect(hand.released).toBe(false);
   });
@@ -303,13 +308,12 @@ describe('play feel', () => {
     for (let i = 0; i < 4; i++) settle();
     expect(rig.pose.y).toBeLessThan(rig.eye.y - 0.05);
     expect(rig.pose.roll).toBeLessThan(-0.03);
-    // A released attack draws its trail in the same frame, in the one world batch.
+    // A strong swing draws its trail in the same frame, in the one world batch.
     play.particles.setEnabled(false);
     play.particles.setEnabled(true);
-    player.charge = 3;
     frame();
     expect(play.batch.size).toBe(0);
-    player.charge = -1;
+    player.attackCooldown = 12;
     frame();
     expect(play.particles.alive()).toBe(TRAIL_BOXES);
     expect(play.batch.size).toBe(TRAIL_BOXES);

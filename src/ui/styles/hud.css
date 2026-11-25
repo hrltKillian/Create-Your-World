@@ -902,3 +902,41 @@ body:has(#debug-overlay:not([hidden])) .hud-right {
 .scan-ring[hidden] {
   display: none;
 }
+
+/* ---- Centre: the attack gauge under the crosshair ---- */
+
+.attack-gauge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 4px;
+  margin: 16px 0 0 -14px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    #f1d48a calc(var(--fill, 1) * 100%),
+    rgba(255, 255, 255, 0.2) 0
+  );
+  transition: opacity 0.25s ease-out;
+  pointer-events: none;
+}
+
+.attack-gauge.full {
+  opacity: 0;
+}
+
+.attack-gauge.ready {
+  animation: attack-ready 0.35s ease-out;
+}
+
+@keyframes attack-ready {
+  0% {
+    opacity: 1;
+    box-shadow: 0 0 6px #f1d48a;
+  }
+  100% {
+    opacity: 0;
+    box-shadow: none;
+  }
+}

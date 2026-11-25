@@ -52,7 +52,7 @@ export function stepDeaths(sim: Simulation, out: SimEvent[]): void {
 function die(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   stopMining(player, out);
   // A charge held at death is dropped (no blow at the respawn, no arm drawn back meanwhile).
-  player.charge = -1;
+  player.swinging = false;
   player.sleeping = null;
   // The cursor stack goes with the rest into the pack (not back to the inventory on closing).
   const stacks = carried(sim.registry, player);

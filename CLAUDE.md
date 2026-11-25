@@ -155,7 +155,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`COMBAT`, `strike` a creature's blow, `hurtCreature` with front armour, knockback and loot,
     `armorFactor`, `escalation`, `frontFactor`); the player's attacks at tick step 7
     `sim/melee.ts` (`MELEE`, `stepMelee`: primary on a creature in reach before mining, the blow on
-    the release, charged after 15 ticks held (`player.charge`, `attackCooldown`), `meleeDamage`,
+    the press, strong when the attack gauge is full (`attackCooldown`: its ticks left,
+    `attackGauge`; plan v3 « M19 »), a swing in the air empties it too (`swinging`, event
+    `playerSwung`), `meleeDamage`,
     `meleeKnockback`, `weaponOf`, `meleeTarget`: creatures are tested first, only solid blocks
     stop a blow (`blowReach`), the hitbox test `creatureOnRay` shared with `app/ClientAim.ts`,
     whose `creature` the HUD names); no placement or closing gate into a player or a creature
@@ -443,6 +445,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Combat checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m19` (`selftest/m19.ts`): a
+  strong blow then a plain one, the HUD gauge `#hud-attack`.
 - Controls checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m18` (`selftest/m18.ts`):
   the page keys, a workbench's hand recipes, a search that says where a recipe is made, a hovered
   recipe's description, a held jump under a low ceiling.

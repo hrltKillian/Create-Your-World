@@ -31,8 +31,6 @@ export interface Motion {
   readonly pitch: number;
   /** Primary held: the right arm strikes (mining, attacks). */
   readonly striking: boolean;
-  /** Primary held for an attack (sim/melee.ts): the arm stays cocked until the release. */
-  readonly charging: boolean;
   readonly dt: number;
 }
 
@@ -76,9 +74,7 @@ export function animate(rig: RigState, motion: Motion): void {
     a.legR = -a.legL;
   }
   rig.strike += ((motion.striking ? 1 : 0) - rig.strike) * Math.min(1, motion.dt * 14);
-  // Cocked at the top of the chop while charging: the release brings the arm down.
-  if (motion.charging) rig.strikePhase = -Math.PI / 2;
-  else if (motion.striking) rig.strikePhase += motion.dt * STRIKE_RATE;
+  if (motion.striking) rig.strikePhase += motion.dt * STRIKE_RATE;
   else rig.strikePhase = 0;
   const strikeAngle = STRIKE_RAISE + Math.sin(rig.strikePhase) * STRIKE_CHOP;
   a.armR = a.armR! + (strikeAngle - a.armR!) * rig.strike;

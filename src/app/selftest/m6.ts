@@ -49,6 +49,8 @@ import {
 const VISIT_MS = 30_000;
 /** Longest wait for the shown sections to be meshed again after a view switch. */
 const REMESH_MS = 30_000;
+/** Render distance of the xray case (columns). */
+const XRAY_DISTANCE = 1;
 /** Looking down at the ground, so the xray view has the most to show. */
 const GROUND_PITCH = -0.6;
 
@@ -81,11 +83,14 @@ async function visit(app: App, x: number, y: number | 'surface', z: number): Pro
   await chunksMeshed(app, app.session!.loadingRadius(), VISIT_MS);
 }
 
-/** Switches the debug view, waits until every shown section is meshed for it, and captures it. */
+/**
+ * Switches the debug view, waits until every section of the loading radius is meshed for it (the
+ * nearest first: the farther ones may still be meshing on a slow renderer), and captures it.
+ */
 async function captureWith(app: App, view: DebugView): Promise<CaptureStats> {
   const session = app.session!;
   app.setDebugView(view);
-  await waitUntil(() => session.scheduler.idle() && session.chunksReady(session.loadingRadius()), {
+  await waitUntil(() => session.chunksReady(session.loadingRadius()), {
     timeoutMs: REMESH_MS,
     label: `the sections were not meshed again for the '${view}' view`,
     pump: () => session.pumpOnce(false),
@@ -247,9 +252,13 @@ export const M6_SUITE: readonly SelftestCase[] = [
     timeoutMs: 90_000,
     skip: needsRealTimeGeneratedPlayer,
     run: async (app) => {
-      await playerSession(app);
+      const session = await playerSession(app);
       const errors = app.errors.length;
       const previous = app.debugView;
+      // The xray view draws every terrain face: on a software renderer (CI) a frame of the full
+      // render distance takes seconds, and the remesh never ends in time. One column around.
+      const distance = session.renderDistance;
+      session.setRenderDistance(XRAY_DISTANCE);
       look(app, 0, GROUND_PITCH);
       await keepingClock(app, async () => {
         // Noon and a still clock; two textured captures measure what animation alone changes.
@@ -267,6 +276,7 @@ export const M6_SUITE: readonly SelftestCase[] = [
           );
         } finally {
           app.setDebugView(previous);
+          session.setRenderDistance(distance);
         }
       });
       await captureWith(app, previous);

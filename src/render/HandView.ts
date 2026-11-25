@@ -19,10 +19,6 @@ const STROKE_DY = -0.06;
 const STROKE_DZ = -0.12;
 const STROKE_YAW = 0.25;
 const STROKE_PITCH = -1.0;
-/** While an attack charges the fist is drawn back and up, the arm tipped back. */
-const WINDUP_DY = 0.07;
-const WINDUP_DZ = 0.1;
-const WINDUP_PITCH = 0.55;
 /** Forearm box (m): it runs from the fist back towards the camera. */
 const ARM_WIDTH = 0.12;
 const ARM_LENGTH = 0.6;
@@ -62,16 +58,15 @@ export class HandView {
   visible = false;
   /** Progress (0…1) of the current stroke; 0 at rest. */
   swing = 0;
-  /** Blend (0…1) towards the drawn-back pose of a charging attack. */
-  windup = 0;
-  /** An attack was released this frame (the blow's trail starts). */
+  /** A strong swing (the attack gauge was full) started this frame: the blow's trail starts. */
   released = false;
   /** Where inertia has left the fist from its pose (view-space metres; 0 at rest). */
   swayX = 0;
   swayY = 0;
   swayZ = 0;
   private stroking = false;
-  private charging = false;
+  /** The attack gauge's ticks left last frame: a rise is a new swing. */
+  private lastCooldown = 0;
   /** The view's angles from `look`, and those of the last frame drawn (NaN before any). */
   private yaw = Number.NaN;
   private pitch = Number.NaN;
@@ -108,7 +103,7 @@ export class HandView {
 
   /**
    * Animates and fills the batch for one frame: strokes repeat while the player holds primary to
-   * mine; an attack draws the arm back while primary is held and strikes once on the release.
+   * mine; each swing (a blow, or in the air: plan v3 « M19 ») strikes once.
    * `sky` and `block` are the light at the eye (0–1). Nothing is drawn when not `visible`.
    */
   draw(
@@ -119,13 +114,14 @@ export class HandView {
     block: number,
   ): void {
     this.visible = visible;
-    const charging = player.charge >= 0;
-    const mining = player.input.primary && !charging;
-    this.released = this.charging && !charging;
-    if (mining || this.released) this.stroking = true;
-    this.charging = charging;
+    // A swing empties the gauge (melee.ts): its ticks left rise. A full gauge made it a strong one.
+    const swung = player.attackCooldown > this.lastCooldown;
+    this.released = swung && this.lastCooldown === 0;
+    this.lastCooldown = player.attackCooldown;
+    const mining = player.input.primary && !player.swinging;
+    if (swung) this.swing = 0;
+    if (mining || swung) this.stroking = true;
     this.settle(player, dt);
-    this.windup += ((charging ? 1 : 0) - this.windup) * Math.min(1, dt * 10);
     if (this.stroking) {
       this.swing += dt / STROKE_SECONDS;
       if (this.swing >= 1) {
@@ -169,14 +165,13 @@ export class HandView {
 
   private drawArm(player: Readonly<PlayerState>, sky: number, block: number): void {
     const s = Math.sin(Math.PI * this.swing);
-    const w = this.windup;
     const fist = this.fist.makeTranslation(
       REST_X + STROKE_DX * s + this.swayX,
-      REST_Y + STROKE_DY * s + WINDUP_DY * w + this.swayY,
-      REST_Z + STROKE_DZ * s + WINDUP_DZ * w + this.swayZ,
+      REST_Y + STROKE_DY * s + this.swayY,
+      REST_Z + STROKE_DZ * s + this.swayZ,
     );
     fist.multiply(this.step.makeRotationY(REST_YAW + STROKE_YAW * s + this.swayX * SWAY_TURN));
-    fist.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s + WINDUP_PITCH * w));
+    fist.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s));
     const half = ARM_WIDTH / 2;
     this.box.makeScale(ARM_WIDTH, ARM_WIDTH, ARM_LENGTH).setPosition(-half, -half, 0);
     this.batch.add(this.box.multiplyMatrices(fist, this.box), this.armSkin, sky, block);

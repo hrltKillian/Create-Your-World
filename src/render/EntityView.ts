@@ -53,7 +53,6 @@ export class EntityView {
     swimming: false,
     pitch: 0,
     striking: false,
-    charging: false,
     dt: 0,
   };
   private readonly addBox = (i: number, box: Matrix4): void => {
@@ -106,7 +105,6 @@ export class EntityView {
     motion.swimming = b.inWater;
     motion.pitch = player.pitch;
     motion.striking = player.input.primary;
-    motion.charging = player.charge >= 0;
     motion.dt = dt;
     animate(tracked.rig, motion);
     if (visible) {

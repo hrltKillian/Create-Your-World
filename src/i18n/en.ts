@@ -181,6 +181,7 @@ export const en = {
   'bestiary.blow': 'Blow {damage}, reach {reach} b, after {windup} s',
   'bestiary.hidden': 'Study it (a scanner, or a kill) to learn its numbers.',
   'hud.scan': 'Scanning',
+  'hud.attack': 'Attack gauge',
   'hud.creatureState': 'Health {health}/{max} · breath {stamina} s · {mode}',
   'creature.mode.idle': 'calm',
   'creature.mode.wander': 'roaming',
