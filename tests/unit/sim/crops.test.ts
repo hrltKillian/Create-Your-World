@@ -9,14 +9,18 @@ import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 
 /*
- * Crops (plan v3 « M33 »): a ripe plant picked by secondary, left bare, ripening again in the
- * light; planted bare; broken ripe with its harvest. Numbers from the pack's crop data.
+ * Crops (plan v3 « M33 », the reference game's sweet berry bush): a ripe plant picked by
+ * secondary, its harvest popped out at its foot, left bare, ripening again in the light; planted
+ * bare from its harvest; broken ripe it gives its harvest, bare nothing. Numbers from the pack's
+ * crop data.
  */
 
 const BUSH = 'block:berry_bush';
 const crop = registry.blockDef(registry.defaultState(BUSH)).crop!;
 const harvestItems = registry.loot(crop.harvest)!.entries.map((e) => e.item as string);
 const LONGEST = ticksOf(crop.seconds[1]);
+/** The item that plants the bush (its berries). */
+const SEED = registry.items.find((item) => item.places === BUSH)!.key;
 /** The bush one block north of the player, its +z face. */
 const AT: ClientTarget = { x: 0, y: 65, z: -1, face: 4 };
 
@@ -28,31 +32,40 @@ function field() {
 }
 
 describe('crops', () => {
-  it('generate ripe, and a ripe one is picked by secondary: its harvest, the plant left bare', () => {
+  it('generate ripe, and a ripe one is picked by secondary: its harvest at its foot, left bare', () => {
     const s = field();
-    s.put(0, 65, -1, BUSH);
-    expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=1]`);
-    s.tick(1, { secondary: true, target: AT });
+    // Three blocks ahead: out of the player's pickup reach.
+    const far: ClientTarget = { x: 0, y: 65, z: -3, face: 4 };
+    s.put(0, 65, -3, BUSH);
+    expect(s.block(0, 65, -3)).toBe(`${BUSH}[ripe=1]`);
+    s.tick(1, { secondary: true, target: far });
     s.tick(20);
-    expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=0]`);
-    expect(s.harvested()).toBeGreaterThan(0);
+    expect(s.block(0, 65, -3)).toBe(`${BUSH}[ripe=0]`);
     expect(eventsOf(s.events, 'cropHarvested')).toHaveLength(1);
+    // The harvest lies at the bush's foot, not in the bag.
+    expect(s.harvested()).toBe(0);
+    const drops = () => [...s.sim.entities.values()].filter((e) => e.kind === 'itemDrop');
+    expect(drops().map((d) => d.kind === 'itemDrop' && d.item)).toEqual([harvestItems[0]]);
+    for (const d of drops()) expect(Math.hypot(d.body.x - 0.5, d.body.z + 2.5)).toBeLessThan(1);
     // Bare, it gives nothing more.
-    const had = s.harvested();
     s.tick(1, { secondary: false });
-    s.tick(1, { secondary: true, target: AT });
+    s.tick(1, { secondary: true, target: far });
     s.tick(20);
-    expect(s.harvested()).toBe(had);
+    expect(drops()).toHaveLength(1);
     // It ripens again within its longest time under the sky.
     s.tick(LONGEST);
-    expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=1]`);
+    expect(s.block(0, 65, -3)).toBe(`${BUSH}[ripe=1]`);
   });
 
-  it('are planted bare from their item and ripen in the light', () => {
+  it('are planted bare from their harvest, not eaten, and ripen in the light', () => {
     const s = field();
-    s.give(blockItemKey(BUSH));
-    s.tick(1, { secondary: true, target: { x: 0, y: 64, z: -1, face: 2 } });
+    s.give(SEED, 2);
+    s.send({ type: 'debug.setStat', stat: 'hunger', value: 20 });
+    const hunger = s.player.survival.hunger;
+    s.tick(40, { secondary: true, target: { x: 0, y: 64, z: -1, face: 2 } });
     expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=0]`);
+    expect(countItem(s.player.inventory, SEED)).toBe(1);
+    expect(s.player.survival.hunger).toBeLessThanOrEqual(hunger);
     expect(s.sim.blockUpdates.serialize(s.sim.tick)).toEqual(
       expect.arrayContaining([0, 65, -1, UPDATE_GROW]),
     );
@@ -60,6 +73,16 @@ describe('crops', () => {
     expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=0]`);
     s.tick(LONGEST);
     expect(s.block(0, 65, -1)).toBe(`${BUSH}[ripe=1]`);
+  });
+
+  it('are eaten where their harvest cannot be planted (looking at the sky)', () => {
+    const s = field();
+    s.give(SEED, 2);
+    s.send({ type: 'debug.setStat', stat: 'hunger', value: 20 });
+    const eat = ticksOf(registry.item(SEED)!.consume!.seconds);
+    s.tick(eat, { secondary: true, pitch: 1.2 });
+    expect(countItem(s.player.inventory, SEED)).toBe(1);
+    expect(eventsOf(s.events, 'consumed').map((e) => e.item)).toEqual([SEED]);
   });
 
   it('wait in the dark: no ripening shut in stone until the sky comes back', () => {
@@ -74,19 +97,19 @@ describe('crops', () => {
     expect(s.block(5, 65, 5)).toBe(`${BUSH}[ripe=1]`);
   });
 
-  it('broken ripe give the plant and its harvest, broken bare the plant alone', () => {
+  it('broken ripe give their harvest, broken bare nothing (never the bush itself)', () => {
     const s = field();
     s.put(0, 65, -1, BUSH);
     s.tick(10, { primary: true, target: AT });
     s.tick(20);
-    expect(countItem(s.player.inventory, blockItemKey(BUSH))).toBe(1);
     expect(s.harvested()).toBeGreaterThan(0);
     const had = s.harvested();
     s.put(0, 65, -1, `${BUSH}[ripe=0]`);
     s.tick(10, { primary: true, target: AT });
     s.tick(20);
-    expect(countItem(s.player.inventory, blockItemKey(BUSH))).toBe(2);
+    expect(s.block(0, 65, -1)).toBe('block:air');
     expect(s.harvested()).toBe(had);
+    expect(countItem(s.player.inventory, blockItemKey(BUSH))).toBe(0);
   });
 
   it('keep their ripening in the saved block updates', () => {

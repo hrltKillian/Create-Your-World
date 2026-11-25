@@ -66,9 +66,10 @@ export const loot = [
     ],
   },
   {
+    // The reference game's ripe sweet berry bush: 2 or 3 berries.
     key: 'loot:berry_bush',
     rolls: [1, 1],
-    entries: [{ item: 'item:berries', count: [1, 3], weight: 1 }],
+    entries: [{ item: 'item:berries', count: [2, 3], weight: 1 }],
   },
   {
     // The Sporefen's podtrees: sticks, and now and then a pod of resin.

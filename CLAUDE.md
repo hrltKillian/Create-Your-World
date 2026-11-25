@@ -254,7 +254,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `blockAt`, `UNEXPLORED`), the HUD's minimap `ui/hud/minimap.ts` (`#hud-map`, the player's
     coordinates under it) and the big map screen `ui/screens/mapScreen.ts` (key M only,
     `ui.screen()` 'map', `#screen-map`, the client's alone: `InventoryUi.toggleMap`; dragged
-    (`centreFor`, `stale`), a click picks a place; `data-action` `map-centre`/`waypoint-name`/
+    (`centreFor`, `stale`), zoomed `MAP_ZOOMS` pixels a block (`MapCanvas.zoom`: the wheel about
+    the pointer, `map-zoom-in`/`map-zoom-out`), a click picks a place; the player's and the
+    pointer's coordinates on two lines of their own (`.map-coords`, `.map-pointer`); `data-action`
+    `map-centre`/`waypoint-name`/
     `waypoint-add`/`waypoint-show`/`waypoint-remove`, pickers `data-icon`/`data-colour`, rows
     `data-waypoint`); waypoints on the compass (`CompassTargets.waypoints`/`waypointColours`,
     `.compass-waypoint` with `--c`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
@@ -276,7 +279,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     them (UiBridge); buttons `data-action` `bag-sort`, `stack-nearby`, `chest-sort`;
   - farming and fishing (plan v3 « M33 »): crops `sim/crops.ts` (`BlockDef.crop`: harvest,
     seconds, light; the `ripe` state, ripe by default; `isRipeCrop`, `harvestCrop` (secondary: the
-    harvest to the bag), `stripCrop` (grazed bare), `scheduleRipening`/`ripenCrop` on block update
+    harvest popped out at its foot, the reference game's sweet berries), `stripCrop` (grazed bare),
+    planted from their harvest (`ItemDef.places`: a food that plants, on the press where it holds,
+    else eaten: `plantsHere` in interaction.ts), `scheduleRipening`/`ripenCrop` on block update
     `UPDATE_GROW`; planted bare by `planPlacement`; broken ripe: `dropHarvest`, over `dropLoot` of
     blockRemoval.ts); fishing `sim/fishing.ts` (`holdRod` before `holdUse`: `ItemDef.rod`,
     `LiquidDef.fish`, `BiomeDef.fish`; `aimedLiquidCell`, `held` of consume.ts; event

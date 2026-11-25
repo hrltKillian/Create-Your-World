@@ -126,6 +126,8 @@ function checkItems(
       if (!positive(rod.seconds[0]) || !(rod.seconds[1]! >= rod.seconds[0]))
         add(`${path}.rod.seconds`, 'must be a range of seconds > 0');
     }
+    if (item.places !== undefined && !blockKeys.has(item.places))
+      add(`${path}.places`, `unknown block "${item.places}"`);
     if (item.lore !== undefined && pack.strings[item.lore] === undefined)
       add(`${path}.lore`, `no string for "${item.lore}"`);
     (item.blueprint ?? []).forEach((key, b) => {

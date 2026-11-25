@@ -141,13 +141,15 @@ of them:
 **M33 — Farming, cooking and fishing** (plan v3, `docs/conception.md` « M33 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 
-- **Pick crops**: right click a ripe berry bush, frost bulb or palmthorn; the harvest goes to the
-  bag and the plant grows back in a few minutes in the light. Break one to replant it elsewhere.
+- **Pick crops**: right click a ripe berry bush, frost bulb or palmthorn; the harvest pops out at
+  its foot and the plant grows back in a few minutes in the light. Right click the ground with
+  berries (or an ice bulb) to plant a new bush; anywhere else, they are eaten.
 - **Cook**: at a campfire, a raw fish grills; raw meat with two berries makes a hearty stew, the
   most filling dish.
 - **Fish**: craft a fishing rod (3 sticks, 2 cords) and hold right click on fresh water; the
   Mirror Basin's lakes teem with fish.
 - **Quests**: pick three crops, catch a fish, cook both dishes.
+- **Zoom the big map** (M) with the wheel or « + » / « − » to place a waypoint on the very block.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m33`.
 
 ### Earlier milestones

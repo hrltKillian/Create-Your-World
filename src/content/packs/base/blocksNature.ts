@@ -53,9 +53,10 @@ const plant = (
 const CROP_LIGHT = 9;
 
 /**
- * A crop (plan v3 « M33 »): ripe it bears `harvest` (its `ripe` texture), picked by secondary or
- * with the plant when broken; it drops itself, to plant again, and ripens in 9 light or more.
- * Never replaced by a block placed into it.
+ * A crop (plan v3 « M33 », the reference game's sweet berry bush): ripe it bears `harvest` (its
+ * `ripe` texture), popped out at its foot by secondary or when broken; broken bare it gives
+ * nothing. It is planted from its harvest (`ItemDef.places`) and ripens in 9 light or more. Never
+ * replaced by a block placed into it.
  */
 const crop = (
   key: `block:${string}`,
@@ -70,7 +71,6 @@ const crop = (
     whenState: { ripe: { textures: { all: ripe } } },
     crop: { harvest, seconds, light: CROP_LIGHT },
     replaceable: false,
-    drops: 'self',
   });
 
 /** A tree trunk (plan v3 « M23 »: each species its own bark), a log of the recipes. */
@@ -204,7 +204,8 @@ export const natureBlocks = [
     drops: 'loot:tall_grass',
   }),
   plant('block:reed', 'block.reed', 'tex:reed', { drops: 'loot:tall_grass' }),
-  // Crops (plan v3 « M33 »): picked bare, they ripen again in a few minutes.
+  // Crops (plan v3 « M33 »): picked bare, they ripen again in a few minutes; planted from their
+  // harvest.
   crop(
     'block:frost_bulb',
     'block.frost_bulb',
@@ -246,7 +247,8 @@ export const natureBlocks = [
     light: { filter: 1 },
     contact: { damagePerSec: 1 },
     hardness: 0.4,
-    // A crop of the Ochre Waste (plan v3 « M33 »): its fruit ripens on its sides.
+    // A crop of the Ochre Waste (plan v3 « M33 »): its fruit ripens on its sides, popped out
+    // when picked; broken, it gives itself (the reference game's cactus) and its ripe fruit.
     states: ['ripe'],
     whenState: { ripe: { textures: { side: 'tex:palmthorn_ripe' } } },
     crop: { harvest: 'loot:palmthorn', seconds: [360, 600], light: CROP_LIGHT },

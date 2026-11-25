@@ -17,9 +17,9 @@ import {
 } from './support.ts';
 
 /*
- * M33 farming and fishing (plan v3 « M33 »): a crop planted from its item starts bare, ripens in
- * the light within its time, is picked by secondary (its harvest in the bag, the plant bare
- * again); a rod held on a pool of water with fish lands a catch and wears. Crops, rods and fish
+ * M33 farming and fishing (plan v3 « M33 »): a crop planted from its harvest starts bare, ripens
+ * in the light within its time, is picked by secondary (its harvest popped out at its foot, picked
+ * up from one block away; the plant bare again); a rod held on a pool of water with fish lands a catch and wears. Crops, rods and fish
  * come from the pack's data.
  */
 
@@ -46,7 +46,9 @@ const cropCase: SelftestCase = {
     const ripe = () => registry.prop(world.getBlock(cell.x, cell.y, cell.z), 'ripe');
     try {
       await standAt(app, SPOT);
-      inventory[SLOT] = { item: blockItemKey(crop.key), count: 1 };
+      // Planted from its harvest (berries), else from its own item.
+      const seed = registry.items.find((item) => item.places === crop.key)?.key;
+      inventory[SLOT] = { item: seed ?? blockItemKey(crop.key), count: 1 };
       app.input!.slot = SLOT;
       session.step(1);
       await aimAt(app, { ...cell, y: cell.y - 1 }, 0.99);

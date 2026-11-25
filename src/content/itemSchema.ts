@@ -138,6 +138,11 @@ export interface ItemDef {
   readonly hintKey?: string;
   /** A journal of the lost colony (plan v3 « M26 »): its text (i18n key), read in its description. */
   readonly lore?: string;
+  /**
+   * The block it plants, as the reference game's seeds (plan v3 « M33 »: berries plant a berry
+   * bush): secondary on a face where the block holds places it; a food is eaten elsewhere.
+   */
+  readonly places?: BlockKey;
   /** A blueprint: the `known: 'blueprint'` recipes it reveals once had. */
   readonly blueprint?: readonly RecipeKey[];
 }

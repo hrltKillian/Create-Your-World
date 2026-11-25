@@ -101,7 +101,7 @@ export interface ItemTables {
    * for items that do not wear.
    */
   readonly durability: Uint16Array;
-  /** Block state the item places, −1 if it places nothing. */
+  /** Block state the item places (its block's, or the one it plants), −1 if it places nothing. */
   readonly places: Int32Array;
 }
 
@@ -126,7 +126,7 @@ export function buildItemTables(
       item.wear?.durability ??
       item.rod?.durability ??
       charges(item);
-    const block = placed.get(item.key);
+    const block = item.places ?? placed.get(item.key);
     if (block !== undefined) tables.places[i] = blockState(block);
   });
   return tables;

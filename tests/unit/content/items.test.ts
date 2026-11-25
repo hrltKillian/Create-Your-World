@@ -50,7 +50,9 @@ describe('items', () => {
   it('gives every plant a harvest: none is broken for nothing (plan v3 « M30 »)', () => {
     const plants = basePack.blocks.filter((block) => block.shape === 'cross');
     expect(plants.length).toBeGreaterThan(5);
-    for (const plant of plants) expect(plant.drops, plant.key).not.toBe('none');
+    // A crop gives its harvest (plan v3 « M33 »: ripe; it is planted from it).
+    for (const plant of plants)
+      expect(plant.crop?.harvest ?? plant.drops, plant.key).not.toBe('none');
   });
 
   it('defines the flint tools, which place nothing and never stack', () => {

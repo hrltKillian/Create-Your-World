@@ -17,7 +17,8 @@ import {
  * M31 the detailed map (plan v3 « M31 », the fourth play test), on the flat world with fixed
  * steps (?worldType=flat&fixedStep=1): the minimap says where the player stands; the big map is
  * dragged with the mouse; a click picks a place, where « Mark » sets a waypoint of the symbol and
- * colour chosen; the list shows its coordinates; only M closes the map.
+ * colour chosen; the list shows its coordinates; zoomed in by the wheel, a click picks a block
+ * among 4 pixels; only M closes the map.
  */
 
 const SPOT = { x: -150, z: 40 };
@@ -90,6 +91,23 @@ const mapCase: SelftestCase = {
     );
     click(`#screen-map [data-waypoint="${index}"] [data-action="waypoint-remove"]`);
     session.step(1);
+    // Zoomed in twice by the wheel over the middle (4 pixels a block, the centre kept): a click
+    // 10 pixels east and 6 north picks the block 2 east and 2 north of it.
+    for (let i = 0; i < 2; i++)
+      canvas.dispatchEvent(
+        new WheelEvent('wheel', { clientX: middle.x, clientY: middle.y, deltaY: -100 }),
+      );
+    const zoom = () => document.querySelector('#screen-map .map-zoom')?.textContent;
+    assert(zoom() === t('map.zoom', { n: 4 }), `the map's zoom reads ${zoom()}`);
+    await withinFrames(2, () => false);
+    pointer('pointerdown', 10, -6);
+    pointer('pointerup', 10, -6);
+    const where = () => document.querySelector('#screen-map .map-where')?.textContent;
+    const close = t('map.at', { x: centre.x + 2, z: centre.z - 2 });
+    assert(where() === close, `zoomed in, the click picked « ${where()} », not « ${close} »`);
+    click('#screen-map [data-action="map-zoom-out"]');
+    click('#screen-map [data-action="map-zoom-out"]');
+    assert(zoom() === t('map.zoom', { n: 1 }), `zoomed out, the map reads ${zoom()}`);
     tap('KeyM', 'm');
     assert(app.inventory!.screen() === null, 'M did not close the big map');
   },

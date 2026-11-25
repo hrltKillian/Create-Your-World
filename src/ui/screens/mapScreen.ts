@@ -14,18 +14,21 @@ import { menuButton } from './menuParts.ts';
 
 /** A press that moves less than this (pixels) is a click: it picks a place. */
 const CLICK_SLOP = 4;
+/** Pixels a block side the map is drawn at, from the whole explored area to the closest look. */
+export const MAP_ZOOMS = [1, 2, 4, 8] as const;
 /** Pixels of a symbol in the pickers and the list. */
 const PICKER_ICON = 18;
 
 /**
  * The big map (plan v3 « M27 », detailed at « M31 »; its key M): the explored land, a pixel a
- * block, dragged with the mouse to see all of it (« Centre on me » brings it back); a click picks
- * a place, marked there. The player's coordinates, the pointed block's and the picked place's show
+ * block, dragged with the mouse to see all of it (« Centre on me » brings it back), zoomed in up to
+ * 8 pixels a block by the wheel (about the pointer) or « + » / « − » to pick a place precisely; a
+ * click picks a place, marked there. The player's coordinates, the pointed block's and the picked place's show
  * under it. Beside it the waypoints, each with its symbol, name, coordinates and distance, « Show »
  * (the map centres on it) and « Remove »; then the new one's name, symbol and colour and « Mark »
  * (at the picked place, else at the feet). Fixed size: the list scrolls. `data-action`:
- * `map-centre`, `waypoint-name`, `waypoint-add`, `waypoint-show`, `waypoint-remove`; the pickers
- * `data-icon`, `data-colour`; the rows `data-waypoint`.
+ * `map-centre`, `map-zoom-in`, `map-zoom-out`, `waypoint-name`, `waypoint-add`, `waypoint-show`,
+ * `waypoint-remove`; the pickers `data-icon`, `data-colour`; the rows `data-waypoint`.
  */
 export class MapScreen {
   readonly element: HTMLElement;
@@ -37,10 +40,12 @@ export class MapScreen {
   private readonly list: HTMLElement;
   private readonly name: HTMLInputElement;
   private readonly coords: HTMLElement;
+  private readonly pointerAt: HTMLElement;
   private readonly where: HTMLElement;
   private readonly icons: HTMLElement;
   private readonly colours: HTMLElement;
   private readonly closeHint: HTMLElement;
+  private readonly zoomLabel: HTMLElement;
   private readonly actions: ScreenActions;
   private readonly closeKey: () => string;
   private shownList: string | null = null;
@@ -70,8 +75,17 @@ export class MapScreen {
     }) as HTMLInputElement;
     const add = menuButton('waypoint-add', t('map.mark'), () => this.mark(), 'quest-pin');
     const centre = menuButton('map-centre', t('map.centre'), () => this.centre(), 'quest-pin');
+    const zoomIn = menuButton('map-zoom-in', t('map.zoomIn'), () => this.zoomBy(1), 'quest-pin');
+    const zoomOut = menuButton(
+      'map-zoom-out',
+      t('map.zoomOut'),
+      () => this.zoomBy(-1),
+      'quest-pin',
+    );
+    this.zoomLabel = h('span', { class: 'map-zoom' });
     this.list = h('ul', { class: 'map-waypoints' });
     this.coords = h('p', { class: 'map-coords' });
+    this.pointerAt = h('p', { class: 'map-coords map-pointer' });
     this.where = h('p', { class: 'map-where' });
     this.icons = h('div', { class: 'map-picker' });
     this.colours = h('div', { class: 'map-picker' });
@@ -83,6 +97,7 @@ export class MapScreen {
     map.addEventListener('pointerleave', () => {
       this.drag = null;
     });
+    map.addEventListener('wheel', this.onWheel, { passive: false });
     this.element = h(
       'section',
       { id: 'screen-map', class: 'screen screen-map' },
@@ -93,7 +108,17 @@ export class MapScreen {
         h(
           'div',
           { class: 'map' },
-          h('div', { class: 'map-view' }, map, h('div', { class: 'map-bar' }, this.coords, centre)),
+          h(
+            'div',
+            { class: 'map-view' },
+            map,
+            h(
+              'div',
+              { class: 'map-bar' },
+              h('div', { class: 'map-where-now' }, this.coords, this.pointerAt),
+              h('span', { class: 'map-zoom-bar' }, zoomOut, this.zoomLabel, zoomIn, centre),
+            ),
+          ),
           h(
             'div',
             { class: 'map-side' },
@@ -111,6 +136,7 @@ export class MapScreen {
     );
     this.element.hidden = true;
     this.drawPickers();
+    this.showZoom();
   }
 
   isOpen(): boolean {
@@ -162,14 +188,16 @@ export class MapScreen {
       this.list.append(h('li', { class: 'map-none' }, t('map.none')));
   }
 
-  /** The player's, the pointed block's and the picked place's coordinates. */
+  /**
+   * The player's coordinates, the pointed block's on their own line (kept when the pointer leaves,
+   * so the bar never moves), and the picked place's.
+   */
   private showWhere(pointer?: { x: number; z: number }): void {
     const view = this.view;
     if (!view) return;
     const me = t('map.you', { x: Math.floor(view.player.x), z: Math.floor(view.player.z) });
-    const at = pointer ? ` · ${t('map.pointer', pointer)}` : '';
-    const coords = me + at;
-    if (this.coords.textContent !== coords) this.coords.textContent = coords;
+    if (this.coords.textContent !== me) this.coords.textContent = me;
+    if (pointer) this.pointerAt.textContent = t('map.pointer', pointer);
     const where = this.picked ? t('map.at', this.picked) : t('map.atFeet');
     if (this.where.textContent !== where) this.where.textContent = where;
   }
@@ -264,6 +292,29 @@ export class MapScreen {
     this.showWhere();
   }
 
+  /** Zooms in (+1) or out (−1) a level, about a canvas pixel (its middle by default). */
+  private zoomBy(step: number, px = BIG_MAP_SIDE / 2, py = BIG_MAP_SIDE / 2): void {
+    const view = this.view;
+    const levels: readonly number[] = MAP_ZOOMS;
+    const level = levels.indexOf(this.canvas.zoom) + step;
+    if (!view || level < 0 || level >= levels.length) return;
+    this.actions.click();
+    // The point under the pixel stays under it: the centre moves towards it (whole blocks).
+    const half = BIG_MAP_SIDE / 2;
+    const before = this.canvas.zoom;
+    const zoom = levels[level]!;
+    this.canvas.zoom = zoom;
+    const shift = (p: number) => (p - half) / before - (p - half) / zoom;
+    this.panX += Math.round(shift(px));
+    this.panZ += Math.round(shift(py));
+    this.stale = true;
+    this.showZoom();
+  }
+
+  private showZoom(): void {
+    this.zoomLabel.textContent = t('map.zoom', { n: this.canvas.zoom });
+  }
+
   /** Centres the map on the player again. */
   private centre(): void {
     this.actions.click();
@@ -283,7 +334,7 @@ export class MapScreen {
   }
 
   /** Canvas pixels of a pointer event (the canvas may be drawn larger or smaller). */
-  private pixel(event: PointerEvent): { x: number; y: number } {
+  private pixel(event: MouseEvent): { x: number; y: number } {
     const box = this.canvas.element.getBoundingClientRect?.();
     const k = BIG_MAP_SIDE / (box?.width || BIG_MAP_SIDE);
     return { x: (event.clientX - (box?.left ?? 0)) * k, y: (event.clientY - (box?.top ?? 0)) * k };
@@ -303,10 +354,18 @@ export class MapScreen {
     const dy = p.y - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < CLICK_SLOP) return;
     drag.moved = true;
-    // Dragging the land: the centre moves the other way, a block a pixel.
-    this.panX = drag.panX - Math.round(dx);
-    this.panZ = drag.panZ - Math.round(dy);
+    // Dragging the land: the centre moves the other way, a block `zoom` pixels.
+    this.panX = drag.panX - Math.round(dx / this.canvas.zoom);
+    this.panZ = drag.panZ - Math.round(dy / this.canvas.zoom);
     this.stale = true;
+  };
+
+  /** The wheel zooms about the pointer: up (away) in, down out. */
+  private readonly onWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    if (event.deltaY === 0) return;
+    const p = this.pixel(event);
+    this.zoomBy(event.deltaY < 0 ? 1 : -1, p.x, p.y);
   };
 
   private readonly onUp = (event: PointerEvent): void => {

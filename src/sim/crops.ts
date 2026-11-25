@@ -7,16 +7,13 @@ import { UPDATE_GROW } from './blockUpdates.ts';
 import { ticksOf } from './clock.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
-import { freshStack } from './inventory.ts';
-import { giveItems } from './inventoryCommands.ts';
-import { rollLoot } from './loot.ts';
-import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /*
- * Crops (plan v3 « M33 »): a plant with `BlockDef.crop` bears its harvest while `ripe`. Secondary
- * on a ripe one picks it: the harvest goes to the bag, the plant stays bare (broken ripe, it drops
- * its harvest with itself; a grazing creature leaves it bare, without the harvest). A bare one ripens `crop.seconds` later (block updates,
+ * Crops (plan v3 « M33 », the reference game's sweet berry bush): a plant with `BlockDef.crop` bears
+ * its harvest while `ripe`. Secondary on a ripe one picks it: the harvest pops out at its foot, the
+ * plant stays bare (broken ripe, it drops its harvest too; a grazing creature leaves it bare,
+ * without the harvest). A bare one ripens `crop.seconds` later (block updates,
  * UPDATE_GROW) where the sky or a lamp gives it `crop.light`; in the dark it waits as long again.
  * A planted one starts bare (placement.ts); generated ones are ripe.
  */
@@ -55,12 +52,12 @@ export function stripCrop(sim: Simulation, x: number, y: number, z: number, out:
 }
 
 /**
- * A player picks the ripe crop at a cell: its harvest goes to the bag (at the feet when full), the
- * plant stays bare.
+ * A player picks the ripe crop at a cell: its harvest pops out at its foot (the reference game's
+ * sweet berries), the plant stays bare.
  */
 export function harvestCrop(
   sim: Simulation,
-  player: PlayerState,
+  playerId: number,
   x: number,
   y: number,
   z: number,
@@ -69,18 +66,15 @@ export function harvestCrop(
   const registry = sim.registry;
   const state = sim.world.getBlock(x, y, z);
   const crop = cropOf(registry, state);
-  const table = crop ? registry.loot(crop.harvest) : undefined;
-  if (!table || !isRipeCrop(registry, state)) return;
-  const give = (item: string, count: number) =>
-    giveItems(sim, player, freshStack(registry, item, count), out);
-  rollLoot(table, hash32(hash32(sim.ctx.seedHash, x, y, z), sim.tick, HARVEST_SALT), give);
+  if (!crop || !isRipeCrop(registry, state)) return;
+  dropHarvest(sim, crop, x, y, z);
   stripCrop(sim, x, y, z, out);
-  out.push({ type: 'cropHarvested', playerId: player.playerId, x, y, z, state });
+  out.push({ type: 'cropHarvested', playerId, x, y, z, state });
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
 }
 
-/** A crop's harvest dropped at a cell (broken ripe: blockRemoval.ts). */
+/** A crop's harvest dropped at a cell (picked, or broken ripe: blockRemoval.ts). */
 export function dropHarvest(sim: Simulation, crop: CropDef, x: number, y: number, z: number) {
   dropLoot(sim, crop.harvest, x, y, z, HARVEST_SALT);
 }

@@ -143,8 +143,9 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
 
 /**
  * Secondary button: an aimed interactive block on the press; else a journal in hand read on the
- * press; else what the hand fishes, eats, drinks or fills while held; else a placement on the
- * press, then every PLACE_REPEAT_TICKS while held.
+ * press; else a food that plants (berries) planted on the press where it holds; else what the hand
+ * fishes, eats, drinks or fills while held; else a placement on the press, then every
+ * PLACE_REPEAT_TICKS while held.
  */
 function useButton(sim: Simulation, player: PlayerState, status: number, out: SimEvent[]): void {
   const st = player.interaction;
@@ -164,6 +165,14 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
   }
   if (readsHeld(sim, player, pressed, out)) {
     st.useItem = NO_USE;
+    return;
+  }
+  if (pressed && status === AIM_HIT && plantsHere(sim, player)) {
+    // Food that plants (berries: the reference game's seeds) plants on the press where it holds,
+    // and is not eaten on this hold.
+    st.useItem = NO_USE;
+    st.useCooldown = PLACE_REPEAT_TICKS;
+    place(sim, player, out);
     return;
   }
   if (holdRod(sim, player, pressed, out) || holdUse(sim, player, pressed, out)) return;
@@ -207,7 +216,7 @@ function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const kind = sim.registry.blockDef(hit.state).blockEntity;
   let refusal: string | null = null;
   // The aim has confirmed the line of sight (a client target, or the simulation's own ray).
-  if (isRipeCrop(sim.registry, hit.state)) harvestCrop(sim, player, x, y, z, out);
+  if (isRipeCrop(sim.registry, hit.state)) harvestCrop(sim, player.playerId, x, y, z, out);
   else if (kind === 'container' || kind === 'station' || kind === 'workbench')
     refusal = openBlockEntity(sim, player, x, y, z, out, true);
   else if (kind === 'bed') sleepOn(sim, player, x, y, z, out);
@@ -247,6 +256,15 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
   // liquids beside it flow anew).
   noteChanged(sim, x, y, z);
   if (other !== y) noteChanged(sim, x, other, z);
+}
+
+/** Whether the held item is a food that plants a block (berries) and it holds at the aimed face. */
+function plantsHere(sim: Simulation, player: PlayerState): boolean {
+  const itemId = heldItem(sim, player);
+  const state = itemId < 0 ? -1 : sim.registry.itemTables.places[itemId]!;
+  if (state < 0 || !sim.registry.items[itemId]?.consume) return false;
+  const { world, registry, entities } = sim;
+  return planPlacement(world, registry, entities, player, hit, state, placement) === null;
 }
 
 /** Places one of the held blocks against the aimed face. */

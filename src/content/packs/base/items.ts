@@ -130,8 +130,10 @@ const equipment = [
 /** Food and remedies (« Survie »: raw meat +10 toxicity, the antidote −40); effects in M9. */
 const consumables = [
   // Foods as the reference game's (×5): a snack, raw meat, a grilled steak, a fruit.
+  // The berry bush's seed, as the reference game's (plan v3 « M33 »).
   item('berries', {
     hintKey: 'where.berries',
+    places: 'block:berry_bush',
     consume: { seconds: 0.8, hunger: 10, saturation: 2 },
   }),
   item('raw_meat', {
@@ -148,7 +150,10 @@ const consumables = [
   item('grilled_fish', { consume: { seconds: 1.2, hunger: 25, saturation: 30 } }),
   item('hearty_stew', { maxStack: 16, consume: { seconds: 1.6, hunger: 50, saturation: 60 } }),
   // Melts in the mouth: water from the Rimefrost (plan v3 « M23 »).
-  found('ice_bulb', 'where.ice_bulb', { consume: { seconds: 0.8, thirst: 15 } }),
+  found('ice_bulb', 'where.ice_bulb', {
+    consume: { seconds: 0.8, thirst: 15 },
+    places: 'block:frost_bulb',
+  }),
   // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).
   item('pack_frame', { consume: { seconds: 1.5, bagSlots: 8 } }),
   item('palmthorn_fruit', {
