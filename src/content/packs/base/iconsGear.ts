@@ -372,6 +372,12 @@ export const consumableIcons = [
     BERRIES,
   ),
   icon('tex:icon_raw_meat', 352, ['#3a1014', '#8a2a30', '#c04a4a', '#e07a72', '#f0d8c8'], MEAT),
+  icon(
+    'tex:icon_ice_bulb',
+    372,
+    ['#1d3a44', '#5fa7c0', '#8fd0e4', '#d6f4fc', '#7fb7a0', '#3e7a5c'],
+    BERRIES,
+  ),
   icon('tex:icon_grilled_meat', 353, ['#2a160c', '#5e3418', '#8a5228', '#b07a42', '#d9b070'], MEAT),
   icon(
     'tex:icon_palmthorn_fruit',

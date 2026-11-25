@@ -148,8 +148,19 @@ describe('ores', () => {
   it('replaces only host blocks, at least 2 blocks inside the section, near allowed biomes', () => {
     const lowMarsh = biomeIndex(ctx, 'biome:fungal_marsh');
     const columns = [
+      // Columns whose centre and corners lie in the biome: its ores away from any border.
       ...['biome:meadow', 'biome:tundra', 'biome:ochre_desert', 'biome:highlands'].map((key) =>
-        findColumn(ctx, (info) => info.biome === biomeIndex(ctx, key)),
+        findColumn(ctx, (info, cx, cz) => {
+          const inside = (x: number, z: number) =>
+            pointInfo(ctx, cx * 32 + x, cz * 32 + z).biome === biomeIndex(ctx, key);
+          return (
+            info.biome === biomeIndex(ctx, key) &&
+            inside(1, 1) &&
+            inside(30, 1) &&
+            inside(1, 30) &&
+            inside(30, 30)
+          );
+        }),
       ),
       // Bog iron forms in the silt of marsh ponds (y 54–62).
       findColumn(ctx, (info) => info.biome === lowMarsh && info.height < ctx.def.seaLevel - 2, 1),

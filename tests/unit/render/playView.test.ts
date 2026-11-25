@@ -82,9 +82,9 @@ describe('item drops', () => {
       view.drawAll(new Map([[1, drop(1, item, 0.5, 0.5)]]), 0, 65, 0, 1, 0.2);
       batch.end();
     };
-    draw('item:foliage');
-    const foliage = boxTint(basePack.tints.foliage);
-    expect(tints()).toEqual([foliage, foliage, foliage, 1]);
+    draw('item:tall_grass');
+    const grass = boxTint(basePack.tints.grass);
+    expect(tints()).toEqual([grass, grass, grass, 1]);
     draw('item:stone');
     expect(tints()).toEqual([BOX_NO_TINT, BOX_NO_TINT, BOX_NO_TINT, 0]);
   });

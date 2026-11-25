@@ -313,8 +313,8 @@ describe('LogbookPanel', () => {
     expect(icons.map((e) => e.textContent)).toEqual(['?', '?']);
     const names = detail.findAll((e) => e.className === 'logbook-ingredient logbook-hint');
     expect(names.map((e) => e.textContent)).toEqual([
-      'Pulled from tall grass',
-      'Oozes from conifer needles and palmthorns',
+      'Pulled from tall grass and spear reeds',
+      'Oozes from pine needles and palmthorns',
     ]);
     for (const batch of ['1', '5', 'max'])
       expect((fake(root).findAction(`craft-${batch}`) as { disabled?: boolean }).disabled).toBe(

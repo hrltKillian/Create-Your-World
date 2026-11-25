@@ -35,7 +35,7 @@ import {
 } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 7;
+export const GEN_VERSION = 8;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;
@@ -104,6 +104,7 @@ export function createGenContext(
       size0: feature.size[0],
       size1: feature.size[1],
       soil: new Set(feature.soil.map(state)),
+      trunk: feature.trunk ?? 1,
     });
   }
   const sorted = [...pack.biomes].sort((a, b) => a.order - b.order);

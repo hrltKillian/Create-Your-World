@@ -165,7 +165,10 @@ describe('content validation of world generation', () => {
   it('checks features, ores and the decoration chances of biomes', () => {
     const pack = JSON.parse(JSON.stringify(basePack));
     pack.features[0].crown = undefined;
-    pack.features[3].size = [1, 5];
+    const boulder = pack.features.findIndex((f: { kind: string }) => f.kind === 'boulder');
+    pack.features[boulder].size = [1, 5];
+    // Only trees grow a 2×2 trunk.
+    pack.features[boulder + 1].trunk = 2;
     pack.ores[0].block = 'block:nope';
     pack.ores[1].biomes = ['biome:nope'];
     pack.ores[3].layers[0].size = [6, 3];
@@ -179,7 +182,8 @@ describe('content validation of world generation', () => {
     expect(paths).toEqual(
       expect.arrayContaining([
         'features[0].crown',
-        'features[3].size',
+        `features[${boulder}].size`,
+        `features[${boulder + 1}].trunk`,
         'ores[0].block',
         'ores[1].biomes[0]',
         'ores[3].layers[0].size',

@@ -138,22 +138,22 @@ of them:
 
 ## Try this milestone
 
-**M22 — XP, levels and skills** (plan v3, `docs/conception.md` « M22 »). `npm run dev`, then open
+**M23 — The biomes of Veyra** (plan v3, `docs/conception.md` « M23 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **XP** comes from claiming quests and tasks only. Each level gives a skill point.
-- **The Status page** (U): your level and XP, and six skills of up to 5 points, each with the
-  exact rule of its bonus: vitality (+10 health), endurance (+10 stamina), carrying (+4 bag slots),
-  metabolism (−6 % hunger and thirst), resistance (+1.5 °C of comfort each side) and strength
-  (+6 % melee damage and mining speed).
-- **Tasks**: three everyday tasks on the Quests page (break, place, hunt, eat, a night…), claimed
-  for XP and replaced; one may be redrawn once a game day.
-- **Level recipes**: the Backpack Frame (level 3, +8 slots) and the Scanner Mk II (level 4) at the
-  workbench; never needed on the way to iron.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m22`.
+- **Eight biomes, each with its signature tree**: the Lanternwood of the Amberfield (grey-violet
+  bark, yellow-green crown), the Veilpine groves of the Veilwood (rust bark, blue-green needles),
+  the new Capwood of giant glowing mushrooms, the Frostpine, the Twistpine of the rocky Shard
+  Highlands, the Mirror Willow by the lakes and the low Podtree of the Sporefen.
+- **Rare giants** (a 2×2 Lanternwood, the Old Veil over 20 blocks), clearings and dense groves.
+- **New plants**, one useful in each biome: spear reeds (fiber), frost bulbs (water), crystal
+  sprouts (crystal shards)… Caps and leaves fall once nothing holds them.
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m23`; `__game.world.findBiome('biome:capwood')`.
 
 ### Earlier milestones
 
+- **M22, XP, levels and skills**: XP from quests and tasks, six skills on the Status page (U), level
+  recipes; `?worldType=flat&fixedStep=1&selftest=m0,m22`.
 - **M21, non-linear quests**: a quest graph with four branches open from the start, a state
   reached before an unlock done at it, the Quests page (J) with claims and a pin under the compass;
   `?worldType=flat&fixedStep=1&selftest=m0,m21`.

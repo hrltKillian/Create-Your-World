@@ -80,7 +80,11 @@ export const worldgen = {
 
 type PackBiome = BiomeDef & { readonly nameKey: PackI18nKey };
 
-/** Seven surface biomes, tested in `order`. Cold lies north (−z), heat south (+z). */
+/**
+ * The eight surface biomes of Veyra (plan v3 « M23 »), tested in `order`. Cold lies north (−z),
+ * heat south (+z). Each has its signature tree (a rare giant in the Amberfield and the Veilwood),
+ * sub-zones of clearings and groves where `groves` says so, and 3 or more plants, one useful.
+ */
 export const biomes = [
   {
     key: 'biome:lake_basin',
@@ -94,7 +98,12 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b25a', foliage: '#64a046', water: '#3a78c6' },
     fog: '#9cc0dc',
-    plants: [{ block: 'block:tall_grass', chance: 0.05 }],
+    features: [{ feature: 'feature:willow', chance: 0.1 }],
+    plants: [
+      { block: 'block:reed', chance: 0.08 },
+      { block: 'block:tall_grass', chance: 0.05 },
+      { block: 'block:veil_fern', chance: 0.02 },
+    ],
   },
   {
     key: 'biome:fungal_marsh',
@@ -112,9 +121,10 @@ export const biomes = [
     liquid: 'block:foul_water',
     tints: { grass: '#7d8c45', foliage: '#6b7a3c', water: '#6e7a3f' },
     fog: '#9aa27c',
-    features: [{ feature: 'feature:giant_mushroom', chance: 0.16 }],
+    features: [{ feature: 'feature:podtree', chance: 0.14 }],
     plants: [
-      { block: 'block:tall_grass', chance: 0.1 },
+      { block: 'block:reed', chance: 0.08 },
+      { block: 'block:tall_grass', chance: 0.06 },
       { block: 'block:glowbloom', chance: 0.02 },
     ],
   },
@@ -131,8 +141,12 @@ export const biomes = [
     liquidCap: 'block:ice',
     tints: { grass: '#9fb59a', foliage: '#6f8a6b', water: '#4a7fb8' },
     fog: '#c7d6e2',
-    features: [{ feature: 'feature:conifer', chance: 0.08 }],
-    plants: [{ block: 'block:frost_lichen', chance: 0.05 }],
+    features: [{ feature: 'feature:frostpine', chance: 0.08 }],
+    plants: [
+      { block: 'block:frost_lichen', chance: 0.05 },
+      { block: 'block:frost_bulb', chance: 0.015 },
+      { block: 'block:dry_shrub', chance: 0.01 },
+    ],
   },
   {
     key: 'biome:ochre_desert',
@@ -152,9 +166,11 @@ export const biomes = [
     features: [
       { feature: 'feature:palmthorn', chance: 0.1 },
       { feature: 'feature:thornbush', chance: 0.04 },
-      { feature: 'feature:sandstone_boulder', chance: 0.03 },
     ],
-    plants: [{ block: 'block:dry_shrub', chance: 0.02 }],
+    plants: [
+      { block: 'block:dry_shrub', chance: 0.02 },
+      { block: 'block:amber_bell', chance: 0.005 },
+    ],
   },
   {
     key: 'biome:highlands',
@@ -172,15 +188,43 @@ export const biomes = [
     tints: { grass: '#7fa05e', foliage: '#5b8448', water: '#3d74b8' },
     fog: '#a9bfd0',
     features: [
-      { feature: 'feature:conifer', chance: 0.12 },
+      { feature: 'feature:twistpine', chance: 0.12 },
       { feature: 'feature:boulder', chance: 0.1 },
     ],
-    plants: [{ block: 'block:tall_grass', chance: 0.04 }],
+    plants: [
+      { block: 'block:tall_grass', chance: 0.04 },
+      { block: 'block:frost_lichen', chance: 0.02 },
+      { block: 'block:crystal_sprout', chance: 0.006 },
+    ],
+  },
+  {
+    // Dark woods of giant mushrooms (plan v3 « M23 »): the wettest mild lands.
+    key: 'biome:capwood',
+    nameKey: 'biome.capwood',
+    order: 6,
+    all: [
+      { field: 'H', gt: 0.4 },
+      { field: 'T', gt: -0.3 },
+    ],
+    climate: { dayC: 16, nightC: 9 },
+    surface: 'block:grass',
+    filler: 'block:dirt',
+    seabed: 'block:sand',
+    liquid: 'block:fresh_water',
+    tints: { grass: '#5f7a4c', foliage: '#4f6a40', water: '#3a6aa8' },
+    fog: '#7f86a0',
+    groves: { scale: 90, contrast: 0.5 },
+    features: [{ feature: 'feature:giant_mushroom', chance: 0.3 }],
+    plants: [
+      { block: 'block:cap_sprout', chance: 0.05 },
+      { block: 'block:tall_grass', chance: 0.04 },
+      { block: 'block:glowbloom', chance: 0.02 },
+    ],
   },
   {
     key: 'biome:forest',
     nameKey: 'biome.forest',
-    order: 6,
+    order: 7,
     all: [{ field: 'H', gt: 0.15 }],
     climate: { dayC: 20, nightC: 11 },
     surface: 'block:grass',
@@ -189,19 +233,21 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#6fa84a', foliage: '#4f8f36', water: '#3a72c2' },
     fog: '#9dbdd6',
+    groves: { scale: 120, contrast: 0.9 },
     features: [
-      { feature: 'feature:broadleaf', chance: 0.55 },
-      { feature: 'feature:conifer', chance: 0.1 },
+      { feature: 'feature:conifer', chance: 0.55 },
+      { feature: 'feature:giant_veilpine', chance: 0.006 },
     ],
     plants: [
-      { block: 'block:tall_grass', chance: 0.1 },
+      { block: 'block:tall_grass', chance: 0.08 },
+      { block: 'block:veil_fern', chance: 0.06 },
       { block: 'block:berry_bush', chance: 0.015 },
     ],
   },
   {
     key: 'biome:meadow',
     nameKey: 'biome.meadow',
-    order: 7,
+    order: 8,
     climate: { dayC: 22, nightC: 12 },
     surface: 'block:grass',
     filler: 'block:dirt',
@@ -209,20 +255,25 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b44f', foliage: '#5f9a3e', water: '#3f76c4' },
     fog: '#9fc2de',
+    groves: { scale: 100, contrast: 0.8 },
     features: [
       { feature: 'feature:broadleaf', chance: 0.06 },
+      { feature: 'feature:giant_lanternwood', chance: 0.002 },
       { feature: 'feature:thornbush', chance: 0.03 },
     ],
     plants: [
       { block: 'block:tall_grass', chance: 0.16 },
+      { block: 'block:amber_bell', chance: 0.03 },
       { block: 'block:berry_bush', chance: 0.008 },
     ],
   },
 ] as const satisfies readonly PackBiome[];
 
 /**
- * Decoration features (biomes give their chance per 8×8 cell). Stone boulders belong to the rocky
- * highlands only (docs plan v2 « M16 »: no surface stone elsewhere).
+ * Decoration features (biomes give their chance per 8×8 cell): the species of Veyra (plan v3
+ * « M23 »), the Lanternwood (broadleaf) and Veilpine (conifer) with their rare giants, the
+ * Frostpine, the Twistpine, the Mirror Willow, the low Podtree and the Capwood's giant mushrooms.
+ * Stone boulders belong to the Shard Highlands alone.
  */
 export const features = [
   {
@@ -234,12 +285,63 @@ export const features = [
     soil: ['block:grass'],
   },
   {
+    key: 'feature:giant_lanternwood',
+    kind: 'broadleaf',
+    block: 'block:broadleaf_log',
+    crown: 'block:foliage',
+    size: [9, 12],
+    soil: ['block:grass'],
+    trunk: 2,
+  },
+  {
     key: 'feature:conifer',
     kind: 'conifer',
     block: 'block:conifer_log',
     crown: 'block:needles',
     size: [6, 9],
+    soil: ['block:grass'],
+  },
+  {
+    // The Old Veil: a Veilpine over 20 blocks tall.
+    key: 'feature:giant_veilpine',
+    kind: 'conifer',
+    block: 'block:conifer_log',
+    crown: 'block:needles',
+    size: [20, 26],
+    soil: ['block:grass'],
+    trunk: 2,
+  },
+  {
+    key: 'feature:frostpine',
+    kind: 'conifer',
+    block: 'block:frostpine_log',
+    crown: 'block:frost_needles',
+    size: [6, 10],
+    soil: ['block:snow'],
+  },
+  {
+    key: 'feature:twistpine',
+    kind: 'conifer',
+    block: 'block:twistpine_log',
+    crown: 'block:twist_needles',
+    size: [4, 7],
     soil: ['block:grass', 'block:snow'],
+  },
+  {
+    key: 'feature:willow',
+    kind: 'willow',
+    block: 'block:willow_log',
+    crown: 'block:willow_leaves',
+    size: [4, 6],
+    soil: ['block:sand', 'block:grass'],
+  },
+  {
+    key: 'feature:podtree',
+    kind: 'broadleaf',
+    block: 'block:pod_log',
+    crown: 'block:pod_leaves',
+    size: [2, 3],
+    soil: ['block:peat'],
   },
   {
     key: 'feature:giant_mushroom',
@@ -247,7 +349,7 @@ export const features = [
     block: 'block:mushroom_stem',
     crown: 'block:glowcap',
     size: [4, 7],
-    soil: ['block:peat'],
+    soil: ['block:grass'],
   },
   {
     key: 'feature:boulder',
@@ -255,13 +357,6 @@ export const features = [
     block: 'block:stone',
     size: [1, 2],
     soil: ['block:grass', 'block:snow', 'block:sand', 'block:gravel'],
-  },
-  {
-    key: 'feature:sandstone_boulder',
-    kind: 'boulder',
-    block: 'block:ochre_sandstone',
-    size: [1, 2],
-    soil: ['block:ochre_sand'],
   },
   {
     key: 'feature:palmthorn',

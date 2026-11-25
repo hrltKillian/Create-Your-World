@@ -52,6 +52,26 @@ export const loot = [
     entries: [{ item: 'item:berries', count: [1, 3], weight: 1 }],
   },
   {
+    // The Sporefen's podtrees: sticks, and now and then a pod of resin.
+    key: 'loot:pod_leaves',
+    rolls: [1, 1],
+    entries: [
+      { item: 'item:stick', count: [1, 1], weight: 2 },
+      { item: 'item:resin', count: [1, 1], weight: 1 },
+    ],
+    empty: 3,
+  },
+  {
+    key: 'loot:frost_bulb',
+    rolls: [1, 1],
+    entries: [{ item: 'item:ice_bulb', count: [1, 2], weight: 1 }],
+  },
+  {
+    key: 'loot:crystal_sprout',
+    rolls: [1, 1],
+    entries: [{ item: 'item:crystal_shard', count: [1, 1], weight: 1 }],
+  },
+  {
     key: 'loot:palmthorn',
     rolls: [1, 1],
     entries: [

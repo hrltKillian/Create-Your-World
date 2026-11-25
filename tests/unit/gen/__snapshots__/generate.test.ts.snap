@@ -11,3 +11,15 @@ exports[`world generation > matches golden column hashes (GEN_VERSION 7) 1`] = `
   },
 }
 `;
+
+exports[`world generation > matches golden column hashes (GEN_VERSION 8) 1`] = `
+{
+  "GEN_VERSION": 8,
+  "hashes": {
+    "-12,7": "2097dfcd",
+    "0,0": "aa9511f3",
+    "40,40": "4c3b3f85",
+    "5,-3": "f9cea8fe",
+  },
+}
+`;
