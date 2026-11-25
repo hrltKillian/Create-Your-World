@@ -199,14 +199,20 @@ export function graze(
     return;
   }
   if (draw(sim, c, 2) < BRAIN.idleVoice) voice(c, def, 'idle', out);
-  // A hungry or thirsty creature does not rest; a bait draws a meat eater at once.
-  if (c.modeTicks > 0 && !needy(sim, c) && !def.diet.meat) return;
-  if ((c.modeTicks === 0 || needy(sim, c) || def.diet.meat) && chooseNeed(sim, c, def)) {
-    if (plan(sim, c, def, c.goalX, c.goalY, c.goalZ, ai)) setMode(c, 'wander', BRAIN.wanderTicks);
-    else c.seek = 0;
+  // At the end of a rest it looks for what it needs (the scans of needs.ts, once a rest); while
+  // resting, a meat eater only looks for a bait (a cheap query) and goes at once.
+  const resting = c.modeTicks > 0;
+  if (resting && !def.diet.meat) return;
+  if (chooseNeed(sim, c, def, resting)) {
+    if (plan(sim, c, def, c.goalX, c.goalY, c.goalZ, ai)) {
+      setMode(c, 'wander', BRAIN.wanderTicks);
+    } else {
+      c.seek = 0;
+      setMode(c, 'idle', BRAIN.restTicks[0]);
+    }
     return;
   }
-  if (c.modeTicks > 0) return;
+  if (resting) return;
   const towards = isHostile(def) ? prowlAngle(sim, c) : Number.NaN;
   // A few draws: the first walk that ends on dry land (else the last one, into the water).
   for (let k = 0; k < WALK_DRAWS; k++) {
@@ -219,13 +225,9 @@ export function graze(
     c.goalZ = c.body.z + Math.sin(angle) * reach;
     if (!wetAt(sim, c.goalX, c.goalY, c.goalZ)) break;
   }
+  // No search left this tick: it rests a little before it looks again.
   if (plan(sim, c, def, c.goalX, c.goalY, c.goalZ, ai)) setMode(c, 'wander', BRAIN.wanderTicks);
-}
-
-/** Whether it is hungry or thirsty enough to look for food or water. */
-function needy(sim: Simulation, c: Readonly<CreatureState>): boolean {
-  const below = sim.registry.pack.balance.creatures.needs.seekBelow;
-  return c.hunger < below || c.thirst < below;
+  else setMode(c, 'idle', BRAIN.restTicks[0]);
 }
 
 /** Draws of a walk's goal, to find one on dry land. */

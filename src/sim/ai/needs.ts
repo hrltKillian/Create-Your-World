@@ -24,10 +24,22 @@ const near: number[] = [];
 
 /**
  * Sets a walk's goal (`goalX/Y/Z` and `seek`) to what the creature needs most: water when thirsty,
- * then meat on the ground, then a plant when hungry. Returns false when it needs nothing it finds.
+ * then meat on the ground, then a plant when hungry (`baitOnly`: meat only, while it rests).
+ * Returns false when it needs nothing it finds.
  */
-export function chooseNeed(sim: Simulation, c: CreatureState, def: CreatureDef): boolean {
+export function chooseNeed(
+  sim: Simulation,
+  c: CreatureState,
+  def: CreatureDef,
+  baitOnly: boolean,
+): boolean {
   const needs = sim.registry.pack.balance.creatures.needs;
+  if (baitOnly)
+    return (
+      def.diet.meat !== undefined &&
+      nearestMeat(sim, c, def.diet.meat, needs.seekRadius) &&
+      seekFood(c)
+    );
   if (c.thirst < needs.seekBelow && nearestCell(sim, c, def, needs.seekRadius, SEEK_WATER)) {
     c.seek = SEEK_WATER;
     return true;
@@ -42,6 +54,11 @@ export function chooseNeed(sim: Simulation, c: CreatureState, def: CreatureDef):
     return true;
   }
   return false;
+}
+
+function seekFood(c: CreatureState): boolean {
+  c.seek = SEEK_FOOD;
+  return true;
 }
 
 /** At the end of a walk with `seek`: eats or drinks what lies at the goal, if it is still there. */
