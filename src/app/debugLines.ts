@@ -27,14 +27,20 @@ export function debugLines(app: App): DebugLine[] | null {
     { label: 'debug.quads', value: fmtNumber(chunks.quads) },
     { label: 'debug.geometry', value: fmtBytes(chunks.geometryBytes) },
     { label: 'debug.voxels', value: fmtBytes(world.voxelBytes()) },
-    {
-      label: 'debug.position',
-      value: `${fmtNumber(pose.x, 1)} ${fmtNumber(pose.y, 1)} ${fmtNumber(pose.z, 1)}`,
-    },
+    { label: 'debug.position', value: positionText(app, pose) },
     { label: 'debug.facing', value: `${fmtNumber(yawDeg)}°` },
     { label: 'debug.view', value: app.debugView },
     ...worldLines(app, pose.x, pose.z),
   ];
+}
+
+/**
+ * Where the player stands: the feet (whole numbers on the ground, plan v3 « M18 »), not the eyes
+ * of the camera; the free camera's own position.
+ */
+function positionText(app: App, pose: { x: number; y: number; z: number }): string {
+  const at = app.freecam ? pose : (app.session?.player.body ?? pose);
+  return `${fmtNumber(at.x, 1)} ${fmtNumber(at.y, 1)} ${fmtNumber(at.z, 1)}`;
 }
 
 function worldLines(app: App, x: number, z: number): DebugLine[] {

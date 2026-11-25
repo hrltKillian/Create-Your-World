@@ -58,7 +58,10 @@ export class Crafting {
    * Whether a player knows a recipe (docs « Craft : le Logbook »): known from the start, or one of
    * its ingredients has been seen. `seen` holds the item keys a player has had and their tags.
    */
-  revealed(recipe: RecipeDef, seen: Readonly<Record<string, boolean>>): boolean {
+  revealed(
+    recipe: Pick<RecipeDef, 'known' | 'inputs'>,
+    seen: Readonly<Record<string, boolean>>,
+  ): boolean {
     if (recipe.known === 'start') return true;
     for (const input of recipe.inputs) if (seen[input.item] === true) return true;
     return false;

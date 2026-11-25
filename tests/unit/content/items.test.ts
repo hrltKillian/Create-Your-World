@@ -53,7 +53,7 @@ describe('items', () => {
     expect(registry.items[hatchet]!.tool).toMatchObject({ kind: 'axe', tier: 1 });
     expect(registry.items[pickaxe]!.tool).toMatchObject({ kind: 'pick', tier: 1 });
     for (const tool of [hatchet, pickaxe]) {
-      expect(items.toolSpeed[tool]).toBe(2);
+      expect(registry.items[tool]!.tool?.speed).toBe(2);
       expect(items.durability[tool]).toBe(60);
     }
     for (const key of ['item:flint_knife', 'item:flint_hatchet', 'item:flint_spear']) {

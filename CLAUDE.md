@@ -2,8 +2,9 @@
 
 Original voxel survival-adventure sandbox for the browser (Chrome first). The full spec is
 `docs/conception.md` (in French): follow it, milestone by milestone (M0–M11).
-Plan v2 (after the first playtest: decisions 15–21, milestones M12–M21) is its last part,
-« Plan v2 » (`# Plan v2` in `docs/conception.md`).
+Plan v2 (after the first playtest: decisions 15–21, milestones M12–M17 done) is followed by
+plan v3 (after the second playtest: decisions 22–25, milestones M18–M31), its last part
+(`# Plan v3` in `docs/conception.md`), which replaces the rest of plan v2.
 
 ## Commands
 
@@ -262,6 +263,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `app/OpenWorld.ts`; the menu layer: `app/Menus.ts`, its screens in `ui/screens/` with
     `menuButton`/`menuPanel`/`slider` in `ui/screens/menuParts.ts`; player settings
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
+  - plan v3 controls (M18): Esc only opens the pause menu, over an open screen too (`Game.onPauseKey`;
+    `PlayGate.resume` plays at once, a refused lock showing the light prompt); the Bag's page keys
+    `inventory`/`logbook`/`bestiary` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
+    jump cooldown `PHYSICS.jumpCooldownTicks`; item descriptions `ui/itemInfo.ts` (`itemLines`)
+    over the shared break rule `toolBreakSeconds` (`content/items.ts`); creatures look at and
+    strike the middle of the body (`BODY_HEIGHT`, core/player.ts); the base pack has no structure
+    until M26, the engine tested on `tests/fixtures/structures.ts` (`structurePack`,
+    `structureRegistry`); selftest key presses `key`/`tap` (selftest/support.ts);
   - slot screens (Bag with the Logbook, Container, Station, Workbench with its Logbook:
     `ui/screens/workbench.ts`): `app/inventoryUi.ts` opens and closes them (the bag on its key,
     chests, stations and workbenches on `blockEntityOpened`/`blockEntityClosed`; Esc
@@ -434,6 +443,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Controls checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m18` (`selftest/m18.ts`):
+  the page keys, a workbench's hand recipes, a search that says where a recipe is made, a hovered
+  recipe's description, a held jump under a low ceiling.
 - Creature checks of plan v2: `?worldType=flat&fixedStep=1&selftest=m0,m17` (`selftest/m17.ts`):
   a worn scanner studies a defensive creature, the ring fills, the target panel shows its state,
   the Bag's Bestiary card (`data-creature`, `data-level`) says studied. Hook: `player.stats()` adds
@@ -524,7 +536,7 @@ with original behaviours (a grazer that bolts, a six-legged herd that defends it
 stalker slowed by the player's gaze, zigzagging toxic packs, an armoured rammer); box models with
 our own skins on the block patterns and procedural gaits (four or six legs); the Prowler low
 and four-legged with emissive amber eyes (`tests/unit/content/creatures.test.ts`); synthesized
-voices; loot and weapons named by us (Prowler Sinew, Flint Spear…); a hit marker and damage arcs
+voices; loot and weapons named by us (Sinew, Flint Spear…); a hit marker and damage arcs
 in our HUD style.
 
 Finish (reviewed at M11): every sound is synthesized from the pack's recipes at load or on first

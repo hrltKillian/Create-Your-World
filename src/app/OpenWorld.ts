@@ -162,11 +162,6 @@ export class OpenWorld {
     return pose;
   }
 
-  /** The pause menu may open (not over the bag). */
-  canPause(): boolean {
-    return this.gate?.canPause() ?? true;
-  }
-
   /** The pause menu opens: play stops and the world is saved (docs « Sauvegarde automatique »). */
   pause(): void {
     if (this.gate) this.gate.pause();

@@ -1,11 +1,13 @@
 import { RECIPE_CATEGORIES, type RecipeCategory } from '../../content/schema.ts';
 import { t } from '../../i18n/i18n.ts';
 import { h } from '../h.ts';
+import { itemLines } from '../itemInfo.ts';
 import { type ItemArt, ingredientName, itemIcon } from '../itemSlot.ts';
 import {
   batchCount,
   CRAFT_BATCHES,
   type CraftBatch,
+  categoryOf,
   filterRows,
   type IngredientPip,
   type LogbookSource,
@@ -63,6 +65,8 @@ export class LogbookPanel {
   private readonly queue: HTMLElement;
   private readonly footer: HTMLElement;
   private tab: RecipeCategory = RECIPE_CATEGORIES[0]!;
+  /** The selected recipe's row as last drawn (the detail pane comes back to it). */
+  private selectedRow: RecipeRow | undefined;
   private selected = '';
   private query = '';
   private onlyCraftable = false;
@@ -177,20 +181,18 @@ export class LogbookPanel {
     this.tabs.replaceChildren(
       ...RECIPE_CATEGORIES.map((category) => this.tabButton(category, rows)),
     );
-    const shown = rows.filter((row) => row.recipe.category === this.tab);
-    const filtered = this.query.trim() !== '' || this.onlyCraftable;
+    // A search shows its matches of every tab; else the rows of the tab chosen.
+    const searching = this.query.trim() !== '';
+    const shown = searching ? rows : rows.filter((row) => categoryOf(row.recipe) === this.tab);
+    const filtered = searching || this.onlyCraftable;
     const empty = filtered ? 'logbook.noMatch' : 'logbook.empty';
     this.list.replaceChildren(
       ...(shown.length > 0
         ? shown.map((row) => this.rowButton(row))
         : [h('p', { class: 'logbook-empty' }, t(empty))]),
     );
-    const selected = shown.find((row) => row.recipe.key === this.selected);
-    this.detail.replaceChildren(
-      ...(selected
-        ? this.details(selected)
-        : [h('p', { class: 'logbook-empty' }, t('logbook.pick'))]),
-    );
+    this.selectedRow = shown.find((row) => row.recipe.key === this.selected);
+    this.showDetail(this.selectedRow);
     this.queueLabel.textContent = t('logbook.queue', { n: queue.length, max: this.limits.queue });
     this.progress = null;
     const entries: HTMLElement[] = [];
@@ -201,7 +203,7 @@ export class LogbookPanel {
 
   private tabButton(category: RecipeCategory, rows: readonly RecipeRow[]): HTMLElement {
     let craftable = 0;
-    for (const row of rows) if (row.craftable && row.recipe.category === category) craftable++;
+    for (const row of rows) if (row.craftable && categoryOf(row.recipe) === category) craftable++;
     return h(
       'button',
       {
@@ -217,6 +219,13 @@ export class LogbookPanel {
       },
       t(`logbook.tab.${category}`),
       craftable > 0 ? h('span', { class: 'logbook-count' }, craftable) : null,
+    );
+  }
+
+  /** The detail pane: a row's (the hovered one's, else the selected one's), or the hint. */
+  private showDetail(row: RecipeRow | undefined): void {
+    this.detail.replaceChildren(
+      ...(row ? this.details(row) : [h('p', { class: 'logbook-empty' }, t('logbook.pick'))]),
     );
   }
 
@@ -236,6 +245,11 @@ export class LogbookPanel {
             this.selected = recipe.key;
             this.choose();
           },
+          // A discovered recipe hovered shows its item's description (plan v3 « M18 »).
+          pointerenter: () => {
+            if (row.discovered) this.showDetail(row);
+          },
+          pointerleave: () => this.showDetail(this.selectedRow),
         },
       },
       itemIcon(this.art, recipe.output.item),
@@ -243,9 +257,15 @@ export class LogbookPanel {
         'span',
         { class: 'logbook-row-text' },
         h('span', { class: 'logbook-name' }, this.outputName(row)),
+        row.here ? null : h('span', { class: 'logbook-station' }, this.madeAt(row)),
         h('span', { class: 'logbook-pips' }, ...row.pips.map((pip) => this.pip(row, pip))),
       ),
     );
+  }
+
+  /** Where a row made elsewhere is made (« At the Kiln »). */
+  private madeAt(row: RecipeRow): string {
+    return t('logbook.madeAt', { station: this.stationName(row.recipe.station ?? '') });
   }
 
   /** Name of a recipe's output, with its count when it makes several. */
@@ -290,6 +310,10 @@ export class LogbookPanel {
     ];
     if (!row.discovered)
       out.push(h('p', { class: 'logbook-undiscovered' }, t('logbook.undiscovered')));
+    if (!row.here) out.push(h('p', { class: 'logbook-station' }, this.madeAt(row)));
+    if (row.discovered)
+      for (const line of itemLines(this.art.registry, recipe.output.item))
+        out.push(h('p', { class: 'logbook-info' }, line));
     out.push(
       h(
         'ul',

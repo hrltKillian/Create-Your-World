@@ -329,11 +329,12 @@ export class Game {
   }
 
   /**
-   * The pause key (Esc unless rebound): back one menu screen; on the pause menu, resume when there
-   * is no Pointer Lock (a key is not a user gesture, so it cannot capture the mouse); while
-   * playing, pause. The bag takes its own Esc first (it marks the event), and the Key bindings
-   * screen every key while it waits for one. A pause key rebound to a letter is typed into a text
-   * box (the New world name and seed), where Esc still goes back.
+   * The pause key (Esc unless rebound) opens the pause menu and does nothing else (plan v3
+   * « M18 »): while playing, over an open screen too, which stays open; in the menus, back one
+   * screen; on the pause menu, resume when there is no Pointer Lock (a key is not a user gesture,
+   * so it cannot capture the mouse). The Key bindings screen takes every key while it waits for
+   * one. A pause key rebound to a letter is typed into a text box (the New world name and seed),
+   * where Esc still goes back.
    */
   private readonly onPauseKey = (event: KeyboardEvent): void => {
     const pauseKey = actionForCode(this.host.input.bindings, event.code) === 'pause';
@@ -341,7 +342,7 @@ export class Game {
     if (event.code !== 'Escape' && isTextField(event.target)) return;
     if (this.state === 'menu' || this.state === 'paused') {
       if (!this.menus.back() && this.state === 'paused' && !this.host.input.pointer) this.resume();
-    } else if ((this.state === 'world' || this.state === 'loading') && this.open?.canPause()) {
+    } else if (this.state === 'world' || this.state === 'loading') {
       this.pause();
     }
   };

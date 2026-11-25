@@ -55,6 +55,10 @@ function setup() {
   const gate = {
     screenOpen: false,
     closes: 0,
+    paused: false,
+    menuIsUp() {
+      return this.paused;
+    },
     canOpenScreen() {
       return !this.screenOpen;
     },
@@ -108,6 +112,46 @@ describe('InventoryUi', () => {
     expect((ui.station.element as unknown as FakeElement).hidden).toBe(true);
   });
 
+  it('takes no key while the pause menu is up over a screen', () => {
+    const { ui, gate } = setup();
+    const press = (code: string) =>
+      keydown({
+        code,
+        repeat: false,
+        defaultPrevented: false,
+        preventDefault() {},
+      } as KeyboardEvent);
+    ui.toggleBag();
+    gate.paused = true;
+    press('KeyE');
+    press('KeyL');
+    expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'inventory']);
+    gate.paused = false;
+    press('KeyE');
+    expect(ui.screen()).toBeNull();
+  });
+
+  it('opens the bag on the page of the key pressed: E the Inventory, L the Logbook, B the Bestiary', () => {
+    const { ui } = setup();
+    const press = (code: string) =>
+      keydown({
+        code,
+        repeat: false,
+        defaultPrevented: false,
+        preventDefault() {},
+      } as KeyboardEvent);
+    press('KeyL');
+    expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'logbook']);
+    // Another page's key changes the page; the key of the page on show closes the bag.
+    press('KeyB');
+    expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'bestiary']);
+    press('KeyB');
+    expect(ui.screen()).toBeNull();
+    // Reopened by E: the Inventory, whatever was shown last.
+    press('KeyE');
+    expect([ui.screen(), ui.bag.shown()]).toEqual(['bag', 'inventory']);
+  });
+
   it("cancels Tab's focus move when it closes the bag, a clicked button holding the focus", () => {
     const { ui, gate } = setup();
     const press = () => {
@@ -128,8 +172,8 @@ describe('InventoryUi', () => {
     expect(press()).toBe(false);
   });
 
-  it('closes the bag, a chest or a station on Esc back to play, the Esc consumed', () => {
-    const { ui, gate, send, player } = setup();
+  it("never closes a screen on Esc, nor takes it: Esc is the pause menu's alone", () => {
+    const { ui, gate, send } = setup();
     const esc = () => {
       const event = { code: 'Escape', repeat: false, defaultPrevented: false } as KeyboardEvent;
       (event as { preventDefault(): void }).preventDefault = () => {
@@ -140,23 +184,18 @@ describe('InventoryUi', () => {
     };
     ui.toggleBag();
     expect(ui.screen()).toBe('bag');
-    // Consumed, so the app's pause key handler leaves it alone.
-    expect(esc()).toBe(true);
-    expect(ui.screen()).toBeNull();
-    expect(gate).toMatchObject({ screenOpen: false, closes: 1 });
+    // Left to the app's pause key handler: the bag stays open under the pause menu.
+    expect(esc()).toBe(false);
+    expect(ui.screen()).toBe('bag');
+    expect(gate).toMatchObject({ screenOpen: true, closes: 0 });
+    ui.toggleBag();
     send({ type: 'debug.open', ...CAMPFIRE });
     expect(ui.screen()).toBe('station');
-    expect(esc()).toBe(true);
-    expect(ui.screen()).toBeNull();
-    expect(gate).toMatchObject({ screenOpen: false, closes: 2 });
-    // The simulation closes the station too.
-    send();
-    expect(player.screen).toBeNull();
-    // In play with no screen, Esc is the app's (the pause menu).
     expect(esc()).toBe(false);
+    expect(ui.screen()).toBe('station');
   });
 
-  it("leaves the keys typed in the Logbook's search to it, but Esc", () => {
+  it("leaves the keys typed in the Logbook's search to it, Esc to the pause menu", () => {
     const { ui } = setup();
     const search = { tagName: 'INPUT', type: 'search' };
     const typed = (code: string) => {
@@ -176,8 +215,8 @@ describe('InventoryUi', () => {
     // E (the bag's key), Tab and a hotbar number type into the box: the bag stays open.
     for (const code of ['KeyE', 'Tab', 'Digit2']) expect(typed(code)).toBe(false);
     expect(ui.screen()).toBe('bag');
-    expect(typed('Escape')).toBe(true);
-    expect(ui.screen()).toBeNull();
+    expect(typed('Escape')).toBe(false);
+    expect(ui.screen()).toBe('bag');
   });
 
   it('draws the item icons once for every world opened with the same content', () => {

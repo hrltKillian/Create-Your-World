@@ -125,39 +125,39 @@ boot; a case that needs another setup is skipped, and none may fail. `npm run e2
 each setup the suites need (`e2e/selftest.spec.ts`), and checks that every case ran in at least one
 of them:
 
-| Setup                  | Query                                                      | Runs                                                                                      |
-| ---------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| test chunk scene       | `scene=testchunk`                                          | m1                                                                                        |
-| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                             |
-| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                         |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot, m16 world                                      |
-| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                            |
-| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner |
-| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                |
-| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water       |
+| Setup                  | Query                                                      | Runs                                                                                                    |
+| ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| test chunk scene       | `scene=testchunk`                                          | m1                                                                                                      |
+| generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                                           |
+| generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                                       |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot, m16 world                                                    |
+| flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                                          |
+| flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel, m17 scanner, m18 controls |
+| flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                                              |
+| arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                     |
 
 ## Try this milestone
 
-**M17 — Fair, living creatures, the Bestiary and the scanner** (plan v2, `docs/conception.md`
-« M17 »). `npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
+**M18 — Controls and interfaces** (plan v3, `docs/conception.md` « M18 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
 
-- **Fair movement**: creatures turn at their own rate and move the way they face: sidestep a
-  Shellback's charge and it runs past. They run out of breath (then walk), slow down when wounded,
-  and a fall hurts them. Sprint after a Trotter: it bolts, tires, then stays wary and watches you.
-- **Senses with limits**: a hunter that loses you goes where it last saw or heard you, searches 6 s,
-  then gives up; a chase whose blows never land ends after 25 s.
-- **Needs**: creatures get hungry and thirsty; they graze plants, drink at ponds and heal when
-  sated. Meat left on the ground draws Prowlers and Swarmlings: a bait.
-- **Bestiary**: a new tab of the Bag. A creature is met when you see or strike it, studied once a
-  scanner studied it or you killed it; its card tells what it is, where and when it lives, what it
-  eats, and its numbers once studied.
-- **Field Scanner**: craft it by hand (flint, cords, resin) and wear it on your head: look at a
-  creature 2 s within 24 blocks and a ring fills around the crosshair; the target panel shows its
-  health, breath and state. Without a meeting, a creature is « Unknown creature ».
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m17`.
+- **Esc is the pause menu only**: over the bag or a chest too, which stays open behind it; a screen
+  closes with its own key. Resume plays at once (a light « Click to resume » if the browser keeps
+  the mouse for a moment).
+- **One key per page**: E (or Tab) opens the Bag, L the Logbook, B the Bestiary; the key of the
+  page on show closes it. All rebindable.
+- **Logbook**: a workbench also makes the hand recipes; a search finds every recipe, discovered
+  or not, those made elsewhere saying where (« At the Kiln »); hovering a recipe shows its item's
+  description, as hovering a slot does (uses, time on stone, damage, warmth, food…).
+- **Feel**: a held jump no longer bounces under a low ceiling; creatures aim at your body, not your
+  eyes; the debug position is your feet.
+- **No structures** until the lost colony's (M26); Shagbacks leave sinew, so bronze tools stay
+  within reach without hostiles.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m18`.
 
 ### Earlier milestones
 
+- **M17, fair creatures, Bestiary and scanner**: `?worldType=flat&fixedStep=1&selftest=m0,m17`.
 - **M16, the planet's biomes, caves and ores**: clean borders, crossing caves, flooded and sealed caves under lakes, ores in layers; `?seed=7&rd=4&fixedStep=1&selftest=m0,m16`.
 - **M15, water**: flows by levels, falls first, dries up; `?worldType=arena&fixedStep=1&selftest=m0,m15`.
 - **M14, block updates, leaves, torches**: a felled trunk's canopy falls, torches hang on walls

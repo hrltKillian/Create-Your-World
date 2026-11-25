@@ -4,8 +4,8 @@ import { findStructure } from '../../../src/world/gen/find.ts';
 import { columnHash, createGenContext } from '../../../src/world/gen/generateColumn.ts';
 import { LatticeCache } from '../../../src/world/gen/sample.ts';
 import { REGION, regionOf, type StructureSite, siteIn } from '../../../src/world/gen/structures.ts';
+import { structureRegistry as registry } from '../../fixtures/structures.ts';
 import { blockIn, generate } from '../../helpers/gen.ts';
-import { registry } from '../../helpers/registry.ts';
 
 const ctx = createGenContext('structures', registry);
 const cache = new LatticeCache();

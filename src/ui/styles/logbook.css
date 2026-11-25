@@ -432,3 +432,17 @@
 .bestiary-row.level-0 {
   opacity: 0.55;
 }
+
+/* A recipe made at another station (found by a search). */
+.logbook-station {
+  color: var(--c-ink-muted);
+  font-size: 0.66rem;
+  font-style: italic;
+}
+
+/* The output's description (ui/itemInfo.ts). */
+.logbook-info {
+  margin: 2px 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+}

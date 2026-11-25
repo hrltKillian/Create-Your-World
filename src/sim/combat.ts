@@ -137,7 +137,7 @@ const gear: Gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: 
 
 /**
  * A creature's blow at a player lands unless the player dodged (out of reach + 0.3, or out of
- * sight: a collision box on both lines to the eye and to the top of the head, glass and closed
+ * sight: a collision box on both lines to the middle of the body and to the top of the head, glass and closed
  * gates included, not a low block a line passes over) or was hit moments ago. Returns whether it landed.
  */
 export function strike(
@@ -153,15 +153,16 @@ export function strike(
   const b = player.body;
   const tables = sim.registry.tables;
   const from = eyeY(c, def);
-  // The eye line, else the line to the top of the head on the side facing the creature: a
-  // crouching player's eye line can dip into a low block (a chest) the blow passes over.
+  // The line to the middle of the body (creatures aim at the player, not the eyes: plan v3 « M18 »),
+  // else to the top of the head on the side facing the creature: a crouching player's middle can
+  // dip behind a low block (a chest) the blow passes over.
   const dx = b.x - c.body.x;
   const dz = b.z - c.body.z;
   const k = PHYSICS.width / 2 / (Math.sqrt(dx * dx + dz * dz) || 1);
   const clear = (x: number, y: number, z: number) =>
     lineOfSight(sim.world, tables, c.body.x, from, c.body.z, x, y, z, RAY_SOLID);
   if (
-    !clear(b.x, b.y + eyeHeight(b), b.z) &&
+    !clear(b.x, b.y + bodyHeight(b) / 2, b.z) &&
     !clear(b.x - dx * k, b.y + bodyHeight(b), b.z - dz * k)
   )
     return false;

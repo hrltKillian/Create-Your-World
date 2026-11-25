@@ -156,9 +156,17 @@
 }
 
 .bag-caption {
+  display: flex;
+  flex-direction: column;
   min-height: 1.3em;
   margin: 2px 0 0;
   font-size: 0.85rem;
+}
+
+/* The hovered item's description under its name. */
+.bag-caption .caption-line {
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
 }
 
 .screen-slots .slot[data-slot] {

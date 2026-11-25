@@ -1,13 +1,22 @@
 import type { Crafting } from '../content/crafting.ts';
-import type { RecipeDef } from '../content/schema.ts';
+import type { ProcessDef, RecipeCategory, RecipeDef } from '../content/schema.ts';
 
 /**
  * The Logbook's pure part (docs « Craft : le Logbook »): which recipes a player sees, in which
  * order, what each ingredient's pip shows, what the search and the « Can craft now » filter keep
  * and how many crafts each button queues. The Bag's Logbook lists the hand recipes, a Workbench's
- * its station's (decision 18). The screen (screens/logbook.ts) draws it; the simulation checks
- * everything again.
+ * its station's and the hand ones (decision 18, plan v3 « M18 »). A search finds every recipe and
+ * process of the pack, discovered or not, those made elsewhere showing their station. The screen
+ * (screens/logbook.ts) draws it; the simulation checks everything again.
  */
+
+/** What a Logbook row makes: a recipe, or a station's process (found by a search only). */
+export type LogbookRecipe = RecipeDef | ProcessDef;
+
+/** The tab of a row's recipe (a process: materials). */
+export function categoryOf(recipe: LogbookRecipe): RecipeCategory {
+  return 'category' in recipe ? recipe.category : 'materials';
+}
 
 /** What the Logbook reads from the player (the app wires the simulation's own rules). */
 export interface LogbookSource {
@@ -32,7 +41,9 @@ export interface IngredientPip {
 }
 
 export interface RecipeRow {
-  readonly recipe: RecipeDef;
+  readonly recipe: LogbookRecipe;
+  /** Made in this Logbook (else at `recipe.station`: shown by a search, never crafted here). */
+  readonly here: boolean;
   readonly pips: readonly IngredientPip[];
   /**
    * Revealed (`Crafting.revealed`). An undiscovered recipe is listed greyed at the bottom: its
@@ -56,24 +67,32 @@ export function pipFilled(pip: IngredientPip): boolean {
   return pip.owned >= pip.required;
 }
 
-/** Order of the rows: craftable, then the other revealed ones, then the undiscovered ones. */
+/**
+ * Order of the rows: craftable, then the other revealed ones, then the undiscovered ones; those
+ * made elsewhere after them (revealed, then not).
+ */
 function rank(row: RecipeRow): number {
   if (row.craftable) return 0;
-  return row.discovered ? 1 : 2;
+  return (row.discovered ? 1 : 2) + (row.here ? 0 : 2);
+}
+
+/** Whether a recipe is made in a Logbook: a hand one anywhere, a station's at its workbench. */
+function madeIn(recipe: LogbookRecipe, station: string | undefined): boolean {
+  return 'category' in recipe && (recipe.station === undefined || recipe.station === station);
 }
 
 /**
- * Every recipe the Logbook lists (its station's) with its pips: craftable ones first, then the
- * other revealed ones, then the undiscovered ones, each group in pack order (`maxCount`: the most
- * crafts one command queues).
+ * Every recipe and process of the pack with its pips (those not made here for a search only):
+ * craftable ones first, then the other revealed ones, then the undiscovered ones, then those made
+ * elsewhere, each group in pack order (`maxCount`: the most crafts one command queues).
  */
 export function logbookRows(source: LogbookSource, maxCount: number): RecipeRow[] {
   const crafting = source.crafting;
   const rows: RecipeRow[] = [];
-  for (const recipe of crafting.recipes) {
-    if (recipe.station !== source.station) continue;
+  for (const recipe of [...crafting.recipes, ...crafting.processes]) {
+    const here = madeIn(recipe, source.station);
     const discovered = crafting.revealed(recipe, source.seen);
-    let max = discovered ? maxCount : 0;
+    let max = discovered && here ? maxCount : 0;
     const pips = recipe.inputs.map((input): IngredientPip => {
       const owned = source.owned(input.item);
       max = Math.min(max, Math.floor(owned / input.count));
@@ -84,7 +103,8 @@ export function logbookRows(source: LogbookSource, maxCount: number): RecipeRow[
         seen: source.seen[input.item] === true,
       };
     });
-    rows.push({ recipe, pips, discovered, max, craftable: max > 0, room: source.room(recipe) });
+    const room = here && 'category' in recipe ? source.room(recipe) : 0;
+    rows.push({ recipe, here, pips, discovered, max, craftable: max > 0, room });
   }
   // Array.prototype.sort is stable: pack order is kept inside each group.
   return rows.sort((a, b) => rank(a) - rank(b));
@@ -104,9 +124,10 @@ export function searchKey(text: string): string {
 }
 
 /**
- * The rows a filter keeps, in their order: with a query, those whose output name or a shown
- * ingredient name holds it (an undiscovered recipe's unseen ingredients show as « ? », so their
- * names are not searched). `nameOf` names an item or tag key as the screen shows it (`t()`).
+ * The rows a filter keeps, in their order: without a query, those made here; with one, those
+ * (made anywhere) whose output name or a shown ingredient name holds it (an undiscovered recipe's
+ * unseen ingredients show as « ? », so their names are not searched). `nameOf` names an item or
+ * tag key as the screen shows it (`t()`).
  */
 export function filterRows(
   rows: readonly RecipeRow[],
@@ -118,9 +139,10 @@ export function filterRows(
   return rows.filter(
     (row) =>
       (!filter.craftableOnly || row.craftable) &&
-      (query === '' ||
-        holds(row.recipe.output.item) ||
-        row.pips.some((pip) => shownName(row, pip) && holds(pip.key))),
+      (query === ''
+        ? row.here
+        : holds(row.recipe.output.item) ||
+          row.pips.some((pip) => shownName(row, pip) && holds(pip.key))),
   );
 }
 

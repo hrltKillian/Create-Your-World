@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LootTableDef } from '../../../src/content/schema.ts';
 import { hash32 } from '../../../src/core/hash.ts';
 import { rollLoot } from '../../../src/sim/loot.ts';
+import { structureRegistry } from '../../fixtures/structures.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const ROLLS = 4000;
@@ -29,7 +30,7 @@ describe('loot rolls', () => {
   });
 
   it('never draws an entry twice in one roll set', () => {
-    const table = registry.loot('loot:camp')!;
+    const table = structureRegistry.loot('loot:camp')!;
     for (let seed = 0; seed < 200; seed++) {
       const items: string[] = [];
       rollLoot(table, hash32(3, seed), (item) => items.push(item));
@@ -42,7 +43,7 @@ describe('loot rolls', () => {
   });
 
   it('stays deterministic per seed, with counts within the entry range', () => {
-    const table = registry.loot('loot:camp')!;
+    const table = structureRegistry.loot('loot:camp')!;
     const roll = (seed: number) => {
       const out: [string, number][] = [];
       rollLoot(table, seed, (item, count) => out.push([item, count]));

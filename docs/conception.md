@@ -2334,6 +2334,8 @@ Ce plan v2 répond à chacun d'eux.
 
 ### M18 — Structures et contenu de la colonie perdue (retour 10, après M16)
 
+> Remplacé par le plan v3 (M26), comme M19 à M21 ci-dessous (M21, M22, M31 du plan v3).
+
 **Moteur** :
 
 - `StructureDef.place` (au point d'apparition, ou dans un anneau de distance et de biomes) et `storySites(ctx)`, mémoïsé et calculé à partir de `findSpawn`.
@@ -2473,3 +2475,327 @@ Ce qui manquait, c'est l'explication. M20 ajoute les infobulles et M19 l'onglet 
 - Le réglage de l'IA (M17) : les chiffres sont en données, et les tests vérifient des résultats plutôt que des ticks exacts.
 - Les sites d'histoire calculés dans les workers (M18, mémoïsés).
 - Le budget gzip avec les nouveaux écrans.
+
+# Plan v3 : « Create Your World », après la deuxième partie test
+
+## Contexte
+
+M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. Ce plan v3 remplace la fin du plan v2 (M18 à M21) : il reprend ce qui en reste utile et y ajoute tes retours.
+
+**Tes retours, en bref** :
+
+- Contrôles : saut en boucle sous un plafond, bug d'Échap sur le sac, clic sur Reprendre qui rate, touches séparées pour chaque onglet.
+- Interfaces : recettes de main à l'établi, recherche qui montre tout, description des objets.
+- Combat : un coup façon Minecraft.
+- Créatures : elles visent la tête, et les coordonnées affichées sont celles de la tête.
+- Survie : retirer les états du HUD, l'abri et la règle de sommeil.
+- Quêtes : non linéaires.
+- Monde : ouvertures de grottes trop rares, tunnels trop étroits, minerais trop rares, minerais communs dans la pierre noire.
+- Champignons à traiter comme des arbres.
+- Structures arrivées trop tôt.
+- De nouvelles fonctionnalités.
+
+**Ce que le code m'a appris** :
+
+| Point        | Où dans le code                                                   | Constat                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Saut         | `sim/physics.ts` (`jumpAndGravity`)                               | Un saut tenu repart dès que les pieds touchent le sol, sans délai.                                                                                                  |
+| Prowler      | `render/CreatureView.ts` (`lookAt`) et `sim/combat.ts` (`strike`) | La tête du Prowler vise les yeux du joueur, et le coup teste d'abord la ligne vers ses yeux.                                                                        |
+| Coordonnées  | `app/debugLines.ts`                                               | Elles affichent la caméra (les yeux), d'où les décimales en hauteur.                                                                                                |
+| Reprendre    | `input/pointerLock.ts`                                            | Chrome refuse de recapturer la souris pendant environ 1 s après une sortie par Échap. Le premier clic échoue donc sans rien faire.                                  |
+| Pierre noire | `content/packs/base/blocks.ts`                                    | `darkstone` demande un outil de rang 3 et occupe tout sous y 32 (`deepStoneBelowY`). L'Emberstone y 1–40 et le cristal y 5–28 y sont presque introuvables au début. |
+| Structures   | `content/packs/base/structures.ts`                                | Le camp et le cairn existent depuis le M6, avant le plan v2.                                                                                                        |
+| Sommeil      | `sim/sleep.ts`, `sim/shelter.ts`                                  | « Abrité » sert aussi au climat (pièce fermée à 18 °C), à la toxicité et à l'objectif « abri ».                                                                     |
+
+**Décisions prises avec toi** :
+
+| #   | Décision                                                                                                                                                                                                                                                                                                                                             |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 22  | **États du HUD** : on retire tous les mots d'état et leurs effets, sauf l'épuisement. L'épuisement ne se montre plus que par l'arc d'endurance rouge. Les jauges (faim, soif, température, toxicité) blessent toujours quand elles sont vides ou extrêmes.                                                                                           |
+| 23  | **Sommeil façon Minecraft** : on dort la nuit sans condition d'abri, sauf si une créature hostile est à moins de 8 blocs. L'état « Abrité » disparaît.                                                                                                                                                                                               |
+| 24  | **Monde** : un nouvel ensemble de biomes. Une sorte de Terre avec quelques couleurs décalées : des écorces « pas vraiment marron », des feuilles « vertes mais pas vraiment ». La flore a une essence signature reconnaissable par biome, et des sous-zones ainsi que de rares arbres géants. Les biomes ci-dessous sont des propositions à affiner. |
+| 25  | **Nouvelles familles** : confort d'inventaire, exploration, agriculture et cuisine, météo et ambiance.                                                                                                                                                                                                                                               |
+
+**Inchangé** :
+
+- KISS, DRY et SRP.
+- Logique avant graphisme.
+- Le protocole de chaque jalon : vérifications, autotests, revue, PR, CI verte, squash-merge, compte rendu en français.
+- Tout fait seul, sans agents.
+
+## Jalons v3
+
+### M18 — Contrôles et interfaces (retours 1, 2, 3, 7, 9, 10, 11, structures)
+
+**Saut** : un délai de 10 ticks (0,33 s) entre deux sauts (`PHYSICS.jumpCooldownTicks`, champ du corps). Un saut normal dure plus longtemps que ce délai, donc tenir la touche saute toujours à chaque atterrissage. Sous un plafond, le saut ne repart plus en boucle.
+
+**Échap** :
+
+- Échap ne sert qu'au menu pause, et à rien d'autre.
+- Il ne ferme, n'ouvre ni ne change aucun écran : sac, coffre ou station ouverts, il ouvre la pause par-dessus.
+- Après « Reprendre », l'écran qui était ouvert l'est toujours.
+- Un écran se ferme uniquement avec sa propre touche ou son bouton.
+- On retire la gestion d'Échap de `app/inventoryUi.ts` (le marquage de l'événement, `closeScreen` sur Échap) et la condition `canPause` de `Game.onPauseKey`.
+- La recherche du Logbook garde ses touches, sauf Échap qui ouvre la pause comme partout.
+
+**Reprendre** :
+
+- Si la capture de la souris est refusée, le jeu reprend quand même, avec le léger « Cliquez pour reprendre » déjà utilisé par les écrans (`showResumePrompt`).
+- Un clic sur la scène capture ensuite la souris.
+- Un test e2e couvre le cas Échap puis Reprendre immédiatement.
+
+**Une touche par onglet** :
+
+- Sac (E/Tab) sur l'Inventaire, Logbook (L), Bestiaire (B), Quêtes (J, au M21). Toutes sont réassignables (`input/bindings`).
+- La touche de l'onglet affiché ferme l'écran ; celle d'un autre onglet change d'onglet.
+- On retire la mémoire du dernier onglet.
+
+**Établi** : son Logbook montre aussi les recettes à la main. Elles se fabriquent dans la file de l'établi (`enqueueCraft`).
+
+**Recherche du Logbook** :
+
+- La recherche couvre toutes les recettes du pack, découvertes ou non.
+- Chaque ligne indique sa station : à la main, établi, four, feu de camp…
+- Les recettes non découvertes restent grisées et ne se fabriquent pas.
+
+**Description au survol** d'un objet ou d'une recette découverte, générée depuis les données :
+
+- outils : durabilité, vitesse de minage sur leur bloc favori (« Pierre : 0,9 s ») ;
+- armes : dégâts, coup puissant, recharge, portée ;
+- équipements : armure, chaleur, filtre ;
+- nourriture : faim, soif, santé ;
+- combustibles : durée.
+
+**Créatures** :
+
+- Elles regardent et frappent le milieu du corps du joueur, plus ses yeux.
+- Les coordonnées affichées sont celles des pieds du joueur (des entiers au sol).
+
+**Structures** : la génération du camp et du cairn est retirée jusqu'au M26. Le moteur des structures reste. `GEN_VERSION` +1.
+
+**Tests** :
+
+- saut tenu sous un plafond de 2 blocs : pas plus d'un saut par délai ;
+- touches et onglets ;
+- recettes de main à l'établi ;
+- recherche avec stations ;
+- texte de description par type d'objet ;
+- aucune structure générée sur 20 graines.
+
+**Retenu à la réalisation** :
+
+- Échap ne ferme plus aucun écran : la pause s'ouvre par-dessus, et « Reprendre » rend l'écran ouvert. Reprendre relance le jeu tout de suite ; si Chrome refuse la souris (il le fait environ une seconde après une sortie par Échap), seul le léger « Cliquez pour reprendre » s'affiche. L'e2e tourne sans capture de souris (`noLock`) : ce refus est couvert par les tests de `PlayGate`, qui simulent le navigateur.
+- Touches Logbook (L) et Bestiaire (B) réassignables, à côté du Sac (E/Tab) ; la touche de la page affichée ferme le sac, celle d'une autre page change de page, et l'ouverture ne garde plus la dernière page.
+- À l'établi ouvert, les recettes à la main vont dans sa file. La recherche du Logbook couvre aussi les processus des stations (four, feu de camp, bas fourneau) et ignore les onglets.
+- La règle du temps de casse est dans `content/items.ts` (`toolBreakSeconds`), partagée par la simulation et les descriptions.
+- Sans structure jusqu'au M26, le cairn ne donne plus de Prowler Sinew : les Shagbacks laissent aussi un tendon (l'objet s'appelle désormais « Sinew »), si bien que les outils de bronze restent accessibles sans créatures hostiles. Le camp et le cairn vivent dans un pack de test (`tests/fixtures/structures.ts`) qui garde le moteur des structures testé.
+- `GEN_VERSION` 7 (plus de structures).
+
+### M19 — Combat façon Minecraft (retour 6)
+
+**Jauge de coup** :
+
+- Chaque coup, touché ou dans le vide, vide la jauge.
+- Elle se recharge en `weapon.cooldown` (la main en 0,4 s).
+- Si la jauge est pleine, l'attaque est un **coup puissant** (×1,8 dégâts, ×1,5 recul : les nombres actuels du coup chargé).
+- Sinon, c'est un **coup simple** (×1), quel que soit le remplissage, et la jauge repart de 0.
+- L'attaque part à l'appui, plus au relâchement.
+
+**HUD** : une petite jauge sous le réticule pendant la recharge, avec un éclat quand elle est pleine. Elle remplace l'item « coup chargé visible » de l'ancien M20.
+
+**Fichiers** : `sim/melee.ts` (on retire `charge` et le maintien), `player.attackCooldown` devient la jauge, `app/HudBridge.ts`, `ui/hud/combatMarks.ts`. Les bots et la marche des objectifs sont adaptés.
+
+**Tests** :
+
+- coups rapides : tous simples ;
+- coup après la recharge : puissant ;
+- un coup dans le vide vide la jauge ;
+- `mobs` inchangé.
+
+### M20 — Survie simplifiée : états, abri, sommeil (retours 12, 13)
+
+**États retirés** : Abrité, À couvert, Affamé, Assoiffé, Froid, Chaud, Nauséeux, Affaibli, Inaperçu, avec leurs effets (plafonds, facteurs, malus de réapparition). L'épuisement reste : pas de sprint quand l'endurance est vide, arc rouge.
+
+**Jauges** :
+
+- **Faim et soif** : elles se vident ; une jauge vide blesse.
+- **Température** : les sources de chaleur (feu, magma) et les vêtements la règlent ; elle ne blesse qu'aux extrêmes.
+- **Toxicité** : elle ne blesse qu'au-delà de son seuil.
+
+**L'abri disparaît** :
+
+- On supprime `sim/shelter.ts` et sa balance.
+- On retire le passage par « pièce fermée » du climat.
+- On retire la condition d'objectif « enclosed ».
+
+**Sommeil** :
+
+- On dort la nuit sur un lit de camp, sauf avec une créature hostile à moins de 8 blocs.
+- Le lit fixe toujours la réapparition.
+
+**Sauvegarde** : SAVE 10, avec migration des effets retirés et de l'abri.
+
+**Tests** :
+
+- dormir sans abri ;
+- refus avec un Prowler à 7 blocs ;
+- le froid ne blesse qu'à l'extrême ;
+- plus de modificateurs (tests d'équilibre recalculés).
+
+### M21 — Quêtes non linéaires (retour 14)
+
+**Données** : un graphe de quêtes `QuestDef`, `{ requires, unlocks, condition | counter, rewards }`, qui remplace la chaîne d'objectifs.
+
+**Règles** :
+
+- Une quête n'existe pour le joueur qu'une fois débloquée.
+- Les compteurs ne comptent qu'à partir du déblocage.
+- Une condition d'état (objet possédé, station proche) déjà remplie au déblocage termine la quête aussitôt, avec un message visible : le joueur sait ce qu'il a fini et pourquoi.
+
+**Graphe** :
+
+- Plusieurs branches ouvertes en parallèle : outils, eau, feu, abri de nuit, exploration, créatures (bestiaire), métaux.
+- Les quêtes d'histoire arrivent avec les structures (M26).
+
+**Interface** :
+
+- Onglet Quêtes (touche J) : débloquées, terminées et à réclamer.
+- On épingle une quête sur la boussole.
+- Le panneau d'objectifs du HUD est retiré : seul un message de progression ou de réussite reste.
+
+**Sauvegarde** : SAVE 11, les anciens objectifs devenant des quêtes terminées.
+
+**Tests** :
+
+- une quête finie avant son déblocage ne compte pas, puis se termine au déblocage ;
+- compteurs ;
+- branches parallèles ;
+- marche des quêtes sur 5 graines.
+
+### M22 — XP, niveaux, compétences (reste de l'ancien M19)
+
+- L'XP vient seulement des quêtes, et le jeu reste jouable sans elles.
+- Les niveaux donnent des points de compétence : vitalité, endurance, portage, métabolisme, résistance, force.
+- Ils débloquent aussi des recettes exclusives : armature de sac (+8 cases), Scanner Mk II.
+- Onglet État : compétences et règle exacte de chaque bonus.
+- Tâches générales tirées du tableau de quêtes, une relance par jour.
+- `reachable` sans les recettes à niveau atteint toujours le fer.
+
+### M23 — Les biomes de Veyra (retours 8 et biomes, décision 24)
+
+**Principes** :
+
+- Terre familière décalée : écorces gris-violet, rouille, olive ou ardoise ; feuillages bleu-vert, jaune-vert, sarcelle, bronze.
+- Une essence signature par biome, reconnaissable de loin.
+- Des sous-zones par un bruit lent : clairières, bosquets denses, rives.
+- De rares arbres géants.
+- 3 à 5 plantes par biome, dont au moins une utile.
+
+**Garanties à moins de 1 km de l'apparition** : froid, chaud, toxique (si on garde un biome toxique) et chaque biome à minerai propre.
+
+**Proposition de 9 biomes, à affiner** :
+
+| Biome                               | Climat, relief                                     | Essence signature (géant rare)                                                                                                 | Plantes                                                     | Faune                           | Ressource propre              |
+| ----------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------- | ----------------------------- |
+| **Amberfield** (apparition)         | doux, plaines ondulées, herbe vert-ambre           | Lanternier : écorce gris-violet, couronne ronde jaune-vert                                                                     | hautes herbes (fibre), racine-miel (nourriture), clochettes | Trotters                        | —                             |
+| **Veilwood**                        | doux et humide, collines                           | Voilepin : écorce rouille, aiguilles bleu-vert, en bosquets denses (Vieux Voile, tronc 2×2 de plus de 20 blocs)                | baies, mousses, petits champignons                          | Trotters, Prowlers la nuit      | résine abondante              |
+| **Capwood**                         | doux et sombre, sous-bois                          | champignons géants devenus de vrais arbres : pieds et chapeaux, qui tombent sans pied comme les feuilles (`decay` sur le pied) | lueurs (glowcap, glowbloom)                                 | nouvelle espèce (M25)           | spores lumineuses (lanternes) |
+| **Rimefrost**                       | glacial, plaines neigeuses                         | Givrépine : écorce ardoise, aiguilles sarcelle                                                                                 | lichen de givre, bulbes de glace (eau)                      | Shagbacks                       | étain (cassitérite)           |
+| **Ochre Waste**                     | brûlant le jour, froid la nuit, dunes              | Palmépine                                                                                                                      | arbustes secs, gourde-citerne (eau)                         | Shellbacks                      | argile réfractaire            |
+| **Sporefen** (toxique, à confirmer) | tiède, eau croupie, air toxique                    | Roseaux-lances et arbres-gousses bas (pas de champignons)                                                                      | gousses à spores, roseaux (fibre)                           | Swarmlings                      | fer des marais                |
+| **Shard Highlands**                 | frais, montagnes et falaises, seul biome à rochers | Pin tordu, écorce olive                                                                                                        | cristaux affleurants, lichens                               | Shagbacks                       | cristal d'aube en surface     |
+| **Mirror Basin**                    | doux, lacs et rives                                | Saule-miroir : écorce ardoise, feuilles pendantes argentées                                                                    | roseaux, nénuphars, argile                                  | nouvelle espèce aquatique (M25) | argile, pêche (M29)           |
+| **Ashen Steppe** (optionnel)        | chaud et sec, sol de cendre, orgues de basalte     | Charbonnier : écorce noire, feuilles bronze                                                                                    | herbes sèches, fumerolles chaudes                           | Prowlers                        | Emberstone en surface         |
+
+**Logique** :
+
+- Feuilles et chapeaux tombent selon leur ancre (`BlockDef.decay` existe déjà, ancres par bloc).
+- Les essences deviennent des `FeatureDef` avec des tailles et des formes variées.
+- Les sous-zones et les géants passent par les données.
+- Bible du thème mise à jour.
+- `GEN_VERSION` +1.
+
+**Tests** :
+
+- garanties de distance sur 20 graines ;
+- chaque essence et chaque plante présentes dans leur biome ;
+- chapeaux et feuilles reliés à leur ancre ;
+- bordures nettes (test existant).
+
+### M24 — Sous-sol praticable : grottes et minerais (retours 4, 5)
+
+**Grottes visitables** :
+
+- Les tunnels font au moins 3 blocs de haut et de large ; les familles et leur largeur sont revues.
+- De vraies entrées : des rampes et des bouches à flanc de colline, là où un tunnel passe près de la surface, plus visibles que les ravins.
+- Test mesurable : depuis 90 % des points de terre ferme, une entrée praticable par le joueur est à moins de 96 blocs. Le A* du joueur va de la surface à une grotte d'au moins 200 cellules sans creuser.
+
+**Minerais** :
+
+- Taux et tailles de filons augmentés.
+- Minerais communs dans **tous** les biomes : Emberstone et cuivre. Le cuivre devient commun ; l'étain, le fer des marais, l'argile réfractaire et le cristal restent propres à leur biome.
+- Communs **dans la pierre seulement**. La pierre noire descend sous y 16 et garde ses minerais profonds.
+- La validation refuse un minerai commun dont une couche tombe dans la pierre noire.
+
+**Tests** :
+
+- recensement par biome : chaque minerai commun dans chaque biome ;
+- fréquence par couche (test existant, ±20 %) ;
+- aucun commun dans la pierre noire.
+
+### M25 — Faune des nouveaux biomes
+
+- Deux ou trois espèces : Capwood, Mirror Basin, Ashen Steppe si gardé.
+- Modèles en boîtes, comportements avec les cerveaux existants, entrées du bestiaire.
+
+### M26 — Structures de la colonie perdue et quêtes d'histoire (ancien M18)
+
+- Site du crash, avant-poste, relais du nord, station du marais, ruines.
+- Journaux et plans, recettes à plan.
+- Le Scanner prend les pièces de la capsule.
+- Les quêtes d'histoire se branchent sur le graphe du M21.
+
+### M27 — Exploration
+
+- Carte du monde découverte (onglet Carte), balises sur la boussole.
+- Échelles et trappes pour les grottes et les puits.
+
+### M28 — Confort d'inventaire
+
+- Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.
+- Fabrication avec le contenu des coffres voisins de l'établi.
+
+### M29 — Agriculture et cuisine
+
+- Planter et récolter les plantes utiles des biomes, avec croissance par mises à jour de blocs.
+- Plats cuisinés au feu de camp qui nourrissent mieux.
+- Pêche au Mirror Basin.
+
+### M30 — Météo et ambiance
+
+- Pluie, orage, brouillard par biome.
+- La pluie remplit les récipients posés.
+- L'orage rend la nuit plus dangereuse.
+- Sons synthétisés.
+
+### M31 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
+
+- Animation pour manger et boire.
+- Disposition du HUD testée en 1024×768, 1280×720 et 1920×1080.
+
+**Ensuite** : la boucle d'amélioration reprend.
+
+## Fichiers critiques
+
+- `sim/physics.ts`, `sim/melee.ts`, `sim/sleep.ts`, `sim/survival.ts`, `sim/environment.ts`, `sim/objectives.ts` (remplacé par les quêtes).
+- `app/Game.ts`, `app/inventoryUi.ts`, `input/pointerLock.ts`, `input/bindings`.
+- `ui/screens/bag.ts`, `ui/logbook.ts`, `ui/itemSlot.ts`, `render/CreatureView.ts`, `app/debugLines.ts`.
+- `content/packs/base/` : `worldgen.ts`, `blocks*.ts`, `balance.ts`, `structures.ts`.
+- `world/gen/` : `caves.ts`, `ores.ts`, `decor.ts`.
+
+## Vérification (chaque jalon)
+
+1. `npm run verify` vert ; `test:perf`, `test:slow` ; hash headless stable sur deux passages.
+2. Navigateur intégré : `?selftest=mN` et `?selftest=all` dans ses configurations, `__game.errors()` vide, `i18nMissing()` vide, captures relues.
+3. `npm run e2e` vert ; CI verte avant le squash-merge ; compte rendu en français.
+4. Pour M23 et M24, captures de chaque biome et d'une entrée de grotte. Les mesures de grottes et de minerais sont des tests chiffrés.

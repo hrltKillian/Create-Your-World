@@ -1,13 +1,9 @@
-import { fitsTool, harvests } from '../content/items.ts';
+import { fitsTool, harvests, toolBreakSeconds } from '../content/items.ts';
 import type { Registry } from '../content/registry.ts';
 import { CRACK_STAGES, type ToolDef } from '../content/schema.ts';
 
 /** Mining rules (docs/conception.md « Casser »). */
 export const MINING = {
-  /** Break time per hardness point at speed 1. */
-  secondsPerHardness: 1.5,
-  /** Slowdown below the block's minimum tier (which also gives no drop). */
-  weakToolFactor: 3.3,
   /** Mining speed while exhausted. */
   exhaustedSpeed: 0.6,
   /** Crack stages reported while mining. */
@@ -50,8 +46,8 @@ export function weakToolParams(
 }
 
 /**
- * Seconds to break a block: hardness × 1.5 / speed (the tool's speed if it is the right kind,
- * else 1), ×3.3 below the minimum tier, ÷0.6 while exhausted. Infinity for unbreakable blocks.
+ * Seconds to break a block with the held item (`toolBreakSeconds`, content/items.ts), ÷0.6 while
+ * exhausted. Infinity for unbreakable blocks.
  */
 export function breakSeconds(
   registry: Registry,
@@ -59,14 +55,8 @@ export function breakSeconds(
   itemId: number,
   exhausted: boolean,
 ): number {
-  const block = registry.blockDef(state);
-  if (block.hardness < 0) return Number.POSITIVE_INFINITY;
-  const fits = fitsTool(block, heldTool(registry, itemId));
-  const speed = fits ? registry.itemTables.toolSpeed[itemId]! : 1;
-  let seconds = (block.hardness * MINING.secondsPerHardness) / speed;
-  if (!canHarvest(registry, state, itemId)) seconds *= MINING.weakToolFactor;
-  if (exhausted) seconds /= MINING.exhaustedSpeed;
-  return seconds;
+  const seconds = toolBreakSeconds(registry.blockDef(state), heldTool(registry, itemId));
+  return exhausted ? seconds / MINING.exhaustedSpeed : seconds;
 }
 
 /** Durability the held tool loses for breaking a block (0 for anything else). */

@@ -31,6 +31,24 @@ export function harvests(block: BlockDef, tool: ToolDef | undefined): boolean {
   return tier >= (block.minTier ?? 0);
 }
 
+/**
+ * The break time rule (docs « Casser »): seconds per hardness point at speed 1, and the slowdown
+ * below the block's minimum tier (which also gives no drop).
+ */
+export const BREAK = { secondsPerHardness: 1.5, weakToolFactor: 3.3 } as const;
+
+/**
+ * Seconds a rested player takes to break a block with a tool (none: the hand): hardness × 1.5 /
+ * speed (the tool's if it is the right kind, else 1), × 3.3 below the minimum tier. Infinity for
+ * an unbreakable block. Shared by the simulation (sim/mining.ts) and the item descriptions.
+ */
+export function toolBreakSeconds(block: BlockDef, tool: ToolDef | undefined): number {
+  if (block.hardness < 0) return Number.POSITIVE_INFINITY;
+  const speed = tool !== undefined && fitsTool(block, tool) ? tool.speed : 1;
+  const seconds = (block.hardness * BREAK.secondsPerHardness) / speed;
+  return harvests(block, tool) ? seconds : seconds * BREAK.weakToolFactor;
+}
+
 /** i18n key of a tag's name (the Logbook's « Any Log »): `tag:log` → `tag.log`. */
 export function tagNameKey(tag: string): string {
   return `tag.${tag.slice(tag.indexOf(':') + 1)}`;
@@ -78,8 +96,6 @@ export interface ItemTables {
   readonly count: number;
   /** Most items of a stack (`stackLimit`). */
   readonly maxStack: Uint16Array;
-  /** Mining speed of a matching tool (1 for items that are not tools). */
-  readonly toolSpeed: Float64Array;
   /**
    * Uses of a fresh stack: a tool's, a wearable's wear, a filled container's charges; 0 for items
    * that do not wear.
@@ -99,13 +115,11 @@ export function buildItemTables(
   const tables = {
     count: n,
     maxStack: new Uint16Array(n),
-    toolSpeed: new Float64Array(n),
     durability: new Uint16Array(n),
     places: new Int32Array(n).fill(-1),
   };
   items.forEach((item, i) => {
     tables.maxStack[i] = stackLimit(item);
-    tables.toolSpeed[i] = item.tool?.speed ?? 1;
     tables.durability[i] =
       item.tool?.durability ?? item.weapon?.durability ?? item.wear?.durability ?? charges(item);
     const block = placed.get(item.key);

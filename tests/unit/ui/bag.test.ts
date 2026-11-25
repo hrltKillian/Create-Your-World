@@ -64,11 +64,11 @@ describe('BagScreen', () => {
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
     const hint = () => fake(bag.element).querySelector('.bag-close');
     bag.open();
-    expect(hint()?.textContent).toBe('E or Esc to close');
+    expect(hint()?.textContent).toBe('E to close');
     bag.close();
     label = 'Ê';
     bag.open();
-    expect(hint()?.textContent).toBe('Ê or Esc to close');
+    expect(hint()?.textContent).toBe('Ê to close');
   });
 
   it('has the 32 inventory slots and the 5 equipment slots of the silhouette', () => {
@@ -119,7 +119,7 @@ describe('BagScreen', () => {
     expect(sent.at(-1)).toEqual({ type: 'slot.hotkey', slot: head, hotbar: 2 });
   });
 
-  it('shows the Inventory or the Logbook page from its tab bar, the one chosen last first', () => {
+  it('shows a page from its tab bar, and opens on the page its key names', () => {
     const { screen } = deps();
     const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS);
     const bag = new BagScreen(screen, logbook);
@@ -143,12 +143,14 @@ describe('BagScreen', () => {
     ]);
     expect(tab('logbook').className).toBe('bag-tab active');
     expect(tab('inventory').getAttribute('aria-pressed')).toBe('false');
-    // Both pages sit beside the same inventory slots; the page stays chosen across openings.
+    // Every page sits beside the same inventory slots; an opening shows the page asked for.
     expect(slotNumbers(bag.element)).toHaveLength(BASE_INVENTORY_SLOTS + WEAR_SLOTS.length);
-    bag.open();
     bag.close();
     bag.open();
-    expect(bag.shown()).toBe('logbook');
+    expect(bag.shown()).toBe('inventory');
+    bag.close();
+    bag.open('bestiary');
+    expect(bag.shown()).toBe('bestiary');
   });
 
   it('draws the cursor stack under the pointer while it holds one', () => {
@@ -232,6 +234,20 @@ describe('LogbookPanel', () => {
     );
   });
 
+  it('shows a hovered discovered recipe’s description in the detail pane, then the selected one', () => {
+    const { logbook, root } = panel();
+    logbook.update({ source: logbookSource(tools), queue: [] });
+    byAttr(root, 'data-tab', 'tools')[0]!.dispatch('click');
+    const detail = () => fake(root).querySelector('.logbook-detail')!.textContent ?? '';
+    byAttr(root, 'data-recipe', 'recipe:flint_knife')[0]!.dispatch('click');
+    expect(detail()).toContain('Damage');
+    byAttr(root, 'data-recipe', 'recipe:flint_pickaxe')[0]!.dispatch('pointerenter');
+    expect(detail()).toContain('Stone:');
+    byAttr(root, 'data-recipe', 'recipe:flint_pickaxe')[0]!.dispatch('pointerleave');
+    expect(detail()).not.toContain('Stone:');
+    expect(detail()).toContain('Damage');
+  });
+
   it('searches outputs and ingredients, and « Can craft now » keeps what the inventory pays for', () => {
     const { logbook, root } = panel();
     const search = fake(root).findAll((e) => e.getAttribute('data-action') === 'search')[0]!;
@@ -243,10 +259,22 @@ describe('LogbookPanel', () => {
     logbook.update({ source: logbookSource(tools), queue: [] });
     byAttr(root, 'data-tab', 'tools')[0]!.dispatch('click');
     type('HATCHET');
-    expect(rows()).toEqual(['recipe:flint_hatchet']);
-    // By an ingredient's name; the tab's badge counts what the search keeps.
+    // Every hatchet of the pack, those of the workbench marked with it.
+    expect(rows()).toEqual([
+      'recipe:flint_hatchet',
+      'recipe:copper_hatchet',
+      'recipe:bronze_hatchet',
+      'recipe:iron_hatchet',
+    ]);
+    const madeAt = (key: string) =>
+      byAttr(root, 'data-recipe', key)[0]!.querySelector('.logbook-station')?.textContent;
+    expect(madeAt('recipe:flint_hatchet')).toBeUndefined();
+    expect(madeAt('recipe:copper_hatchet')).toBe('At the Workbench');
+    // By an ingredient's name, across the tabs; the tab's badge counts what the search keeps.
     type('cord');
-    expect(rows()).toEqual(['recipe:flint_hatchet', 'recipe:flint_pickaxe', 'recipe:flint_spear']);
+    // The craftable ones first, then the cord itself (materials) and the spear among the others.
+    expect(rows().slice(0, 2)).toEqual(['recipe:flint_hatchet', 'recipe:flint_pickaxe']);
+    expect(rows()).toEqual(expect.arrayContaining(['recipe:cord', 'recipe:flint_spear']));
     const badge = byAttr(root, 'data-tab', 'tools')[0]!.querySelector('.logbook-count');
     expect(badge?.textContent).toBe('2');
     type('nothing like it');
@@ -330,7 +358,9 @@ describe('LogbookPanel', () => {
         }
       }
     }
-    expect(shown).toBe(registry.crafting.recipes.length);
+    // The hand recipes show in both Logbooks (the workbench lists them too).
+    const byHand = registry.crafting.recipes.filter((r) => r.station === undefined).length;
+    expect(shown).toBe(registry.crafting.recipes.length + byHand);
     expect(i18nMissing()).toEqual([]);
   });
 });
@@ -361,7 +391,8 @@ describe('WorkbenchScreen', () => {
     byAttr(bench.element, 'data-tab', 'building')[0]!.dispatch('click');
     const rows = byAttr(bench.element, 'data-recipe').map((e) => e.getAttribute('data-recipe'));
     expect(rows[0]).toBe('recipe:chest');
-    expect(rows).not.toContain('recipe:workbench');
+    // The hand recipes are made here too.
+    expect(rows).toContain('recipe:workbench');
     expect(byAttr(bench.element, 'data-slot', String(base + 1))[0]!.textContent).toContain('2');
     // Opened again, its output views are made again (no duplicates).
     bench.close();

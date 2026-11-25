@@ -4,6 +4,10 @@
 export const EYE_HEIGHT = 1.62;
 export const CROUCH_EYE_HEIGHT = 1.27;
 
+/** Body height (m), standing and crouching: creatures aim at its middle. */
+export const BODY_HEIGHT = 1.8;
+export const CROUCH_BODY_HEIGHT = 1.5;
+
 /** Hotbar slots (InputCommand.slot is 0…HOTBAR_SLOTS−1). */
 export const HOTBAR_SLOTS = 8;
 

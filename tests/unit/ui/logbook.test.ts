@@ -41,13 +41,15 @@ function source(
 }
 
 const BENCH = 'station:workbench';
+/** The rows a Logbook lists without a search: those made in it. */
+const listed = (src: LogbookSource) => logbookRows(src, MAX).filter((r) => r.here);
 const row = (rows: readonly RecipeRow[], key: string) => rows.find((r) => r.recipe.key === key)!;
 const keys = (rows: readonly RecipeRow[]) => rows.map((r) => r.recipe.key);
 const discovered = (rows: readonly RecipeRow[]) => keys(rows.filter((r) => r.discovered));
 
 describe('Logbook', () => {
   it('shows a new player the recipes known from the start, then the others undiscovered', () => {
-    const rows = logbookRows(source({}), MAX);
+    const rows = listed(source({}));
     const byHand = crafting.recipes.filter((r) => r.station === undefined);
     const start = byHand.filter((r) => r.known === 'start').map((r) => r.key);
     // Every hand recipe, in pack order: the known ones first, the undiscovered ones at the bottom.
@@ -60,10 +62,10 @@ describe('Logbook', () => {
   });
 
   it('reveals a recipe as soon as one of its ingredients has been seen', () => {
-    const before = row(logbookRows(source({}), MAX), 'recipe:stone_shard');
+    const before = row(listed(source({})), 'recipe:stone_shard');
     expect(before.discovered).toBe(false);
     expect(before.pips.every((pip) => !pip.seen)).toBe(true);
-    const after = logbookRows(source({}, ['item:stone']), MAX);
+    const after = listed(source({}, ['item:stone']));
     expect(row(after, 'recipe:stone_shard').discovered).toBe(true);
     expect(discovered(after)).toContain('recipe:stone_shard');
   });
@@ -71,7 +73,7 @@ describe('Logbook', () => {
   it('never makes an undiscovered recipe craftable, and lists it after every revealed one', () => {
     // A recipe whose ingredients are owned but unseen (as before the tick that notes them).
     const unseen: LogbookSource = { ...source({}), owned: () => 50 };
-    const rows = logbookRows(unseen, MAX);
+    const rows = listed(unseen);
     const shard = row(rows, 'recipe:stone_shard');
     expect([shard.discovered, shard.max, shard.craftable]).toEqual([false, 0, false]);
     expect(batchCount('max', shard)).toBe(0);
@@ -81,7 +83,7 @@ describe('Logbook', () => {
   });
 
   it('lists craftable recipes first, keeping pack order inside each group', () => {
-    const rows = logbookRows(source({ 'item:flint': 2, 'item:stick': 2, 'item:cord': 1 }), MAX);
+    const rows = listed(source({ 'item:flint': 2, 'item:stick': 2, 'item:cord': 1 }));
     const craftable = rows.filter((r) => r.craftable).map((r) => r.recipe.key);
     expect(craftable).toEqual([
       'recipe:flint_knife',
@@ -100,7 +102,7 @@ describe('Logbook', () => {
   });
 
   it('shows owned/required pips, by item or by tag, and the crafts the inventory pays for', () => {
-    const rows = logbookRows(source({ 'item:flint': 1, 'item:stick': 7, 'tag:log': 5 }), MAX);
+    const rows = listed(source({ 'item:flint': 1, 'item:stick': 7, 'tag:log': 5 }));
     const hatchet = row(rows, 'recipe:flint_hatchet');
     expect(hatchet.pips).toEqual([
       { key: 'item:flint', owned: 1, required: 1, seen: true },
@@ -112,13 +114,13 @@ describe('Logbook', () => {
     const planks = row(rows, 'recipe:planks');
     expect(planks.pips[0]).toMatchObject({ key: 'tag:log', owned: 5, seen: true });
     expect(planks.max).toBe(5);
-    expect(row(logbookRows(source({ 'tag:log': 500 }), MAX), 'recipe:planks').max).toBe(MAX);
+    expect(row(listed(source({ 'tag:log': 500 })), 'recipe:planks').max).toBe(MAX);
   });
 
   it("lists the hand recipes in the Bag and a station's at its workbench, counting what is left", () => {
     const items = { 'item:planks': 40, 'item:cord': 5, 'item:stick': 9 };
     const bag = source(items);
-    const bagRows = logbookRows(bag, MAX);
+    const bagRows = listed(bag);
     expect(bagRows.every((r) => r.recipe.station === undefined)).toBe(true);
     expect(keys(bagRows)).not.toContain('recipe:chest');
     const atBench = crafting.recipes.filter(
@@ -126,18 +128,24 @@ describe('Logbook', () => {
     );
     expect(stationRecipes(bag)).toEqual([{ station: BENCH, count: atBench.length }]);
     const bench = source(items, [], BENCH);
-    const benchRows = logbookRows(bench, MAX);
-    expect(discovered(benchRows).sort()).toEqual(atBench.map((r) => r.key).sort());
+    const benchRows = listed(bench);
+    // The bench recipes and the hand ones (plan v3 « M18 »).
+    const handKnown = crafting.recipes.filter(
+      (r) => r.station === undefined && crafting.revealed(r, bench.seen),
+    );
+    expect(discovered(benchRows).sort()).toEqual(
+      [...atBench, ...handKnown].map((r) => r.key).sort(),
+    );
     const chest = row(benchRows, 'recipe:chest');
     expect([chest.max, chest.craftable]).toEqual([5, true]);
     expect(stationRecipes(bench)).toEqual([]);
-    // Every bench recipe is listed at the bench: the revealed ones, then the others greyed.
-    const allBench = crafting.recipes.filter((r) => r.station === BENCH);
-    expect(keys(logbookRows(bench, MAX)).sort()).toEqual(allBench.map((r) => r.key).sort());
+    // Every bench and hand recipe is listed at the bench: the revealed ones, then the others greyed.
+    const allHere = crafting.recipes.filter((r) => r.station === BENCH || r.station === undefined);
+    expect(keys(listed(bench)).sort()).toEqual(allHere.map((r) => r.key).sort());
   });
 
   it('turns the ×1, ×5 and Max buttons on only for what can be queued', () => {
-    const rows = logbookRows(source({ 'item:plant_fiber': 9 }), MAX);
+    const rows = listed(source({ 'item:plant_fiber': 9 }));
     const cord = row(rows, 'recipe:cord');
     expect([cord.max, cord.room]).toEqual([3, MAX]);
     expect(batchCount(1, cord)).toBe(1);
@@ -148,7 +156,7 @@ describe('Logbook', () => {
     // The queue's room for the recipe caps every button: Max queues what still fits.
     const plenty = { 'item:plant_fiber': 99 };
     const roomFor = (room: number) =>
-      row(logbookRows(source(plenty, [], undefined, room), MAX), 'recipe:cord');
+      row(listed(source(plenty, [], undefined, room)), 'recipe:cord');
     expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(2)))).toEqual([1, 0, 2]);
     expect([1, 5, 'max'].map((b) => batchCount(b as 1 | 5 | 'max', roomFor(0)))).toEqual([0, 0, 0]);
   });
@@ -172,8 +180,17 @@ describe('Logbook', () => {
     });
 
     it("keeps the rows whose output or a shown ingredient's name holds the query, in order", () => {
-      expect(kept('')).toEqual(keys(rows));
-      expect(kept('hatchet')).toEqual(['recipe:flint_hatchet']);
+      // No query: the rows made here only.
+      expect(kept('')).toEqual(keys(rows.filter((r) => r.here)));
+      // A query finds every recipe of the pack, those made at a station too (after the others).
+      expect(kept('flint hatchet')).toEqual(['recipe:flint_hatchet']);
+      expect(kept('hatchet')).toEqual([
+        'recipe:flint_hatchet',
+        'recipe:copper_hatchet',
+        'recipe:bronze_hatchet',
+        'recipe:iron_hatchet',
+      ]);
+      expect(row(rows, 'recipe:copper_hatchet').here).toBe(false);
       // By an ingredient: every recipe that takes flint, craftable ones first as listed.
       const flint = kept('FLINT');
       expect(flint).toEqual(
@@ -200,7 +217,17 @@ describe('Logbook', () => {
       expect(kept('resin')).toEqual(['recipe:scanner']);
       const seen = logbookRows(source(tools, ['item:resin']), MAX);
       const keptSeen = keys(filterRows(seen, { query: 'resin', craftableOnly: false }, name));
-      expect(keptSeen).toEqual(['recipe:scanner', 'recipe:bandage']);
+      // Resin seen: the recipes it reveals, here, then at a station.
+      expect(keptSeen.slice(0, 2)).toEqual(['recipe:scanner', 'recipe:bandage']);
+      expect(keptSeen.slice(2).every((key) => !row(seen, key).here)).toBe(true);
+    });
+
+    it('finds a station process too, showing where it is made', () => {
+      const ingot = rows.find((r) => r.recipe.output.item === 'item:copper_ingot')!;
+      expect(ingot.here).toBe(false);
+      expect(ingot.recipe.station).toBe('station:kiln');
+      expect(ingot.craftable).toBe(false);
+      expect(kept('copper ingot')).toContain(ingot.recipe.key);
     });
 
     it('« Can craft now » keeps only what the inventory pays for, never an undiscovered recipe', () => {

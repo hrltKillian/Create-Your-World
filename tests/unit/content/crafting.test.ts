@@ -3,6 +3,7 @@ import { DEFAULT_STACK } from '../../../src/content/items.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import type { ContentPack, Ingredient } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
+import { structurePack } from '../../fixtures/structures.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const crafting = registry.crafting;
@@ -11,7 +12,8 @@ const process = (id: string) => crafting.process(`process:${id}`)!;
 const pairs = (inputs: readonly Ingredient[]) => inputs.map((i) => [i.item, i.count]);
 
 function broken(mutate: (pack: Record<string, Record<string, unknown>[]>) => void): ContentPack {
-  const pack = JSON.parse(JSON.stringify(basePack));
+  // The test pack with structures (the base pack has none until plan v3's M26).
+  const pack = JSON.parse(JSON.stringify(structurePack));
   mutate(pack);
   return pack as ContentPack;
 }
@@ -174,11 +176,11 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     };
     expect(share('loot:gravel', 'item:flint')).toBeCloseTo(0.35);
     expect(share('loot:tall_grass', 'item:plant_fiber')).toBeCloseTo(0.6);
-    expect(basePack.structures!.map((s) => s.lootTables)).toEqual([
-      { C: 'loot:camp' },
-      { C: 'loot:cairn' },
-    ]);
-    expect(registry.loot('loot:cairn')!.entries.map((e) => e.item)).toContain('item:prowler_sinew');
+    // No structure until the lost colony's (plan v3 « M26 »); Shagbacks leave sinew meanwhile.
+    expect(basePack.structures ?? []).toEqual([]);
+    expect(registry.loot('loot:shagback')!.entries.map((e) => e.item)).toContain(
+      'item:prowler_sinew',
+    );
   });
 });
 

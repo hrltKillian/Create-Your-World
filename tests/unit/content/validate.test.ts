@@ -3,6 +3,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { buildRegistry, ContentError } from '../../../src/content/registry.ts';
 import type { ContentPack } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
+import { structurePack } from '../../fixtures/structures.ts';
 
 function broken(
   mutate: (pack: {
@@ -190,7 +191,8 @@ describe('content validation of world generation', () => {
   });
 
   it('checks the spawn rules and the structure templates', () => {
-    const pack = JSON.parse(JSON.stringify(basePack));
+    // The structures of the test pack (the base pack has none until plan v3's M26).
+    const pack = JSON.parse(JSON.stringify(structurePack));
     pack.worldgen.spawn.near = ['block:nope'];
     pack.worldgen.spawn.far = ['biome:nope'];
     const [camp, cairn] = pack.structures;
@@ -215,6 +217,7 @@ describe('content validation of world generation', () => {
       ]),
     );
     expect(validatePack(basePack)).toEqual([]);
+    expect(validatePack(structurePack)).toEqual([]);
   });
 });
 

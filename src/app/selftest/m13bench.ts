@@ -109,11 +109,14 @@ export const BENCH_CASES: readonly SelftestCase[] = [
         const tab = `#screen-workbench [data-tab="${recipe.category}"]`;
         await waitForShown(tab, `the workbench Logbook's "${recipe.category}" tab`);
         assert(click(tab), `no "${recipe.category}" tab`);
-        // Its Logbook lists the bench's recipes only.
+        // Its Logbook lists the bench's recipes and the hand ones (plan v3 « M18 »).
         const station = recipe.station;
         for (const key of logbookRows('workbench')) {
           const listed = registry.crafting.recipe(key)?.station;
-          assert(listed === station, `the workbench Logbook lists ${key} (made at ${listed})`);
+          assert(
+            listed === station || listed === undefined,
+            `the workbench Logbook lists ${key} (made at ${listed})`,
+          );
         }
         assert(click(`#screen-workbench [data-recipe="${recipe.key}"]`), `no ${recipe.key} row`);
         for (let i = 0; i < BENCH_CRAFTS; i++) {

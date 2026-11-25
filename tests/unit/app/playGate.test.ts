@@ -78,7 +78,6 @@ describe('PlayGate', () => {
     const { gate, pointer, input, session, events, click, openScreen } = setup();
     openScreen();
     expect(input.enabled).toBe(false);
-    expect(gate.canPause()).toBe(false);
     gate.closeScreen();
     // The keyboard plays at once; the simulation never stopped.
     expect(input.enabled).toBe(true);
@@ -132,7 +131,6 @@ describe('PlayGate', () => {
     openScreen();
     gate.closeScreen();
     pointer.answer(false);
-    expect(gate.canPause()).toBe(true);
     gate.pause();
     expect(session.paused).toBe(true);
     expect(click.hidden).toBe(true);
@@ -164,11 +162,46 @@ describe('PlayGate', () => {
     expect(session.paused).toBe(true);
     expect(input.enabled).toBe(false);
     expect(events).toEqual({ paused: 0, playing: 1 });
-    // Only Resume plays again.
+    // Only Resume plays again (at once, then once more when the lock is granted).
     gate.resume();
     pointer.answer(true);
     expect(session.paused).toBe(false);
     expect(input.enabled).toBe(true);
-    expect(events).toEqual({ paused: 0, playing: 2 });
+    expect(events).toEqual({ paused: 0, playing: 3 });
+  });
+
+  it('plays again at Resume even when the browser refuses the lock, behind the light prompt', () => {
+    const { gate, pointer, input, session, events, click } = setup();
+    // Esc in play: the lock is lost and the pause menu opens.
+    pointer.answer(false);
+    gate.pause();
+    // Resume right away: Chrome refuses a lock just after Esc released one.
+    gate.resume();
+    expect(session.paused).toBe(false);
+    expect(input.enabled).toBe(true);
+    pointer.answer(false);
+    expect(session.paused).toBe(false);
+    expect(events.paused).toBe(1);
+    expect(click.hidden).toBe(false);
+    expect(click.classList.contains('click-light')).toBe(true);
+  });
+
+  it('opens the pause menu over an open screen, which Resume finds open again', () => {
+    const { gate, pointer, input, session, openScreen } = setup();
+    openScreen();
+    gate.pause();
+    expect(session.paused).toBe(true);
+    expect(gate.screenIsOpen()).toBe(true);
+    expect(gate.canOpenScreen()).toBe(false);
+    const requests = pointer.requests;
+    gate.resume();
+    // The screen keeps the keyboard and the mouse: no lock is asked for.
+    expect(session.paused).toBe(false);
+    expect(input.enabled).toBe(false);
+    expect(pointer.requests).toBe(requests);
+    expect(gate.screenIsOpen()).toBe(true);
+    gate.closeScreen();
+    expect(input.enabled).toBe(true);
+    expect(pointer.requests).toBe(requests + 1);
   });
 });

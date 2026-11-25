@@ -369,3 +369,17 @@ export function holdInHand(app: App, item: string, count: number): void {
   assert(inventory[slot]?.item === item, `${item} is not in hotbar slot ${slot}`);
   app.input!.slot = slot;
 }
+
+/** A key pressed (or released) as the keyboard sends it: at the focused element, bubbling up. */
+export function key(type: 'keydown' | 'keyup', code: string, name: string): void {
+  const target = document.activeElement ?? document.body;
+  target.dispatchEvent(
+    new KeyboardEvent(type, { code, key: name, bubbles: true, cancelable: true }),
+  );
+}
+
+/** A key pressed and released. */
+export function tap(code: string, name: string): void {
+  key('keydown', code, name);
+  key('keyup', code, name);
+}

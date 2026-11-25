@@ -1,13 +1,13 @@
 import type { RawTables } from '../content/registry.ts';
-import { CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
+import { BODY_HEIGHT, CROUCH_BODY_HEIGHT, CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '../core/player.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { aabb, isLiquid, moveAxis, overlapsSolid, solidCell, supported } from './collision.ts';
 
 /** Player movement constants (docs/conception.md « Joueur »). */
 export const PHYSICS = {
   width: 0.6,
-  height: 1.8,
-  crouchHeight: 1.5,
+  height: BODY_HEIGHT,
+  crouchHeight: CROUCH_BODY_HEIGHT,
   eye: EYE_HEIGHT,
   crouchEye: CROUCH_EYE_HEIGHT,
   walk: 4.3,
@@ -23,6 +23,11 @@ export const PHYSICS = {
   /** Coyote time and jump buffer, in ticks (0.1 s at 30 Hz). */
   coyoteTicks: 3,
   jumpBufferTicks: 3,
+  /**
+   * Ticks between two jumps (0.33 s): shorter than a jump's flight (0.6 s), so a held jump still
+   * jumps again on each landing, but under a low ceiling it no longer bounces every tick.
+   */
+  jumpCooldownTicks: 10,
   swimUp: 3.2,
   /** Height the feet clear above a bank's top when climbing out of water. */
   bankClearance: 0.1,
@@ -50,6 +55,8 @@ export interface Body {
   airTicks: number;
   /** Ticks since jump was last held (jump buffer): 0 while held, large once released. */
   jumpTicks: number;
+  /** Ticks before the body may jump again (PHYSICS.jumpCooldownTicks after a jump). */
+  jumpCooldown: number;
   /** Highest y since leaving the ground (fall damage). */
   fallStartY: number;
 }
@@ -95,6 +102,7 @@ export function createBody(x: number, y: number, z: number): Body {
     crouching: false,
     airTicks: 0,
     jumpTicks: 99,
+    jumpCooldown: 0,
     fallStartY: 0,
   };
   resetBody(body, x, y, z);
@@ -255,7 +263,7 @@ function accelerate(
 /**
  * Jump and gravity phase: a held jump jumps again on each landing (a tap shortly before landing
  * still counts: the jump buffer), with coyote time after leaving an edge but never twice in the
- * air; swimming and climbing out of water. Updates the vertical speed and returns the vertical
+ * air, and never twice within PHYSICS.jumpCooldownTicks; swimming and climbing out of water. Updates the vertical speed and returns the vertical
  * move of this tick.
  */
 function jumpAndGravity(
@@ -268,19 +276,17 @@ function jumpAndGravity(
 ): number {
   if (input.jump) body.jumpTicks = 0;
   else body.jumpTicks++;
+  if (body.jumpCooldown > 0) body.jumpCooldown--;
+  const ready = input.jumpAllowed && body.jumpCooldown === 0;
   // Swimming at the surface into a climbable bank with jump held lifts the feet onto it.
   const exit =
     input.jump && body.feetInWater && !body.headInWater ? waterExitSpeed(body, world, tables) : 0;
   if (body.inWater) {
-    if (
-      input.jumpAllowed &&
-      body.onGround &&
-      body.jumpTicks <= PHYSICS.jumpBufferTicks &&
-      !body.headInWater
-    ) {
+    if (ready && body.onGround && body.jumpTicks <= PHYSICS.jumpBufferTicks && !body.headInWater) {
       // Standing in shallow water: a normal jump.
       body.vy = PHYSICS.jump;
       body.jumpTicks = 99;
+      body.jumpCooldown = PHYSICS.jumpCooldownTicks;
       body.onGround = false;
       out.jumped = true;
     } else if (exit > 0) {
@@ -295,10 +301,11 @@ function jumpAndGravity(
     return dy;
   }
   if (exit > 0) body.vy = Math.max(body.vy, exit);
-  const canJump = input.jumpAllowed && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
+  const canJump = ready && (body.onGround || body.airTicks <= PHYSICS.coyoteTicks);
   if (canJump && body.jumpTicks <= PHYSICS.jumpBufferTicks && body.vy <= 0) {
     body.vy = PHYSICS.jump;
     body.jumpTicks = 99;
+    body.jumpCooldown = PHYSICS.jumpCooldownTicks;
     body.airTicks = PHYSICS.coyoteTicks + 1;
     body.onGround = false;
     out.jumped = true;

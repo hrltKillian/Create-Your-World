@@ -124,6 +124,21 @@ describe('player physics', () => {
     }
   });
 
+  it('under a low ceiling, a held jump waits its cooldown between two jumps', () => {
+    const world = flatWorld();
+    // A ceiling 2 blocks over the ground (feet at 64): the head bumps it at once.
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) world.setBlock(x, 66, z, STONE);
+    const body = settle(world, 0.5, 64, 0.5);
+    const starts: number[] = [];
+    for (let i = 0; i < 90; i++) {
+      stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
+      if (out.jumped) starts.push(i);
+    }
+    expect(starts.length).toBeGreaterThan(1);
+    for (let k = 1; k < starts.length; k++)
+      expect(starts[k]! - starts[k - 1]!).toBeGreaterThanOrEqual(PHYSICS.jumpCooldownTicks);
+  });
+
   it('keeps jumping for a few ticks after leaving an edge (coyote time)', () => {
     const world = emptyWorld(1);
     for (let x = -5; x < 5; x++) for (let z = 0; z < 3; z++) world.setBlock(x, 63, z, STONE);
