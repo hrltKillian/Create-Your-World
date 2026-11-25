@@ -2933,6 +2933,13 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 - Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.
 - Fabrication avec le contenu des coffres voisins de l'établi.
 
+**Retenu à la réalisation** :
+
+- « Trier » (sac, page Inventaire) : les piles de même sorte réunies jusqu'à leur taille, puis rangées dans l'ordre des objets du pack, les plus grosses d'abord, les cases vides à la fin ; la barre d'action n'est jamais touchée. « Trier » dans un coffre ouvert range le coffre (`inv.sort {open}`).
+- « Ranger dans les coffres proches » : chaque objet du sac (pas de la barre) qu'un coffre à 6 blocs ou moins contient déjà y va, autant qu'il en tient (`inv.stackNearby`, événement `stackedNearby` : un message dit combien). « Tout ranger » et « Tout prendre » du coffre restent.
+- Établi : ses recettes (et celles de la main faites à l'établi) prennent leurs ingrédients dans l'inventaire, puis dans les coffres à 6 blocs ou moins de l'établi, dans un ordre fixe ; son Logbook les compte (`craftSources`, `chestsNear`, `sim/tidying.ts`).
+- Selftest `m32` (`?worldType=arena&fixedStep=1&selftest=m0,m32`).
+
 ### M33 — Agriculture et cuisine
 
 - Planter et récolter les plantes utiles des biomes, avec croissance par mises à jour de blocs.

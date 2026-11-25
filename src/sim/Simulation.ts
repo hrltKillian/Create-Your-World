@@ -38,6 +38,7 @@ import { SpatialHash } from './spatialHash.ts';
 import { placeHerds, type SpawnLogEntry, stepSpawning } from './spawning.ts';
 import { stepStations } from './stations.ts';
 import { stepSurvival } from './survival.ts';
+import { applyTidyCommand } from './tidying.ts';
 import { clockEvents, createTime, stepTime, type TimeState } from './time.ts';
 
 /** Generated columns integrated per tick in normal play (×LOADING_FACTOR while loading). */
@@ -323,6 +324,12 @@ export class Simulation implements ColumnSink {
       case 'inv.drop': {
         const player = this.players.get(playerId);
         if (player) applyInventoryCommand(this, player, command, out);
+        break;
+      }
+      case 'inv.sort':
+      case 'inv.stackNearby': {
+        const player = this.players.get(playerId);
+        if (player) applyTidyCommand(this, player, command, out);
         break;
       }
       case 'screen.open':

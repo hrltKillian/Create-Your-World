@@ -1,4 +1,5 @@
 import type { Registry } from '../content/registry.ts';
+import { t } from '../i18n/i18n.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { StationEntity } from '../sim/blockEntities.ts';
 import { ticksOf } from '../sim/clock.ts';
@@ -10,6 +11,7 @@ import type { SimView } from '../sim/host.ts';
 import { countMatching, type Inventory } from '../sim/inventory.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { levelOf, SKILLS } from '../sim/progression.ts';
+import { BENCH_RADIUS, chestsNear } from '../sim/tidying.ts';
 import { bestiaryRows } from '../ui/bestiary.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
@@ -78,6 +80,14 @@ export class UiBridge {
       case 'hint':
         this.views.hint.show(hintText(event.key, event.params));
         break;
+      case 'stackedNearby':
+        this.views.hint.show(
+          event.count > 0
+            ? t('hint.stacked', { n: event.count, chests: event.chests })
+            : t(event.chests > 0 ? 'hint.stackedNone' : 'hint.noChest'),
+        );
+        this.dirty = true;
+        break;
       case 'inventoryChanged':
       case 'crafted':
       case 'blockEntityOpened':
@@ -131,18 +141,28 @@ export class UiBridge {
    * A Logbook's view of the player and a queue (the player's, for the hand recipes; a workbench's,
    * for its station's): the simulation's own ingredient count and queue room.
    */
-  private logbook(queue: readonly CraftEntry[], station?: string): LogbookState {
+  private logbook(
+    queue: readonly CraftEntry[],
+    station?: string,
+    chests: readonly Inventory[] = [],
+  ): LogbookState {
     const registry = this.view.registry;
     const crafting = registry.crafting;
     const player = this.player;
+    // What the crafts may take: the inventory, and at a workbench the chests near it (« M32 »).
+    const sources = [player.inventory, ...chests];
     return {
       source: {
         crafting,
         ...(station === undefined ? {} : { station }),
         seen: player.seen,
         level: levelOf(player.xp, registry.pack.balance.progression),
-        owned: (ingredient) =>
-          countMatching(player.inventory, 0, player.inventory.length, crafting, ingredient),
+        owned: (ingredient) => {
+          let owned = 0;
+          for (const slots of sources)
+            owned += countMatching(slots, 0, slots.length, crafting, ingredient);
+          return owned;
+        },
         room: (recipe) => queueRoom(registry, queue, recipe),
       },
       queue: queue.map((entry) => queueView(registry, entry)),
@@ -187,9 +207,16 @@ export class UiBridge {
     const slots = screenSlots(inventory, entity.slots);
     const { container, workbench, station } = this.views;
     if (entity.kind === 'container') container.update(slots, cursor);
-    else if (entity.kind === 'workbench')
-      workbench.update(slots, cursor, this.logbook(entity.craft, entity.station));
-    else station.update(slots, cursor, stationStatus(this.view.registry, entity));
+    else if (entity.kind === 'workbench') {
+      const near = chestsNear(
+        (x, y, z) => this.view.blockEntity(x, y, z),
+        entity.x,
+        entity.y,
+        entity.z,
+        BENCH_RADIUS,
+      ).map((chest) => chest.slots);
+      workbench.update(slots, cursor, this.logbook(entity.craft, entity.station, near));
+    } else station.update(slots, cursor, stationStatus(this.view.registry, entity));
   }
 }
 
