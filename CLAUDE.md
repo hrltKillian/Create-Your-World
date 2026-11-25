@@ -122,7 +122,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     generation step reads the padded `heights` (`PADDED` rows, `MARGIN` around the column,
     `heightIndex`) and writes only its own column (decoration: `world/gen/decor.ts`); ores in layers
     (`OreLayer`: chance × veins per section, strict y limits; `world/gen/ores.ts`), every height
-    covered by a common ore (`highestTerrain`, `content/validateWorld.ts`); the theme bible
+    of the stone covered by a common ore (`highestTerrain`, `content/validateWorld.ts`); the theme bible
     `docs/theme.md` (its ore table checked by `tests/unit/content/themeDoc.test.ts`);
   - angles: `core/angles.ts`; player constants shared by sim, render, audio and input (eye heights,
     `HOTBAR_SLOTS`, `STRIDE`: one footstep and one bob dip): `core/player.ts`;
@@ -461,6 +461,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Underground checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m24` (`selftest/m24.ts`): a
+  cave entrance within 96 blocks of the spawn, both common ores around it. Common ores (every
+  biome, not `caveWall`) lie in the stone from `deepStoneBelowY` (16) up (`validateWorld`); the
+  walk measure is `tests/unit/gen/caveWalk.test.ts`.
 - Biome checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m23` (`selftest/m23.ts`): a
   teleport into each biome with trees finds its signature crown around. Species, giants
   (`FeatureDef.trunk: 2`), the `willow` kind and sub-zones (`BiomeDef.groves`, `groveFactor` in

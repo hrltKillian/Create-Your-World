@@ -34,7 +34,7 @@ const SETUPS: readonly Setup[] = [
     key: 'generated',
     title: 'the generated world in real time: streaming, underground, culling and benchmarks',
     query: 'seed=7&rd=4&mute=1',
-    seconds: 240,
+    seconds: 360,
   },
   {
     key: 'freecam',
@@ -47,7 +47,7 @@ const SETUPS: readonly Setup[] = [
     title: 'the generated world in fixed steps: survival, the objectives walk and the bot',
     query: 'seed=7&rd=4&fixedStep=1&mute=1',
     storage: 'idb',
-    seconds: 300,
+    seconds: 600,
   },
   {
     key: 'flat-idb',

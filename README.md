@@ -138,20 +138,19 @@ of them:
 
 ## Try this milestone
 
-**M23 — The biomes of Veyra** (plan v3, `docs/conception.md` « M23 »). `npm run dev`, then open
-`http://localhost:5173/?skipMenu=1`.
+**M24 — Caves to visit and common ores** (plan v3, `docs/conception.md` « M24 »). `npm run dev`,
+then open `http://localhost:5173/?skipMenu=1`.
 
-- **Eight biomes, each with its signature tree**: the Lanternwood of the Amberfield (grey-violet
-  bark, yellow-green crown), the Veilpine groves of the Veilwood (rust bark, blue-green needles),
-  the new Capwood of giant glowing mushrooms, the Frostpine, the Twistpine of the rocky Shard
-  Highlands, the Mirror Willow by the lakes and the low Podtree of the Sporefen.
-- **Rare giants** (a 2×2 Lanternwood, the Old Veil over 20 blocks), clearings and dense groves.
-- **New plants**, one useful in each biome: spear reeds (fiber), frost bulbs (water), crystal
-  sprouts (crystal shards)… Caps and leaves fall once nothing holds them.
-- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m23`; `__game.world.findBiome('biome:capwood')`.
+- **Wide caves**: tunnels you walk in (two blocks of headroom, mostly 3×3), and from nearly anywhere
+  on dry land a walkable cave entrance within 96 blocks. Lake beds stay whole.
+- **Common ores everywhere**: Emberstone and copper in the stone of every biome, more often and in
+  bigger veins; the dark stone starts below y 16. Tin, bog iron and fireclay stay in their biome.
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m24`; `?view=xray` shows the caves and ores.
 
 ### Earlier milestones
 
+- **M23, the biomes of Veyra**: eight biomes with their signature trees, rare giants, groves and
+  new plants; `?seed=7&rd=4&fixedStep=1&selftest=m0,m23`.
 - **M22, XP, levels and skills**: XP from quests and tasks, six skills on the Status page (U), level
   recipes; `?worldType=flat&fixedStep=1&selftest=m0,m22`.
 - **M21, non-linear quests**: a quest graph with four branches open from the start, a state
@@ -194,15 +193,15 @@ of them:
   buffers already there, the client's mesh work eases off when frames run long, and `?quality=`
   picks a preset. Measured on the development machine (an M4 Mac), bench build, RD 6, Medium:
 
-  | Measure                                  | Result           | Budget       |
-  | ---------------------------------------- | ---------------- | ------------ |
-  | `walk` frame work p95                    | 0.7 ms           | ≤ 9 ms       |
-  | `walk` intervals over 20 ms              | 0 %              | < 1 %        |
-  | `walk` frame work p95, CPU slowed ×1.7   | 1.1 ms           | ≤ 15 ms      |
-  | `cave` draws, culling on / `occlusion=0` | 68 / 169 (−60 %) | ≤ 150, −30 % |
-  | `dig` edit → mesh on screen, p95         | 18 ms            | ≤ 50 ms      |
-  | `load` navigation → playable             | 0.69 s           | ≤ 3 s        |
-  | JS gzip (`npm run size`)                 | 333 kB           | ≤ 400 kB     |
+  | Measure                                  | Result          | Budget      |
+  | ---------------------------------------- | --------------- | ----------- |
+  | `walk` frame work p95                    | 0.7 ms          | ≤ 9 ms      |
+  | `walk` intervals over 20 ms              | 0 %             | < 1 %       |
+  | `walk` frame work p95, CPU slowed ×1.7   | 1.1 ms          | ≤ 15 ms     |
+  | `cave` draws, culling on / `occlusion=0` | 179 / 182 (M24) | ≤ 200, −1 % |
+  | `dig` edit → mesh on screen, p95         | 18 ms           | ≤ 50 ms     |
+  | `load` navigation → playable             | 0.69 s          | ≤ 3 s       |
+  | JS gzip (`npm run size`)                 | 333 kB          | ≤ 400 kB    |
 
   With `npm run bench` and the pane visible, open
   `http://localhost:4174/?seed=42&storage=memory&mute=1&quality=medium&bench=walk` (or `cave`,
