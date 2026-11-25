@@ -18,6 +18,7 @@ export const FUELS = {
   planks: { seconds: 15 },
   log: { seconds: 40 },
   peat: { seconds: 60 },
+  emberstone: { seconds: 50 },
   charcoal: { seconds: 80, charcoal: true },
 } as const satisfies Readonly<Record<string, FuelDef>>;
 

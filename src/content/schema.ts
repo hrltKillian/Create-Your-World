@@ -425,8 +425,11 @@ export interface WorldgenDef {
   /** Erosion → amplitude of the ridges term. */
   readonly erosionSpline: Spline;
   readonly detailAmplitude: number;
-  /** Biome thresholds are jittered by ± this amount per column to dither borders. */
-  readonly biomeJitter: number;
+  /**
+   * Biome thresholds are shifted by a smooth noise (± `amplitude`, wavelength about `scale`
+   * blocks): borders are clean wavy lines, never a dither of single columns.
+   */
+  readonly biomeBorder: { readonly scale: number; readonly amplitude: number };
   readonly bedrock: BlockKey;
   readonly stone: BlockKey;
   readonly deepStone: BlockKey;
@@ -455,19 +458,48 @@ export interface SpawnDef {
  * Caves (docs « Génération » step 5): 3D noise sampled on a 4×4×4 lattice, trilinear in between.
  * Wavelengths are in blocks (horizontal, vertical).
  */
+/**
+ * Caves (docs plan v2 « M16 »): tunnel families that cross each other, caverns in depth bands,
+ * entrances and ravines on dry land, caves flooded under lake beds and sealed below them.
+ */
 export interface CaveDef {
-  /** Noodle tunnels where n1² + n2² < tunnelThreshold. */
-  readonly tunnelScale: readonly [number, number];
-  readonly tunnelThreshold: number;
-  /** Caverns where n3 > cavernThreshold, for y in cavernY (inclusive). */
-  readonly cavernScale: readonly [number, number];
-  readonly cavernThreshold: number;
-  readonly cavernY: readonly [number, number];
+  /**
+   * Noodle tunnels, one family each: open where n1² + n2² < threshold × the local width factor.
+   * Independent families cross into junctions.
+   */
+  readonly tunnels: readonly {
+    readonly scale: readonly [number, number];
+    readonly threshold: number;
+  }[];
+  /** The width factor of the tunnels: a 2D noise of wavelength `scale` mapped to [min, max]. */
+  readonly tunnelWidth: { readonly scale: number; readonly min: number; readonly max: number };
+  /** Caverns where a 3D noise of `scale` exceeds the band's threshold, in each band's y range. */
+  readonly caverns: {
+    readonly scale: readonly [number, number];
+    readonly bands: readonly {
+      readonly y: readonly [number, number];
+      readonly threshold: number;
+    }[];
+  };
   /** Nothing is carved within this many blocks of the surface… */
   readonly surfaceMargin: number;
-  /** …except at entrances, where a 2D noise of this wavelength exceeds entranceThreshold. */
-  readonly entranceScale: number;
-  readonly entranceThreshold: number;
+  /** …except at entrances, where a 2D noise of this wavelength exceeds `threshold`. */
+  readonly entrance: { readonly scale: number; readonly threshold: number };
+  /**
+   * Ravines: cracks from the surface down to `depth` blocks where a 2D noise of `scale` lies
+   * within ±`width` of 0, only where a gate noise of `gateScale` exceeds `gate`.
+   */
+  readonly ravines: {
+    readonly scale: number;
+    readonly width: number;
+    readonly depth: number;
+    readonly gateScale: number;
+    readonly gate: number;
+  };
+  /** Under a lake, caves within `floodedDepth` blocks of its bed are generated full of its liquid. */
+  readonly floodedDepth: number;
+  /** Dry caves keep at least this many blocks of rock between them and any liquid. */
+  readonly seal: number;
 }
 
 /**
@@ -517,16 +549,25 @@ export type OreKey = `ore:${string}`;
  * Ore veins (docs « Génération » step 6), drawn from a per-section random stream: each vein is a
  * small walk around a centre at least 2 blocks inside the section, and only replaces `replaces`.
  */
+/**
+ * A layer of an ore (docs plan v2 « M16 »): in each section that reaches y (inclusive), `veins`
+ * attempts each start a vein with probability `chance`, of `size` blocks; no vein block ever lies
+ * outside y. Nothing else depends on depth: frequency and size come only from the layers.
+ */
+export interface OreLayer {
+  readonly y: readonly [number, number];
+  readonly chance: number;
+  readonly veins: number;
+  /** Inclusive range of blocks per vein. */
+  readonly size: readonly [number, number];
+}
+
 export interface OreDef {
   readonly key: OreKey;
   readonly block: BlockKey;
-  /** Biomes of the vein centre's column. */
+  /** Biomes of the vein centre's column ('*': every biome, a common ore). */
   readonly biomes: readonly BiomeKey[] | '*';
-  /** Inclusive range of the vein centre's y. */
-  readonly yRange: readonly [number, number];
-  readonly veinsPerSection: number;
-  /** Inclusive range of blocks per vein. */
-  readonly veinSize: readonly [number, number];
+  readonly layers: readonly OreLayer[];
   readonly replaces: readonly BlockKey[];
   /** Only blocks touching a cave (an air face neighbour) turn to ore. */
   readonly caveWall?: boolean;

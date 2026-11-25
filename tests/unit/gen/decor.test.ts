@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLAG_OPAQUE, FLAG_SOLID } from '../../../src/content/registry.ts';
+import { FLAG_OPAQUE, FLAG_SOLID, SHAPE_LIQUID } from '../../../src/content/registry.ts';
 import { bankAt } from '../../../src/world/gen/banks.ts';
 import { caveAt } from '../../../src/world/gen/caves.ts';
 import { columnHash, createGenContext } from '../../../src/world/gen/generateColumn.ts';
@@ -126,7 +126,14 @@ describe('decoration', () => {
           const z = (cz + dz) * 32 + (cell >> 5);
           const h = heightAt(ctx, cache, x, z);
           const bank = bankAt(ctx, x, z, h);
-          if (bank < 0 || caveAt(ctx, cache, x, h, z)) continue;
+          // A cave (dry, or flooded under a lake bed) may open the bank cell.
+          const there = blockIn(column, cell & 31, h, cell >> 5);
+          if (
+            bank < 0 ||
+            caveAt(ctx, cache, x, h, z) ||
+            registry.tables.shape[there] === SHAPE_LIQUID
+          )
+            continue;
           expect(blockIn(column, cell & 31, h, cell >> 5)).toBe(bank);
           seen.add(bank);
         }

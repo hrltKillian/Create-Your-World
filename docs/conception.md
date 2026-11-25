@@ -2259,6 +2259,17 @@ Ce plan v2 répond à chacun d'eux.
 - rochers seulement dans leur biome, sans pilier ;
 - apparition, `findBiome` et goldens.
 
+**Retenu à la réalisation** (choix les plus simples qui tiennent la spec) :
+
+- Bordures : un bruit lisse (longueur d'onde 40 blocs, ± 0,05) décale les seuils de biome ; les règles de hauteur lisent la hauteur sans son petit détail ; une colonne qu'aucune de ses 4 voisines ne partage (la pointe d'un coin où deux seuils se croisent) prend le biome du plus grand nombre de voisines. Le passage groupé calcule les biomes bruts d'une grille une fois, avec la même règle (`settledBiome`).
+- Grottes : deux familles de galeries (largeur modulée par un bruit 2D), salles dans deux bandes (y 8–36, 40–76), entrées plus fréquentes (environ 2,4 % de la terre ferme ouverte, contre 0,2 %), gouffres (bruit en crête, jusqu'à 30 blocs, seulement là où un bruit de porte le permet). Ces ouvertures ne se font que sur la terre ferme à plus de 3 blocs de tout liquide.
+- Sous les lacs : les grottes à 12 blocs au plus du fond sont générées pleines du liquide du biome ; toute grotte sèche garde au moins 3 blocs de roche sous le fond noyé le plus haut à 3 colonnes à la ronde (hauteurs lues avec une marge de 3, `MARGIN`). `caveAt` ne répond que pour les grottes sèches.
+- Minerais : couches `{ y, chance, veins, size }`, tirages identiques que la veine démarre ou non ; nouvelle pierre ardente (Emberstone, combustible de 50 s), commune à toutes les hauteurs (1–210 : la validation calcule la hauteur maximale du terrain depuis les splines). Les minerais propres à un biome (cuivre, étain, fer des marais, argile réfractaire) sont à moins de 1 km de l'apparition (20 graines testées).
+- Rochers de pierre seulement dans les hautes terres, enfoncés d'un bloc, sans colonne sous un bord trop bas ; l'apparition évite toute ouverture à 8 blocs ; `surfaceY` descend au fond d'une ouverture (une téléportation n'y fait plus tomber).
+- Biomes renommés pour la planète Veyra (Amberfield, Veilwood, Shard Highlands, Rimefrost, Ochre Waste, Sporefen, Mirror Basin), clés inchangées ; bible du thème dans `docs/theme.md`.
+- `GEN_VERSION` 6 ; génération d'une colonne environ 4 ms en médiane (10 ms permises).
+- Le masquage des grottes économise moins depuis une poche (14 à 28 % selon la poche, contre plus de 30 % au M11) : les galeries croisées et les salles ouvrent vraiment le sous-sol. Le seuil passe à −10 % de draws (toujours ≤ 150 draws).
+
 ### M17 — Créatures équitables et vivantes, bestiaire, scanner (retours 3, 4, 2)
 
 **Mouvement juste** :

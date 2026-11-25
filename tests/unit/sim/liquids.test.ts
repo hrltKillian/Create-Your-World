@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BY_WORLD, removeBlock } from '../../../src/sim/blockRemoval.ts';
 import { noteChanged } from '../../../src/sim/blockUpdates.ts';
+import type { SimEvent } from '../../../src/sim/events.ts';
 import { liquidTables, noteLiquids, updateLiquid } from '../../../src/sim/liquids.ts';
+import { simulated } from '../../../src/sim/stations.ts';
 import { columnKey, SECTION_SIZE } from '../../../src/world/coords.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 
@@ -132,4 +134,28 @@ describe('flowing liquids', () => {
     expect(s.block(edge - 1, 65, 0)).toBe(level(WATER, 1));
     expect(s.sim.world.getBlock(edge + 1, 65, 0)).toBe(s.sim.world.outside);
   });
+
+  it('finds nothing to flow in a generated world: lakes, rivers and flooded caves stay still', () => {
+    let liquids = 0;
+    for (const seed of ['7', '42', 'planet']) {
+      const s = playerTestSim({ seed, worldType: 'default', viewRadius: 3 });
+      const { world, registry } = s.sim;
+      const out: SimEvent[] = [];
+      const kinds = liquidTables(registry).kinds;
+      for (const column of world.columns.values()) {
+        if (!simulated(s.sim, column.cx, column.cz)) continue;
+        for (let lz = 0; lz < SECTION_SIZE; lz++)
+          for (let lx = 0; lx < SECTION_SIZE; lx++)
+            for (let y = 1; y < 140; y++) {
+              const x = column.cx * SECTION_SIZE + lx;
+              const z = column.cz * SECTION_SIZE + lz;
+              if (!kinds[registry.tables.blockOf[column.getBlock(lx, y, lz)]!]) continue;
+              liquids++;
+              updateLiquid(s.sim, x, y, z, out);
+              expect(out, `${seed}: (${x}, ${y}, ${z})`).toEqual([]);
+            }
+      }
+    }
+    expect(liquids).toBeGreaterThan(1000);
+  }, 60_000);
 });

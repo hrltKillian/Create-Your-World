@@ -20,7 +20,8 @@ const MAX_LONG_FRAMES = 0.01;
 const SLOW_CPU = 1.7;
 const SLOW_WALK_P95_MS = 15;
 const MAX_CAVE_DRAWS = 150;
-const MIN_CAVE_SAVED = 0.3;
+// −10 % since M16 (connected caves), as in src/app/selftest/m11perf.ts.
+const MIN_CAVE_SAVED = 0.1;
 const EDIT_TO_MESH_P95_MS = 50;
 const PLAYABLE_MS = 3000;
 
