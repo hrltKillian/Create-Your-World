@@ -17,11 +17,12 @@ import {
   mayPlan,
   pathSpent,
   plan,
+  search,
   setMode,
   voice,
   windUp,
 } from './behaviours.ts';
-import { distanceTo, NOISE, noiseOf, notices, TRACK_FACTOR, targetOf } from './senses.ts';
+import { distanceTo, NOISE, noiseOf, notices, targetOf } from './senses.ts';
 
 /*
  * The five brains (docs « Créatures et combat », « Comportements »): state machines over the
@@ -37,13 +38,25 @@ import { distanceTo, NOISE, noiseOf, notices, TRACK_FACTOR, targetOf } from './s
  */
 
 function grazer(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick, out: SimEvent[]) {
-  if (c.mode === 'flee' && c.modeTicks > 0) {
-    keepFleeing(sim, c, def, ai);
-    return;
-  }
   const player = targetOf(sim, c);
+  if (c.mode === 'flee') {
+    // Out of breath, it stops and stays wary; else it runs while startled or the threat is near.
+    if (c.tired) {
+      setMode(c, 'watch', BRAIN.watchTicks);
+      c.waryTicks = BRAIN.waryTicks;
+      c.pathLength = 0;
+      return;
+    }
+    const near = player && notices(c, def, player) && distanceTo(c, player) < BRAIN.fleeDistance;
+    if (c.modeTicks > 0 || near) {
+      keepFleeing(sim, c, def, ai);
+      return;
+    }
+  }
   if (player && notices(c, def, player)) {
-    if (distanceTo(c, player) <= BRAIN.flightDistance || noiseOf(player) >= NOISE.fight) {
+    const startled =
+      distanceTo(c, player) <= BRAIN.flightDistance || noiseOf(player) >= NOISE.fight;
+    if (startled && c.waryTicks === 0) {
       voice(c, def, 'alert', out);
       flee(c, player.body.x, player.body.z, fleeTicks(def));
       keepFleeing(sim, c, def, ai);
@@ -57,7 +70,10 @@ function grazer(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick,
   graze(sim, c, def, ai, out);
 }
 
-/** Calm until hurt (combat.ts `alarm` sets the chase): then fights while the target is in sight. */
+/**
+ * Calm until hurt (combat.ts `alarm` sets the chase): then fights its attacker while it notices
+ * them, searches where it lost them, and gives up.
+ */
 function defender(
   sim: Simulation,
   c: CreatureState,
@@ -66,26 +82,43 @@ function defender(
   out: SimEvent[],
 ) {
   if (busy(c)) return;
-  const player = targetOf(sim, c);
-  if (fighting(c) && player && distanceTo(c, player) <= def.senses.sight) {
-    fight(sim, c, def, player, ai, out);
-    return;
-  }
+  if (fighting(c) && pursue(sim, c, def, ai, out)) return;
   graze(sim, c, def, ai, out);
 }
 
-/** Hunts a noticed target until it is out of reach of its senses; prowls otherwise. */
-function hunt(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick, out: SimEvent[]) {
+/**
+ * A fight goes on: at the target it notices (sight or hearing), else where it lost it (`search`,
+ * out of its senses or out of its range alike). Returns false once it gave up.
+ */
+function pursue(
+  sim: Simulation,
+  c: CreatureState,
+  def: CreatureDef,
+  ai: AiTick,
+  out: SimEvent[],
+): boolean {
   const player = targetOf(sim, c);
-  const hunting = fighting(c);
-  if (
-    player &&
-    ((hunting && distanceTo(c, player) <= def.senses.sight * TRACK_FACTOR) ||
-      notices(c, def, player))
-  ) {
-    if (!hunting) voice(c, def, 'alert', out);
+  if (player && notices(c, def, player)) {
     fight(sim, c, def, player, ai, out);
-    return;
+    return true;
+  }
+  return search(sim, c, def, ai);
+}
+
+/**
+ * Hunts a target it notices; once out of its senses, searches where it lost it, then gives up;
+ * prowls otherwise (and while calm after giving up).
+ */
+function hunt(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick, out: SimEvent[]) {
+  if (c.calmTicks === 0) {
+    if (fighting(c) && pursue(sim, c, def, ai, out)) return;
+    const player = targetOf(sim, c);
+    if (player && notices(c, def, player)) {
+      voice(c, def, 'alert', out);
+      c.chaseTicks = 0;
+      fight(sim, c, def, player, ai, out);
+      return;
+    }
   }
   graze(sim, c, def, ai, out);
 }
@@ -159,7 +192,8 @@ function charger(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick
   if (busy(c)) return;
   const player = targetOf(sim, c);
   const territory = def.traits?.territoryRadius ?? 0;
-  if (player && c.cooldown === 0 && distanceTo(c, player) <= territory && notices(c, def, player)) {
+  const ready = c.cooldown === 0 && c.calmTicks === 0;
+  if (player && ready && distanceTo(c, player) <= territory && notices(c, def, player)) {
     windUp(c, def, out);
     return;
   }
@@ -215,6 +249,8 @@ export function alarm(
   } else if (def.brain === 'charger') {
     if (c.cooldown === 0 && c.mode !== 'windup' && c.mode !== 'charge') windUp(c, def, out);
   } else if (c.mode !== 'windup') {
+    if (!fighting(c)) c.chaseTicks = 0;
+    c.calmTicks = 0;
     setMode(c, 'chase');
   }
   if (def.brain === 'defender' && def.traits?.herdAlertRadius) rallyHerd(sim, c, def, out);
@@ -234,6 +270,8 @@ function rallyHerd(sim: Simulation, c: CreatureState, def: CreatureDef, out: Sim
     if (fighting(other)) continue;
     other.target = c.target;
     other.pathLength = 0;
+    other.chaseTicks = 0;
+    other.calmTicks = 0;
     setMode(other, 'chase');
     voice(other, def, 'alert', out);
   }

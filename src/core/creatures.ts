@@ -18,3 +18,7 @@ export function centreY(y: number, height: number): number {
 export function feetCell(y: number): number {
   return Math.floor(y + 0.01);
 }
+
+/** A player's bestiary entry (docs plan v2 « M17 »): met (seen or struck), or studied. */
+export const MET = 1;
+export const STUDIED = 2;

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -92,6 +92,13 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     world: (record) => ({ ...record, blockUpdates: [] }),
     player: (record) => record,
+    column: (record) => record,
+  },
+  // 8 → 9 (M17): a player's bestiary starts empty; saved creatures get their stamina, needs and
+  // timers from their defaults when read (saveRecords `readCreature`).
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, bestiary: {} }),
     column: (record) => record,
   },
 ];

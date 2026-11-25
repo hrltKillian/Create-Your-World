@@ -3,24 +3,28 @@ import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { Gear } from '../../sim/environment.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
+import type { BestiaryRow } from '../bestiary.ts';
 import { h } from '../h.ts';
 import type { Slots } from '../itemSlot.ts';
 import { type ScreenActions, type ScreenDeps, SlotBoard } from '../slotBoard.ts';
+import { BestiaryPanel } from './bestiaryPanel.ts';
 import type { LogbookPanel, LogbookState } from './logbook.ts';
 
-/** The Bag's pages (its tab bar); later milestones add Quests, Bestiary and Status. */
-export const BAG_PAGES = ['inventory', 'logbook'] as const;
+/** The Bag's pages (its tab bar); later milestones add Quests and Status. */
+export const BAG_PAGES = ['inventory', 'logbook', 'bestiary'] as const;
 export type BagPage = (typeof BAG_PAGES)[number];
 
 /**
- * The Bag (E or Tab, docs « Écrans »): a tab bar over two pages beside the 6×4 bag and the hotbar,
+ * The Bag (E or Tab, docs « Écrans »): a tab bar over three pages beside the 6×4 bag and the hotbar,
  * the Inventory (the silhouette, its 5 equipment slots: slots 64–68 of the slot clicks, a wearable
- * only in its own, and what the worn items protect from) and the Logbook of the hand recipes. The
+ * only in its own, and what the worn items protect from), the Logbook of the hand recipes and the
+ * Bestiary (ui/bestiary.ts). The
  * page chosen last shows at the next opening.
  */
 export class BagScreen {
   readonly element: HTMLElement;
   readonly logbook: LogbookPanel;
+  readonly bestiary = new BestiaryPanel();
   private readonly board: SlotBoard;
   private readonly actions: ScreenActions;
   private readonly protection: HTMLElement;
@@ -36,7 +40,11 @@ export class BagScreen {
     this.element = board.element;
     this.protection = h('p', { class: 'wear-stats' });
     const worn = board.slotViews(deps.openBase, deps.openBase + WEAR_SLOTS.length);
-    this.pages = { inventory: wearColumn(worn, this.protection), logbook: logbook.element };
+    this.pages = {
+      inventory: wearColumn(worn, this.protection),
+      logbook: logbook.element,
+      bestiary: this.bestiary.element,
+    };
     this.tabs = h('nav', { class: 'bag-tabs' });
     this.element.append(
       h(
@@ -49,6 +57,7 @@ export class BagScreen {
           { class: 'bag-columns' },
           this.pages.inventory,
           this.pages.logbook,
+          this.pages.bestiary,
           h('div', { class: 'bag-inventory' }, ...board.inventory(), board.caption),
         ),
         h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
@@ -82,19 +91,21 @@ export class BagScreen {
   }
 
   /**
-   * Shows the inventory then the worn items, the cursor stack, their protection and the Logbook
-   * (call when they change and regularly).
+   * Shows the inventory then the worn items, the cursor stack, their protection, the Logbook and
+   * the Bestiary (call when they change and regularly).
    */
   update(
     slots: Slots,
     cursor: Readonly<ItemStack> | null,
     logbook: LogbookState,
     gear: Readonly<Gear>,
+    bestiary: readonly BestiaryRow[],
   ): void {
     this.board.update(slots, cursor);
     const text = t('wear.stats', { armor: gear.armor, warmth: gear.warmth, cooling: gear.cooling });
     if (this.protection.textContent !== text) this.protection.textContent = text;
     this.logbook.update(logbook);
+    this.bestiary.update(bestiary);
   }
 
   /** A hotbar number key (slot 0–7) pressed while the bag is open. */

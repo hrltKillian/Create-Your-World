@@ -64,6 +64,11 @@ export interface CreatureView {
   readonly watched: boolean;
   readonly herd: number;
   readonly cave: boolean;
+  /** Seconds of running left, out of breath, hunger and thirst (M17). */
+  readonly stamina: number;
+  readonly tired: boolean;
+  readonly hunger: number;
+  readonly thirst: number;
 }
 
 /**
@@ -78,7 +83,11 @@ export function creatureList(app: App): CreatureView[] | null {
     if (c.kind !== 'creature') continue;
     const { x, y, z } = c.body;
     const { id, creature, yaw, health, mode, target, sees, watched, herd, cave } = c;
-    list.push({ id, creature, x, y, z, yaw, health, mode, target, sees, watched, herd, cave });
+    const { stamina, tired, hunger, thirst } = c;
+    list.push({
+      ...{ id, creature, x, y, z, yaw, health, mode, target, sees, watched, herd, cave },
+      ...{ stamina, tired, hunger, thirst },
+    });
   }
   return list;
 }

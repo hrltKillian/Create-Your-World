@@ -4,7 +4,9 @@ import { lookVector, type Vec3 } from '../../core/angles.ts';
 import { centreY } from '../../core/creatures.ts';
 import { createRayHit, RAY_OPAQUE, type RAY_SOLID, raycast } from '../../world/raycast.ts';
 import type { VoxelWorld } from '../../world/VoxelWorld.ts';
-import { type CreatureState, eyeY, isAlert } from '../creatures.ts';
+import { MET, noteCreature } from '../bestiary.ts';
+import { type CreatureState, eyeY, isAlert, isGone } from '../creatures.ts';
+import type { SimEvent } from '../events.ts';
 import { eyeHeight } from '../physics.ts';
 import type { PlayerState } from '../player.ts';
 import type { Simulation } from '../Simulation.ts';
@@ -168,9 +170,14 @@ function nearestPlayer(
  * targetable player within TRACK_FACTOR × its sight. One line of sight between its eye and the eye of that
  * player (else of the nearest one) is tested when the player may be seen or looks its way: it
  * `sees` its target (range and field of view), is `watched` (within 30° of the view) or in view
- * (within 60°: `unseen` starts again).
+ * (within 60°: `unseen` starts again, and the player has met it).
  */
-export function refreshSenses(sim: Simulation, c: CreatureState, def: CreatureDef): void {
+export function refreshSenses(
+  sim: Simulation,
+  c: CreatureState,
+  def: CreatureDef,
+  out: SimEvent[],
+): void {
   const range = def.senses.sight * TRACK_FACTOR;
   let target = targetOf(sim, c);
   if (!target || distanceTo(c, target) > range) target = nearestPlayer(sim, c, range, true);
@@ -191,5 +198,9 @@ export function refreshSenses(sim: Simulation, c: CreatureState, def: CreatureDe
   if (!lineOfSight(sim.world, sim.registry.tables, c.body.x, cy, c.body.z, b.x, eye, b.z)) return;
   c.sees = canSee;
   c.watched = cos >= WATCHED_COS;
-  if (cos >= IN_VIEW_COS) c.unseen = 0;
+  if (cos >= IN_VIEW_COS) {
+    c.unseen = 0;
+    // In the player's view and in sight: met (the bestiary).
+    if (!isGone(c)) noteCreature(player, def.key, MET, out);
+  }
 }

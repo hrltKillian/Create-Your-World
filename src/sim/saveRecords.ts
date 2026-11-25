@@ -4,6 +4,7 @@ import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
 import { isFiniteNumber, isPoint, isWhole } from '../core/guards.ts';
 import { SAVE_VERSION } from '../world/codec/migrations.ts';
 import { insideBorder, WORLD_HEIGHT } from '../world/coords.ts';
+import { MET, STUDIED } from './bestiary.ts';
 import { type BlockEntity, CONTAINER_SLOTS, type StationEntity } from './blockEntities.ts';
 import { ticksOf } from './clock.ts';
 import { COMBAT } from './combat.ts';
@@ -14,6 +15,7 @@ import {
   type CreatureBody,
   type CreatureMode,
   type CreatureState,
+  freshNeeds,
   isHostile,
   PATH_MAX,
 } from './creatures.ts';
@@ -136,6 +138,7 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     graves: player.graves.map((cell) => ({ ...cell })),
     objectives: [...player.objectives],
     drank: player.drank,
+    bestiary: { ...player.bestiary },
     fightTicks: player.fightTicks,
     invulnerable: player.invulnerable,
     attackCooldown: player.attackCooldown,
@@ -253,6 +256,7 @@ export function readPlayer(
   player.graves = graves.filter((cell) => cell !== null);
   player.objectives = readKeys(saved.objectives);
   player.drank = saved.drank === true;
+  player.bestiary = readBestiary(saved.bestiary, registry);
   // A fight in progress (no field before version 5: none).
   player.fightTicks = wholeIn(saved.fightTicks, 0, COMBAT.fightTicks, 0);
   player.invulnerable = wholeIn(saved.invulnerable, 0, COMBAT.playerInvulnerableTicks, 0);
@@ -316,6 +320,15 @@ export function creatureRecord(c: Readonly<CreatureState>): CreatureRecord {
   return { ...record, body: { ...c.body }, path: c.path.slice(0, c.pathLength * 3) };
 }
 
+/** A saved bestiary: the pack's creatures only, each MET or STUDIED. */
+function readBestiary(data: unknown, registry: Registry): Record<string, number> {
+  const bestiary: Record<string, number> = {};
+  if (typeof data !== 'object' || data === null) return bestiary;
+  for (const [key, level] of Object.entries(data))
+    if (registry.creature(key) && (level === MET || level === STUDIED)) bestiary[key] = level;
+  return bestiary;
+}
+
 /** No timed mode lasts a minute (a walk, the longest, lasts 10 s): a saved timer is cut to it. */
 const MODE_TICKS_MAX = ticksOf(60);
 
@@ -369,6 +382,7 @@ export function readCreature(
     unseen: 0,
     herd: saved.id,
     cave: false,
+    ...freshNeeds(def, body.y),
   };
   // Every number and flag of the record that has the right type (the path's length: its cells),
   // the counters, timers and ids within their ranges: a crafted save must neither hang the path
@@ -383,6 +397,16 @@ export function readCreature(
   c.planTick = wholeIn(c.planTick, -1, tick, -1);
   c.target = wholeIn(c.target, -1, Number.POSITIVE_INFINITY, -1);
   c.herd = wholeIn(c.herd, 1, Number.POSITIVE_INFINITY, c.id);
+  c.stamina = Math.max(0, Math.min(def.stamina.runSeconds, c.stamina));
+  c.hunger = Math.max(0, Math.min(100, c.hunger));
+  c.thirst = Math.max(0, Math.min(100, c.thirst));
+  c.lostTicks = wholeIn(c.lostTicks, -1, MODE_TICKS_MAX, -1);
+  c.chaseTicks = wholeIn(c.chaseTicks, 0, MODE_TICKS_MAX, 0);
+  c.calmTicks = wholeIn(c.calmTicks, 0, MODE_TICKS_MAX, 0);
+  c.waryTicks = wholeIn(c.waryTicks, 0, MODE_TICKS_MAX, 0);
+  c.hopTicks = wholeIn(c.hopTicks, 0, MODE_TICKS_MAX, 0);
+  c.seek = wholeIn(c.seek, 0, 2, 0);
+  c.airTop = Math.max(c.airTop, c.body.y);
   if (c.health <= 0 || c.mode === 'dying') return null;
   c.health = Math.min(c.health, def.health);
   c.prevYaw = c.yaw;

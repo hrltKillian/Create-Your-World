@@ -2322,6 +2322,16 @@ Ce plan v2 répond à chacun d'eux.
 - manger et boire dans une scène herbe + mare ;
 - benchmark `mobs` inchangé.
 
+**Retenu à la réalisation** (choix les plus simples qui tiennent la spec) :
+
+- Agilité en données (`CreatureDef.agility` : accélération au sol 12–22 m/s², en l'air 4, rotation 120–240°/s) ; une créature avance dans le sens où elle regarde, à la vitesse × cos de l'angle qui lui reste à tourner (une feinte ou un pas de côté la déjoue). Dans un liquide, elle nage à 40 m/s² (l'agilité décrit la terre ferme). Une promenade vise la terre ferme parmi quatre tirages, sinon l'eau.
+- Endurance (`stamina.runSeconds`, 6 à 12 s) : la course la vide, le reste du temps la recharge à 0,5 s/s ; vide, la créature marche jusqu'à la moitié. Les blessures ralentissent jusqu'à ×0,6 ; un petit saut coûte 0,3 s et attend 15 ticks ; une chute au-delà de 3 blocs coûte 2 PV par bloc ; invulnérabilité de 5 ticks ; le Trotter ignore 40 % du recul.
+- Sens : un chasseur ne suit plus une cible qu'il ne voit ni n'entend ; il va à sa dernière position connue, cherche 6 s, abandonne et reste calme 10 s (il ignore alors les joueurs) ; une poursuite dont aucun coup ne porte s'arrête après 25 s. Le brouteur fuit tant qu'il a du souffle, puis reste méfiant 20 s (il observe au lieu de détaler, sauf blessé).
+- Besoins (`balance.creatures.needs`) : faim et soif de 0 à 100 ; sous 50, la créature cherche à 16 blocs les plantes de son régime (`diet.plants`, broutées : la plante disparaît), de l'eau potable ou de la viande au sol ; un mangeur de viande (`diet.meat`) va à toute viande au sol, affamé ou non (l'appât) ; rassasiée, elle régénère 6 PV/min.
+- Bestiaire : niveaux `MET`/`STUDIED` dans `PlayerState.bestiary` (sauvegardé, `SAVE_VERSION` 9) ; rencontrée quand elle est dans la vue du joueur et en ligne de vue (test des sens) ou frappée ; étudiée par un scan ou une mise à mort. Onglet Bestiaire du sac, texte généré depuis les données (catégorie, comportement, lieux et heures, régime ; chiffres une fois étudiée).
+- Scanner de terrain (`WearDef.scanner`, tête, 2 s à 24 blocs, recette à la main connue dès le départ : silex, cordes, résine ; le M18 y mettra les pièces de la capsule) : anneau `#hud-scan` au réticule ; le panneau de cible montre nom, vie, souffle et état ; sans rencontre, « Unknown creature ».
+- Pas de nouvelle espèce à ce jalon : les cinq créatures sont la faune de Veyra (bible du thème) ; de nouvelles espèces viendront avec le contenu de la colonie (M18) ou la boucle d'amélioration.
+
 ### M18 — Structures et contenu de la colonie perdue (retour 10, après M16)
 
 **Moteur** :

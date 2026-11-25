@@ -86,6 +86,7 @@ export const strings = {
   'item.iron_pickaxe': 'Iron Pickaxe',
   'item.iron_blade': 'Iron Blade',
   'item.fur_hood': 'Fur Hood',
+  'item.scanner': 'Field Scanner',
   'item.straw_hat': 'Straw Hat',
   'item.bronze_helmet': 'Bronze Helmet',
   'item.fiber_veil': 'Fiber Veil',

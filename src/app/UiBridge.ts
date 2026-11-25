@@ -9,6 +9,7 @@ import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import { countMatching, type Inventory } from '../sim/inventory.ts';
 import type { PlayerState } from '../sim/player.ts';
+import { bestiaryRows } from '../ui/bestiary.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
 import type { BagScreen } from '../ui/screens/bag.ts';
@@ -131,7 +132,14 @@ export class UiBridge {
   private bagScreen(): void {
     const { inventory, equipment, craft, cursor } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
-    this.views.bag.update(screenSlots(inventory, equipment), cursor, this.logbook(craft), gear);
+    const bestiary = bestiaryRows(this.view.registry, this.player.bestiary);
+    this.views.bag.update(
+      screenSlots(inventory, equipment),
+      cursor,
+      this.logbook(craft),
+      gear,
+      bestiary,
+    );
   }
 
   /**

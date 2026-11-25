@@ -3,7 +3,16 @@
  * senses, moves, fights and spawns, and the box model the renderer animates. Brains are state
  * machines of the simulation parametrised by these numbers. Re-exported by `schema.ts`.
  */
-import type { BiomeKey, CreatureKey, LootKey, ModelKey, SfxKey, TexKey } from './schema.ts';
+import type {
+  BiomeKey,
+  BlockKey,
+  CreatureKey,
+  ItemKey,
+  LootKey,
+  ModelKey,
+  SfxKey,
+  TexKey,
+} from './schema.ts';
 
 /** Hostile creatures only exist in worlds whose rules allow hostiles. */
 export const CREATURE_CATEGORIES = ['passive', 'defensive', 'territorial', 'hostile'] as const;
@@ -107,6 +116,19 @@ export interface CreatureDef {
   readonly senses: CreatureSenses;
   readonly traits?: CreatureTraits;
   readonly spawn: readonly CreatureSpawn[];
+  /**
+   * How it moves (docs plan v2 « M17 »): accelerations (m/s²) on the ground and in the air, and
+   * its turn rate; it moves the way it faces, so a turn costs it speed (a feint, a dodge).
+   */
+  readonly agility: {
+    readonly groundAccel: number;
+    readonly airAccel: number;
+    readonly turnDegPerSec: number;
+  };
+  /** Seconds it can run on a full stamina; an empty one makes it walk until half is back. */
+  readonly stamina: { readonly runSeconds: number };
+  /** What it eats: plants it grazes (blocks), meat it takes from the ground (items, a bait). */
+  readonly diet: { readonly plants?: readonly BlockKey[]; readonly meat?: readonly ItemKey[] };
   readonly loot: LootKey;
   readonly sounds: Readonly<Partial<Record<CreatureSound, SfxKey>>>;
 }

@@ -102,7 +102,36 @@ export interface CreatureState {
   herd: number;
   /** Spawned in a cave (the cave caps). */
   cave: boolean;
+  /** Seconds of running left (`stamina.runSeconds` when rested). */
+  stamina: number;
+  /** Ran out of stamina: it walks until half of it is back. */
+  tired: boolean;
+  /** Gauges 0–100 (100: sated, `balance.creatures.needs`). */
+  hunger: number;
+  thirst: number;
+  /** Where it last saw or heard its target (a hunter goes there once it loses it). */
+  lastX: number;
+  lastY: number;
+  lastZ: number;
+  /** Ticks since it lost its target from its senses (−1: it has it). */
+  lostTicks: number;
+  /** Ticks of a chase since its last blow landed (it gives up after BRAIN.giveUpTicks). */
+  chaseTicks: number;
+  /** Ticks it pays no heed to players after giving up a chase. */
+  calmTicks: number;
+  /** Ticks it stays wary after a flight: it watches a player instead of bolting. */
+  waryTicks: number;
+  /** Ticks before it may hop again (a step, a bank). */
+  hopTicks: number;
+  /** Highest feet height of its fall under way (its height while on the ground). */
+  airTop: number;
+  /** What its walk heads for: 0 nothing, SEEK_FOOD, SEEK_WATER. */
+  seek: number;
 }
+
+/** `CreatureState.seek`: the walk leads to food, or to water. */
+export const SEEK_FOOD = 1;
+export const SEEK_WATER = 2;
 
 /** The creature's definition (records only exist for creatures of the pack). */
 export function creatureDef(sim: Simulation, c: Readonly<CreatureState>): CreatureDef {
@@ -168,10 +197,31 @@ export function spawnCreature(
     unseen: 0,
     herd: herd < 0 ? id : herd,
     cave,
+    ...freshNeeds(def, y),
   };
   sim.entities.set(id, c);
   sim.spatial.update(id, x, z);
   return c;
+}
+
+/** The stamina, needs and timers of a rested creature standing at height y. */
+export function freshNeeds(def: CreatureDef, y: number) {
+  return {
+    stamina: def.stamina.runSeconds,
+    tired: false,
+    hunger: 100,
+    thirst: 100,
+    lastX: 0,
+    lastY: 0,
+    lastZ: 0,
+    lostTicks: -1,
+    chaseTicks: 0,
+    calmTicks: 0,
+    waryTicks: 0,
+    hopTicks: 0,
+    airTop: y,
+    seek: 0,
+  };
 }
 
 export function removeCreature(sim: Simulation, id: number): void {

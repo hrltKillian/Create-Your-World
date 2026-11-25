@@ -27,6 +27,8 @@ export function validateCreatures(
   const biomes = new Set((pack.biomes ?? []).map((b) => b.key as string));
   const sfx = new Set((pack.sfx ?? []).map((s) => s.key as string));
   const keys = new Set<string>();
+  const blocks = new Set(pack.blocks.map((b) => b.key as string));
+  const items = new Set((pack.items ?? []).map((item) => item.key as string));
   (pack.creatures ?? []).forEach((creature, i) => {
     const path = `creatures[${i}]`;
     if (!creature.key.startsWith('creature:'))
@@ -38,6 +40,16 @@ export function validateCreatures(
     if (!models.has(creature.model)) add(`${path}.model`, `unknown model "${creature.model}"`);
     if (!lootKeys.has(creature.loot)) add(`${path}.loot`, `unknown loot table "${creature.loot}"`);
     checkBody(creature, path, add);
+    const a = creature.agility;
+    if (!(a.groundAccel > 0 && a.airAccel > 0 && a.turnDegPerSec > 0))
+      add(`${path}.agility`, 'accelerations and turn rate must be positive');
+    if (!(creature.stamina.runSeconds > 0)) add(`${path}.stamina`, 'needs a positive runSeconds');
+    (creature.diet.plants ?? []).forEach((key, d) => {
+      if (!blocks.has(key)) add(`${path}.diet.plants[${d}]`, `unknown block "${key}"`);
+    });
+    (creature.diet.meat ?? []).forEach((key, d) => {
+      if (!items.has(key)) add(`${path}.diet.meat[${d}]`, `unknown item "${key}"`);
+    });
     creature.spawn.forEach((spawn, s) => {
       checkSpawn(creature, spawn, `${path}.spawn[${s}]`, biomes, add);
     });

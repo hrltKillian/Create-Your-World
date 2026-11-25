@@ -7,15 +7,16 @@ import { PHYSICS } from './physics.ts';
 
 /**
  * Creature bodies: a box of the creature's hitbox against the voxels (collision.ts), gravity,
- * buoyancy, acceleration towards the speed its brain wants, and a hop onto a one-block step it
+ * buoyancy, acceleration (its agility's, on the ground or in the air) towards the speed its brain
+ * wants, and a hop onto a one-block step it
  * walks into (its paths climb one block), from the ground, or out of a liquid onto a bank at most
  * one block above the surface when it floats (one block above its bed in a liquid lying on the
  * ground: as on land).
  * Zero allocation.
  */
 export const CREATURE_BODY = {
-  /** m/s² towards the wanted speed (on the ground and in the air alike). */
-  accel: 40,
+  /** m/s² towards the wanted speed in a liquid (agility is about land: a swimmer kicks hard). */
+  swimAccel: 40,
   /** Horizontal speed kept per tick on the ground while not steering (knocked back, dying). */
   groundFriction: 0.8,
   /** Rising speed in a liquid (m/s): creatures keep their head above water. */
@@ -72,7 +73,7 @@ function climbOutSpeed(
 
 /**
  * One tick of a creature body towards the horizontal velocity (`wantX`, `wantZ`) when `steer`
- * (else it slides: knocked back or falling over). Walking into a wall on the ground or swimming
+ * (else it slides: knocked back or falling over) at its agility's acceleration. Walking into a wall on the ground or swimming
  * with `climb` hops (a one-block step, a bank at most one block above the surface). Returns whether a wall stopped it.
  */
 export function stepCreatureBody(
@@ -85,11 +86,19 @@ export function stepCreatureBody(
   wantZ: number,
   steer: boolean,
   climb: boolean,
+  agility: { readonly groundAccel: number; readonly airAccel: number },
 ): boolean {
   const dt = TICK_SECONDS;
   const wet = isLiquid(world, tables, b.x, b.y + Math.min(0.4, height / 2), b.z);
   if (steer) {
-    const accel = CREATURE_BODY.accel * dt;
+    // Feet on the ground push off as its agility allows, a swimmer at CREATURE_BODY.swimAccel; in
+    // the air, little steering is left.
+    const rate = wet
+      ? CREATURE_BODY.swimAccel
+      : b.onGround
+        ? agility.groundAccel
+        : agility.airAccel;
+    const accel = rate * dt;
     const dvx = wantX - b.vx;
     const dvz = wantZ - b.vz;
     const dv = Math.sqrt(dvx * dvx + dvz * dvz);

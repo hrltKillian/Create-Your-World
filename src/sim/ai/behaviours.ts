@@ -1,3 +1,4 @@
+import { FLAG_LIQUID } from '../../content/registry.ts';
 import type { CreatureDef, CreatureSound } from '../../content/schema.ts';
 import { centreY, feetCell } from '../../core/creatures.ts';
 import { hash32, hashUnit } from '../../core/hash.ts';
@@ -13,6 +14,7 @@ import {
 import type { SimEvent } from '../events.ts';
 import type { PlayerState } from '../player.ts';
 import type { Simulation } from '../Simulation.ts';
+import { chooseNeed, reachNeed } from './needs.ts';
 import { findPath, type PathRequest } from './pathfind.ts';
 import { distanceTo, targetable, targetOf } from './senses.ts';
 
@@ -60,6 +62,17 @@ export const BRAIN = {
   /** Hostiles prowl towards a player within this many blocks, within this angle (radians). */
   prowlRadius: 64,
   prowlSpread: Math.PI / 2,
+  /**
+   * A hunter that lost its target searches where it last saw or heard it this long (6 s), gives up
+   * a chase whose blows never land after 25 s, then pays no heed to players for 10 s (docs plan v2
+   * « M17 »); a grazer out of breath stays wary 20 s: it watches instead of bolting.
+   */
+  searchTicks: 180,
+  giveUpTicks: 750,
+  calmTicks: 300,
+  waryTicks: 600,
+  /** Where it last saw its target is reached within this many blocks. */
+  searchReach: 1.5,
 } as const;
 
 /** A path's light limit when the light does not matter (above the brightest light, 15). */
@@ -178,6 +191,7 @@ export function graze(
   out: SimEvent[],
 ) {
   if (c.mode === 'wander' && c.modeTicks > 0 && !pathSpent(c)) return;
+  if (c.seek !== 0) reachNeed(sim, c, def, out);
   if (c.mode !== 'idle') {
     const min = BRAIN.restTicks[0];
     setMode(c, 'idle', min + Math.floor(draw(sim, c, 1) * (BRAIN.restTicks[1] - min)));
@@ -185,16 +199,48 @@ export function graze(
     return;
   }
   if (draw(sim, c, 2) < BRAIN.idleVoice) voice(c, def, 'idle', out);
+  // A hungry or thirsty creature does not rest; a bait draws a meat eater at once.
+  if (c.modeTicks > 0 && !needy(sim, c) && !def.diet.meat) return;
+  if ((c.modeTicks === 0 || needy(sim, c) || def.diet.meat) && chooseNeed(sim, c, def)) {
+    if (plan(sim, c, def, c.goalX, c.goalY, c.goalZ, ai)) setMode(c, 'wander', BRAIN.wanderTicks);
+    else c.seek = 0;
+    return;
+  }
   if (c.modeTicks > 0) return;
   const towards = isHostile(def) ? prowlAngle(sim, c) : Number.NaN;
-  const angle = Number.isNaN(towards)
-    ? draw(sim, c, 3) * 2 * Math.PI
-    : towards + (draw(sim, c, 3) - 0.5) * BRAIN.prowlSpread;
-  const reach = 2 + draw(sim, c, 4) * (BRAIN.wanderDistance - 2);
-  c.goalX = c.body.x + Math.cos(angle) * reach;
-  c.goalY = c.body.y;
-  c.goalZ = c.body.z + Math.sin(angle) * reach;
+  // A few draws: the first walk that ends on dry land (else the last one, into the water).
+  for (let k = 0; k < WALK_DRAWS; k++) {
+    const angle = Number.isNaN(towards)
+      ? draw(sim, c, 3 + k * 8) * 2 * Math.PI
+      : towards + (draw(sim, c, 3 + k * 8) - 0.5) * BRAIN.prowlSpread;
+    const reach = 2 + draw(sim, c, 4 + k * 8) * (BRAIN.wanderDistance - 2);
+    c.goalX = c.body.x + Math.cos(angle) * reach;
+    c.goalY = c.body.y;
+    c.goalZ = c.body.z + Math.sin(angle) * reach;
+    if (!wetAt(sim, c.goalX, c.goalY, c.goalZ)) break;
+  }
   if (plan(sim, c, def, c.goalX, c.goalY, c.goalZ, ai)) setMode(c, 'wander', BRAIN.wanderTicks);
+}
+
+/** Whether it is hungry or thirsty enough to look for food or water. */
+function needy(sim: Simulation, c: Readonly<CreatureState>): boolean {
+  const below = sim.registry.pack.balance.creatures.needs.seekBelow;
+  return c.hunger < below || c.thirst < below;
+}
+
+/** Draws of a walk's goal, to find one on dry land. */
+const WALK_DRAWS = 4;
+
+/** Whether a liquid fills the cell at (x, y, z) or the one under it (a walk would end swimming). */
+function wetAt(sim: Simulation, x: number, y: number, z: number): boolean {
+  const flags = sim.registry.tables.flags;
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  const by = feetCell(y);
+  return (
+    (flags[sim.world.getBlock(bx, by, bz)]! & FLAG_LIQUID) !== 0 ||
+    (flags[sim.world.getBlock(bx, by - 1, bz)]! & FLAG_LIQUID) !== 0
+  );
 }
 
 /** Runs off, away from a point, for `ticks` (at least what is left of a flight under way). */
@@ -237,9 +283,10 @@ export function keepFleeing(sim: Simulation, c: CreatureState, def: CreatureDef,
 }
 
 /**
- * Closes in on a target: a wind-up when in reach and ready, else the chase (a path planned again
- * every 20 ticks, or when the target moved more than 2 cells; none while it heads straight for a
- * visible target).
+ * Closes in on a target it notices: a wind-up when in reach and ready, else the chase (a path
+ * planned again every 20 ticks, or when the target moved more than 2 cells; none while it heads
+ * straight for a visible target). It remembers where the target is, and gives up a chase whose
+ * blows have not landed for BRAIN.giveUpTicks.
  */
 export function fight(
   sim: Simulation,
@@ -249,6 +296,15 @@ export function fight(
   ai: AiTick,
   out: SimEvent[],
 ): void {
+  c.lastX = target.body.x;
+  c.lastY = target.body.y;
+  c.lastZ = target.body.z;
+  c.lostTicks = -1;
+  c.chaseTicks += BRAIN.thinkTicks;
+  if (c.chaseTicks > BRAIN.giveUpTicks) {
+    giveUp(c);
+    return;
+  }
   const attack = def.attack;
   if (attack && c.cooldown === 0 && reachGap(c, def, target) <= attack.reach) {
     windUp(c, def, out);
@@ -260,6 +316,34 @@ export function fight(
   const tz = Math.floor(target.body.z);
   const moved = Math.abs(tx - c.planX) > 2 || Math.abs(tz - c.planZ) > 2;
   if (moved || mayPlan(sim, c)) plan(sim, c, def, target.body.x, target.body.y, target.body.z, ai);
+}
+
+/**
+ * A target out of its senses: the creature goes where it last saw or heard it and looks around
+ * there, BRAIN.searchTicks at most, then gives up. Returns false once it has given up.
+ */
+export function search(sim: Simulation, c: CreatureState, def: CreatureDef, ai: AiTick): boolean {
+  c.lostTicks = Math.max(0, c.lostTicks) + BRAIN.thinkTicks;
+  if (c.lostTicks > BRAIN.searchTicks) {
+    giveUp(c);
+    return false;
+  }
+  if (c.mode !== 'chase') setMode(c, 'chase');
+  const dx = c.lastX - c.body.x;
+  const dz = c.lastZ - c.body.z;
+  if (dx * dx + dz * dz <= BRAIN.searchReach * BRAIN.searchReach) c.pathLength = 0;
+  else if (pathSpent(c) || mayPlan(sim, c)) plan(sim, c, def, c.lastX, c.lastY, c.lastZ, ai);
+  return true;
+}
+
+/** Gives up a hunt: calm, deaf to players for BRAIN.calmTicks. */
+export function giveUp(c: CreatureState): void {
+  setMode(c, 'idle');
+  c.target = -1;
+  c.pathLength = 0;
+  c.lostTicks = -1;
+  c.chaseTicks = 0;
+  c.calmTicks = BRAIN.calmTicks;
 }
 
 /**

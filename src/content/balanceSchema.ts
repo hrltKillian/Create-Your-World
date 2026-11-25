@@ -169,6 +169,24 @@ export interface RespawnBalance {
 export interface CreatureBalance {
   /** No hostile spawns before this tick of a world: its first 3 real minutes (`?grace=0`). */
   readonly spawnGraceTicks: number;
+  /**
+   * Hunger and thirst of creatures (docs plan v2 « M17 »), gauges 0–100 (100: sated): they fall by
+   * these points a minute; below `seekBelow` a creature looks for food or water within
+   * `seekRadius` blocks; a plant grazed, a piece of meat eaten or a drink adds its points; a
+   * creature above `seekBelow` in both heals `regenPerMin` health a minute.
+   */
+  readonly needs: {
+    readonly hungerPerMin: number;
+    readonly thirstPerMin: number;
+    readonly seekBelow: number;
+    readonly seekRadius: number;
+    readonly plantFood: number;
+    readonly meatFood: number;
+    readonly drink: number;
+    readonly regenPerMin: number;
+  };
+  /** A creature falling more than `safeBlocks` takes `damagePerBlock` per block beyond. */
+  readonly fall: { readonly safeBlocks: number; readonly damagePerBlock: number };
 }
 
 /** Melee (docs « Combat »). */

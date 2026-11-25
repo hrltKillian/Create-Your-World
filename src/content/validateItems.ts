@@ -129,6 +129,11 @@ function checkUses(
   if (wear) {
     if (!WEAR_SLOTS.includes(wear.slot)) add(`${path}.wear.slot`, `unknown slot "${wear.slot}"`);
     checkDurability(wear.durability, `${path}.wear.durability`, add);
+    if (wear.scanner) {
+      if (wear.slot !== 'head') add(`${path}.wear.scanner`, 'a scanner is worn on the head');
+      if (!positive(wear.scanner.seconds) || !positive(wear.scanner.range))
+        add(`${path}.wear.scanner`, 'needs positive seconds and range');
+    }
   }
   if (item.consume) {
     if (!positive(item.consume.seconds)) add(`${path}.consume.seconds`, 'must be > 0');

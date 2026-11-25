@@ -168,6 +168,13 @@ export type SimEvent =
     }
   /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
   | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
+  /** A creature entered a player's bestiary, or was studied (`level`: MET or STUDIED). */
+  | {
+      readonly type: 'bestiary';
+      readonly playerId: number;
+      readonly creature: string;
+      readonly level: number;
+    }
   /** The clock passed 18:30 of `day`: « The sun is setting… » and a sound (docs « Jour/nuit »). */
   | { readonly type: 'sunset'; readonly day: number }
   /** The clock passed 06:00: night `night` is over (« Night N survived »). */

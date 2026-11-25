@@ -127,6 +127,8 @@ export const recipes: readonly RecipeDef[] = [
   recipe('campfire', 'building', 3, { 'tag:log': 2, stick: 4, flint: 1 }, START),
   recipe('workbench', 'building', 3, { planks: 8, plant_fiber: 4 }, START),
   recipe('unfired_flask', 'survival', 2, { clay_lump: 3 }, START),
+  // Wired from what the crash left (M18 gives it the capsule's parts).
+  recipe('scanner', 'equipment', 3, { flint: 1, cord: 2, resin: 1 }, START),
   recipe('bandage', 'survival', 2, { plant_fiber: 3, resin: 1 }),
   recipe('straw_hat', 'equipment', 3, { plant_fiber: 8, cord: 2 }),
   recipe('fiber_veil', 'equipment', 3, { plant_fiber: 6, cord: 1 }),

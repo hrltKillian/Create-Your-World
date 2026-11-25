@@ -187,7 +187,29 @@ export function meleeTarget(
   const ey = b.y + eyeHeight(b);
   lookVector(player.yaw, player.pitch, dir);
   const reach = heldWeapon(sim, player).reach;
-  let bestT = blowReach(sim.world, sim.registry.tables, b.x, ey, b.z, dir, reach);
+  return creatureAlong(
+    sim,
+    player,
+    blowReach(sim.world, sim.registry.tables, b.x, ey, b.z, dir, reach),
+    at,
+  );
+}
+
+/**
+ * The nearest living creature whose hitbox the player's view ray enters within `limit` blocks
+ * (blows: their reach to the first solid block; a scanner: its range to the first opaque one);
+ * its distance goes into `at`.
+ */
+export function creatureAlong(
+  sim: Simulation,
+  player: Readonly<PlayerState>,
+  limit: number,
+  at: { distance: number },
+): CreatureState | undefined {
+  const b = player.body;
+  const ey = b.y + eyeHeight(b);
+  lookVector(player.yaw, player.pitch, dir);
+  let bestT = limit;
   sim.spatial.query(b.x, b.z, bestT + HITBOX_MARGIN, near);
   let best: CreatureState | undefined;
   for (let i = 0; i < near.length; i++) {
