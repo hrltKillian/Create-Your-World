@@ -1,3 +1,4 @@
+import { TICKS_PER_SECOND } from '../../sim/clock.ts';
 import type { App } from '../App.ts';
 import { caveBenchmark } from '../bench/cave.ts';
 import { DIG, digBenchmark } from '../bench/dig.ts';
@@ -43,8 +44,12 @@ const PLAYABLE_MS = 3000;
 /** Shorter runs than the benchmarks' defaults: the selftest checks they work and their counters. */
 const WALK_SECONDS = 6;
 const FLY_SECONDS = 4;
-/** A walk of WALK_SECONDS covers at least this many blocks (≈ 4.3 m/s on open ground). */
-const MIN_WALKED = 6;
+/**
+ * A walk covers at least this many blocks a second of simulated time (4.3 m/s on open ground,
+ * less with turns and steps): measured on the ticks that ran, so a slow machine (fewer ticks in
+ * the same wall time) checks the walking, not its own speed.
+ */
+const MIN_WALK_SPEED = 1;
 
 /** A frame-time threshold: on the bench build only (and not with ?timing=0). */
 function onBench(app: App, condition: boolean, message: string): void {
@@ -100,7 +105,11 @@ export const M11_PERF_CASES: readonly SelftestCase[] = [
       await playerSession(app);
       const walk = await walkBenchmark(app, WALK_SECONDS);
       assert(walk.frames > 0 && walk.workP95 > 0, `no frame sampled: ${JSON.stringify(walk)}`);
-      assert(walk.distance >= MIN_WALKED, `walked ${walk.distance.toFixed(1)} blocks`);
+      const simulated = walk.ticks / TICKS_PER_SECOND;
+      assert(
+        walk.distance >= MIN_WALK_SPEED * simulated,
+        `walked ${walk.distance.toFixed(1)} blocks in ${simulated.toFixed(1)} s of ticks`,
+      );
       assert(walk.draws <= MAX_DRAWS, `${walk.draws} draws (> ${MAX_DRAWS})`);
       assert(walk.triangles <= MAX_TRIANGLES, `${walk.triangles} triangles`);
       onBench(app, walk.workP95 <= WALK_WORK_P95_MS, `walk work p95 ${walk.workP95.toFixed(2)} ms`);
