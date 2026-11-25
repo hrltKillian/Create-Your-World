@@ -5,6 +5,7 @@ import type { PackI18nKey } from './i18n.en.ts';
 export const worldgen = {
   seaLevel: 62,
   deepStoneBelowY: 16,
+  deepStoneBlend: 8,
   climateStep: 4,
   scales: {
     continental: 1400,
@@ -38,7 +39,8 @@ export const worldgen = {
   stone: 'block:stone',
   deepStone: 'block:darkstone',
   magmaBelowY: 10,
-  magma: 'block:magma',
+  // The molten fill of the deep caves (plan v3 « M29 »: lava, the magma block before).
+  magma: 'block:lava',
   caves: {
     // Two tunnel families: long wide galleries and tighter winding passages that cross them.
     tunnels: [

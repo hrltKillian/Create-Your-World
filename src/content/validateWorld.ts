@@ -42,6 +42,12 @@ export function validateWorld(
     block('worldgen.bedrock', w.bedrock);
     block('worldgen.stone', w.stone);
     block('worldgen.deepStone', w.deepStone);
+    if (
+      !Number.isInteger(w.deepStoneBlend) ||
+      w.deepStoneBlend < 0 ||
+      w.deepStoneBlend >= w.deepStoneBelowY
+    )
+      add('worldgen.deepStoneBlend', 'must be a whole number from 0 to under deepStoneBelowY');
     block('worldgen.magma', w.magma);
     w.banks.patches.forEach((patch, i) => {
       block(`worldgen.banks.patches[${i}].block`, patch.block);

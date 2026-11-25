@@ -402,7 +402,7 @@ describe('save versions', () => {
     const survival = { health: 50, effects: [{ key: 'weakened', ticks: 9 }], shelter: 'enclosed' };
     expect(migrate('player', { playerId: 1, survival }, 9)).toEqual({
       playerId: 1,
-      survival: { health: 50 },
+      survival: { health: 50, burnTicks: 0 },
       ...V11,
     });
     const storage = new MemoryStorage();
@@ -449,6 +449,19 @@ describe('save versions', () => {
     );
     expect(player.tasks.map((task) => task.key)).toEqual(['task:dig', 'task:meals', 'task:night']);
     expect([player.taskDraws, player.rerollDay]).toEqual([3, 1]);
+  });
+
+  it('starts a version 13 player unburnt and forgets the throwers of its drops', () => {
+    expect(migrate('player', { playerId: 1, survival: { health: 9 } }, 13)).toEqual({
+      playerId: 1,
+      survival: { health: 9, burnTicks: 0 },
+    });
+    expect(migrate('player', { playerId: 1 }, 13)).toEqual({ playerId: 1 });
+    const drop = { kind: 'itemDrop', id: 4, item: 'item:dirt', count: 1, thrower: 2 };
+    const creature = { kind: 'creature', id: 5 };
+    expect(migrate('column', { entities: [drop, creature] }, 13)).toEqual({
+      entities: [{ kind: 'itemDrop', id: 4, item: 'item:dirt', count: 1 }, creature],
+    });
   });
 
   it('loads the v13 fixture: the columns explored and the well-formed waypoints', async () => {

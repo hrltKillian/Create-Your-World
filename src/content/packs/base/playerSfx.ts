@@ -47,6 +47,14 @@ export const playerSfx: readonly SfxDef[] = [
     key: player.land,
     layers: [tone('sine', 110, 55, 0.45, 0.12), noise({ type: 'lowpass', freq: 400 }, 0.3, 0.08)],
   },
+  // Lava meeting water: a long steam hiss over a few crackles.
+  {
+    key: sounds.hardens!,
+    layers: [
+      noise({ type: 'highpass', freq: 2600, q: 0.7 }, 0.35, 0.9),
+      ...pops({ type: 'bandpass', freq: 1400, q: 1.2 }, 0.18, [0.05, 0.13, 0.22, 0.34]),
+    ],
+  },
   // Into the water: a wash of noise, then a bubble.
   {
     key: player.splash,

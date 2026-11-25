@@ -96,7 +96,8 @@ describe('caves of the planet', () => {
           const h = heightAt(ctx, cache, cx * 32 + lx, cz * 32 + lz);
           for (let y = 1; y <= h; y++) {
             const state = column.sections[y >> 5]!.getBlock(localIndex(lx, y & 31, lz));
-            if (registry.tables.shape[state] !== SHAPE_LIQUID) continue;
+            // Water only: the lava under magmaBelowY is the deep caves' own fill.
+            if (registry.tables.shape[state] !== SHAPE_LIQUID || state === ctx.magma) continue;
             expect(h).toBeLessThan(ctx.def.seaLevel);
             expect(y).toBeGreaterThan(h - ctx.caves.def.floodedDepth);
             flooded++;

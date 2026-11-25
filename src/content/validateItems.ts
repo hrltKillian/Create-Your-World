@@ -45,6 +45,12 @@ export function validateItems(
         add(path, `"${empty}" is no empty container`);
       if (!items.get(filled ?? '')?.container) add(path, `"${filled}" is no container`);
     }
+    const hardens = block.liquid?.hardens;
+    for (const key of hardens ? [hardens.source, hardens.flow] : [])
+      if (!blockKeys.has(key)) add(`blocks[${i}].liquid.hardens`, `unknown block "${key}"`);
+    const step = block.liquid?.flow?.step ?? 1;
+    if (!Number.isInteger(step) || step < 1 || step > 7)
+      add(`blocks[${i}].liquid.flow.step`, 'must be a whole number from 1 to 7');
   });
   const unknownItem = pack.manifest.bindings.unknownItem;
   if (!itemKeys.has(unknownItem))

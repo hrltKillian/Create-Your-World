@@ -4,14 +4,14 @@ import type { MapView } from '../ui/map.ts';
 import { MAP_CELLS } from '../ui/map.ts';
 import { blockToColumn, SECTION_SIZE } from '../world/coords.ts';
 import { FLAT_SURFACE } from '../world/gen/flat.ts';
-import { type GenContext, isFlatWorld } from '../world/gen/generateColumn.ts';
+import { flatBiome, type GenContext, isFlatWorld } from '../world/gen/generateColumn.ts';
 import { LatticeCache, pointInfo } from '../world/gen/sample.ts';
 
 /*
  * What the maps draw (plan v3 « M27 »: the HUD's minimap and the big map): the explored columns
  * around the player, each coloured from the world's own generation (analytic: no column needs to
  * be loaded) in MAP_CELLS × MAP_CELLS cells of its biome's grass or water tint, shaded by height
- * (flat test worlds: the first biome's grass at their one height).
+ * (flat test worlds: their biome's grass at their one height).
  */
 
 /** Blocks per map cell. */
@@ -22,7 +22,7 @@ const hex = (colour: string) => Number.parseInt(colour.slice(1), 16);
 /** RGB of one map cell: the biome's water under the sea, else its grass shaded by height. */
 function cellColour(gen: GenContext, cache: LatticeCache, x: number, z: number): number {
   const info = isFlatWorld(gen.worldType)
-    ? { biome: 0, height: FLAT_SURFACE }
+    ? { biome: flatBiome(gen), height: FLAT_SURFACE }
     : pointInfo(gen, x, z, cache);
   const tints = gen.biomes[info.biome]!.def.tints;
   const sea = gen.def.seaLevel;

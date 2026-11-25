@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -150,6 +150,25 @@ export const MIGRATIONS: readonly MigrationStep[] = [
     world: (record) => record,
     player: (record) => ({ ...record, explored: [], waypoints: [] }),
     column: (record) => record,
+  },
+  // 13 → 14 (plan v3 « M29 »): nobody burns yet; a thrown drop no longer remembers its thrower
+  // (it waits out its pickup delay for everyone).
+  {
+    world: (record) => record,
+    player: (record) => {
+      const survival = record.survival;
+      if (typeof survival !== 'object' || survival === null) return record;
+      return { ...record, survival: { ...survival, burnTicks: 0 } };
+    },
+    column: (record) => {
+      if (!Array.isArray(record.entities)) return record;
+      const entities = record.entities.map((entity: unknown) => {
+        if (typeof entity !== 'object' || entity === null || !('thrower' in entity)) return entity;
+        const { thrower: _, ...rest } = entity as Record<string, unknown>;
+        return rest;
+      });
+      return { ...record, entities };
+    },
   },
 ];
 

@@ -866,3 +866,34 @@
   font-size: 0.68rem;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
+
+/* ---- Fire (plan v3 « M29 »): flames rising from the bottom while the player burns ---- */
+
+.hud-fire {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 30% 22% at 18% 100%, rgba(255, 190, 70, 0.7), transparent 70%),
+    radial-gradient(ellipse 26% 28% at 52% 100%, rgba(255, 140, 30, 0.75), transparent 70%),
+    radial-gradient(ellipse 30% 20% at 84% 100%, rgba(255, 170, 60, 0.7), transparent 70%),
+    linear-gradient(to top, rgba(230, 80, 10, 0.45), transparent 38%);
+  pointer-events: none;
+  animation: hud-flicker 0.24s steps(2) infinite alternate;
+}
+
+.hud-fire[hidden] {
+  display: none;
+}
+
+@keyframes hud-flicker {
+  from {
+    opacity: 0.75;
+    transform: scaleY(0.94);
+    transform-origin: 50% 100%;
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1.06);
+    transform-origin: 50% 100%;
+  }
+}

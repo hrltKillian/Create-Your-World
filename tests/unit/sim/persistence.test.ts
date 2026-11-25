@@ -163,7 +163,6 @@ describe('save records', () => {
     expect(drop({ body: spawn, age: -1 })).toMatchObject({
       age: 0,
       pickupDelay: 0,
-      thrower: -1,
       body: { ...spawn, vx: 0, onGround: false },
     });
   });

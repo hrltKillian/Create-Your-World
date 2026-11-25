@@ -183,6 +183,8 @@ export class HudBridge {
     hud.vitals.update(s, thermalStatus(s.temperature, balance));
     hud.stamina.update(player.stamina, staminaMax(player, balance, STAMINA.max), player.exhausted);
     hud.vignettes.update(vignetteLevels(s, balance, player.body.headInWater, this.levels));
+    const burning = s.burnTicks > 0 && !s.dead;
+    if (hud.fire.hidden === burning) hud.fire.hidden = !burning;
     const ticks = view.time().ticks;
     const hour = hourOf(ticks);
     hud.setClock(clockText(hour, dayOf(ticks)));

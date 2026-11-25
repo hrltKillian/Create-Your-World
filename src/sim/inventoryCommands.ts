@@ -49,14 +49,14 @@ export function giveItems(
 const look: Vec3 = { x: 0, y: 0, z: 0 };
 
 /**
- * Throws items forward from just below the eye: nobody can pick them up for 0.6 s, and the thrower
- * not before the drop has once been out of their reach (itemDrops.ts).
+ * Throws items forward from just below the eye: nobody, the thrower included, can pick them up for
+ * 2 s (`DROPS.thrownPickupDelayTicks`).
  */
 export function throwStack(sim: Simulation, player: PlayerState, stack: ItemStack): void {
   const b = player.body;
   lookVector(player.yaw, player.pitch, look);
   const speed = DROPS.throwSpeed;
-  const drop = spawnDrop(
+  spawnDrop(
     sim,
     stack,
     b.x,
@@ -67,5 +67,4 @@ export function throwStack(sim: Simulation, player: PlayerState, stack: ItemStac
     look.z * speed,
     DROPS.thrownPickupDelayTicks,
   );
-  drop.thrower = player.id;
 }

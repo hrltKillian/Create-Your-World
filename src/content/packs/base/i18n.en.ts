@@ -58,6 +58,7 @@ export const strings = {
   'block.mushroom_stem': 'Giant Mushroom Stem',
   'block.glowcap': 'Glowcap',
   'block.magma': 'Magma',
+  'block.lava': 'Lava',
   'block.cassiterite': 'Cassiterite',
   'block.bog_iron': 'Bog Iron',
   'block.fireclay': 'Fireclay',

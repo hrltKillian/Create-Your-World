@@ -55,6 +55,7 @@ export function playerStats(app: App) {
     temperature: s.temperature,
     toxicity: s.toxicity,
     breath: s.breath,
+    burning: s.burnTicks > 0,
     exhausted: player.exhausted,
     ambient: s.ambient,
     target: s.target,

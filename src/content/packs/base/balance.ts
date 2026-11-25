@@ -46,6 +46,8 @@ export const balance: BalanceDef = {
     severePerMin: 30,
   },
   breath: { seconds: 15, refillPerSec: 5, drowningPerSec: 5 },
+  // The reference game's fire after lava: a few seconds, put out by water.
+  fire: { minSeconds: 4, maxSeconds: 8, damagePerSec: 4 },
   fall: { safeBlocks: 3.5, damagePerBlock: 6 },
   climate: {
     altitudeFrom: 100,

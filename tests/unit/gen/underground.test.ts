@@ -80,8 +80,11 @@ describe('caves', () => {
       for (let dx = -1; dx <= 1; dx++)
         world.columns.set(columnKey(cx + dx, cz + dz), generate(ctx, cx + dx, cz + dz));
     const flags = registry.tables.flags;
-    const liquid = (x: number, y: number, z: number) =>
-      (flags[world.getBlock(x, y, z)]! & FLAG_LIQUID) !== 0;
+    // Water: the lava under magmaBelowY is the deep caves' own fill (its test is below).
+    const liquid = (x: number, y: number, z: number) => {
+      const state = world.getBlock(x, y, z);
+      return (flags[state]! & FLAG_LIQUID) !== 0 && state !== ctx.magma;
+    };
     const seal = ctx.caves.def.seal;
     let water = 0;
     for (let lz = 0; lz < 32; lz++) {
@@ -114,7 +117,7 @@ describe('caves', () => {
     expect(water).toBeGreaterThan(100);
   }, 30_000);
 
-  it('fills the caves below y 10 with magma, which glows and burns', () => {
+  it('fills the caves below y 10 with lava sources, which glow, burn and never flow at first', () => {
     let magma = 0;
     for (const [cx, cz] of SPREAD.slice(0, 6)) {
       const column = generate(ctx, cx!, cz!);
@@ -132,6 +135,38 @@ describe('caves', () => {
     expect(magma).toBeGreaterThan(0);
     expect(registry.tables.emit[ctx.magma]).toBe(15);
     expect(registry.blockDef(ctx.magma).heat).toBeDefined();
+    expect(registry.blockDef(ctx.magma).contact?.ignites).toBe(true);
+    // A source (level 0): it stays put until something changes next to it.
+    expect(registry.prop(ctx.magma, 'level')).toBe('0');
+  });
+});
+
+describe('stone and dark stone', () => {
+  it('mix in a band, dark stone ever more often lower down: no sharp line, none above it', () => {
+    const top = ctx.def.deepStoneBelowY;
+    const blend = ctx.def.deepStoneBlend;
+    const share: number[] = [];
+    for (let y = top - blend - 2; y < top + 4; y++) {
+      let dark = 0;
+      let rock = 0;
+      for (const [cx, cz] of SPREAD.slice(0, 4)) {
+        const column = generate(ctx, cx!, cz!);
+        for (let cell = 0; cell < 1024; cell++) {
+          const state = blockIn(column, cell & 31, y, cell >> 5);
+          if (state === ctx.deepStone) dark++;
+          if (state === ctx.deepStone || state === ctx.stone) rock++;
+        }
+      }
+      share.push(dark / rock);
+    }
+    // Two rows below the band: all dark; the band: falling row by row; above it: none.
+    expect(share.slice(0, 2)).toEqual([1, 1]);
+    const band = share.slice(2, 2 + blend);
+    for (let i = 1; i < band.length; i++) expect(band[i]!).toBeLessThan(band[i - 1]!);
+    expect(band[0]!).toBeGreaterThan(0.8);
+    expect(band.at(-1)!).toBeLessThan(0.2);
+    expect(band.at(-1)!).toBeGreaterThan(0);
+    expect(share.slice(2 + blend)).toEqual([0, 0, 0, 0]);
   });
 });
 

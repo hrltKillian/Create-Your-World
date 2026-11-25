@@ -111,9 +111,9 @@ describe('slot clicks', () => {
     expect(s.player.cursor).toEqual(stack('dirt', 9));
     s.send(slotClick(-1, 0));
     expect(s.player.cursor).toBeNull();
-    expect(s.drops().map((d) => [d.item, d.count, d.thrower])).toEqual([
-      ['item:dirt', 1, s.player.id],
-      ['item:dirt', 9, s.player.id],
+    expect(s.drops().map((d) => [d.item, d.count, d.pickupDelay > 0])).toEqual([
+      ['item:dirt', 1, true],
+      ['item:dirt', 9, true],
     ]);
     expect(rejections(s.send(slotClick(-1)))).toEqual(['nothing to move']);
   });

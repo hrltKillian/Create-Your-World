@@ -20,8 +20,12 @@ export const DROPS = {
   despawnTicks: 9000,
   /** The oldest drop goes when a new one would exceed this. */
   max: 200,
-  /** 0.6 s, for items thrown by a player only (mined items can be picked up at once). */
-  thrownPickupDelayTicks: 18,
+  /**
+   * 2 s, for items thrown by a player only (mined items can be picked up at once): then anyone,
+   * the thrower too, picks them up, even standing on them (plan v3 « M29 », the reference game's
+   * rule).
+   */
+  thrownPickupDelayTicks: 60,
   /** Speed of a thrown item along the view (m/s). */
   throwSpeed: 4,
   /** Edge of a drop's collision cube (m). */
@@ -62,11 +66,6 @@ export interface ItemDropState {
   age: number;
   /** Ticks before anyone may pick it up. */
   pickupDelay: number;
-  /**
-   * Entity id of the player who threw it (−1: none). That player cannot pick it up until it has
-   * once been farther than the magnet radius from them, so a throw never comes straight back.
-   */
-  thrower: number;
 }
 
 /** Scratch list of nearby entity ids (no allocation once warmed up). */
@@ -103,7 +102,6 @@ export function spawnDrop(
     prevZ: z,
     age: 0,
     pickupDelay,
-    thrower: -1,
   };
   if (stack.durability !== undefined) drop.durability = stack.durability;
   if (stack.original !== undefined) drop.original = stack.original;
@@ -142,8 +140,13 @@ export function stepItemDrops(sim: Simulation, out: SimEvent[]): void {
     entity.prevY = b.y;
     entity.prevZ = b.z;
     stepDropBody(sim.world, tables, b);
+    // Lava burns what falls in (plan v3 « M29 »).
+    const cell = sim.world.getBlock(Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z));
+    if (sim.registry.blockDef(cell).contact?.ignites) {
+      removeDrop(sim, entity.id);
+      continue;
+    }
     sim.spatial.update(entity.id, b.x, b.z);
-    if (entity.thrower >= 0) releaseFromThrower(sim, entity);
   }
   for (const player of sim.players.values())
     if (player.survival.health > 0) pickUp(sim, player, out);
@@ -206,23 +209,16 @@ function distanceToPlayer(drop: DropBody, player: PlayerState): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-/** Forgets the thrower once the drop is beyond their magnet radius (or they are gone). */
-function releaseFromThrower(sim: Simulation, drop: ItemDropState): void {
-  const thrower = sim.entities.get(drop.thrower);
-  if (thrower?.kind !== 'player' || distanceToPlayer(drop.body, thrower) > DROPS.magnet)
-    drop.thrower = -1;
-}
-
 /**
- * Moves every drop within the magnet radius into the player's inventory, as far as it fits:
- * not while its pickup delay runs, nor the drops this player threw and has not yet left.
+ * Moves every drop within the magnet radius into the player's inventory, as far as it fits, once
+ * its pickup delay is over.
  */
 function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   sim.spatial.query(player.body.x, player.body.z, DROPS.magnet, near);
   let changed = false;
   for (let i = 0; i < near.length; i++) {
     const drop = sim.entities.get(near[i]!);
-    if (drop?.kind !== 'itemDrop' || drop.pickupDelay > 0 || drop.thrower === player.id) continue;
+    if (drop?.kind !== 'itemDrop' || drop.pickupDelay > 0) continue;
     if (dormant(sim, drop) || distanceToPlayer(drop.body, player) > DROPS.magnet) continue;
     const left = addItem(player.inventory, sim.registry, drop);
     const taken = drop.count - left;
@@ -245,8 +241,7 @@ function pickUp(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
 
 /**
  * Older drops absorb newer ones close by that would stack with them (`sameStack`: never tools,
- * which carry wear), unless they are held back for different throwers, so a throw cannot merge
- * into what its thrower may take.
+ * which carry wear); the merged drop waits for the longer pickup delay.
  */
 function mergeDrops(sim: Simulation): void {
   const r2 = DROPS.mergeRadius * DROPS.mergeRadius;
@@ -259,7 +254,7 @@ function mergeDrops(sim: Simulation): void {
     for (let i = 0; i < near.length && a.count < max; i++) {
       const b = sim.entities.get(near[i]!);
       if (b?.kind !== 'itemDrop' || b.id <= a.id || !sameStack(a, b)) continue;
-      if (b.thrower !== a.thrower || dormant(sim, b)) continue;
+      if (dormant(sim, b)) continue;
       const dx = b.body.x - a.body.x;
       const dy = b.body.y - a.body.y;
       const dz = b.body.z - a.body.z;

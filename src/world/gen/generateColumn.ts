@@ -31,7 +31,7 @@ import { columnSites, storySites } from './sites.ts';
 import { placeStructure, type ResolvedStructure, resolveStructure } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 10;
+export const GEN_VERSION = 11;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;
@@ -192,8 +192,7 @@ const rawBiomes = new Uint8Array(PADDED * PADDED);
  */
 export function generateColumn(ctx: GenContext, column: Column): void {
   if (isFlatWorld(ctx.worldType)) {
-    // The flat test worlds use the first spawn biome's surface (or the last biome).
-    const index = ctx.spawnBiomes.values().next().value ?? ctx.biomes.length - 1;
+    const index = flatBiome(ctx);
     const biome = ctx.biomes[index]!;
     generateFlatColumn(column, {
       bedrock: ctx.bedrock,
@@ -266,13 +265,34 @@ function fillTerrain(
     let state: number;
     if (y === 0) state = ctx.bedrock;
     else if (y >= bankFrom && y <= h) state = bank;
-    else if (y < h - fillerDepth) state = y < ctx.def.deepStoneBelowY ? ctx.deepStone : ctx.stone;
+    else if (y < h - fillerDepth) state = deepStoneAt(ctx, x, y, z) ? ctx.deepStone : ctx.stone;
     else if (y < h) state = biome.filler;
     else if (y === h) state = h < sea ? biome.seabed : biome.surface;
     else if (y === sea && biome.liquidCap >= 0) state = biome.liquidCap;
     else state = biome.liquid;
     column.sections[y >> SECTION_BITS]!.setBlock(localIndex(lx, y & SECTION_MASK, lz), state);
   }
+}
+
+/** The biome of the flat test worlds: the first spawn biome (or the last biome). */
+export function flatBiome(ctx: GenContext): number {
+  return ctx.spawnBiomes.values().next().value ?? ctx.biomes.length - 1;
+}
+
+/** Salt of the stone / dark stone mix. */
+const DEEP_SALT = 0x5d3e;
+
+/**
+ * Whether the rock at (x, y, z) is dark stone: always under `deepStoneBelowY − deepStoneBlend`,
+ * never from `deepStoneBelowY` up; in the band between, a cell is dark with a chance growing by
+ * 1 / (blend + 1) each row down (plan v3 « M29 »: the two mix, no sharp line).
+ */
+export function deepStoneAt(ctx: GenContext, x: number, y: number, z: number): boolean {
+  const top = ctx.def.deepStoneBelowY;
+  if (y >= top) return false;
+  const blend = ctx.def.deepStoneBlend;
+  if (y < top - blend) return true;
+  return hash32(ctx.seedHash ^ Math.imul(y, 0x2c1b3c6d), x, z, DEEP_SALT) % (blend + 1) < top - y;
 }
 
 /** Heightmap: highest non-air block + 1, scanning down from the highest non-empty section. */
