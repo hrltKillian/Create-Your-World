@@ -110,7 +110,8 @@ function inCavernBand(def: CaveDef, y: number): boolean {
  * How a block column may be carved, from its surface `h`, the lowest surface of it and its 4
  * neighbours (`hMin`) and `bed`: the lowest floor of a flooded band within the seal's reach
  * (a lake's bed − `floodedDepth`; DRY when no lake is that near).
- * - `flood`: a lake column (h < sea level) floods the caves of (flood, h]; WORLD_HEIGHT on land;
+ * - `flood`: a lake column (h < sea level) floods the caves of (flood, h − surfaceMargin], its
+ *   bed kept whole; WORLD_HEIGHT on land;
  * - dry caves reach `dry`: at least `seal` blocks of rock under `bed`, `surfaceMargin` under
  *   `hMin`, or up to the surface at an entrance of dry land;
  * - `ravine` blocks under the surface crack open (dry land far from liquids only).
@@ -246,7 +247,7 @@ export function carveCaves(ctx: GenContext, column: Column, heights: Int16Array)
       drys[ci] = caves.dry;
       floods[ci] = caves.flood;
       ravines[ci] = caves.ravine;
-      const roof = caves.flood < WORLD_HEIGHT ? h : caves.dry;
+      const roof = caves.flood < WORLD_HEIGHT ? h - def.surfaceMargin : caves.dry;
       if (roof > maxRoof) maxRoof = roof;
     }
   }
@@ -272,7 +273,8 @@ export function carveCaves(ctx: GenContext, column: Column, heights: Int16Array)
       const dry = drys[ci]!;
       const flood = floods[ci]!;
       const h = heights[heightIndex(lx, lz)]!;
-      const roof = flood < WORLD_HEIGHT ? h : dry;
+      // A lake keeps its bed: its flooded caves stop `surfaceMargin` blocks under it.
+      const roof = flood < WORLD_HEIGHT ? h - def.surfaceMargin : dry;
       if (roof < 1) continue;
       // Interpolate each lattice level across x and z once, then along y per cell.
       const tx = (lx & 3) / STEP;

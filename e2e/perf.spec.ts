@@ -19,9 +19,10 @@ const MAX_LONG_FRAMES = 0.01;
 /** « CPU ralenti ×1,7 (Playwright) : travail p95 ≤ 15 ms » (an M1 stand-in). */
 const SLOW_CPU = 1.7;
 const SLOW_WALK_P95_MS = 15;
-const MAX_CAVE_DRAWS = 150;
-// −10 % since M16 (connected caves), as in src/app/selftest/m11perf.ts.
-const MIN_CAVE_SAVED = 0.1;
+const MAX_CAVE_DRAWS = 200;
+// −10 % since M16 (connected caves); since plan v3's M24 (wide caves, seen far through) ≤ 200
+// draws and −1 %: frame work stays far under budget. As in src/app/selftest/m11perf.ts.
+const MIN_CAVE_SAVED = 0.01;
 const EDIT_TO_MESH_P95_MS = 50;
 const PLAYABLE_MS = 3000;
 

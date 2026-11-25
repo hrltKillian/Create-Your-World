@@ -4,7 +4,7 @@ import type { PackI18nKey } from './i18n.en.ts';
 /** Terrain shape and climate of the base pack. */
 export const worldgen = {
   seaLevel: 62,
-  deepStoneBelowY: 32,
+  deepStoneBelowY: 16,
   climateStep: 4,
   scales: {
     continental: 1400,
@@ -42,10 +42,10 @@ export const worldgen = {
   caves: {
     // Two tunnel families: long wide galleries and tighter winding passages that cross them.
     tunnels: [
-      { scale: [72, 44], threshold: 0.0045 },
-      { scale: [40, 26], threshold: 0.003 },
+      { scale: [72, 72], threshold: 0.02 },
+      { scale: [44, 44], threshold: 0.014 },
     ],
-    tunnelWidth: { scale: 120, min: 0.5, max: 2.2 },
+    tunnelWidth: { scale: 120, min: 1.5, max: 2.5 },
     // Halls deep down and nearer the surface.
     caverns: {
       scale: [90, 40],
@@ -375,10 +375,11 @@ export const features = [
 ] as const satisfies readonly FeatureDef[];
 
 /**
- * Ores (docs plan v2 « M16 »), in layers: per section, `veins` attempts of probability `chance`.
- * Each step of the progression needs an ore of one biome (copper in the temperate lands, tin in
- * the tundra, bog iron in the marsh, fireclay in the desert: all within 1 km of the spawn); the
- * common emberstone covers every height of the stone so no layer is ever empty.
+ * Ores (plan v3 « M24 »), in layers: per section, `veins` attempts of probability `chance`. The
+ * commons, Emberstone and copper, lie in the stone of every biome (never in the dark stone below
+ * y 16); each later step needs an ore of one biome (tin in the Rimefrost, bog iron in the
+ * Sporefen, fireclay in the Ochre Waste: all within 1 km of the spawn). The dark stone keeps the
+ * deep dawn crystal of the cave walls.
  */
 export const ores = [
   {
@@ -386,19 +387,19 @@ export const ores = [
     block: 'block:emberstone',
     biomes: '*',
     layers: [
-      { y: [1, 40], chance: 0.6, veins: 4, size: [4, 8] },
-      { y: [41, 120], chance: 0.8, veins: 6, size: [5, 10] },
-      { y: [121, 210], chance: 0.7, veins: 5, size: [4, 9] },
+      { y: [16, 60], chance: 0.9, veins: 7, size: [5, 9] },
+      { y: [61, 130], chance: 0.9, veins: 7, size: [5, 10] },
+      { y: [131, 210], chance: 0.8, veins: 6, size: [4, 9] },
     ],
-    replaces: ['block:stone', 'block:darkstone'],
+    replaces: ['block:stone'],
   },
   {
     key: 'ore:copper',
     block: 'block:copper_ore',
-    biomes: ['biome:meadow', 'biome:forest', 'biome:highlands'],
+    biomes: '*',
     layers: [
-      { y: [30, 80], chance: 0.8, veins: 6, size: [4, 8] },
-      { y: [81, 150], chance: 0.5, veins: 4, size: [3, 6] },
+      { y: [16, 80], chance: 0.9, veins: 7, size: [4, 9] },
+      { y: [81, 150], chance: 0.7, veins: 5, size: [4, 7] },
     ],
     replaces: ['block:stone'],
   },
@@ -407,8 +408,8 @@ export const ores = [
     block: 'block:cassiterite',
     biomes: ['biome:tundra'],
     layers: [
-      { y: [45, 100], chance: 0.8, veins: 6, size: [3, 6] },
-      { y: [101, 160], chance: 0.4, veins: 3, size: [3, 5] },
+      { y: [30, 100], chance: 0.9, veins: 8, size: [4, 7] },
+      { y: [101, 160], chance: 0.6, veins: 4, size: [3, 6] },
     ],
     replaces: ['block:stone'],
   },
@@ -417,7 +418,7 @@ export const ores = [
     key: 'ore:bog_iron',
     block: 'block:bog_iron',
     biomes: ['biome:fungal_marsh'],
-    layers: [{ y: [54, 62], chance: 1, veins: 24, size: [3, 6] }],
+    layers: [{ y: [54, 62], chance: 1, veins: 28, size: [3, 6] }],
     replaces: ['block:silt'],
     underLiquid: true,
   },
@@ -425,7 +426,7 @@ export const ores = [
     key: 'ore:fireclay',
     block: 'block:fireclay',
     biomes: ['biome:ochre_desert'],
-    layers: [{ y: [60, 85], chance: 0.9, veins: 8, size: [4, 8] }],
+    layers: [{ y: [60, 85], chance: 1, veins: 10, size: [4, 9] }],
     replaces: ['block:ochre_sandstone', 'block:stone'],
   },
   {

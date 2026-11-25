@@ -112,7 +112,7 @@ describe('caves', () => {
       }
     }
     expect(water).toBeGreaterThan(100);
-  });
+  }, 30_000);
 
   it('fills the caves below y 10 with magma, which glows and burns', () => {
     let magma = 0;

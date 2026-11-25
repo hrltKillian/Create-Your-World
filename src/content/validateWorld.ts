@@ -128,18 +128,31 @@ export function validateWorld(
     if (ore.underLiquid && w && ore.layers.every((layer) => layer.y[0] >= w.seaLevel))
       add(`${path}.underLiquid`, `needs a layer starting below the sea level (${w.seaLevel})`);
   });
-  // No layer without ore: common ores (every biome) cover each height from the worldrock up to
-  // the highest terrain.
+  // No layer without ore: common ores (every biome, cave walls aside) cover each height of the
+  // stone, from the dark stone up to the highest terrain, and never reach into the dark stone
+  // (plan v3 « M24 »: an early tool mines them).
   if (w && pack.ores) {
     const top = highestTerrain(w);
     const covered = new Uint8Array(top + 1);
-    for (const ore of pack.ores) {
-      if (ore.biomes !== '*' || ore.caveWall) continue;
-      for (const layer of ore.layers)
+    pack.ores.forEach((ore, i) => {
+      if (ore.biomes !== '*' || ore.caveWall) return;
+      if (ore.replaces.includes(w.deepStone))
+        add(`ores[${i}].replaces`, 'a common ore lies in the stone only, not the dark stone');
+      ore.layers.forEach((layer, l) => {
+        if (layer.y[0] < w.deepStoneBelowY)
+          add(
+            `ores[${i}].layers[${l}].y`,
+            `a common ore starts at y ${w.deepStoneBelowY} or above`,
+          );
         for (let y = Math.max(1, layer.y[0]); y <= Math.min(top, layer.y[1]); y++) covered[y] = 1;
-    }
-    const gap = covered.findIndex((c, y) => y >= 1 && c === 0);
-    if (gap >= 0) add('ores', `no common ore covers y ${gap} (every height 1–${top} needs one)`);
+      });
+    });
+    const gap = covered.findIndex((c, y) => y >= w.deepStoneBelowY && c === 0);
+    if (gap >= 0)
+      add(
+        'ores',
+        `no common ore covers y ${gap} (every height ${w.deepStoneBelowY}–${top} needs one)`,
+      );
   }
   const biome = (path: string, key: string) => {
     if (!seen.has(key)) add(path, `unknown biome "${key}"`);
