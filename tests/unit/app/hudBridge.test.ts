@@ -167,13 +167,16 @@ function setup(tips: { dusk(): boolean } | null = null) {
 }
 
 describe('HudBridge', () => {
-  it('names the aimed creature before the block behind it', () => {
+  it('names the aimed creature before the block behind it, unknown until met', () => {
     const { bridge, session } = setup();
     const line = bridge.hud.target.element as unknown as FakeElement;
     session.aim.hit = { hit: true, state: block('block:stone') };
     bridge.frame(0.1);
     expect(line.querySelector('.target-name')!.textContent).toBe('Stone');
     session.aim.creature = { kind: 'creature', creature: 'creature:trotter' };
+    bridge.frame(0.1);
+    expect(line.querySelector('.target-name')!.textContent).toBe('Unknown creature');
+    session.player.bestiary['creature:trotter'] = 1;
     bridge.frame(0.1);
     expect(line.querySelector('.target-name')!.textContent).toBe('Trotter');
     expect(line.querySelector('.target-hint')!.hidden).toBe(true);

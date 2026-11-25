@@ -86,6 +86,19 @@ export const balance: BalanceDef = {
     weakenedDamage: 0.8,
     untargetedSec: 5,
   },
-  creatures: { spawnGraceTicks: 5400 },
+  creatures: {
+    spawnGraceTicks: 5400,
+    needs: {
+      hungerPerMin: 4,
+      thirstPerMin: 5,
+      seekBelow: 50,
+      seekRadius: 16,
+      plantFood: 25,
+      meatFood: 50,
+      drink: 60,
+      regenPerMin: 6,
+    },
+    fall: { safeBlocks: 3, damagePerBlock: 2 },
+  },
   combat: { hand: { damage: 2, cooldown: 0.4, reach: 3, knockback: 1 } },
 };

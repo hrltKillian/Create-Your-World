@@ -98,6 +98,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:icon_raw_hide": "dc2555e8",
   "tex:icon_raw_meat": "4b0872bd",
   "tex:icon_resin": "ff61efb9",
+  "tex:icon_scanner": "ff3d1c45",
   "tex:icon_shell_cuirass": "1ec0b2ad",
   "tex:icon_shell_plate": "94eed69d",
   "tex:icon_stick": "56438719",

@@ -107,6 +107,8 @@ const tools = [
 
 /** Equipment (« Équipement de danger », armour values), from the head down; effects in M9. */
 const equipment = [
+  // Studies a creature looked at for 2 s within 24 blocks (the bestiary), in place of a hood.
+  gear('scanner', { slot: 'head', scanner: { seconds: 2, range: 24 }, durability: 600 }),
   gear('fur_hood', { slot: 'head', warmth: 6, durability: 300 }),
   gear('straw_hat', { slot: 'head', cooling: 6, durability: 200 }),
   gear('bronze_helmet', { slot: 'head', armor: 3, durability: 500 }),

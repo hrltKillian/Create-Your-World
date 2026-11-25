@@ -195,11 +195,12 @@ describe('Logbook', () => {
       const bandage = row(rows, 'recipe:bandage');
       expect(bandage.discovered).toBe(false);
       expect(kept('bandage')).toEqual(['recipe:bandage']);
-      // Its resin is unseen: « ? » on screen, so the recipe is not found by it.
-      expect(kept('resin')).toEqual([]);
+      // Its resin is unseen: « ? » on screen, so the recipe is not found by it (the scanner, known
+      // from the start, names all of its ingredients).
+      expect(kept('resin')).toEqual(['recipe:scanner']);
       const seen = logbookRows(source(tools, ['item:resin']), MAX);
       const keptSeen = keys(filterRows(seen, { query: 'resin', craftableOnly: false }, name));
-      expect(keptSeen).toEqual(['recipe:bandage']);
+      expect(keptSeen).toEqual(['recipe:scanner', 'recipe:bandage']);
     });
 
     it('« Can craft now » keeps only what the inventory pays for, never an undiscovered recipe', () => {

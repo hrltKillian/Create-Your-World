@@ -112,7 +112,7 @@ export function spawnDrop(
   return drop;
 }
 
-function removeDrop(sim: Simulation, id: number): void {
+export function removeDrop(sim: Simulation, id: number): void {
   sim.entities.delete(id);
   sim.spatial.remove(id);
 }

@@ -1,6 +1,8 @@
 import type { CreatureDef } from '../../content/schema.ts';
 import { yawOf } from '../../core/angles.ts';
-import { ticksOf } from '../clock.ts';
+import { TICK_SECONDS, ticksOf } from '../clock.ts';
+import { isLiquid } from '../collision.ts';
+import { hurtCreature } from '../combat.ts';
 import { stepCreatureBody } from '../creatureBody.ts';
 import { type CreatureState, creatureDef, dormant, isGone } from '../creatures.ts';
 import type { SimEvent } from '../events.ts';
@@ -13,15 +15,24 @@ import { ASTAR } from './pathfind.ts';
 import { distanceTo, refreshSenses, SENSE_TICKS, targetOf } from './senses.ts';
 
 /*
- * Tick steps 5 and 6 for creatures (docs « Ordre d'un tick »): timers, a sight test every 10
- * ticks, a thought every 3 (both staggered by id), then movement (steering along the path, or
- * straight at the target) and physics. At most 2 A* searches run per tick. Creatures in unlit
- * columns or far from every player stand still (dormant); who leaves, and when, is `departs`
- * (spawning.ts). Zero allocation.
+ * Tick steps 5 and 6 for creatures (docs « Ordre d'un tick »): timers and needs, a sight test
+ * every 10 ticks, a thought every 3 (both staggered by id), then movement and physics. At most 2
+ * A* searches run per tick. Creatures in unlit columns or far from every player stand still
+ * (dormant); who leaves, and when, is `departs` (spawning.ts). Zero allocation.
+ *
+ * Fair movement (docs plan v2 « M17 »): a creature turns at its agility's rate and moves the way it
+ * faces, slower the further it still has to turn (a feint or a sidestep beats a charge); it runs
+ * only while it has stamina (then walks until half is back), slower when wounded; a hop onto a
+ * step costs stamina and waits HOP_TICKS; a fall beyond the pack's safe height hurts it.
  */
 
-/** Turn rate (radians per tick). */
-const TURN_PER_TICK = 0.35;
+/** Ticks between two hops, and the stamina (seconds of running) one costs. */
+const HOP_TICKS = 15;
+const HOP_STAMINA = 0.3;
+/** Stamina comes back at this many seconds of running per second when not running. */
+const STAMINA_REGEN = 0.5;
+/** Speed factor of a creature at no health (full health: 1). */
+const WOUNDED_SPEED = 0.6;
 /** A waypoint is reached within this horizontal distance of its cell's centre. */
 const WAYPOINT_REACH = 0.35;
 /** How far a burrowing creature sinks per tick. */
@@ -52,15 +63,29 @@ export function stepCreatures(sim: Simulation, out: SimEvent[]): void {
       if (c.modeTicks > 0) c.modeTicks--;
       if (c.cooldown > 0) c.cooldown--;
       if (c.invulnerable > 0) c.invulnerable--;
+      if (c.calmTicks > 0) c.calmTicks--;
+      if (c.waryTicks > 0) c.waryTicks--;
+      if (c.hopTicks > 0) c.hopTicks--;
     }
     const def = creatureDef(sim, c);
     if (departs(sim, c, def, active) || !active) continue;
+    if (!isGone(c)) stepNeeds(sim, c, def);
     const slot = sim.tick + c.id;
-    if (slot % SENSE_TICKS === 0) refreshSenses(sim, c, def);
+    if (slot % SENSE_TICKS === 0) refreshSenses(sim, c, def, out);
     if (slot % BRAIN.thinkTicks === 0) think(sim, c, def, ai, out);
-    move(sim, c, def);
+    move(sim, c, def, out);
     sim.spatial.update(c.id, b.x, b.z);
   }
+}
+
+/** Hunger and thirst fall; a sated creature heals (`balance.creatures.needs`). */
+function stepNeeds(sim: Simulation, c: CreatureState, def: CreatureDef): void {
+  const needs = sim.registry.pack.balance.creatures.needs;
+  const perTick = TICK_SECONDS / 60;
+  c.hunger = Math.max(0, c.hunger - needs.hungerPerMin * perTick);
+  c.thirst = Math.max(0, c.thirst - needs.thirstPerMin * perTick);
+  if (c.hunger > needs.seekBelow && c.thirst > needs.seekBelow && c.health < def.health)
+    c.health = Math.min(def.health, c.health + needs.regenPerMin * perTick);
 }
 
 /** Wanted direction of this tick (unit), set by `headFor` and swung by `zigzag`. */
@@ -91,6 +116,17 @@ function followPath(c: CreatureState): boolean {
   return false;
 }
 
+/** Whether a mode runs (else it walks): a flight, a chase or a charge. */
+function runs(c: Readonly<CreatureState>): boolean {
+  return c.mode === 'flee' || c.mode === 'chase' || c.mode === 'charge';
+}
+
+/** The creature's running speed now: walking while tired, slower when wounded. */
+function runSpeed(c: Readonly<CreatureState>, def: CreatureDef): number {
+  const base = c.tired ? def.speed.walk : def.speed.run;
+  return base * (WOUNDED_SPEED + ((1 - WOUNDED_SPEED) * c.health) / def.health);
+}
+
 /** Where the creature goes this tick: sets the heading, returns the speed (0: it stands). */
 function heading(sim: Simulation, c: CreatureState, def: CreatureDef): number {
   const target = targetOf(sim, c);
@@ -101,12 +137,12 @@ function heading(sim: Simulation, c: CreatureState, def: CreatureDef): number {
       break;
     case 'flee':
     case 'chase':
-      speed = def.speed.run;
+      speed = runSpeed(c, def);
       break;
     case 'charge':
       headX = -Math.sin(c.yaw);
       headZ = -Math.cos(c.yaw);
-      return def.speed.run;
+      return runSpeed(c, def);
     default:
       return 0;
   }
@@ -130,11 +166,16 @@ function zigzag(sim: Simulation, c: Readonly<CreatureState>): void {
   headZ = z / length;
 }
 
-/** Turns the facing towards a yaw by at most TURN_PER_TICK. */
-function turnTo(c: CreatureState, yaw: number): void {
-  let delta = yaw - c.yaw;
-  delta -= Math.round(delta / (2 * Math.PI)) * 2 * Math.PI;
-  c.yaw += Math.max(-TURN_PER_TICK, Math.min(TURN_PER_TICK, delta));
+/** The angle from a creature's facing to a yaw, in (−π, π]. */
+function turnLeft(c: Readonly<CreatureState>, yaw: number): number {
+  const delta = yaw - c.yaw;
+  return delta - Math.round(delta / (2 * Math.PI)) * 2 * Math.PI;
+}
+
+/** Turns the facing towards a yaw by at most its agility's turn of one tick. */
+function turnTo(c: CreatureState, def: CreatureDef, yaw: number): void {
+  const most = ((def.agility.turnDegPerSec * Math.PI) / 180) * TICK_SECONDS;
+  c.yaw += Math.max(-most, Math.min(most, turnLeft(c, yaw)));
   c.yaw -= Math.round(c.yaw / (2 * Math.PI)) * 2 * Math.PI;
 }
 
@@ -170,23 +211,32 @@ function separate(sim: Simulation, c: Readonly<CreatureState>, def: CreatureDef)
 }
 
 /**
- * Movement of one tick: steering and facing, then the body. A charge into a wall stuns the
- * charger; a hurt creature does not steer while the knockback carries it.
+ * Movement of one tick: steering and facing (it moves the way it faces), stamina, then the body,
+ * a hop and a fall. A charge into a wall stuns the charger; a hurt creature does not steer while
+ * the knockback carries it.
  */
-function move(sim: Simulation, c: CreatureState, def: CreatureDef): void {
+function move(sim: Simulation, c: CreatureState, def: CreatureDef, out: SimEvent[]): void {
   const b = c.body;
   if (c.mode === 'burrow') {
     b.y -= BURROW_SINK;
     return;
   }
-  const speed = isGone(c) ? 0 : heading(sim, c, def);
+  let speed = isGone(c) ? 0 : heading(sim, c, def);
   if (speed > 0) {
-    if (c.mode !== 'charge') turnTo(c, yawOf(headX, headZ));
+    if (c.mode !== 'charge') {
+      const yaw = yawOf(headX, headZ);
+      turnTo(c, def, yaw);
+      // Along its facing, as fast as the turn left allows (none while it faces away).
+      speed *= Math.max(0, Math.cos(turnLeft(c, yaw)));
+      headX = -Math.sin(c.yaw);
+      headZ = -Math.cos(c.yaw);
+    }
   } else {
     const target = targetOf(sim, c);
     if (target && (c.mode === 'watch' || c.mode === 'windup' || c.mode === 'chase'))
-      turnTo(c, yawOf(target.body.x - b.x, target.body.z - b.z));
+      turnTo(c, def, yawOf(target.body.x - b.x, target.body.z - b.z));
   }
+  spendStamina(c, def, speed > 0 && runs(c));
   const steer = c.invulnerable === 0 && !isGone(c);
   const charging = c.mode === 'charge';
   // A charge ignores the others: no push, never the one `separate` left for another creature.
@@ -199,6 +249,7 @@ function move(sim: Simulation, c: CreatureState, def: CreatureDef): void {
   const wantX = (speed > 0 ? headX * speed : 0) + push[0]!;
   const wantZ = (speed > 0 ? headZ * speed : 0) + push[1]!;
   const tables = sim.registry.tables;
+  const grounded = b.onGround;
   const blocked = stepCreatureBody(
     sim.world,
     tables,
@@ -208,10 +259,40 @@ function move(sim: Simulation, c: CreatureState, def: CreatureDef): void {
     wantX,
     wantZ,
     steer,
-    speed > 0 && !charging,
+    speed > 0 && !charging && c.hopTicks === 0,
+    def.agility,
   );
+  if (grounded && !b.onGround && b.vy > 0) {
+    c.hopTicks = HOP_TICKS;
+    c.stamina = Math.max(0, c.stamina - HOP_STAMINA);
+  }
   if (charging && blocked) {
     const stun = def.traits?.wallStunSec;
     setMode(c, stun ? 'stunned' : 'recover', stun ? ticksOf(stun) : BRAIN.recoverTicks);
   }
+  land(sim, c, out);
+}
+
+/** Running spends stamina, anything else brings it back; empty, it is tired until half is back. */
+function spendStamina(c: CreatureState, def: CreatureDef, running: boolean): void {
+  const full = def.stamina.runSeconds;
+  c.stamina = running
+    ? Math.max(0, c.stamina - TICK_SECONDS)
+    : Math.min(full, c.stamina + STAMINA_REGEN * TICK_SECONDS);
+  if (c.stamina === 0) c.tired = true;
+  else if (c.stamina >= full / 2) c.tired = false;
+}
+
+/** Keeps the top of a fall; landing beyond the pack's safe height hurts (a liquid breaks it). */
+function land(sim: Simulation, c: CreatureState, out: SimEvent[]): void {
+  const b = c.body;
+  if (!b.onGround) {
+    if (b.vy >= 0 || isLiquid(sim.world, sim.registry.tables, b.x, b.y + 0.2, b.z)) c.airTop = b.y;
+    else c.airTop = Math.max(c.airTop, b.y);
+    return;
+  }
+  const fall = sim.registry.pack.balance.creatures.fall;
+  const beyond = c.airTop - b.y - fall.safeBlocks;
+  c.airTop = b.y;
+  if (beyond > 0) hurtCreature(sim, c, beyond * fall.damagePerBlock, b.x, b.z, 0, -1, out);
 }

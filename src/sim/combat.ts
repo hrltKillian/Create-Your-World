@@ -5,6 +5,7 @@ import { RAY_SOLID } from '../world/raycast.ts';
 import { BRAIN, setMode, voice } from './ai/behaviours.ts';
 import { alarm } from './ai/brains.ts';
 import { lineOfSight, targetOf } from './ai/senses.ts';
+import { MET, noteCreature, STUDIED } from './bestiary.ts';
 import { ticksOf } from './clock.ts';
 import { type CreatureState, creatureDef, eyeY, isGone, reachGap } from './creatures.ts';
 import { type Gear, wornGear } from './environment.ts';
@@ -24,13 +25,13 @@ import { dayOf } from './time.ts';
  * wind-up ends, if the target is still within reach + 0.3 and in sight (else it dodged); a
  * charger's wind-up launches its charge, which hits on contact. Worn armour takes
  * `damage × 20/(20 + A)`; a blow knocks back (6 m/s across, 3 up, × the attack's factor ×
- * (1 − resistance)) and grants 15 ticks of invulnerability to players, 8 to creatures. A Shellback
+ * (1 − resistance)) and grants 15 ticks of invulnerability to players, 5 to creatures. A Shellback
  * takes 60 % less from the front; a Prowler hits harder every night. Zero allocation per tick.
  */
 
 export const COMBAT = {
   playerInvulnerableTicks: 15,
-  creatureInvulnerableTicks: 8,
+  creatureInvulnerableTicks: 5,
   /** Knockback speeds of a normal hit (m/s). */
   knockback: 6,
   knockbackUp: 3,
@@ -120,7 +121,7 @@ function endWindup(sim: Simulation, c: CreatureState, def: CreatureDef, out: Sim
     setMode(c, 'charge', BRAIN.chargeTicks);
     return;
   }
-  if (target) strike(sim, c, def, target, out);
+  if (target && strike(sim, c, def, target, out)) c.chaseTicks = 0;
   setMode(c, 'recover', BRAIN.recoverTicks);
 }
 
@@ -128,7 +129,7 @@ function endWindup(sim: Simulation, c: CreatureState, def: CreatureDef, out: Sim
 function charging(sim: Simulation, c: CreatureState, def: CreatureDef, out: SimEvent[]): void {
   const target = targetOf(sim, c);
   if (!target || reachGap(c, def, target) > (def.attack?.reach ?? 0)) return;
-  strike(sim, c, def, target, out);
+  if (strike(sim, c, def, target, out)) c.chaseTicks = 0;
   setMode(c, 'recover', BRAIN.recoverTicks);
 }
 
@@ -209,12 +210,17 @@ export function hurtCreature(
   c.invulnerable = COMBAT.creatureInvulnerableTicks;
   knock(c.body, x, z, knockback * (1 - (def.traits?.knockbackResist ?? 0)));
   const fighter = sim.entities.get(attacker);
-  if (fighter?.kind === 'player') fighter.fightTicks = COMBAT.fightTicks;
+  if (fighter?.kind === 'player') {
+    fighter.fightTicks = COMBAT.fightTicks;
+    // A blow meets the creature, a kill studies it (the bestiary).
+    noteCreature(fighter, def.key, c.health > 0 ? MET : STUDIED, out);
+  }
   const b = c.body;
   out.push({ type: 'creatureHurt', id: c.id, amount: dealt, attacker, x: b.x, y: b.y, z: b.z });
   if (c.health > 0) {
     voice(c, def, 'hurt', out);
-    alarm(sim, c, def, attacker, x, z, out);
+    // A fall (no attacker) alarms nobody.
+    if (attacker >= 0) alarm(sim, c, def, attacker, x, z, out);
   } else {
     die(sim, c, def, attacker, out);
   }

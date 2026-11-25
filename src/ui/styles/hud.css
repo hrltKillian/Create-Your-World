@@ -882,3 +882,23 @@ body:has(#debug-overlay:not([hidden])) .hud-right {
   font: 600 0.78rem var(--font-mono);
   text-align: center;
 }
+
+/* ---- Centre: a worn scanner's progress ---- */
+
+.scan-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: conic-gradient(#4fd6c8 calc(var(--fill, 0) * 360deg), rgba(255, 255, 255, 0.14) 0);
+  mask: radial-gradient(circle, transparent 13px, #000 14px);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.scan-ring[hidden] {
+  display: none;
+}

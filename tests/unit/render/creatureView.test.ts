@@ -14,7 +14,7 @@ import { HandView } from '../../../src/render/HandView.ts';
 import { buildItemModels } from '../../../src/render/itemModels.ts';
 import { PlayView } from '../../../src/render/PlayView.ts';
 import type { WorldView } from '../../../src/render/WorldView.ts';
-import type { CreatureMode, CreatureState } from '../../../src/sim/creatures.ts';
+import { type CreatureMode, type CreatureState, freshNeeds } from '../../../src/sim/creatures.ts';
 import type { SimView } from '../../../src/sim/host.ts';
 import { createPlayer } from '../../../src/sim/player.ts';
 import type { Entity } from '../../../src/sim/Simulation.ts';
@@ -65,6 +65,7 @@ function creature(id: number, key: string, x: number, z: number, mode: CreatureM
     unseen: 0,
     herd: id,
     cave: false,
+    ...freshNeeds(registry.creature(key)!, 64),
   };
   return record;
 }

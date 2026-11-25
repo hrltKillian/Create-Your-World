@@ -61,6 +61,11 @@ export interface WearDef {
   readonly airFilter?: number;
   /** Cancels foul water at the feet. */
   readonly waterproof?: boolean;
+  /**
+   * A scanner (head only): looking at a creature in sight within `range` blocks for `seconds`
+   * studies it (the bestiary), and the target panel shows its state (docs plan v2 « M17 »).
+   */
+  readonly scanner?: { readonly seconds: number; readonly range: number };
   /** Hits absorbed, or seconds of use for an `airFilter` piece (its stack's `durability`). */
   readonly durability: number;
 }

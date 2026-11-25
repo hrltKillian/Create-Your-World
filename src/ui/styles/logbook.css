@@ -398,3 +398,37 @@
   color: var(--c-ink-muted);
   font-size: 0.74rem;
 }
+
+/* Bestiary: a card per creature, greyed until met. */
+
+.bestiary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.bestiary-row {
+  padding: 8px 10px;
+  border: 1px solid rgba(232, 176, 74, 0.25);
+  border-radius: 6px;
+  background: rgba(20, 16, 10, 0.35);
+}
+
+.bestiary-row h3 {
+  margin: 0 0 4px;
+  color: var(--c-accent);
+  font-size: 0.85rem;
+}
+
+.bestiary-row p {
+  margin: 2px 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+}
+
+.bestiary-row.level-0 {
+  opacity: 0.55;
+}

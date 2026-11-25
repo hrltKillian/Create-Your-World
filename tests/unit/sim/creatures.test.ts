@@ -172,7 +172,7 @@ describe('creatures', () => {
     place(s, 'creature:trotter', 20.6, 20.5);
     const shellback = place(s, 'creature:shellback', -10.5, -10.5);
     Object.assign(shellback, { mode: 'charge', modeTicks: 30, yaw: 0, target: -1 });
-    s.step(10);
+    s.step(20);
     // Due north (−z), without a sideways drift.
     expect(shellback.mode).toBe('charge');
     expect(shellback.body.x).toBe(-10.5);

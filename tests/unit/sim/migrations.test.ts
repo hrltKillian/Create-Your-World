@@ -217,6 +217,7 @@ describe('save versions', () => {
       playerId: 1,
       drank: false,
       cursor: null,
+      bestiary: {},
     });
   });
 
@@ -321,7 +322,7 @@ describe('save versions', () => {
 
   it('upgrades version 6 players: no cursor stack (no slot number of commands is saved)', () => {
     const player = { playerId: 1, inventory: [null], equipment: [] };
-    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null });
+    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null, bestiary: {} });
     expect(migrate('column', { blockEntities: [] }, 6)).toEqual({ blockEntities: [] });
   });
 
@@ -363,6 +364,7 @@ describe('save versions', () => {
     for (const [version, updates] of [
       [7, 0],
       [8, 2],
+      [9, 2],
     ] as const) {
       const storage = new MemoryStorage();
       await storage.write({ ...fixture(version), removed: [] });
@@ -370,5 +372,19 @@ describe('save versions', () => {
       expect(sim.blockUpdates.size, `v${version}`).toBe(updates);
     }
     expect(migrate('world', { id: 'w' }, 7)).toEqual({ id: 'w', blockUpdates: [] });
+  });
+
+  it('gives version 8 players an empty bestiary, and keeps a v9 one (only the pack’s creatures)', async () => {
+    expect(migrate('player', { playerId: 1 }, 8)).toEqual({ playerId: 1, bestiary: {} });
+    const stored = fixture(9);
+    const players = stored.players.map((p) => ({
+      ...p,
+      bestiary: { ...p.bestiary, 'creature:nope': 2, 'creature:shagback': 7 },
+    }));
+    const storage = new MemoryStorage();
+    await storage.write({ ...stored, players, removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = [...sim.players.values()][0]!;
+    expect(player.bestiary).toEqual({ 'creature:trotter': 2, 'creature:prowler': 1 });
   });
 });

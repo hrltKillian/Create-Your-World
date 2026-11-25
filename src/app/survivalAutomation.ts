@@ -77,5 +77,7 @@ export function playerStats(app: App) {
     graves: player.graves.map((cell) => ({ ...cell })),
     objectives: [...player.objectives],
     equipment: serializeInventory(player.equipment),
+    bestiary: { ...player.bestiary },
+    scan: { id: player.scanId, ticks: player.scanTicks },
   };
 }

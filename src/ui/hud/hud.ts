@@ -7,6 +7,7 @@ import { EffectList } from './effects.ts';
 import { Flash } from './flash.ts';
 import { ObjectivesPanel } from './objectives.ts';
 import { PickupFeed } from './pickups.ts';
+import { ScanRing } from './scanRing.ts';
 import { StaminaArc } from './staminaArc.ts';
 import { TargetLine } from './targetLine.ts';
 import { Vignettes } from './vignettes.ts';
@@ -26,6 +27,7 @@ export class Hud {
   readonly vignettes = new Vignettes();
   readonly vitals: Vitals;
   readonly stamina = new StaminaArc();
+  readonly scan = new ScanRing();
   readonly combat = new CombatMarks();
   readonly compass = new Compass();
   readonly clock: HTMLElement;
@@ -49,6 +51,7 @@ export class Hud {
       this.vignettes.element,
       h('div', { class: 'hud-top' }, this.compass.element, this.clock, this.target.element),
       this.stamina.element,
+      this.scan.element,
       this.combat.element,
       this.vitals.element,
       this.pickups.element,

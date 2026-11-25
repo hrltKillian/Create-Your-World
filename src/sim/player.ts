@@ -132,6 +132,11 @@ export interface PlayerState {
   objectives: string[];
   /** Has drunk at least once: a sip, or a consumable that quenches thirst (objectives). */
   drank: boolean;
+  /** The bestiary: creature key → MET or STUDIED (sim/bestiary.ts). */
+  bestiary: Record<string, number>;
+  /** The creature a worn scanner looks at (−1: none) and the ticks it has (not saved). */
+  scanId: number;
+  scanTicks: number;
   /**
    * The bedroll the player lies on while the others are still awake (sleep.ts; not saved): the
    * night passes once every living player sleeps.
@@ -198,6 +203,9 @@ export function createPlayer(
     graves: [],
     objectives: [],
     drank: false,
+    bestiary: {},
+    scanId: -1,
+    scanTicks: 0,
     sleeping: null,
   };
 }

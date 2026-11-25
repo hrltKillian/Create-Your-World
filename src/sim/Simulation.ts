@@ -6,6 +6,7 @@ import { LightEngine } from '../world/light/LightEngine.ts';
 import type { GenResult } from '../world/protocol.ts';
 import { VoxelWorld } from '../world/VoxelWorld.ts';
 import { stepCreatures } from './ai/creatureStep.ts';
+import { stepScanners } from './bestiary.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import { applyBlockEntityCommand } from './blockEntityCommands.ts';
 import { BlockUpdateQueue, stepBlockUpdates } from './blockUpdates.ts';
@@ -232,6 +233,7 @@ export class Simulation implements ColumnSink {
     }
     stepCreatures(this, out);
     stepCombat(this, out);
+    stepScanners(this, out);
     // Block entities, craft queues and timed states.
     for (const player of this.players.values()) {
       checkOpened(this, player, out);

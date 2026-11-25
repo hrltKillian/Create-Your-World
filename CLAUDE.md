@@ -173,6 +173,16 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `debug.killCreature` kills one not already dying, burrowing too (a death with its loot);
     `creatureCensus` (sim/creatures.ts) counts the living ones (the hook, `runBot` and the headless
     runner); `SimView.spawnLog`;
+  - creatures of plan v2 (M17): agility, stamina, diet in `CreatureDef` (`agility`, `stamina`,
+    `diet`); movement along the facing, stamina, hops, falls in `sim/ai/creatureStep.ts`
+    (`HOP_TICKS`, `WOUNDED_SPEED`), `CREATURE_BODY.swimAccel`; the search and give-up of a hunt
+    (`fight`, `search`, `giveUp`, `BRAIN.searchTicks`/`giveUpTicks`/`calmTicks`/`waryTicks`,
+    `sim/ai/behaviours.ts`); needs `sim/ai/needs.ts` (`chooseNeed`, `reachNeed`, `SEEK_FOOD`/
+    `SEEK_WATER`, `balance.creatures.needs`/`fall`); the bestiary `sim/bestiary.ts` (`MET`/`STUDIED`
+    in `core/creatures.ts`, `noteCreature`, `stepScanners` after combat, `scannerOf`,
+    `creatureInView`; `creatureAlong` in melee.ts, shared with `meleeTarget`), its page
+    `ui/bestiary.ts` (`bestiaryRows`, `creatureName`) and `ui/screens/bestiaryPanel.ts`, the HUD
+    ring `ui/hud/scanRing.ts` (`#hud-scan`);
   - slot arrays (inventory, chests, stations): `sim/inventory.ts` (`addToRange`, `roomFor`,
     `moveStack`, `moveInto`, `quickMove`, `countMatching`/`takeMatching` for item-or-tag
     ingredients, `freshStack`, `spendUses` (a stack's `durability` is its uses left: a tool's,
@@ -424,6 +434,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Creature checks of plan v2: `?worldType=flat&fixedStep=1&selftest=m0,m17` (`selftest/m17.ts`):
+  a worn scanner studies a defensive creature, the ring fills, the target panel shows its state,
+  the Bag's Bestiary card (`data-creature`, `data-level`) says studied. Hook: `player.stats()` adds
+  `bestiary` and `scan`, `entities.list()` adds `stamina`, `tired`, `hunger`, `thirst`.
 - World checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m16` (`selftest/m16.ts`): no generated
   liquid beside or above air around the player; a teleport onto the nearest cave opening lands on
   its floor unhurt.

@@ -85,6 +85,8 @@ export interface PlayerRecord {
   readonly objectives: readonly string[];
   /** Has drunk at least once (from save version 4). */
   readonly drank: boolean;
+  /** Creature key → MET (1) or STUDIED (2) (version 9). */
+  readonly bestiary: Readonly<Record<string, number>>;
   /** A fight in progress: loud, invulnerable and weapon cooldown ticks left (save version 5). */
   readonly fightTicks: number;
   readonly invulnerable: number;

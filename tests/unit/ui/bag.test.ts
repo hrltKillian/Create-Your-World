@@ -5,6 +5,7 @@ import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
 import { type Command, OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../../../src/sim/craftQueue.ts';
 import { BASE_INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
+import { bestiaryRows } from '../../../src/ui/bestiary.ts';
 import type { LogbookSource } from '../../../src/ui/logbook.ts';
 import { BagScreen } from '../../../src/ui/screens/bag.ts';
 import { ContainerScreen } from '../../../src/ui/screens/container.ts';
@@ -127,6 +128,7 @@ describe('BagScreen', () => {
     expect(byAttr(bag.element, 'data-page').map((e) => e.getAttribute('data-page'))).toEqual([
       'inventory',
       'logbook',
+      'bestiary',
     ]);
     expect([bag.shown(), wear.hidden, fake(logbook.element).hidden]).toEqual([
       'inventory',
@@ -161,13 +163,13 @@ describe('BagScreen', () => {
     const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
     const state = { source: logbookSource({}), queue: [] };
     fake(bag.element).dispatch('pointermove', { clientX: 120, clientY: 80 });
-    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear);
+    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear, []);
     expect(cursor.hidden).toBe(false);
     expect(cursor.textContent).toContain('3');
     expect(cursor.style.transform).toBe('translate(120px, 80px)');
     fake(bag.element).dispatch('pointermove', { clientX: 200, clientY: 90 });
     expect(cursor.style.transform).toBe('translate(200px, 90px)');
-    bag.update(slots, null, state, gear);
+    bag.update(slots, null, state, gear, []);
     expect(cursor.hidden).toBe(true);
   });
 
@@ -177,7 +179,7 @@ describe('BagScreen', () => {
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[9] = { item: 'item:fur_hood', count: 1 };
     const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
-    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear);
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, []);
     expect(fake(bag.element).querySelector('.wear-stats')?.textContent).toBe(
       'Armor 3 · Warmth +16 °C · Cooling −0 °C',
     );
@@ -460,5 +462,24 @@ describe('StationScreen', () => {
     toggle.dispatch('click');
     toggle.dispatch('click');
     expect(toggles()).toEqual(new Array(3).fill({ type: 'station.keepLit' }));
+  });
+
+  it('shows the Bestiary as a tab: unknown creatures, then what a met or studied one is', () => {
+    const { screen } = deps();
+    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
+    const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+    const rows = bestiaryRows(registry, { 'creature:trotter': 2, 'creature:prowler': 1 });
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, rows);
+    bag.show('bestiary');
+    const cards = fake(bag.element).findAll((el) => el.getAttribute('data-creature') !== null);
+    expect(cards.map((el) => el.getAttribute('data-level'))).toEqual(['2', '0', '1', '0', '0']);
+    const text = (i: number) => cards[i]!.textContent ?? '';
+    expect(text(1)).toContain('Unknown creature');
+    expect(text(0)).toContain('Trotter');
+    expect(text(0)).toContain('Health 12');
+    expect(text(2)).toContain('Prowler');
+    expect(text(2)).toContain('Study it');
+    expect(text(2)).not.toContain('Health');
   });
 });

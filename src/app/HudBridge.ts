@@ -1,11 +1,15 @@
 import type { ObjectiveDef } from '../content/schema.ts';
+import { STUDIED } from '../core/creatures.ts';
 import { t } from '../i18n/i18n.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import { aboveHorizon, sunBearing } from '../render/Sky.ts';
+import { scannerOf } from '../sim/bestiary.ts';
+import { ticksOf } from '../sim/clock.ts';
 import type { SimEvent } from '../sim/events.ts';
 import { STAMINA } from '../sim/player.ts';
 import { thermalStatus } from '../sim/survival.ts';
 import { dayOf, hourOf } from '../sim/time.ts';
+import { creatureName } from '../ui/bestiary.ts';
 import { clockText } from '../ui/hud/clock.ts';
 import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
@@ -172,17 +176,42 @@ export class HudBridge {
     if (biome) this.hud.biome.show(t(biome.def.nameKey));
   }
 
-  /** The aimed creature's name, or the aimed block's name and hint (nothing while dead). */
+  /**
+   * The creature a worn scanner looks at (its name and state, the scan's ring), else the aimed
+   * creature's name (« Unknown creature » before it is met) or the aimed block's name and hint
+   * (nothing while dead).
+   */
   private updateTarget(): void {
     const { hit, creature } = this.session.aim;
     const player = this.session.player;
-    const registry = this.session.host.view.registry;
+    const view = this.session.host.view;
+    const registry = view.registry;
+    const scanner = scannerOf(registry, player);
+    const scanned = scanner ? view.entities.get(player.scanId) : undefined;
+    const level = (key: string) => player.bestiary[key] ?? 0;
+    if (scanner && scanned?.kind === 'creature' && !player.survival.dead) {
+      const def = registry.creature(scanned.creature)!;
+      const studied = level(def.key) >= STUDIED;
+      this.hud.scan.update(studied ? Number.NaN : player.scanTicks / ticksOf(scanner.seconds));
+      this.hud.target.update(
+        creatureName(def, level(def.key)),
+        t('hud.creatureState', {
+          health: Math.ceil(scanned.health),
+          max: def.health,
+          stamina: Math.floor(scanned.stamina),
+          mode: t(`creature.mode.${scanned.mode}`),
+        }),
+      );
+      return;
+    }
+    this.hud.scan.update(Number.NaN);
     if (player.survival.dead || (!creature && !hit.hit)) {
       this.hud.target.update(null, null);
       return;
     }
     if (creature) {
-      this.hud.target.update(t(registry.creature(creature.creature)!.nameKey), null);
+      const def = registry.creature(creature.creature)!;
+      this.hud.target.update(creatureName(def, level(def.key)), null);
       return;
     }
     const stack = player.inventory[this.input.slot];
