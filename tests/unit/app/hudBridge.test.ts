@@ -10,6 +10,7 @@ import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { Command } from '../../../src/sim/commands.ts';
 import { createPlayer, type PlayerState } from '../../../src/sim/player.ts';
 import { createTime } from '../../../src/sim/time.ts';
+import { QUEST_NEWS_SECONDS } from '../../../src/ui/hud/hud.ts';
 import { MINIMAP_RADIUS } from '../../../src/ui/map.ts';
 import { VoxelWorld } from '../../../src/world/VoxelWorld.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
@@ -303,18 +304,25 @@ describe('HudBridge', () => {
       listener({ type: 'questDone', playerId: 2, quest: first.key, already: false });
       listener({ type: 'nightSurvived', night: 2 });
     }
-    // The messages of one frame share a line; another player's, and the unlock of a quest open
-    // from the start, are not shown.
-    expect(inventory.hint.shown).toEqual([]);
+    // The messages of one frame share their own line (not the hint line), for QUEST_NEWS_SECONDS;
+    // another player's, and the unlock of a quest open from the start, are not shown.
+    const news = bridge.hud.questNews.element as unknown as FakeElement;
+    expect(news.hidden).toBe(true);
     bridge.frame(0.01);
-    expect(inventory.hint.shown).toEqual([
+    expect(inventory.hint.shown).toEqual([]);
+    expect(news.hidden).toBe(false);
+    expect(news.textContent).toBe(
       [
         `New quest: ${name(first.textKey)}`,
         `Quest complete: ${name(first.textKey)} (claim it in the Quests tab)`,
         `Quest complete: ${name(first.textKey)} (already done)`,
         `${name(hunt.textKey)} 0/${hunt.counter!.count}`,
       ].join(' · '),
-    ]);
+    );
+    bridge.frame(QUEST_NEWS_SECONDS - 0.5);
+    expect(news.hidden).toBe(false);
+    bridge.frame(1);
+    expect(news.hidden).toBe(true);
     const banner = bridge.hud.banner.element as unknown as FakeElement;
     expect(banner.textContent).toBe('Night 2 survived');
     expect(banner.classList.contains('play')).toBe(true);

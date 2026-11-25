@@ -44,6 +44,7 @@ const CUSTOM: Settings = {
   pixelRatio: 0.75,
   particles: false,
   viewBob: false,
+  gamma: 0.6,
   sensitivity: 1.35,
   invertY: true,
   crouch: 'toggle',
@@ -119,6 +120,8 @@ describe('settings', () => {
     });
     expect(readSettings({ version: 1, fov: 61.6 }).fov).toBe(62);
     expect(readSettings({ version: 1, uiScale: 0.1 }).uiScale).toBe(0.75);
+    expect(readSettings({ version: 1, gamma: 4 }).gamma).toBe(1);
+    expect(readSettings({ version: 1, gamma: 'bright' }).gamma).toBe(0);
   });
 
   it('starts on the Medium preset; each preset is a choice of the screen and found again', () => {

@@ -111,6 +111,11 @@ export class WorldView {
   }
 
   /** Vertical field of view of the world camera, in degrees (Settings; a pose may add to it). */
+  /** The player's gamma (Settings, 0–1): lifts the dark end of the light curve. */
+  setGamma(gamma: number): void {
+    this.materials.uniforms.uGamma.value = gamma;
+  }
+
   setFov(degrees: number): void {
     this.fov = degrees;
     this.camera.fov = degrees;

@@ -83,6 +83,9 @@ export class SettingsScreen {
     );
     const particles = checkbox('particles', 'settings.particles', (on) => patch({ particles: on }));
     const viewBob = checkbox('viewBob', 'settings.viewBob', (on) => patch({ viewBob: on }));
+    const gamma = percentSlider('gamma', 'settings.gamma', { min: 0, max: 1 }, (n) =>
+      patch({ gamma: n }),
+    );
     const sensitivity = percentSlider(
       'sensitivity',
       'settings.sensitivity',
@@ -111,6 +114,7 @@ export class SettingsScreen {
       (s) => resolution.set(s.pixelRatio),
       (s) => particles.set(s.particles),
       (s) => viewBob.set(s.viewBob),
+      (s) => gamma.set(s.gamma),
       (s) => sensitivity.set(s.sensitivity),
       (s) => invertY.set(s.invertY),
       (s) => crouch.set(s.crouch),
@@ -132,6 +136,7 @@ export class SettingsScreen {
         labelled('settings.pixelRatio', resolution.element),
         particles.element,
         viewBob.element,
+        gamma.element,
       ),
       group(
         'settings.controls',

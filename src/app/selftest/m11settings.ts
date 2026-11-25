@@ -18,8 +18,8 @@ import {
  * steps (?worldType=flat&fixedStep=1), driven through the pause menu by clicks and key presses as
  * a player does: a key rebound on the Key bindings screen applies at once, is stored under
  * cyw.settings.v1 and read back, conflicts are refused, and the pause and debug keys follow it;
- * the particles, view bob, quality presets (the pixel ratio), crouch mode and interface scale
- * apply at once. Each case puts the player's stored settings back and returns to play.
+ * the particles, view bob, quality presets (the pixel ratio), crouch mode, interface scale and
+ * gamma apply at once. Each case puts the player's stored settings back and returns to play.
  */
 
 /** Runs `body` from the Settings screen (over the pause menu), then restores and plays again. */
@@ -146,7 +146,7 @@ const rebindingCase: SelftestCase = {
 };
 
 const liveCase: SelftestCase = {
-  name: 'particles, view bob, quality presets (pixel ratio), crouch mode and UI scale apply at once',
+  name: 'particles, view bob, quality presets (pixel ratio), crouch mode, UI scale and gamma apply at once',
   scenes: PLAY_SCENES,
   skip: (app) =>
     app.params.quality !== null
@@ -191,7 +191,16 @@ const liveCase: SelftestCase = {
       assert(game.settings.uiScale === 1.25, `UI scale ${game.settings.uiScale}`);
       const zoom = Number.parseFloat(getComputedStyle(game.menus.element).getPropertyValue('zoom'));
       assert(Math.abs(zoom - 1.25) < 1e-6, `the menus are zoomed ${zoom}, not 1.25`);
+
+      // Gamma (plan v3 « M28 »): the light curve's brightness, in the shaders at once.
+      const gamma = settingsField('input[name="gamma"]');
+      gamma.value = '100';
+      gamma.dispatchEvent(new Event('input'));
+      const uniform = app.view!.materials.uniforms.uGamma;
+      assert(game.settings.gamma === 1 && uniform.value === 1, `gamma ${uniform.value}, not 1`);
     });
+    const restored = app.view!.materials.uniforms.uGamma.value;
+    assert(restored === game.settings.gamma, `gamma ${restored} after the settings came back`);
     const zoom = Number.parseFloat(getComputedStyle(game.menus.element).getPropertyValue('zoom'));
     assert(zoom === 1, `the menus stay zoomed ${zoom} after the settings came back`);
   },

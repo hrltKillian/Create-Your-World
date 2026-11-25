@@ -7,7 +7,7 @@ import { basePack } from '../../../src/content/packs/base/index.ts';
 import { addStrings } from '../../../src/i18n/i18n.ts';
 import { DEFAULT_BINDINGS } from '../../../src/input/bindings.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
-import type { Command } from '../../../src/sim/commands.ts';
+import { type Command, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
@@ -180,6 +180,25 @@ describe('InventoryUi', () => {
     press('KeyE');
     press('KeyM');
     expect(ui.screen()).toBeNull();
+  });
+
+  it('opens a journal read in hand as a book, the client’s alone; the Bag’s key closes it', () => {
+    const { ui, gate, sent, give, send } = setup();
+    const journal = registry.pack.items!.find((item) => item.lore)!;
+    give(journal.key);
+    send({ ...NEUTRAL_INPUT, secondary: true });
+    expect([ui.screen(), gate.screenOpen]).toEqual(['book', true]);
+    expect(ui.book.shownText().length).toBeGreaterThan(20);
+    const press = (code: string) =>
+      keydown({
+        code,
+        repeat: false,
+        defaultPrevented: false,
+        preventDefault() {},
+      } as KeyboardEvent);
+    press('KeyE');
+    expect([ui.screen(), gate.screenOpen]).toEqual([null, false]);
+    expect(sent.filter((type) => type.startsWith('screen.'))).toEqual([]);
   });
 
   it("cancels Tab's focus move when it closes the bag, a clicked button holding the focus", () => {

@@ -3,48 +3,42 @@ import { t } from '../../i18n/i18n.ts';
 import type { SurvivalState } from '../../sim/survival.ts';
 import { h } from '../h.ts';
 
-/** Bubbles of the breath row (each one a fifth of the air). */
-export const BREATH_BUBBLES = 5;
+/** Symbols in each row (each one a tenth of the gauge, shown full, half or empty). */
+export const ROW_ICONS = 10;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
- * A gauge drawn as a corked vial (docs « Interface »: vials, never hearts or drumsticks): the
- * liquid scales with the level, the value is written below, and it pulses when `alarm`.
+ * A gauge drawn as a row of ROW_ICONS symbols (plan v3 « M28 », the reference game's rows of
+ * icons with our own symbols: never hearts or drumsticks), each full, half or empty: a level shows
+ * as soon as it is above 0 (the last half rounds up). It pulses when `alarm`.
  */
-class Vial {
+class IconRow {
   readonly element: HTMLElement;
-  private readonly value: HTMLElement;
-  private max: number;
+  private readonly icons: HTMLElement[] = [];
   private readonly labelKey: string;
+  /** Halves shown (NaN before the first update). */
   private shown = Number.NaN;
 
-  constructor(kind: string, max: number, labelKey: string) {
-    this.max = max;
+  constructor(kind: string, labelKey: string) {
     this.labelKey = labelKey;
-    this.value = h('span', { class: 'vial-value' });
+    for (let i = 0; i < ROW_ICONS; i++) this.icons.push(h('span', { class: 'stat-icon' }));
     this.element = h(
       'div',
-      { class: `vial vial-${kind}`, attrs: { role: 'meter' } },
-      h('span', { class: 'vial-icon' }),
-      h('span', { class: 'vial-glass' }, h('span', { class: 'vial-liquid' })),
-      this.value,
+      { class: `icon-row row-${kind}`, attrs: { role: 'meter' } },
+      ...this.icons,
     );
   }
 
-  /**
-   * Shows a level out of `max` (the health vial's grows with vitality); touches the DOM only when
-   * its rounded value, its top or the alarm changes.
-   */
-  set(level: number, alarm: boolean, max = this.max): void {
+  /** Shows `level` out of `max`; touches the DOM only when the halves or the alarm change. */
+  set(level: number, max: number, alarm: boolean): void {
     this.element.classList.toggle('alarm', alarm);
-    const n = Math.round(level);
-    if (n === this.shown && max === this.max) return;
-    this.max = max;
-    this.shown = n;
-    this.element.style.setProperty('--fill', String(clamp01(n / this.max)));
-    this.value.textContent = String(n);
-    this.element.setAttribute('aria-label', t(this.labelKey, { n }));
+    const halves = Math.ceil(clamp01(level / max) * ROW_ICONS * 2 - 1e-9);
+    if (halves === this.shown) return;
+    this.shown = halves;
+    for (let i = 0; i < ROW_ICONS; i++)
+      this.icons[i]!.style.setProperty('--fill', String(clamp01((halves - 2 * i) / 2)));
+    this.element.setAttribute('aria-label', t(this.labelKey, { n: Math.round(level) }));
   }
 }
 
@@ -60,7 +54,7 @@ class Thermometer {
 
   constructor(limit: number) {
     this.limit = limit;
-    this.value = h('span', { class: 'vial-value' });
+    this.value = h('span', { class: 'thermo-value' });
     this.element = h(
       'div',
       { class: 'thermo', attrs: { role: 'meter' } },
@@ -96,70 +90,43 @@ class Thermometer {
   }
 }
 
-/** Air left with the head under water: a row of bubbles that shrink, shown only while short. */
-class BreathRow {
-  readonly element: HTMLElement;
-  private readonly bubbles: HTMLElement[] = [];
-  private shown = Number.NaN;
-
-  constructor() {
-    for (let i = 0; i < BREATH_BUBBLES; i++)
-      this.bubbles.push(h('span', { class: 'breath-bubble' }));
-    this.element = h(
-      'div',
-      { class: 'breath', attrs: { 'aria-label': t('hud.breath') } },
-      ...this.bubbles,
-    );
-    this.element.hidden = true;
-  }
-
-  set(breath: number, max: number): void {
-    // Hidden at full air, even when the rounded level did not change on the last refill.
-    const full = breath >= max;
-    if (this.element.hidden !== full) this.element.hidden = full;
-    const level = Math.round((breath / max) * BREATH_BUBBLES * 10) / 10;
-    if (level === this.shown) return;
-    this.shown = level;
-    for (let i = 0; i < BREATH_BUBBLES; i++)
-      this.bubbles[i]!.style.setProperty('--fill', String(clamp01(level - i)));
-  }
-}
-
 /**
- * Bottom left of the HUD (docs « Interface »): vials of health, hunger and thirst with their
- * icons, the thermometer with its trend, toxicity while there is any, and the breath under water.
- * Every level comes from the player's gauges; thresholds from the pack's balance.
+ * Over the hotbar (docs « Interface », plan v3 « M28 »): on the left health, the thermometer with
+ * its trend and toxicity while there is any; on the right hunger, thirst and the breath under
+ * water, those rows filling from the right. Every level comes from the player's gauges;
+ * thresholds from the pack's balance.
  */
 export class Vitals {
   readonly element: HTMLElement;
   private readonly balance: BalanceDef;
-  private readonly health: Vial;
-  private readonly hunger: Vial;
-  private readonly thirst: Vial;
-  private readonly toxicity: Vial;
+  private readonly health = new IconRow('health', 'hud.health');
+  private readonly hunger = new IconRow('hunger', 'hud.hunger');
+  private readonly thirst = new IconRow('thirst', 'hud.thirst');
+  private readonly toxicity = new IconRow('toxicity', 'hud.toxicity');
+  private readonly breath = new IconRow('breath', 'hud.breath');
   private readonly thermo: Thermometer;
-  private readonly breath = new BreathRow();
 
   constructor(balance: BalanceDef) {
     this.balance = balance;
-    this.health = new Vial('health', balance.health.max, 'hud.health');
-    this.hunger = new Vial('hunger', balance.hunger.max, 'hud.hunger');
-    this.thirst = new Vial('thirst', balance.thirst.max, 'hud.thirst');
-    this.toxicity = new Vial('toxicity', balance.toxicity.max, 'hud.toxicity');
     this.thermo = new Thermometer(balance.temperature.limit);
     this.toxicity.element.hidden = true;
+    this.breath.element.hidden = true;
     this.element = h(
       'div',
       { id: 'hud-vitals', class: 'hud-vitals', attrs: { 'aria-label': t('hud.vitals') } },
-      this.breath.element,
       h(
         'div',
-        { class: 'vitals-row' },
-        this.health.element,
-        this.hunger.element,
-        this.thirst.element,
-        this.thermo.element,
+        { class: 'vitals-side vitals-left' },
         this.toxicity.element,
+        this.thermo.element,
+        this.health.element,
+      ),
+      h(
+        'div',
+        { class: 'vitals-side vitals-right' },
+        this.breath.element,
+        this.thirst.element,
+        this.hunger.element,
       ),
     );
   }
@@ -167,13 +134,16 @@ export class Vitals {
   /** `status`: the thermal status (sim `thermalStatus`). */
   update(s: Readonly<SurvivalState>, status: number): void {
     const b = this.balance;
-    this.health.set(s.health, s.health < b.health.lowAt, s.healthMax);
-    this.hunger.set(s.hunger, s.hunger < b.hunger.lowAt);
-    this.thirst.set(s.thirst, s.thirst < b.thirst.lowAt);
+    this.health.set(s.health, s.healthMax, s.health < b.health.lowAt);
+    this.hunger.set(s.hunger, b.hunger.max, s.hunger < b.hunger.lowAt);
+    this.thirst.set(s.thirst, b.thirst.max, s.thirst < b.thirst.lowAt);
     this.thermo.set(s, status);
     const clean = s.toxicity <= 0;
     if (this.toxicity.element.hidden !== clean) this.toxicity.element.hidden = clean;
-    this.toxicity.set(s.toxicity, s.toxicity >= b.toxicity.harmAt);
-    this.breath.set(s.breath, b.breath.seconds);
+    this.toxicity.set(s.toxicity, b.toxicity.max, s.toxicity >= b.toxicity.harmAt);
+    // Hidden at full air, even when the halves shown did not change on the last refill.
+    const full = s.breath >= b.breath.seconds;
+    if (this.breath.element.hidden !== full) this.breath.element.hidden = full;
+    this.breath.set(s.breath, b.breath.seconds, false);
   }
 }

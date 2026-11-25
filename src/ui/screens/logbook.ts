@@ -18,6 +18,7 @@ import {
   stationRecipes,
 } from '../logbook.ts';
 import type { ScreenActions } from '../slotBoard.ts';
+import { Tooltip } from '../tooltip.ts';
 import { menuButton } from './menuParts.ts';
 
 /** A queue entry as the Logbook shows it. */
@@ -67,6 +68,8 @@ export class LogbookPanel {
   private tab: RecipeCategory = RECIPE_CATEGORIES[0]!;
   /** The selected recipe's row as last drawn (the detail pane comes back to it). */
   private selectedRow: RecipeRow | undefined;
+  /** The hovered recipe's description (its output's). */
+  readonly tooltip = new Tooltip();
   private selected = '';
   private query = '';
   private onlyCraftable = false;
@@ -109,6 +112,11 @@ export class LogbookPanel {
     this.tabs = h('nav', { class: 'logbook-tabs' });
     this.list = h('div', { class: 'logbook-list' });
     this.detail = h('div', { class: 'logbook-detail' });
+    // Rows are drawn again as they change: the list, which stays, moves and hides the bubble.
+    this.list.addEventListener('pointermove', (event) =>
+      this.tooltip.move(event.clientX, event.clientY),
+    );
+    this.list.addEventListener('pointerleave', () => this.tooltip.hide());
     this.queueLabel = h('p', { class: 'bag-section' });
     this.queue = h('div', { class: 'logbook-queue' });
     this.footer = h('p', { class: 'logbook-footer' });
@@ -123,6 +131,7 @@ export class LogbookPanel {
       this.queueLabel,
       this.queue,
       this.footer,
+      this.tooltip.element,
     );
   }
 
@@ -245,11 +254,15 @@ export class LogbookPanel {
             this.selected = recipe.key;
             this.choose();
           },
-          // A discovered recipe hovered shows its item's description (plan v3 « M18 »).
-          pointerenter: () => {
-            if (row.discovered) this.showDetail(row);
+          // A discovered recipe hovered shows its item's description in a bubble (plan v3 « M18 »,
+          // « M28 »): the panel keeps its size.
+          pointerenter: (event) => {
+            if (!row.discovered) return;
+            const item = recipe.output.item;
+            const lines = itemLines(this.art.registry, item);
+            this.tooltip.show(this.outputName(row), lines, event.clientX, event.clientY);
           },
-          pointerleave: () => this.showDetail(this.selectedRow),
+          pointerleave: () => this.tooltip.hide(),
         },
       },
       itemIcon(this.art, recipe.output.item),
@@ -316,9 +329,6 @@ export class LogbookPanel {
     if (!row.here) out.push(h('p', { class: 'logbook-station' }, this.madeAt(row)));
     if (row.needsLevel > 0)
       out.push(h('p', { class: 'logbook-station' }, t('logbook.level', { n: row.needsLevel })));
-    if (row.discovered)
-      for (const line of itemLines(this.art.registry, recipe.output.item))
-        out.push(h('p', { class: 'logbook-info' }, line));
     out.push(
       h(
         'ul',

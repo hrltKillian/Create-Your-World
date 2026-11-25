@@ -12,6 +12,7 @@ import { Hotbar } from '../ui/hud/hotbar.ts';
 import { HudHint } from '../ui/hud/hudHint.ts';
 import type { ItemArt } from '../ui/itemSlot.ts';
 import { BAG_PAGES, type BagPage, BagScreen } from '../ui/screens/bag.ts';
+import { BookScreen } from '../ui/screens/bookScreen.ts';
 import { ContainerScreen } from '../ui/screens/container.ts';
 import { LogbookPanel } from '../ui/screens/logbook.ts';
 import { MapScreen } from '../ui/screens/mapScreen.ts';
@@ -44,7 +45,7 @@ function itemIcons(registry: Registry, layers: readonly Uint8Array[]): Promise<s
 }
 
 /** The screens over the world (the hook's `ui.screen()` names them). */
-export type InventoryScreen = 'bag' | 'container' | 'station' | 'workbench' | 'map';
+export type InventoryScreen = 'bag' | 'container' | 'station' | 'workbench' | 'map' | 'book';
 
 /** What the controller needs from each screen. */
 interface ScreenView {
@@ -58,7 +59,7 @@ interface ScreenView {
  * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
  * Tab opens the bag on its Inventory, L on its Logbook, B on its Bestiary, J on its Quests, U on
  * its Status (`toggleBag`); M the big map (`toggleMap`, the HUD's minimap shares its colours:
- * `maps`); one of them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
+ * `maps`); a journal read in hand shows its book (`itemRead`); one of them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
  * a slot swaps; keys typed in a text box (the Logbook's search) are its own. Esc is the pause
  * menu's alone (Game.onPauseKey): it never closes a screen. The Bag opens in the simulation too (`screen.open`),
  * whose slot clicks need it; chests, stations and workbenches open from the simulation (secondary
@@ -74,6 +75,8 @@ export class InventoryUi {
   readonly station: StationScreen;
   readonly workbench: WorkbenchScreen;
   readonly map: MapScreen;
+  /** A journal read (secondary with it in hand). */
+  readonly book: BookScreen;
   /** The map colours of the world, for the big map and the HUD's minimap. */
   readonly maps: MapModel;
   readonly bridge: UiBridge;
@@ -121,6 +124,11 @@ export class InventoryUi {
     this.station = new StationScreen(deps);
     this.workbench = new WorkbenchScreen(deps, new LogbookPanel(art, actions, limits));
     this.map = new MapScreen(actions, () => input.keyLabel('map'));
+    this.book = new BookScreen(
+      actions,
+      () => input.keyLabel('inventory'),
+      () => this.closeScreen(),
+    );
     this.maps = new MapModel(session.host.view.gen);
     // The bridge refreshes this object's views (hotbar, hint line and screens).
     this.bridge = new UiBridge(session.host.view, input, this);
@@ -136,6 +144,7 @@ export class InventoryUi {
       this.station.element,
       this.workbench.element,
       this.map.element,
+      this.book.element,
     );
     window.addEventListener('keydown', this.onKeyDown);
   }
@@ -151,6 +160,7 @@ export class InventoryUi {
     if (this.container.isOpen()) return 'container';
     if (this.station.isOpen()) return 'station';
     if (this.workbench.isOpen()) return 'workbench';
+    if (this.book.isOpen()) return 'book';
     return this.map.isOpen() ? 'map' : null;
   }
 
@@ -196,8 +206,8 @@ export class InventoryUi {
     const open = this.openView();
     if (!open) return;
     open.close();
-    // The map is the client's alone: the simulation has no screen open for it.
-    if (open !== this.map) this.session.host.send({ type: 'screen.close' });
+    // The map and a book are the client's alone: the simulation has no screen open for them.
+    if (open !== this.map && open !== this.book) this.session.host.send({ type: 'screen.close' });
   }
 
   private openView(): ScreenView | null {
@@ -209,6 +219,15 @@ export class InventoryUi {
     if (!('playerId' in event) || event.playerId !== this.session.player.playerId) return;
     if (event.type === 'blockEntityOpened') this.openBlock(event.x, event.y, event.z);
     else if (event.type === 'blockEntityClosed') this.blockClosed();
+    else if (event.type === 'itemRead') this.read(event.item);
+  }
+
+  /** A journal read while playing: its book shows (refused, as any screen, while paused). */
+  private read(key: string): void {
+    const item = this.session.host.view.registry.item(key);
+    if (!item?.lore || this.screen() || !this.gate.canOpenScreen()) return;
+    this.book.open(t(item.nameKey), t(item.lore));
+    this.gate.openScreen();
   }
 
   /**
@@ -245,7 +264,7 @@ export class InventoryUi {
    */
   private blockClosed(): void {
     const open = this.openView();
-    if (!open || open === this.bag || open === this.map) return;
+    if (!open || open === this.bag || open === this.map || open === this.book) return;
     open.close();
     if (!this.session.player.survival.dead) this.gate.closeScreen();
   }

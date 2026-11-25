@@ -1,5 +1,5 @@
 /*
- * Survival HUD (docs « Interface »): vials, thermometer, compass, clock, pinned quest,
+ * Survival HUD (docs « Interface »): rows of symbols, thermometer, compass, clock, pinned quest,
  * vignettes, banners and the death screen. Scripts only change CSS variables (`--fill`, `--x`,
  * `--o`, `--v`), classes and text; every motion is a transform or an opacity.
  */
@@ -258,137 +258,115 @@
   }
 }
 
-/* ---- Bottom left: vials, thermometer, breath ---- */
+/* ---- Over the hotbar: rows of symbols (plan v3 « M28 »), the thermometer ---- */
 
 .hud-vitals {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
-  padding: 9px 12px 7px;
-  border-top: 2px solid rgba(232, 176, 74, 0.4);
-  border-radius: 16px 16px 16px 5px;
-  background: var(--c-panel);
-}
-
-.vitals-row {
+  left: 50%;
+  bottom: 86px;
   display: flex;
   align-items: flex-end;
-  gap: 9px;
+  justify-content: space-between;
+  width: 430px;
+  transform: translateX(-50%);
 }
 
-.vial,
-.thermo {
+.vitals-side {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 4px;
-  width: 26px;
 }
 
-.vial-health {
-  --liquid: #d8475c;
-  --liquid-hi: #f28a99;
+.vitals-left {
+  align-items: flex-start;
 }
 
-.vial-hunger {
-  --liquid: #d9923a;
-  --liquid-hi: #f3c27a;
+.vitals-right {
+  align-items: flex-end;
 }
 
-.vial-thirst {
-  --liquid: #3e8fd8;
-  --liquid-hi: #8cc6f5;
+.icon-row {
+  display: flex;
+  gap: 2px;
+  /* An outline around every symbol, whatever its shape. */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
 
-.vial-toxicity {
-  --liquid: #7fb23a;
-  --liquid-hi: #bfe27f;
+/* Hunger, thirst and breath fill from the right, towards the middle of the screen. */
+.vitals-right .icon-row {
+  flex-direction: row-reverse;
 }
 
-.vial-icon {
-  width: 12px;
-  height: 12px;
-  background: var(--liquid);
-}
-
-/* Health: a cross. Hunger: a cluster of berries. Thirst: a drop. Toxicity: a crystal. */
-.vial-health .vial-icon {
-  clip-path: polygon(
-    36% 0,
-    64% 0,
-    64% 36%,
-    100% 36%,
-    100% 64%,
-    64% 64%,
-    64% 100%,
-    36% 100%,
-    36% 64%,
-    0 64%,
-    0 36%,
-    36% 36%
+.stat-icon {
+  --full: #d8475c;
+  --empty: rgba(40, 14, 18, 0.85);
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(
+    90deg,
+    var(--full) calc(var(--fill, 1) * 100%),
+    var(--empty) calc(var(--fill, 1) * 100%)
   );
 }
 
-.vial-hunger .vial-icon {
-  background:
-    radial-gradient(circle at 28% 70%, var(--liquid) 27%, transparent 29%),
-    radial-gradient(circle at 72% 70%, var(--liquid) 27%, transparent 29%),
-    radial-gradient(circle at 50% 32%, var(--liquid-hi) 27%, transparent 29%);
+/* A half symbol keeps its filled half towards the full ones. */
+.vitals-right .stat-icon {
+  background: linear-gradient(
+    270deg,
+    var(--full) calc(var(--fill, 1) * 100%),
+    var(--empty) calc(var(--fill, 1) * 100%)
+  );
 }
 
-.vial-thirst .vial-icon {
-  width: 10px;
-  height: 10px;
-  margin: 1px;
-  border-radius: 50% 0 50% 50%;
-  transform: rotate(-45deg);
+/* Health: vital cells (hexagons). */
+.row-health .stat-icon {
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
 }
 
-.vial-toxicity .vial-icon {
+/* Hunger: ration pods. */
+.row-hunger .stat-icon {
+  --full: #e0973c;
+  --empty: rgba(52, 32, 12, 0.85);
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+}
+
+/* Thirst: drops. */
+.row-thirst .stat-icon {
+  --full: #4598e0;
+  --empty: rgba(12, 28, 48, 0.85);
+  clip-path: polygon(
+    50% 0,
+    72% 32%,
+    86% 55%,
+    86% 74%,
+    74% 91%,
+    50% 100%,
+    26% 91%,
+    14% 74%,
+    14% 55%,
+    28% 32%
+  );
+}
+
+/* Toxicity: spore crystals. */
+.row-toxicity .stat-icon {
+  --full: #86bd3c;
+  --empty: rgba(22, 36, 10, 0.85);
   clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
 }
 
-.vial-glass {
-  position: relative;
-  width: 16px;
-  height: 56px;
-  border-radius: 5px 5px 9px 9px;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
-  overflow: hidden;
+/* Breath: bubbles. */
+.row-breath .stat-icon {
+  --full: #a8dcff;
+  --empty: rgba(20, 40, 60, 0.6);
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 50%;
 }
 
-/* The cork. */
-.vial-glass::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 3px;
-  right: 3px;
-  height: 4px;
-  border-radius: 0 0 2px 2px;
-  background: #8c6a45;
-}
-
-.vial-liquid {
-  position: absolute;
-  inset: 5px 2px 2px;
-  border-radius: 2px 2px 7px 7px;
-  background: linear-gradient(90deg, var(--liquid) 40%, var(--liquid-hi));
-  transform: scaleY(var(--fill, 1));
-  transform-origin: 50% 100%;
-  transition: transform 0.3s ease-out;
-}
-
-.vial-value {
-  min-width: 3ch;
-  color: var(--c-ink-muted);
-  font: 600 0.66rem var(--font-mono);
-  text-align: center;
-}
-
-.vial.alarm .vial-value {
-  color: var(--c-danger);
+.icon-row.alarm .stat-icon {
+  animation: hud-alarm 0.8s ease-in-out infinite alternate;
 }
 
 @keyframes hud-alarm {
@@ -397,9 +375,13 @@
   }
 }
 
+/* The thermometer: a bulb, a horizontal tube with comfort in the middle, the felt °C, the trend. */
 .thermo {
   --thermo: #e6d8ad;
+  display: flex;
+  align-items: center;
   gap: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
 }
 
 .thermo.cold {
@@ -410,11 +392,60 @@
   --thermo: #ec8a4c;
 }
 
-/* The trend: an arrow up (warming) or down (cooling), in the icon row. */
+.thermo-bulb {
+  order: 0;
+  width: 14px;
+  height: 14px;
+  margin-right: -2px;
+  border-radius: 50%;
+  background: var(--thermo);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
+}
+
+.thermo-glass {
+  position: relative;
+  order: 1;
+  width: 92px;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: rgba(20, 20, 20, 0.6);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
+  overflow: hidden;
+}
+
+.thermo-liquid {
+  position: absolute;
+  inset: 0;
+  background: var(--thermo);
+  transform: scaleX(var(--fill, 0.5));
+  transform-origin: 0 50%;
+  transition: transform 0.4s ease-out;
+}
+
+/* Comfort, in the middle of the scale. */
+.thermo-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.thermo-value {
+  order: 2;
+  margin-left: 6px;
+  color: var(--c-ink);
+  font: 600 0.7rem var(--font-mono);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* The trend: an arrow up (warming) or down (cooling), after the value. */
 .thermo-trend {
+  order: 3;
   width: 0;
   height: 0;
-  margin: 2px 0 6px;
+  margin-left: 4px;
   border: 5px solid transparent;
   opacity: 0;
 }
@@ -431,67 +462,8 @@
   opacity: 1;
 }
 
-.thermo-glass {
-  position: relative;
-  width: 8px;
-  height: 46px;
-  border-radius: 4px 4px 0 0;
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
-  overflow: hidden;
-}
-
-.thermo-liquid {
-  position: absolute;
-  inset: 0;
-  background: var(--thermo);
-  transform: scaleY(var(--fill, 0.5));
-  transform-origin: 50% 100%;
-  transition: transform 0.4s ease-out;
-}
-
-/* Comfort, in the middle of the scale. */
-.thermo-mark {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.thermo-bulb {
-  width: 14px;
-  height: 14px;
-  margin: -2px 0 4px;
-  border-radius: 50%;
-  background: var(--thermo);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
-}
-
-.vial.alarm .vial-glass,
 .thermo.severe .thermo-glass {
   animation: hud-alarm 0.8s ease-in-out infinite alternate;
-}
-
-.breath {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.breath-bubble {
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid rgba(190, 230, 255, 0.85);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 35% 35%,
-    rgba(255, 255, 255, 0.85),
-    rgba(110, 180, 235, 0.35) 65%
-  );
-  transform: scale(var(--fill, 1));
-  transition: transform 0.2s ease-out;
 }
 
 /* ---- Left: pickup messages ---- */
@@ -499,7 +471,7 @@
 .hud-pickups {
   position: absolute;
   left: 16px;
-  bottom: 168px;
+  bottom: 24px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -717,6 +689,17 @@
 /* ---- Onboarding (docs « Prise en main »): the tip line and the controls card ---- */
 
 /* A tip: above the hotbar, over the open screens (the bag's tip shows with it), a longer read. */
+/* Quest messages: under the hint line, two lines at most, longer on screen. */
+#hud-quest-news {
+  top: 150px;
+  width: max-content;
+  max-width: min(560px, calc(100% - 32px));
+  border-left-color: #a7d46f;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+}
+
 #hud-tip {
   top: auto;
   bottom: 96px;

@@ -38,7 +38,8 @@ export function itemLines(registry: Registry, key: string): string[] {
   const item: ItemDef | undefined = registry.item(key);
   if (!item) return [];
   const lines: string[] = [];
-  if (item.lore) lines.push(t(item.lore));
+  // A journal is read in a book of its own (secondary with it in hand), not in a bubble.
+  if (item.lore) lines.push(t('info.read'));
   for (const recipe of item.blueprint ?? []) {
     const output = registry.crafting.recipe(recipe)?.output.item;
     const name = output ? registry.item(output)?.nameKey : undefined;

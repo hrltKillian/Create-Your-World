@@ -21,7 +21,7 @@ import {
 } from '../../../src/ui/hud/pickups.ts';
 import { PinnedQuest } from '../../../src/ui/hud/pinnedQuest.ts';
 import { VIGNETTES, type Vignette, vignetteLevels } from '../../../src/ui/hud/vignettes.ts';
-import { BREATH_BUBBLES, Vitals } from '../../../src/ui/hud/vitals.ts';
+import { ROW_ICONS, Vitals } from '../../../src/ui/hud/vitals.ts';
 import { questLine, questRows } from '../../../src/ui/quests.ts';
 import { DeathScreen } from '../../../src/ui/screens/death.ts';
 import { QuestsPanel } from '../../../src/ui/screens/questsPanel.ts';
@@ -183,39 +183,41 @@ describe('quests', () => {
 });
 
 describe('vitals and vignettes', () => {
-  it('fills the vials, sounds the alarm under the thresholds and shows toxicity and breath when needed', () => {
+  it('fills the rows by halves, sounds the alarm under the thresholds, shows toxicity and breath when needed', () => {
     const vitals = new Vitals(b);
     const el = fake(vitals.element);
+    const fills = (kind: string) =>
+      el
+        .querySelector(`.row-${kind}`)!
+        .findAll((e) => e.className === 'stat-icon')
+        .map((icon) => icon.style.getPropertyValue('--fill'));
     const s = createSurvival(b);
     vitals.update(s, 0);
-    const health = el.querySelector('.vial-health')!;
-    expect(health.style.getPropertyValue('--fill')).toBe('1');
+    const health = el.querySelector('.row-health')!;
+    expect(fills('health')).toEqual(new Array(ROW_ICONS).fill('1'));
     expect(health.getAttribute('aria-label')).toBe(`Health ${b.health.max}`);
-    expect(el.querySelector('.vial-toxicity')!.hidden).toBe(true);
-    expect(el.querySelector('.breath')!.hidden).toBe(true);
-    s.health = b.health.lowAt - 1;
+    expect(el.querySelector('.row-toxicity')!.hidden).toBe(true);
+    expect(el.querySelector('.row-breath')!.hidden).toBe(true);
+    // A quarter of a symbol shows as a half (any health left shows).
+    s.health = s.healthMax * 0.225;
     s.toxicity = b.toxicity.harmAt;
     s.breath = b.breath.seconds / 2;
     vitals.update(s, 0);
-    expect(health.classList.contains('alarm')).toBe(true);
-    expect(el.querySelector('.vial-value')!.textContent).toBe(String(b.health.lowAt - 1));
-    const toxicity = el.querySelector('.vial-toxicity')!;
+    expect(fills('health')).toEqual(['1', '1', '0.5', '0', '0', '0', '0', '0', '0', '0']);
+    expect(health.classList.contains('alarm')).toBe(s.health < b.health.lowAt);
+    const toxicity = el.querySelector('.row-toxicity')!;
     expect(toxicity.hidden).toBe(false);
     expect(toxicity.classList.contains('alarm')).toBe(true);
-    const bubbles = el.findAll((e) => e.className === 'breath-bubble');
-    expect(bubbles).toHaveLength(BREATH_BUBBLES);
-    expect(bubbles.map((bubble) => bubble.style.getPropertyValue('--fill'))).toEqual([
-      '1',
-      '1',
-      '0.5',
-      '0',
-      '0',
-    ]);
+    expect(fills('breath')).toEqual(['1', '1', '1', '1', '1', '0', '0', '0', '0', '0']);
+    s.health = 0.4;
+    vitals.update(s, 0);
+    expect(fills('health')[0]).toBe('0.5');
+    expect(health.classList.contains('alarm')).toBe(true);
   });
 
   it('hides the breath again at full air, also after a last refill too small to redraw', () => {
     const vitals = new Vitals(b);
-    const breath = fake(vitals.element).querySelector('.breath')!;
+    const breath = fake(vitals.element).querySelector('.row-breath')!;
     const s = createSurvival(b);
     const max = b.breath.seconds;
     for (const [air, hidden] of [

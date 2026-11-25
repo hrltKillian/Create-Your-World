@@ -3,8 +3,9 @@
 Original voxel survival-adventure sandbox for the browser (Chrome first). The full spec is
 `docs/conception.md` (in French): follow it, milestone by milestone (M0–M11).
 Plan v2 (after the first playtest: decisions 15–21, milestones M12–M17 done) is followed by
-plan v3 (after the second playtest: decisions 22–25, milestones M18–M31), its last part
-(`# Plan v3` in `docs/conception.md`), which replaces the rest of plan v2.
+plan v3 (after the second playtest: decisions 22–25, milestones M18–M33; M28 and M29 answer the
+third playtest), its last part (`# Plan v3` in `docs/conception.md`), which replaces the rest of
+plan v2.
 
 ## Commands
 
@@ -252,6 +253,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `.compass-waypoint`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
     `climbSlide`, `Body.onLadder`, no fall damage); trapdoors use the gate's `open` state; box
     faces are lit by the brighter of their cell and the cell they face (greedyMesher `meshBoxes`);
+  - interfaces of the third play test (plan v3 « M28 »): quest messages on their own line
+    (`Hud.questNews`, `#hud-quest-news`, `QUEST_NEWS_SECONDS`); the hover bubble `ui/tooltip.ts`
+    (`Tooltip`: `SlotBoard.tooltip`, `LogbookPanel.tooltip`; `.tooltip-anchor`); fixed-size slot
+    screens (`.screen-slots > .bag-panel`, the page column scrolls); journals read on secondary
+    (`readsHeld` in sim/interaction.ts, event `itemRead`, `ui/screens/bookScreen.ts`,
+    `ui.screen()` 'book', `#screen-book`); `Settings.gamma` → `WorldView.setGamma`, uniform
+    `uGamma` in `LIGHT_CURVE` (render/shaders/voxel.glsl.ts, shared with the box shader); the
+    gauges as rows of symbols over the hotbar (`ui/hud/vitals.ts`: `IconRow`, `ROW_ICONS`,
+    `.row-health`…, `.stat-icon` `--fill` 0/0.5/1);
   - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
     `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
     `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),
@@ -273,7 +283,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `questProgress`, `questClaimed`; commands `quest.claim`, `quest.pin`); the Bag's Quests page
     (key J) `ui/quests.ts` (`questRows`, `questLine`) and `ui/screens/questsPanel.ts`, the pinned
     line `ui/hud/pinnedQuest.ts` (`#hud-quest`); HudBridge shows a frame's quest messages on one
-    line (not the unlocks of the quests open from the start);
+    line, `#hud-quest-news` (not the unlocks of the quests open from the start);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
     `headingOf`/`compassOffset`, `clockText`, `PinnedQuest`, `Vignettes` with `vignetteLevels`,
     `Flash` banners
@@ -474,6 +484,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Interface checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m28` (`selftest/m28.ts`):
+  a quest message on its own line, a hovered stack's bubble and the Bag's fixed size, a journal
+  read on secondary and closed by E, the health row by halves over the hotbar.
 - Exploration checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m27` (`selftest/m27.ts`):
   a ladder placed on a wall climbed and slid down unhurt, a trapdoor opened and closed, the
   minimap drawn, M opens the big map, a waypoint marked by its button shows on the compass and is
@@ -589,7 +602,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
 
 ## Originality checklist
 
-No 3×3 crafting grid and no 9-slot hotbar (we use 8); no heart or drumstick icons (vials); round
+No 3×3 crafting grid and no 9-slot hotbar (we use 8); no heart or drumstick icons (our own rows of vital cells, ration pods, drops: plan v3 M28); round
 sun and moon; our own palette, grass and crack styles; human-proportioned avatar; the Prowler is
 low and four-legged with amber eyes; debug overlay styled as our own panel; no block, item or
 creature names from the reference games; synthesized sounds.

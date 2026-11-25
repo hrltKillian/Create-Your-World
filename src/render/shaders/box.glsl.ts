@@ -1,4 +1,4 @@
-import { CUTOUT_ALPHA } from './voxel.glsl.ts';
+import { CUTOUT_ALPHA, LIGHT_CURVE } from './voxel.glsl.ts';
 
 /**
  * Instanced boxes (avatar, creatures, items, drops, particles): three texture-array layers (sides,
@@ -70,6 +70,7 @@ uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
 uniform float uMinLight;
+uniform float uGamma;
 in vec2 vUv;
 flat in float vLayer;
 flat in vec3 vTint;
@@ -79,9 +80,7 @@ in vec2 vLight;
 in vec3 vNormal;
 #include <fog_pars_fragment>
 
-float lightCurve(float level) {
-  return pow(0.82, 15.0 * (1.0 - level));
-}
+${LIGHT_CURVE}
 
 void main() {
   vec4 texel = texture(uTextures, vec3(vUv, vLayer));

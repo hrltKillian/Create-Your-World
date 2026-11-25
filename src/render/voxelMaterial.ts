@@ -28,6 +28,8 @@ export interface VoxelUniforms {
   /** Torch flicker factor on block light (`torchFlicker`). */
   readonly uFlicker: IUniform<number>;
   readonly uMinLight: IUniform<number>;
+  /** The player's gamma (Settings): 0 the plain light curve, 1 the brightest (LIGHT_CURVE). */
+  readonly uGamma: IUniform<number>;
   readonly uOpacity: IUniform<number>;
   readonly uDebugView: IUniform<number>;
 }
@@ -69,6 +71,7 @@ export function createVoxelMaterials(
     uTorchTint: { value: new Color(1, 0.78, 0.55) },
     uFlicker: { value: 1 },
     uMinLight: { value: 0.025 },
+    uGamma: { value: 0 },
     uOpacity: { value: 0.78 },
     uDebugView: { value: 0 },
   };

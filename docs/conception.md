@@ -2334,7 +2334,7 @@ Ce plan v2 répond à chacun d'eux.
 
 ### M18 — Structures et contenu de la colonie perdue (retour 10, après M16)
 
-> Remplacé par le plan v3 (M26), comme M19 à M21 ci-dessous (M21, M22, M31 du plan v3).
+> Remplacé par le plan v3 (M26), comme M19 à M21 ci-dessous (M21, M22, M33 du plan v3).
 
 **Moteur** :
 
@@ -2740,7 +2740,7 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 | **Ochre Waste**                     | brûlant le jour, froid la nuit, dunes              | Palmépine                                                                                                                      | arbustes secs, gourde-citerne (eau)                         | Shellbacks                      | argile réfractaire            |
 | **Sporefen** (toxique, à confirmer) | tiède, eau croupie, air toxique                    | Roseaux-lances et arbres-gousses bas (pas de champignons)                                                                      | gousses à spores, roseaux (fibre)                           | Swarmlings                      | fer des marais                |
 | **Shard Highlands**                 | frais, montagnes et falaises, seul biome à rochers | Pin tordu, écorce olive                                                                                                        | cristaux affleurants, lichens                               | Shagbacks                       | cristal d'aube en surface     |
-| **Mirror Basin**                    | doux, lacs et rives                                | Saule-miroir : écorce ardoise, feuilles pendantes argentées                                                                    | roseaux, nénuphars, argile                                  | nouvelle espèce aquatique (M25) | argile, pêche (M29)           |
+| **Mirror Basin**                    | doux, lacs et rives                                | Saule-miroir : écorce ardoise, feuilles pendantes argentées                                                                    | roseaux, nénuphars, argile                                  | nouvelle espèce aquatique (M25) | argile, pêche (M31)           |
 | **Ashen Steppe** (optionnel)        | chaud et sec, sol de cendre, orgues de basalte     | Charbonnier : écorce noire, feuilles bronze                                                                                    | herbes sèches, fumerolles chaudes                           | Prowlers                        | Emberstone en surface         |
 
 **Logique** :
@@ -2835,25 +2835,66 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - Carte : d'abord prévue en onglet du sac, elle passe sur le HUD après la troisième partie test (le joueur veut la voir tout le temps). Une **minicarte** ronde en haut à droite montre ±4 colonnes autour du joueur, nord en haut, le joueur au centre en flèche, les balises en losanges (gardées au bord quand elles sont plus loin). La touche **M** (`Semicolon` aussi, là où le M est imprimé sur un clavier AZERTY) ouvre la **grande carte** (±12 colonnes), un écran de taille fixe propre au client (la simulation n'y ouvre rien), avec la liste des balises (« Retirer », la liste défile) et un champ de nom avec « Marquer ce lieu ». Les deux sont colorées depuis la génération elle-même (eau sous la mer, herbe du biome éclaircie avec l'altitude ; rien à charger ; l'herbe du premier biome dans les mondes plats de test) : elles montrent le terrain généré, pas les constructions.
 - Selftest `m27` (`?worldType=flat&fixedStep=1&selftest=m0,m27`).
 
-### M28 — Confort d'inventaire
+#### Retours de la troisième partie test (pendant le M27)
+
+Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte). Les autres forment deux jalons insérés avant la suite du plan. Les anciens M28 à M31 deviennent M30 à M33.
+
+| Retour                       | Où                     | Décision                                                                                                                                                                                                                                                                            |
+| ---------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Messages de quête trop brefs | HUD                    | Ils restent 6 s (au lieu de 2,5 s) ; les autres indices ne changent pas.                                                                                                                                                                                                            |
+| Descriptions au survol       | Interfaces             | Elles s'affichent dans une bulle par-dessus l'interface, qui suit la souris. Les panneaux ont une taille fixe : leur contenu défile, il ne les déforme plus.                                                                                                                        |
+| Journaux                     | Objets                 | Un journal se lit d'un clic droit en main : un écran « livre » de taille fixe, le texte défile. La description dit « Clic droit pour lire ».                                                                                                                                        |
+| Pierre et pierre noire       | Génération             | La limite y 16 devient une bande de transition de 8 blocs, mêlée par un bruit 3D. `GEN_VERSION` +1.                                                                                                                                                                                 |
+| Magma                        | Génération, simulation | Sous y 10, les grottes se remplissent de lave liquide : elle coule lentement (une mise à jour toutes les 1,5 s), s'étale moins loin que l'eau, éclaire, fait de gros dégâts et met le joueur en feu. Au contact de l'eau, elle durcit en pierre.                                    |
+| Feu                          | Simulation, HUD        | Le joueur qui brûle perd de la vie chaque seconde, pendant 4 à 8 s tirées au sort ; l'eau l'éteint. Flammes sur le HUD.                                                                                                                                                             |
+| Gamma                        | Paramètres             | Un réglage « Gamma » (0 à 100 %) : il relève la courbe de lumière comme dans Minecraft, sans toucher aux règles (apparitions).                                                                                                                                                      |
+| Stats du HUD                 | HUD                    | Elles passent au-dessus de la barre d'action, en rangées de 10 symboles pleins, à moitié ou vides : santé, faim, soif ; la température en jauge ; toxicité et souffle seulement quand ils comptent. Les symboles sont les nôtres : la liste d'originalité interdit cœurs et gigots. |
+| Objet lancé                  | Simulation             | Comme dans Minecraft : un objet jeté se ramasse après 2 s par n'importe qui, son lanceur compris, même s'il reste dessus.                                                                                                                                                           |
+
+### M28 — Interfaces (troisième partie test)
+
+- Messages de quête de 6 s.
+- Bulle de description au survol (inventaires, Logbook, établi, bestiaire).
+- Panneaux de taille fixe avec défilement interne.
+- Écran de lecture des journaux.
+- Réglage de luminosité.
+- Stats du HUD en rangées de symboles au-dessus de la barre d'action.
+
+**Retenu à la réalisation** :
+
+- Messages de quête : une ligne à eux (`#hud-quest-news`, sous la ligne d'indice), affichée 6 s (`QUEST_NEWS_SECONDS`) ; un indice ne la remplace plus.
+- Bulle (`ui/tooltip.ts`) : le nom et la description d'une pile survolée (inventaire, coffre, station, établi) ou de la recette survolée dans un Logbook, à côté du pointeur et gardée dans la fenêtre. La légende sous l'inventaire disparaît ; le détail du Logbook garde la recette choisie.
+- Panneaux de taille fixe : tous les écrans à cases font 860 × 620 (le coffre 560 de large), la grande carte 760 × 560, le livre 560 × 600 ; la colonne de page (Logbook, Bestiaire, Quêtes, État, station) et les cases d'un coffre défilent à l'intérieur ; la liste du Logbook prend la place laissée par le détail et la file.
+- Journaux : un clic droit avec un journal en main (un objet qui a `lore`) l'ouvre dans un écran « livre » (`ui.screen()` 'book'), propre au client ; la touche du sac ou « Fermer » le ferment. La simulation émet `itemRead` à l'appui, sans rien poser. La bulle dit « Clic droit, en main, pour le lire ».
+- Gamma (Paramètres → Graphismes, 0 à 100 %, 0 par défaut) : la courbe de lumière des blocs et des boîtes (`LIGHT_CURVE`) va vers 1 − (1 − c)⁴ comme la luminosité du jeu de référence ; les règles (apparitions, lumière effective) ne changent pas.
+- Stats du HUD : au-dessus de la barre d'action, des rangées de 10 symboles à nous (cellules vitales hexagonales pour la santé, gousses de ration pour la faim, gouttes pour la soif, cristaux pour la toxicité, bulles pour le souffle), pleins, à moitié ou vides (une moitié dès qu'il reste quelque chose) ; à gauche la santé, le thermomètre horizontal et la toxicité, à droite la faim, la soif et le souffle, qui se remplissent depuis la droite. Elles clignotent sous leur seuil.
+- Selftest `m28` (`?worldType=flat&fixedStep=1&selftest=m0,m28`) ; le Gamma est vérifié avec les autres paramètres (m11).
+
+### M29 — Monde et règles (troisième partie test)
+
+- Transition entre pierre et pierre noire.
+- Lave liquide sous y 10, feu du joueur, durcissement au contact de l'eau.
+- Ramassage des objets lancés après 2 s.
+
+### M30 — Confort d'inventaire
 
 - Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.
 - Fabrication avec le contenu des coffres voisins de l'établi.
 
-### M29 — Agriculture et cuisine
+### M31 — Agriculture et cuisine
 
 - Planter et récolter les plantes utiles des biomes, avec croissance par mises à jour de blocs.
 - Plats cuisinés au feu de camp qui nourrissent mieux.
 - Pêche au Mirror Basin.
 
-### M30 — Météo et ambiance
+### M32 — Météo et ambiance
 
 - Pluie, orage, brouillard par biome.
 - La pluie remplit les récipients posés.
 - L'orage rend la nuit plus dangereuse.
 - Sons synthétisés.
 
-### M31 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
+### M33 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
 
 - Animation pour manger et boire.
 - Disposition du HUD testée en 1024×768, 1280×720 et 1920×1080.

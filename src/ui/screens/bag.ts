@@ -70,7 +70,7 @@ export class BagScreen {
           this.pages.bestiary,
           this.pages.quests,
           this.pages.status,
-          h('div', { class: 'bag-inventory' }, ...board.inventory(), board.caption),
+          h('div', { class: 'bag-inventory' }, ...board.inventory()),
         ),
         h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
       ),

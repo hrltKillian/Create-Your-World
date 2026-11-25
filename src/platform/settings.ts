@@ -44,6 +44,8 @@ export interface Settings {
   readonly pixelRatio: number;
   readonly particles: boolean;
   readonly viewBob: boolean;
+  /** Brightness of the dark (plan v3 « M28 »): 0 the plain light curve, 1 the brightest. */
+  readonly gamma: number;
   readonly sensitivity: number;
   readonly invertY: boolean;
   /** Crouch while its key is held, or each press turns it on or off. */
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pixelRatio: MEDIUM.pixelRatio,
   particles: MEDIUM.particles,
   viewBob: true,
+  gamma: 0,
   sensitivity: 1,
   invertY: false,
   crouch: 'hold',
@@ -105,6 +108,7 @@ export function readSettings(data: unknown): Settings {
     pixelRatio: oneOf(PIXEL_RATIOS, d.pixelRatio, def.pixelRatio),
     particles: flag(d.particles, def.particles),
     viewBob: flag(d.viewBob, def.viewBob),
+    gamma: clamped(d.gamma, 0, 1, def.gamma),
     sensitivity: clamped(
       d.sensitivity,
       SENSITIVITY_RANGE.min,
