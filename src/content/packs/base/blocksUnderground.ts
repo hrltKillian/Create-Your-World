@@ -1,5 +1,6 @@
 import type { BlockDef } from '../../schema.ts';
 import type { PackI18nKey } from './i18n.en.ts';
+import { FUELS } from './recipes.ts';
 
 type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 
@@ -34,6 +35,10 @@ export const undergroundBlocks = [
     heat: { celsius: 40, radius: 3 },
     contact: { damagePerSec: 4 },
     drops: 'none',
+  }),
+  // The common ore of every depth: a stone that burns (a fuel for fires and kilns).
+  deposit('block:emberstone', 'block.emberstone', 'tex:emberstone', 2, 1, {
+    item: { hintKey: 'where.emberstone', fuel: FUELS.emberstone },
   }),
   deposit('block:cassiterite', 'block.cassiterite', 'tex:cassiterite', 2.5, 2, {
     item: { hintKey: 'where.cassiterite' },

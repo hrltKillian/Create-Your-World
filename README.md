@@ -130,7 +130,7 @@ of them:
 | test chunk scene       | `scene=testchunk`                                          | m1                                                                                  |
 | generated, real ticks  | `seed=7&rd=4`                                              | m2, m6, M11 performance, the bot in real time                                       |
 | generated, free camera | `seed=7&rd=4&freecam=1`                                    | the fly benchmark                                                                   |
-| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot                                           |
+| generated, fixed steps | `seed=7&rd=4&fixedStep=1` (IndexedDB)                      | m9 survival, the objectives walk, the bot, m16 world                                |
 | flat, fixed steps      | `seed=42&worldType=flat&fixedStep=1` (IndexedDB)           | m3, m4, m5, m7 saves and menus                                                      |
 | flat, no IndexedDB     | the same with `forceNoIdb=1`                               | m7's banner, m10 combat, onboarding tips, render feel, m12 controls and fuel        |
 | flat, natural spawns   | `seed=42&worldType=flat&rd=4&fixedStep=1&spawns=1&grace=0` | m10 spawns                                                                          |
@@ -138,21 +138,25 @@ of them:
 
 ## Try this milestone
 
-**M15 — Water** (plan v2, `docs/conception.md` « M15 »). `npm run dev`, then open
-`http://localhost:5173/?worldType=arena` and walk to the pond west of the spawn.
+**M16 — The planet's biomes, caves and ores** (plan v2, `docs/conception.md` « M16 », the theme
+bible `docs/theme.md`). `npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
 
-- **Water flows**: break a block of the pond's sandy bank and the water pours out, one level
-  thinner a block (seven at most), down first, else towards the nearest drop within 4 blocks. Fill
-  the gap again and the flow dries up behind it. Two sources of fresh water make a third between
-  them (foul water never does, and flows half as fast). Plants in the way are washed away.
-- **Shallow water is shallow**: thin water is drawn lower, and you only swim where it is deep.
-- **Under the hood**: water is one more block update (tick step 10), saved with the world; generated
-  water never moves until something beside it changes (generation version 5).
-- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m15` digs a channel by the pond, breaks the
-  bank and reads the levels down to the fall.
+- **The planet Veyra**: the biomes have their names (Amberfield, Veilwood, Shard Highlands,
+  Rimefrost, Ochre Waste, Sporefen, Mirror Basin) and clean wavy borders, never a dither of single
+  columns. Stone boulders stay in the Shard Highlands, sunk in the ground, never on a pillar.
+- **Caves**: about ten times more openings on dry land (entrances and ravines), wide halls at two
+  depths, tunnels of two families that cross. Under lakes, the caves near the bed are already
+  flooded; deeper ones stay dry behind at least 3 blocks of rock: break through and the water
+  pours in.
+- **Ores in layers**: every ore declares its layers (chance, veins, size, strict limits); the new
+  Emberstone (a fuel) is found at every depth; copper, tin, bog iron and fireclay each belong to
+  their biome, all within 1 km of the spawn. Try `?view=xray`.
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m16` (no generated water touching air; a
+  teleport onto a cave opening lands on its floor unhurt).
 
 ### Earlier milestones
 
+- **M15, water**: flows by levels, falls first, dries up; `?worldType=arena&fixedStep=1&selftest=m0,m15`.
 - **M14, block updates, leaves, torches**: a felled trunk's canopy falls, torches hang on walls
   and fall with them, a thin aim beside them; `?worldType=flat&fixedStep=1&selftest=m0,m14`.
 - **M13, bag, cursor, Logbook and workbench**: Minecraft-style clicks with a stack on the cursor,

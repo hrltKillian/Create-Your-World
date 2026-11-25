@@ -39,6 +39,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:dawn_crystal": "1619f39",
   "tex:dirt": "e90980c3",
   "tex:dry_shrub": "b42f32a9",
+  "tex:emberstone": "dcabe4cc",
   "tex:fire_bricks": "efb3e135",
   "tex:fireclay": "12b913d3",
   "tex:foliage": "125f4f1b",

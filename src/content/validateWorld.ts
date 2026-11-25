@@ -1,4 +1,4 @@
-import type { ContentPack, FeatureKind } from './schema.ts';
+import type { ContentPack, FeatureKind, Spline, WorldgenDef } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -11,6 +11,14 @@ const FEATURE_MAX_SIZE: Readonly<Record<FeatureKind, number>> = {
   column: 16,
   patch: 7,
 };
+
+/** The highest surface the terrain splines can reach (detail included). */
+export function highestTerrain(w: WorldgenDef): number {
+  const peak = (spline: Spline) => Math.max(...spline.map((p) => p[1]));
+  return Math.ceil(
+    w.seaLevel + peak(w.continentalSpline) + peak(w.erosionSpline) + w.detailAmplitude,
+  );
+}
 
 /** World generation: worldgen blocks and splines, features, ores, biomes, spawn and structures. */
 export function validateWorld(
@@ -34,7 +42,10 @@ export function validateWorld(
     w.banks.patches.forEach((patch, i) => {
       block(`worldgen.banks.patches[${i}].block`, patch.block);
     });
-    range('worldgen.caves.cavernY', w.caves.cavernY);
+    w.caves.caverns.bands.forEach((band, i) => {
+      range(`worldgen.caves.caverns.bands[${i}].y`, band.y);
+    });
+    if (w.caves.tunnels.length === 0) add('worldgen.caves.tunnels', 'needs at least one family');
     for (const name of ['continentalSpline', 'erosionSpline'] as const) {
       const spline = w[name];
       if (spline.length < 2) add(`worldgen.${name}`, 'needs at least two points');
@@ -96,15 +107,34 @@ export function validateWorld(
         if (!seen.has(key)) add(`${path}.biomes[${k}]`, `unknown biome "${key}"`);
       });
     }
-    range(`${path}.yRange`, ore.yRange);
-    range(`${path}.veinSize`, ore.veinSize);
-    // A vein is a walk inside the 3×3×3 cube around its centre.
-    if (ore.veinSize[0] < 1 || ore.veinSize[1] > 27)
-      add(`${path}.veinSize`, 'must lie within 1–27');
+    if (ore.layers.length === 0) add(`${path}.layers`, 'needs at least one layer');
+    ore.layers.forEach((layer, l) => {
+      const at = `${path}.layers[${l}]`;
+      range(`${at}.y`, layer.y);
+      range(`${at}.size`, layer.size);
+      // A vein is a walk inside the 3×3×3 cube around its centre.
+      if (layer.size[0] < 1 || layer.size[1] > 27) add(`${at}.size`, 'must lie within 1–27');
+      if (!(layer.chance > 0 && layer.chance <= 1)) add(`${at}.chance`, 'must lie in (0, 1]');
+      if (!(Number.isInteger(layer.veins) && layer.veins >= 1))
+        add(`${at}.veins`, 'must be a whole number ≥ 1');
+    });
     // Under the liquid, the ground lies below the sea level: so must some vein centres.
-    if (ore.underLiquid && w && ore.yRange[0] >= w.seaLevel)
-      add(`${path}.underLiquid`, `needs a yRange starting below the sea level (${w.seaLevel})`);
+    if (ore.underLiquid && w && ore.layers.every((layer) => layer.y[0] >= w.seaLevel))
+      add(`${path}.underLiquid`, `needs a layer starting below the sea level (${w.seaLevel})`);
   });
+  // No layer without ore: common ores (every biome) cover each height from the worldrock up to
+  // the highest terrain.
+  if (w && pack.ores) {
+    const top = highestTerrain(w);
+    const covered = new Uint8Array(top + 1);
+    for (const ore of pack.ores) {
+      if (ore.biomes !== '*' || ore.caveWall) continue;
+      for (const layer of ore.layers)
+        for (let y = Math.max(1, layer.y[0]); y <= Math.min(top, layer.y[1]); y++) covered[y] = 1;
+    }
+    const gap = covered.findIndex((c, y) => y >= 1 && c === 0);
+    if (gap >= 0) add('ores', `no common ore covers y ${gap} (every height 1–${top} needs one)`);
+  }
   const biome = (path: string, key: string) => {
     if (!seen.has(key)) add(path, `unknown biome "${key}"`);
   };

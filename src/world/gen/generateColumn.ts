@@ -1,6 +1,7 @@
 import type { Registry } from '../../content/registry.ts';
 import type { BiomeDef, BlockKey, WorldgenDef } from '../../content/schema.ts';
 import { fnv1aString, fnv1aU32, hash32 } from '../../core/hash.ts';
+import { type Noise2, noise2 } from '../../core/noise.ts';
 import type { Column } from '../Column.ts';
 import {
   columnIndex,
@@ -12,12 +13,20 @@ import {
 } from '../coords.ts';
 import { placeArena, type ResolvedArena, resolveArena } from './arena.ts';
 import { bankAt, type ResolvedBanks, resolveBanks } from './banks.ts';
-import { type CaveNoise, carveCaves, createCaveNoise, PADDED } from './caves.ts';
+import {
+  type CaveNoise,
+  carveCaves,
+  caveAt,
+  createCaveNoise,
+  heightIndex,
+  MARGIN,
+  PADDED,
+} from './caves.ts';
 import { Climate, emptySample } from './climate.ts';
 import { placeFeatures, placePlants, type ResolvedFeature } from './decor.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
 import { placeOres, type ResolvedOre } from './ores.ts';
-import { biomeOf, heightAt, LatticeCache, pointInfo } from './sample.ts';
+import { heightAt, LatticeCache, rawBiomeOf, settledBiome } from './sample.ts';
 import {
   columnSite,
   placeStructure,
@@ -26,7 +35,7 @@ import {
 } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 5;
+export const GEN_VERSION = 6;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;
@@ -54,6 +63,8 @@ export interface GenContext {
   /** The biome definitions, in the order of `biomes`. */
   readonly biomeDefs: readonly BiomeDef[];
   readonly climate: Climate;
+  /** The smooth shift of biome thresholds (`WorldgenDef.biomeBorder`). */
+  readonly border: Noise2;
   readonly caves: CaveNoise;
   readonly banks: ResolvedBanks;
   readonly ores: readonly ResolvedOre[];
@@ -118,11 +129,14 @@ export function createGenContext(
       biomes: Uint8Array.from(sorted, (b) =>
         ore.biomes === '*' || ore.biomes.includes(b.key) ? 1 : 0,
       ),
-      y0: ore.yRange[0],
-      y1: ore.yRange[1],
-      veins: ore.veinsPerSection,
-      size0: ore.veinSize[0],
-      size1: ore.veinSize[1],
+      layers: ore.layers.map((layer) => ({
+        y0: layer.y[0],
+        y1: layer.y[1],
+        chance: layer.chance,
+        veins: layer.veins,
+        size0: layer.size[0],
+        size1: layer.size[1],
+      })),
       replaces: new Set(ore.replaces.map(state)),
       caveWall: ore.caveWall === true,
       underLiquid: ore.underLiquid === true,
@@ -142,6 +156,7 @@ export function createGenContext(
     biomes,
     biomeDefs: sorted,
     climate: new Climate(seed, def),
+    border: noise2(seed, 'biome.border'),
     caves: createCaveNoise(seed, def.caves),
     banks: resolveBanks(seed, def.banks, state),
     ores,
@@ -156,15 +171,23 @@ export function createGenContext(
   };
 }
 
-/** Feet height for standing on the terrain at a block column (analytic, no generation needed). */
+/**
+ * Feet height for standing on the terrain at a block column (analytic, no generation needed): on
+ * the floor of a ravine or cave entrance that opens the surface there.
+ */
 export function surfaceY(ctx: GenContext, x: number, z: number): number {
   if (isFlatWorld(ctx.worldType)) return FLAT_SURFACE + 1;
-  return pointInfo(ctx, x, z).height + 1;
+  const cache = new LatticeCache();
+  let y = heightAt(ctx, cache, x, z);
+  while (y > 1 && caveAt(ctx, cache, x, y, z)) y--;
+  return y + 1;
 }
 
 const tmp = emptySample();
-/** Surface heights of the column and of a one-block ring around it (caves look at neighbours). */
+/** Surface heights of the column and of a MARGIN-block ring around it (caves look at neighbours). */
 const heights = new Int16Array(PADDED * PADDED);
+/** Raw biomes (before lone columns are settled) of the same grid. */
+const rawBiomes = new Uint8Array(PADDED * PADDED);
 
 /**
  * Generates one column (sections, heightmap, biomes): terrain, caves and magma, ores, plants,
@@ -186,18 +209,29 @@ export function generateColumn(ctx: GenContext, column: Column): void {
     return;
   }
   const cache = new LatticeCache();
-  const x0 = column.cx * SECTION_SIZE - 1;
-  const z0 = column.cz * SECTION_SIZE - 1;
+  const x0 = column.cx * SECTION_SIZE - MARGIN;
+  const z0 = column.cz * SECTION_SIZE - MARGIN;
+  // Heights and raw biomes of the padded grid, then each column's biome settled from its
+  // neighbours' raw ones (`biomeOf`'s rule, without sampling a point twice).
   for (let pz = 0; pz < PADDED; pz++) {
     for (let px = 0; px < PADDED; px++) {
-      const h = heightAt(ctx, cache, x0 + px, z0 + pz, tmp);
-      heights[pz * PADDED + px] = h;
-      const lx = px - 1;
-      const lz = pz - 1;
-      if (lx < 0 || lz < 0 || lx >= SECTION_SIZE || lz >= SECTION_SIZE) continue;
-      const biome = biomeOf(ctx, tmp, h, x0 + px, z0 + pz);
+      const i = pz * PADDED + px;
+      heights[i] = heightAt(ctx, cache, x0 + px, z0 + pz, tmp);
+      rawBiomes[i] = rawBiomeOf(ctx, tmp, x0 + px, z0 + pz);
+    }
+  }
+  for (let lz = 0; lz < SECTION_SIZE; lz++) {
+    for (let lx = 0; lx < SECTION_SIZE; lx++) {
+      const i = heightIndex(lx, lz);
+      const biome = settledBiome(
+        rawBiomes[i]!,
+        rawBiomes[i - 1]!,
+        rawBiomes[i + 1]!,
+        rawBiomes[i - PADDED]!,
+        rawBiomes[i + PADDED]!,
+      );
       column.biomes[columnIndex(lx, lz)] = biome;
-      fillTerrain(ctx, column, lx, lz, h, ctx.biomes[biome]!);
+      fillTerrain(ctx, column, lx, lz, heights[i]!, ctx.biomes[biome]!);
     }
   }
   carveCaves(ctx, column, heights);

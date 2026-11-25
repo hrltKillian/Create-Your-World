@@ -61,7 +61,7 @@ describe('caves', () => {
     expect(withCave / (SPREAD.length * 1024)).toBeGreaterThanOrEqual(0.4);
   });
 
-  it('never carves under water nor next to it', () => {
+  it('floods the caves under a lake bed, seals the dry ones: no liquid beside or above air', () => {
     // A shore column (water and dry land), with its 8 neighbours loaded.
     const { cx, cz } = findColumn(
       ctx,
@@ -80,31 +80,35 @@ describe('caves', () => {
       for (let dx = -1; dx <= 1; dx++)
         world.columns.set(columnKey(cx + dx, cz + dz), generate(ctx, cx + dx, cz + dz));
     const flags = registry.tables.flags;
+    const liquid = (x: number, y: number, z: number) =>
+      (flags[world.getBlock(x, y, z)]! & FLAG_LIQUID) !== 0;
+    const seal = ctx.caves.def.seal;
     let water = 0;
     for (let lz = 0; lz < 32; lz++) {
       for (let lx = 0; lx < 32; lx++) {
         const x = cx * 32 + lx;
         const z = cz * 32 + lz;
-        for (let y = 1; y <= ctx.def.seaLevel; y++) {
-          if ((flags[world.getBlock(x, y, z)]! & FLAG_LIQUID) === 0) continue;
-          water++;
-          for (const [nx, ny, nz] of [
-            [x - 1, y, z],
-            [x + 1, y, z],
-            [x, y - 1, z],
-            [x, y, z - 1],
-            [x, y, z + 1],
-          ] as const) {
-            const next = world.getBlock(nx, ny, nz);
-            expect(carved(next) && ny <= pointInfo(ctx, nx, nz).height, `${nx} ${ny} ${nz}`).toBe(
-              false,
-            );
+        const h = pointInfo(ctx, x, z).height;
+        for (let y = 1; y <= Math.max(h, ctx.def.seaLevel); y++) {
+          if (liquid(x, y, z)) {
+            water++;
+            // Nothing flows: never air below a liquid, nor beside it.
+            for (const [nx, ny, nz] of [
+              [x - 1, y, z],
+              [x + 1, y, z],
+              [x, y - 1, z],
+              [x, y, z - 1],
+              [x, y, z + 1],
+            ] as const)
+              expect(world.getBlock(nx, ny, nz), `${nx} ${ny} ${nz}`).not.toBe(air);
+          } else if (y <= h && carved(world.getBlock(x, y, z))) {
+            // A dry cave keeps `seal` blocks of rock between it and any liquid.
+            for (let dy = -seal; dy <= seal; dy++)
+              for (let dz = -seal; dz <= seal; dz++)
+                for (let dx = -seal; dx <= seal; dx++)
+                  expect(liquid(x + dx, y + dy, z + dz), `${x} ${y} ${z}`).toBe(false);
           }
         }
-        // Under water, the ground stays whole down to the worldrock.
-        const h = pointInfo(ctx, x, z).height;
-        if (h < ctx.def.seaLevel)
-          for (let y = 1; y <= h; y++) expect(carved(world.getBlock(x, y, z))).toBe(false);
       }
     }
     expect(water).toBeGreaterThan(100);
@@ -168,8 +172,11 @@ describe('ores', () => {
             expect(v).toBeLessThanOrEqual(29);
           }
           const y = sy * 32 + ly;
-          expect(y).toBeGreaterThanOrEqual(ore!.y0 - 1);
-          expect(y).toBeLessThanOrEqual(ore!.y1 + 1);
+          // Strict layer limits: never outside its ore's layers.
+          expect(
+            ore!.layers.some((l) => y >= l.y0 && y <= l.y1),
+            `y ${y}`,
+          ).toBe(true);
           // The vein centre is within one block: its column (or a neighbour) has an allowed biome.
           let near = false;
           for (let dz = -1; dz <= 1; dz++)
@@ -219,7 +226,7 @@ describe('ores', () => {
         const x = cx * 32 + lx;
         const z = cz * 32 + lz;
         if (heightAt(ctx, cache, x, z) >= sea) dryLand++;
-        for (let y = bog.y0 - 1; y <= bog.y1 + 1; y++) {
+        for (let y = 1; y < 128; y++) {
           if (blockIn(column, lx, y, lz) !== bog.block) continue;
           blocks++;
           // The vein centre is within one block: its column (or a neighbour) lies under the liquid.

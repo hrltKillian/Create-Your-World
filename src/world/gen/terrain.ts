@@ -15,17 +15,22 @@ export function evalSpline(spline: Spline, x: number): number {
   return spline[spline.length - 1]![1];
 }
 
+/** The surface height without its small detail (not floored): what biome height rules read. */
+export function coarseHeight(sample: ClimateSample, def: WorldgenDef): number {
+  const ridge = 1 - Math.abs(sample.M);
+  return (
+    def.seaLevel +
+    evalSpline(def.continentalSpline, sample.C) +
+    evalSpline(def.erosionSpline, sample.E) * ridge * ridge
+  );
+}
+
 /**
  * Surface height (y of the top solid block) from the climate:
  * sea level + continental offset + erosion-scaled ridges + small detail. Independent of biomes,
  * so biome borders never create cliffs.
  */
 export function surfaceHeight(sample: ClimateSample, def: WorldgenDef): number {
-  const ridge = 1 - Math.abs(sample.M);
-  const h =
-    def.seaLevel +
-    evalSpline(def.continentalSpline, sample.C) +
-    evalSpline(def.erosionSpline, sample.E) * ridge * ridge +
-    sample.detail * def.detailAmplitude;
+  const h = coarseHeight(sample, def) + sample.detail * def.detailAmplitude;
   return Math.max(4, Math.min(240, Math.floor(h)));
 }

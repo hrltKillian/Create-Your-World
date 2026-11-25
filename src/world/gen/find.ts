@@ -1,5 +1,4 @@
 import { caveAt } from './caves.ts';
-import { emptySample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
 import { biomeOf, heightAt, LatticeCache } from './sample.ts';
 import { REGION, regionOf, siteIn } from './structures.ts';
@@ -58,11 +57,8 @@ export function biomeIndexOf(ctx: GenContext, key: string): number {
   return index;
 }
 
-const sample = emptySample();
-
 function biomeAt(ctx: GenContext, cache: LatticeCache, x: number, z: number): number {
-  const h = heightAt(ctx, cache, x, z, sample);
-  return biomeOf(ctx, sample, h, x, z);
+  return biomeOf(ctx, cache, x, z);
 }
 
 /**

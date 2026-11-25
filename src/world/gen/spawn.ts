@@ -55,7 +55,7 @@ class Surfaces {
     if (value === undefined) {
       const ctx = this.ctx;
       const height = heightAt(ctx, this.cache, x, z, sample);
-      const biome = biomeOf(ctx, sample, height, x, z);
+      const biome = biomeOf(ctx, this.cache, x, z);
       value = topBlockAt(ctx, x, z, height, ctx.biomes[biome]!) * 65536 + biome * 256 + height;
       this.packed.set(key, value);
     }
@@ -103,6 +103,7 @@ function searchHome(
     const z = dz * CANDIDATE_STEP;
     surfaces.read(x, z, home);
     if (!isHome(ctx, surfaces.cache, x, z, home) || !accept(x, z, home.biome)) return false;
+    if (!awayFromOpenings(ctx, surfaces, x, z)) return false;
     if (!fitsPlayer(ctx, x, home.height + 1, z)) return false;
     found = { x: x + 0.5, y: home.height + 1, z: z + 0.5 };
     return true;
@@ -123,6 +124,21 @@ function isHome(
   if (caveAt(ctx, cache, x, surface.height, z)) return false;
   const site = siteIn(ctx, cache, regionOf(x), regionOf(z));
   return !site || !nearSite(site, x, z, STRUCTURE_CLEARANCE);
+}
+
+/** No cave entrance or ravine opens the surface within this many blocks of the spawn. */
+const OPENING_CLEARANCE = 8;
+
+/** Whether no column within OPENING_CLEARANCE of (x, z) has its surface carved open. */
+function awayFromOpenings(ctx: GenContext, surfaces: Surfaces, x: number, z: number): boolean {
+  const r = OPENING_CLEARANCE;
+  for (let dz = -r; dz <= r; dz++)
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dz * dz > r * r) continue;
+      surfaces.read(x + dx, z + dz, point);
+      if (caveAt(ctx, surfaces.cache, x + dx, point.height, z + dz)) return false;
+    }
+  return true;
 }
 
 /**

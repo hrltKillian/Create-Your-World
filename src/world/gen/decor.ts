@@ -125,7 +125,7 @@ export function placeFeatures(
       if (site && nearSite(site, px, pz, REACH)) continue;
       const h = heightAt(ctx, cache, px, pz, sample);
       if (h < ctx.def.seaLevel || h + 1 >= WORLD_HEIGHT) continue;
-      const biome = ctx.biomes[biomeOf(ctx, sample, h, px, pz)]!;
+      const biome = ctx.biomes[biomeOf(ctx, cache, px, pz)]!;
       const feature = pickFeature(biome, hashUnit(ctx.seedHash, cx, cz, 5));
       if (feature === null) continue;
       const bank = bankAt(ctx, px, pz, h);
@@ -241,8 +241,9 @@ function writeCap(
 }
 
 /**
- * Boulder: a mound of radius `radius` centred on the block above the surface (x, h + 1, z). Each
- * of its columns is filled down to the local ground, so it never floats on a slope.
+ * Boulder: a mound of radius `radius`, sunk one block into the ground at (x, h, z). Each of its
+ * columns is filled down to the local ground, except where that ground lies more than one block
+ * below the centre's: on a slope a boulder never stands on a pillar.
  */
 function writeBoulder(
   ctx: GenContext,
@@ -262,10 +263,11 @@ function writeBoulder(
       if (lx < 0 || lz < 0 || lx >= SECTION_SIZE || lz >= SECTION_SIZE) continue;
       const flat = dx * dx + dz * dz;
       if (flat > reach) continue;
+      const ground = heights[heightIndex(lx, lz)]!;
+      if (ground < h - 1) continue;
       let rise = 0;
       while (flat + (rise + 1) * (rise + 1) <= reach) rise++;
-      const top = h + 1 + rise;
-      for (let y = heights[heightIndex(lx, lz)]! + 1; y <= top; y++)
+      for (let y = ground + 1; y <= h + rise; y++)
         put(ctx, column, x + dx, y, z + dz, feature.block, true);
     }
   }

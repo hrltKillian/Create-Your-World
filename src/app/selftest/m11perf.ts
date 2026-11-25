@@ -22,9 +22,13 @@ import {
  * (selftest/m11.ts).
  */
 
-/** « `cave` : ≤ 150 draws » and « −30 % de draws sous terre par rapport à occlusion=0 ». */
+/**
+ * « `cave` : ≤ 150 draws » and fewer draws underground than with occlusion=0: −30 % at M11, −10 %
+ * since M16, whose crossing tunnels and halls truly open much more of the underground to a pocket
+ * (docs plan v2 « M16 », « Retenu à la réalisation »).
+ */
 const MAX_CAVE_DRAWS = 150;
-const MIN_CAVE_SAVED = 0.3;
+const MIN_CAVE_SAVED = 0.1;
 /** « Draws à RD 6, surface ≤ 400 », « Triangles ≤ 1,5 M ». */
 const MAX_DRAWS = 400;
 const MAX_TRIANGLES = 1_500_000;

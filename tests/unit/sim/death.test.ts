@@ -303,8 +303,8 @@ describe('death', () => {
     expect(Math.abs(back!.x - x) + Math.abs(back!.z - z)).toBeLessThanOrEqual(2);
   });
 
-  it('comes back under a canopy over the spawn, on the ground (seed 37)', () => {
-    const s = playerTestSim({ seed: '37', worldType: 'default' });
+  it('comes back under a canopy over the spawn, on the ground (seed 2)', () => {
+    const s = playerTestSim({ seed: '2', worldType: 'default' });
     const { x, y, z } = s.sim.spawn;
     expect(s.sim.world.heightAt(Math.floor(x), Math.floor(z))).toBeGreaterThan(y);
     s.send({ type: 'debug.setStat', stat: 'health', value: 0 });

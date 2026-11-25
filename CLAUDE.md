@@ -109,12 +109,20 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - time of day: `sim/time.ts` (`hourOf`, `dayOf`, `phaseOf`, `daylightAt`, `HOUR_TICKS`); sky palette,
     sun and moon: `render/Sky.ts`;
   - world generation queries without generating (always the same arithmetic as the bulk pass):
-    `world/gen/sample.ts` (`LatticeCache`, `heightAt`, `biomeOf`, `pointInfo`), `caveAt`
-    (`world/gen/caves.ts`), `bankAt`/`topBlockAt` (`world/gen/banks.ts`), structure sites
+    `world/gen/sample.ts` (`LatticeCache`, `heightAt`, `biomeOf`: a smooth border field
+    (`WorldgenDef.biomeBorder`), height rules on `coarseHeight`, lone columns settled from their
+    neighbours (`rawBiomeOf`, `settledBiome`: the bulk pass's grid), `pointInfo`), `caveAt` (dry
+    caves only) and `tunnelsAt` (`world/gen/caves.ts`: tunnel families, cavern bands, entrances,
+    ravines, caves flooded under lake beds within `floodedDepth`, dry ones `seal` blocks of rock
+    from any liquid; `CaveDef`), `bankAt`/`topBlockAt` (`world/gen/banks.ts`), structure sites
     (`world/gen/structures.ts`: `siteIn`, `regionOf`, `nearSite`); searches `world/gen/find.ts`
-    (`spiral`, `findBiome`, `findStructure`, `biomesWithin`) and the spawn `world/gen/spawn.ts`; a
-    generation step reads the padded `heights` (`PADDED` rows) and writes only its own column
-    (decoration: `world/gen/decor.ts`);
+    (`spiral`, `findBiome`, `findStructure`, `biomesWithin`), the spawn `world/gen/spawn.ts` (no
+    surface opening within `OPENING_CLEARANCE`) and `surfaceY` (the floor of a carved surface); a
+    generation step reads the padded `heights` (`PADDED` rows, `MARGIN` around the column,
+    `heightIndex`) and writes only its own column (decoration: `world/gen/decor.ts`); ores in layers
+    (`OreLayer`: chance × veins per section, strict y limits; `world/gen/ores.ts`), every height
+    covered by a common ore (`highestTerrain`, `content/validateWorld.ts`); the theme bible
+    `docs/theme.md` (its ore table checked by `tests/unit/content/themeDoc.test.ts`);
   - angles: `core/angles.ts`; player constants shared by sim, render, audio and input (eye heights,
     `HOTBAR_SLOTS`, `STRIDE`: one footstep and one bob dip): `core/player.ts`;
   - box-vs-voxel collision: `sim/collision.ts`; block-state expansion: `content/blockStates.ts`;
@@ -416,6 +424,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- World checks: `?seed=7&rd=4&fixedStep=1&selftest=m0,m16` (`selftest/m16.ts`): no generated
+  liquid beside or above air around the player; a teleport onto the nearest cave opening lands on
+  its floor unhurt.
 - Water checks: `?worldType=arena&fixedStep=1&selftest=m0,m15` (`selftest/m15.ts`): the player
   breaks the pond's east bank into a dug channel; the levels and the fall are read from the pack's
   pond liquid.

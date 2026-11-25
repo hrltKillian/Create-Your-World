@@ -125,7 +125,7 @@ export function siteIn(
   const sea = ctx.def.seaLevel;
   const y = heightAt(ctx, cache, x, z, sample);
   if (y <= sea || y + 1 >= WORLD_HEIGHT) return null;
-  const biome = biomeOf(ctx, sample, y, x, z);
+  const biome = biomeOf(ctx, cache, x, z);
   const structure = pickStructure(ctx, biome, hashUnit(ctx.seedHash, rx, rz, SALT_PICK));
   if (!structure) return null;
   const x0 = x - (structure.width >> 1);

@@ -33,21 +33,32 @@ export const worldgen = {
     [1, 3],
   ],
   detailAmplitude: 4,
-  biomeJitter: 0.04,
+  biomeBorder: { scale: 40, amplitude: 0.05 },
   bedrock: 'block:worldrock',
   stone: 'block:stone',
   deepStone: 'block:darkstone',
   magmaBelowY: 10,
   magma: 'block:magma',
   caves: {
-    tunnelScale: [72, 44],
-    tunnelThreshold: 0.0045,
-    cavernScale: [80, 40],
-    cavernThreshold: 0.62,
-    cavernY: [12, 50],
+    // Two tunnel families: long wide galleries and tighter winding passages that cross them.
+    tunnels: [
+      { scale: [72, 44], threshold: 0.0045 },
+      { scale: [40, 26], threshold: 0.003 },
+    ],
+    tunnelWidth: { scale: 120, min: 0.5, max: 2.2 },
+    // Halls deep down and nearer the surface.
+    caverns: {
+      scale: [90, 40],
+      bands: [
+        { y: [8, 36], threshold: 0.58 },
+        { y: [40, 76], threshold: 0.62 },
+      ],
+    },
     surfaceMargin: 4,
-    entranceScale: 24,
-    entranceThreshold: 0.7,
+    entrance: { scale: 24, threshold: 0.45 },
+    ravines: { scale: 260, width: 0.03, depth: 30, gateScale: 700, gate: 0.2 },
+    floodedDepth: 12,
+    seal: 3,
   },
   banks: {
     below: 3,
@@ -83,7 +94,6 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b25a', foliage: '#64a046', water: '#3a78c6' },
     fog: '#9cc0dc',
-    features: [{ feature: 'feature:boulder', chance: 0.04 }],
     plants: [{ block: 'block:tall_grass', chance: 0.05 }],
   },
   {
@@ -121,10 +131,7 @@ export const biomes = [
     liquidCap: 'block:ice',
     tints: { grass: '#9fb59a', foliage: '#6f8a6b', water: '#4a7fb8' },
     fog: '#c7d6e2',
-    features: [
-      { feature: 'feature:conifer', chance: 0.08 },
-      { feature: 'feature:boulder', chance: 0.05 },
-    ],
+    features: [{ feature: 'feature:conifer', chance: 0.08 }],
     plants: [{ block: 'block:frost_lichen', chance: 0.05 }],
   },
   {
@@ -185,7 +192,6 @@ export const biomes = [
     features: [
       { feature: 'feature:broadleaf', chance: 0.55 },
       { feature: 'feature:conifer', chance: 0.1 },
-      { feature: 'feature:boulder', chance: 0.02 },
     ],
     plants: [
       { block: 'block:tall_grass', chance: 0.1 },
@@ -206,7 +212,6 @@ export const biomes = [
     features: [
       { feature: 'feature:broadleaf', chance: 0.06 },
       { feature: 'feature:thornbush', chance: 0.03 },
-      { feature: 'feature:boulder', chance: 0.02 },
     ],
     plants: [
       { block: 'block:tall_grass', chance: 0.16 },
@@ -215,7 +220,10 @@ export const biomes = [
   },
 ] as const satisfies readonly PackBiome[];
 
-/** Decoration features (biomes give their chance per 8×8 cell). */
+/**
+ * Decoration features (biomes give their chance per 8×8 cell). Stone boulders belong to the rocky
+ * highlands only (docs plan v2 « M16 »: no surface stone elsewhere).
+ */
 export const features = [
   {
     key: 'feature:broadleaf',
@@ -271,24 +279,42 @@ export const features = [
   },
 ] as const satisfies readonly FeatureDef[];
 
-/** Ores by biome (docs « Génération » step 6); centres are drawn per section. */
+/**
+ * Ores (docs plan v2 « M16 »), in layers: per section, `veins` attempts of probability `chance`.
+ * Each step of the progression needs an ore of one biome (copper in the temperate lands, tin in
+ * the tundra, bog iron in the marsh, fireclay in the desert: all within 1 km of the spawn); the
+ * common emberstone covers every height of the stone so no layer is ever empty.
+ */
 export const ores = [
+  {
+    key: 'ore:emberstone',
+    block: 'block:emberstone',
+    biomes: '*',
+    layers: [
+      { y: [1, 40], chance: 0.6, veins: 4, size: [4, 8] },
+      { y: [41, 120], chance: 0.8, veins: 6, size: [5, 10] },
+      { y: [121, 210], chance: 0.7, veins: 5, size: [4, 9] },
+    ],
+    replaces: ['block:stone', 'block:darkstone'],
+  },
   {
     key: 'ore:copper',
     block: 'block:copper_ore',
     biomes: ['biome:meadow', 'biome:forest', 'biome:highlands'],
-    yRange: [40, 110],
-    veinsPerSection: 6,
-    veinSize: [4, 8],
+    layers: [
+      { y: [30, 80], chance: 0.8, veins: 6, size: [4, 8] },
+      { y: [81, 150], chance: 0.5, veins: 4, size: [3, 6] },
+    ],
     replaces: ['block:stone'],
   },
   {
     key: 'ore:cassiterite',
     block: 'block:cassiterite',
     biomes: ['biome:tundra'],
-    yRange: [50, 100],
-    veinsPerSection: 6,
-    veinSize: [3, 6],
+    layers: [
+      { y: [45, 100], chance: 0.8, veins: 6, size: [3, 6] },
+      { y: [101, 160], chance: 0.4, veins: 3, size: [3, 5] },
+    ],
     replaces: ['block:stone'],
   },
   {
@@ -296,9 +322,7 @@ export const ores = [
     key: 'ore:bog_iron',
     block: 'block:bog_iron',
     biomes: ['biome:fungal_marsh'],
-    yRange: [54, 62],
-    veinsPerSection: 24,
-    veinSize: [3, 6],
+    layers: [{ y: [54, 62], chance: 1, veins: 24, size: [3, 6] }],
     replaces: ['block:silt'],
     underLiquid: true,
   },
@@ -306,18 +330,14 @@ export const ores = [
     key: 'ore:fireclay',
     block: 'block:fireclay',
     biomes: ['biome:ochre_desert'],
-    yRange: [60, 85],
-    veinsPerSection: 8,
-    veinSize: [4, 8],
+    layers: [{ y: [60, 85], chance: 0.9, veins: 8, size: [4, 8] }],
     replaces: ['block:ochre_sandstone', 'block:stone'],
   },
   {
     key: 'ore:dawn_crystal',
     block: 'block:dawn_crystal',
     biomes: '*',
-    yRange: [5, 28],
-    veinsPerSection: 24,
-    veinSize: [2, 4],
+    layers: [{ y: [5, 28], chance: 1, veins: 24, size: [2, 4] }],
     replaces: ['block:darkstone', 'block:stone'],
     caveWall: true,
   },

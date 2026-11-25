@@ -12,7 +12,7 @@ import type { PlayerState } from '../player.ts';
 import { emptySlot } from './botSenses.ts';
 import { inBag, moveClicks } from './slotMoves.ts';
 import { type Cell, cellText, type Point, type WalkPort } from './walkPort.ts';
-import { type Aim, aimToBreak, aimToPlace, standFor } from './walkReach.ts';
+import { type Aim, aimToBreak, aimToPlace, solidAt, standFor } from './walkReach.ts';
 
 /*
  * The objectives walk's body (objectiveWalk.ts, walkSupplies.ts): the player's state and the
@@ -215,15 +215,20 @@ export abstract class Hands {
   /**
    * Picks up the drops of an item that a block or a creature left near `from`: those that fall in
    * reach come at once, else the walk goes onto the nearest one (a teleport onto it when the walk
-   * does not get there: a drop in a pond or on a ledge). Returns whether the count rose.
+   * does not get there, a drop in a pond or on a ledge, or when it lies lower than the feet).
+   * Returns whether the count rose.
    */
   protected async pickUp(item: string, before: number, from: Point): Promise<boolean> {
     const more = () => this.count(item) > before;
     if (this.stepUntil(more, PICKUP_TICKS)) return true;
     const drop = this.dropNear(item, from);
     if (!drop) return false;
-    await this.port.hold('forward', this.emptyHand(), drop, WALK_TICKS, more);
-    if (more()) return true;
+    // A walk only over firm ground: a drop below the feet or past a gap (a ravine, a pit) is
+    // reached by a teleport instead of a fall.
+    if (this.groundTo(drop)) {
+      await this.port.hold('forward', this.emptyHand(), drop, WALK_TICKS, more);
+      if (more()) return true;
+    }
     await this.port.travel(drop.x, drop.y, drop.z);
     return this.stepUntil(more, PICKUP_TICKS);
   }
@@ -240,6 +245,28 @@ export abstract class Hands {
     const height = this.registry.creature(c.creature)!.hitbox[1];
     const at = { x: c.body.x, y: c.body.y + height * AIM_HEIGHT, z: c.body.z };
     await this.port.hold('primary', slot, at, 1);
+  }
+
+  /**
+   * Whether the ground runs from the feet to a point no lower than the feet: every cell under the
+   * straight line (a quarter block apart) is solid one or two blocks under the feet.
+   */
+  private groundTo(to: Point): boolean {
+    const b = this.me().body;
+    if (to.y < b.y - 1) return false;
+    const feet = Math.floor(b.y);
+    const steps = Math.ceil(Math.sqrt((to.x - b.x) ** 2 + (to.z - b.z) ** 2) * 4);
+    for (let i = 1; i <= steps; i++) {
+      const x = Math.floor(b.x + ((to.x - b.x) * i) / steps);
+      const z = Math.floor(b.z + ((to.z - b.z) * i) / steps);
+      const world = this.view.world;
+      if (
+        !solidAt(world, this.registry, { x, y: feet - 1, z }) &&
+        !solidAt(world, this.registry, { x, y: feet - 2, z })
+      )
+        return false;
+    }
+    return true;
   }
 
   /** The nearest drop of an item within DROP_RADIUS of a point. */

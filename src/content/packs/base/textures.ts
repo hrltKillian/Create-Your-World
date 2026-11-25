@@ -146,6 +146,13 @@ export const textures = [
     alpha: 'emissiveMask',
   },
   {
+    key: 'tex:emberstone',
+    pattern: 'ore',
+    palette: ['#4a4644', '#5a5552', '#6a6461', '#b8542a', '#ff8a3d'],
+    seed: 46,
+    alpha: 'emissiveMask',
+  },
+  {
     key: 'tex:snow',
     pattern: 'speckle',
     palette: ['#d9e2ea', '#e3eaf0', '#ecf1f5', '#f6f9fb'],

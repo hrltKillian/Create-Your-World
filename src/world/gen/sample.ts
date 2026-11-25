@@ -1,8 +1,7 @@
-import { hashUnit } from '../../core/hash.ts';
 import { pickBiome } from './biomes.ts';
 import { type ClimateSample, emptySample, interpolateSample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
-import { surfaceHeight } from './terrain.ts';
+import { coarseHeight, surfaceHeight } from './terrain.ts';
 
 /*
  * Analytic queries: the climate, surface height and biome of any block column, without generating
@@ -61,16 +60,51 @@ export function heightAt(
   return surfaceHeight(out, ctx.def);
 }
 
-/** Biome index (in `ctx.biomes`) of a block column, from its climate sample and height. */
-export function biomeOf(
-  ctx: GenContext,
-  sample: ClimateSample,
-  height: number,
-  x: number,
-  z: number,
-): number {
-  const jitter = (hashUnit(ctx.seedHash, x, z, 77) - 0.5) * 2 * ctx.def.biomeJitter;
-  return pickBiome(ctx.biomeDefs, sample, height, jitter);
+/** The biome a column's own climate sample picks, before lone columns are settled. */
+export function rawBiomeOf(ctx: GenContext, sample: ClimateSample, x: number, z: number): number {
+  const border = ctx.def.biomeBorder;
+  const shift = ctx.border(x / border.scale, z / border.scale) * border.amplitude;
+  return pickBiome(ctx.biomeDefs, sample, coarseHeight(sample, ctx.def), shift);
+}
+
+function rawBiome(ctx: GenContext, cache: LatticeCache, x: number, z: number): number {
+  sampleAt(ctx, cache, x, z, scratch);
+  return rawBiomeOf(ctx, scratch, x, z);
+}
+
+/**
+ * Biome index (in `ctx.biomes`) of a block column. Its climate picks a biome (height rules read
+ * the terrain without its small detail, `coarseHeight`, and every threshold is shifted by the
+ * smooth border field), then a column whose biome none of its 4 neighbours shares (the tip of a
+ * corner where two thresholds cross) takes the biome most of them have (the first in order on a
+ * tie): borders are clean lines, never single columns.
+ */
+export function biomeOf(ctx: GenContext, cache: LatticeCache, x: number, z: number): number {
+  const own = rawBiome(ctx, cache, x, z);
+  // Neighbours are read only until one shares the column's biome (most columns: the first).
+  const w = rawBiome(ctx, cache, x - 1, z);
+  if (own === w) return own;
+  const e = rawBiome(ctx, cache, x + 1, z);
+  if (own === e) return own;
+  const n = rawBiome(ctx, cache, x, z - 1);
+  if (own === n) return own;
+  return settledBiome(own, w, e, n, rawBiome(ctx, cache, x, z + 1));
+}
+
+/**
+ * A column's biome from its raw biome and its 4 neighbours' (`biomeOf`'s rule, for callers that
+ * hold the raw biomes of a grid): its own when a neighbour shares it, else the most common.
+ */
+export function settledBiome(own: number, w: number, e: number, n: number, s: number): number {
+  if (own === w || own === e || own === n || own === s) return own;
+  return majority(majority(majority(w, e, w, e, n, s), n, w, e, n, s), s, w, e, n, s);
+}
+
+/** Of two candidate biomes, the one more of w, e, n, s have (the first in order on a tie). */
+function majority(a: number, b: number, w: number, e: number, n: number, s: number): number {
+  const ca = (a === w ? 1 : 0) + (a === e ? 1 : 0) + (a === n ? 1 : 0) + (a === s ? 1 : 0);
+  const cb = (b === w ? 1 : 0) + (b === e ? 1 : 0) + (b === n ? 1 : 0) + (b === s ? 1 : 0);
+  return cb > ca || (cb === ca && b < a) ? b : a;
 }
 
 export interface PointInfo {
@@ -85,7 +119,5 @@ export function pointInfo(
   z: number,
   cache = new LatticeCache(),
 ): PointInfo {
-  const sample = emptySample();
-  const height = heightAt(ctx, cache, x, z, sample);
-  return { height, biome: biomeOf(ctx, sample, height, x, z) };
+  return { height: heightAt(ctx, cache, x, z), biome: biomeOf(ctx, cache, x, z) };
 }
