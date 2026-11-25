@@ -1,7 +1,7 @@
 import { stationSlotCount } from '../content/crafting.ts';
 import { hash32 } from '../core/hash.ts';
 import { cellKey } from '../world/coords.ts';
-import { structureLootAt } from '../world/gen/structures.ts';
+import { structureLootAt } from '../world/gen/sites.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import { addItem, type Inventory } from './inventory.ts';
 import { spawnDrop } from './itemDrops.ts';

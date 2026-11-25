@@ -5,6 +5,7 @@ import { blocks } from './blocks.ts';
 import { natureBlocks } from './blocksNature.ts';
 import { stationBlocks } from './blocksStations.ts';
 import { undergroundBlocks } from './blocksUnderground.ts';
+import { colonyBlocks, colonyLoot, colonyStructures, colonyTextures } from './colony.ts';
 import { creatureModels, creatureSkins } from './creatureModels.ts';
 import { creatureSfx } from './creatureSfx.ts';
 import { creatures } from './creatures.ts';
@@ -40,11 +41,12 @@ export const basePack: ContentPack = {
       avatarModel: 'model:explorer',
     },
   },
-  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks],
+  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks, ...colonyBlocks],
   // Icons, cracks and creature skins go last so that block texture layers keep their indices.
   textures: [
     ...textures,
     ...floraTextures,
+    ...colonyTextures,
     ...toolIcons,
     ...materialIcons,
     ...equipmentIcons,
@@ -78,7 +80,7 @@ export const basePack: ContentPack = {
   items,
   tiers,
   toolNames,
-  loot,
+  loot: [...loot, ...colonyLoot],
   recipes,
   processes,
   stations,
@@ -92,5 +94,6 @@ export const basePack: ContentPack = {
   biomes,
   features,
   ores,
+  structures: colonyStructures,
   models: [...models, ...creatureModels],
 };

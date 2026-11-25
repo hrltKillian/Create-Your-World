@@ -215,13 +215,13 @@ describe('Logbook', () => {
       expect(kept('bandage')).toEqual(['recipe:bandage']);
       // Its resin is unseen: « ? » on screen, so the recipe is not found by it (the scanner, known
       // from the start, names all of its ingredients).
-      // The Scanner Mk II, made at the workbench and revealed by its cord, names it too.
-      expect(kept('resin')).toEqual(['recipe:scanner', 'recipe:scanner_mk2']);
+      // The Scanner Mk II, made at the workbench and revealed by its cord, names it.
+      expect(kept('resin')).toEqual(['recipe:scanner_mk2']);
       const seen = logbookRows(source(tools, ['item:resin']), MAX);
       const keptSeen = keys(filterRows(seen, { query: 'resin', craftableOnly: false }, name));
       // Resin seen: the recipes it reveals, here, then at a station.
-      expect(keptSeen.slice(0, 2)).toEqual(['recipe:scanner', 'recipe:bandage']);
-      expect(keptSeen.slice(2).every((key) => !row(seen, key).here)).toBe(true);
+      expect(keptSeen[0]).toBe('recipe:bandage');
+      expect(keptSeen.slice(1).every((key) => !row(seen, key).here)).toBe(true);
     });
 
     it('finds a station process too, showing where it is made', () => {

@@ -29,6 +29,12 @@ const quest = (
  * (cold) and south (heat) point the compass while pinned.
  */
 export const quests: readonly QuestDef[] = [
+  // The story of the lost colony (plan v3 « M26 »): the crash site, the outpost, then the relay
+  // and the station it points to; the lamp its blueprint teaches.
+  quest('salvage', {
+    xp: 30,
+    condition: { items: ['item:capsule_parts', 'item:journal_crash'] },
+  }),
   quest('gather', {
     xp: 20,
     condition: { items: ['item:plant_fiber', 'item:stick', 'item:flint'] },
@@ -102,6 +108,20 @@ export const quests: readonly QuestDef[] = [
     ['copper_tools', 'explore'],
   ),
   quest('bronze', { xp: 80, condition: { items: ['item:bronze_ingot'] } }, ['north']),
+  quest('outpost', { xp: 60, condition: { items: ['item:journal_outpost'] } }, ['salvage']),
+  quest(
+    'relay',
+    {
+      xp: 80,
+      condition: { items: ['item:journal_relay'] },
+      compass: 'north',
+    },
+    ['outpost', 'north'],
+  ),
+  quest('station', { xp: 80, condition: { items: ['item:journal_station'] } }, [
+    'outpost',
+    'south',
+  ]),
   quest(
     'bronze_tools',
     { xp: 80, condition: { items: ['item:prowler_sinew', 'item:bronze_pickaxe'] } },
@@ -115,4 +135,12 @@ export const quests: readonly QuestDef[] = [
     'south',
   ]),
   quest('iron', { xp: 150, condition: { items: ['item:iron_ingot'] } }, ['bloomery', 'marsh']),
+  quest(
+    'rebuild',
+    {
+      xp: 100,
+      condition: { items: ['item:colony_lamp'] },
+    },
+    ['relay', 'station', 'copper'],
+  ),
 ];

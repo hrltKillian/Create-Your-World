@@ -165,6 +165,15 @@ export const items: readonly PackItem[] = [
   ...equipment,
   ...consumables,
   ...containers,
+  // The lost colony's relics (plan v3 « M26 »): the capsule's parts, journals to read, blueprints.
+  item('capsule_parts', { hintKey: 'where.capsule_parts' }),
+  item('journal_crash', { lore: 'lore.crash', maxStack: 1 }),
+  item('journal_outpost', { lore: 'lore.outpost', maxStack: 1 }),
+  item('journal_relay', { lore: 'lore.relay', maxStack: 1 }),
+  item('journal_station', { lore: 'lore.station', maxStack: 1 }),
+  item('journal_ruin', { lore: 'lore.ruin', maxStack: 1 }),
+  item('blueprint_lamp', { blueprint: ['recipe:colony_lamp'], maxStack: 1 }),
+  item('blueprint_brick', { blueprint: ['recipe:colony_brick'], maxStack: 1 }),
   // A saved item whose key the pack no longer has: it keeps that key, and stacks only with the
   // unknown items of the same key (`sameStack`).
   { key: 'item:unknown', nameKey: 'item.unknown', icon: 'tex:unknown' },

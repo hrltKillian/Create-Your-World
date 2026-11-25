@@ -1,11 +1,21 @@
 import { blockItemKey } from '../../content/items.ts';
 import { FLAG_LIQUID, FLAG_REPLACEABLE } from '../../content/registry.ts';
-import type { BlockDef, CreatureDef, OreDef, ProcessDef, RecipeDef } from '../../content/schema.ts';
+import type {
+  BlockDef,
+  CreatureDef,
+  OreDef,
+  ProcessDef,
+  RecipeDef,
+  StructureDef,
+} from '../../content/schema.ts';
 import { findBiome } from '../../world/gen/find.ts';
 import { pointInfo } from '../../world/gen/sample.ts';
+import { findStructure } from '../../world/gen/sites.ts';
+import { OPEN_SLOTS_BASE } from '../commands.ts';
 import { isGone } from '../creatures.ts';
 import { bodyInCell } from '../placement.ts';
 import { hourOf } from '../time.ts';
+import { shiftClick } from './slotMoves.ts';
 import { Hands } from './walkHands.ts';
 import { type Cell, cellText, type WalkPort } from './walkPort.ts';
 import { aimToBreak, solidAt, standable, standFor } from './walkReach.ts';
@@ -21,6 +31,9 @@ import { aimToBreak, solidAt, standable, standFor } from './walkReach.ts';
 /** Most blocks broken for one item, creatures hunted, and blows at one creature. */
 const MAX_HARVESTS = 400;
 const MAX_HUNTS = 8;
+/** Chests are looked for this far around a structure's centre, and this far above its ground. */
+const SALVAGE_REACH = 12;
+const SALVAGE_HEIGHT = 8;
 const MAX_BLOWS = 12;
 /** Sources are looked for this far around the player: to the side, below and above. */
 const SOURCE_SIDE = 12;
@@ -245,6 +258,67 @@ export abstract class Gathering extends Hands {
     }
     this.port.send({ type: 'debug.setTime', hours: hour });
     if (!enough()) throw new Error(`${MAX_HUNTS} ${creature.key} hunted, ${item ?? 'not enough'}`);
+  }
+
+  /** A structure whose chests keep an item (the story sites first: they stand once per world). */
+  protected structureWith(item: string): StructureDef | undefined {
+    const keeps = (s: StructureDef) =>
+      Object.values(s.lootTables ?? {}).some((table) =>
+        this.registry.loot(table)?.entries.some((e) => e.item === item),
+      );
+    const structures = this.registry.pack.structures ?? [];
+    return structures.find((s) => s.place && keeps(s)) ?? structures.find(keeps);
+  }
+
+  /**
+   * Takes an item out of the chests of the nearest structure of a kind: the walk goes beside each
+   * chest of its footprint, opens it (`debug.open`) and shift-clicks the item into its bag.
+   */
+  protected async salvage(structure: StructureDef, item: string): Promise<void> {
+    const site = findStructure(this.view.gen, structure.key, this.home, this.searchRadius);
+    if (!site) throw new Error(`no ${structure.key} within ${this.searchRadius} blocks of home`);
+    await this.port.travel(site.x + 0.5, 'surface', site.z + 0.5);
+    const before = this.count(item);
+    for (const chest of this.chestsAround(site)) {
+      const stand = this.besideChest(chest);
+      if (!stand) continue;
+      await this.port.travel(stand.x + 0.5, stand.y, stand.z + 0.5);
+      this.port.send({ type: 'debug.open', ...chest });
+      const slots = this.view.blockEntity(chest.x, chest.y, chest.z)?.slots ?? [];
+      slots.forEach((stack, slot) => {
+        if (stack?.item === item) this.port.send(shiftClick(OPEN_SLOTS_BASE + slot));
+      });
+      this.port.send({ type: 'screen.close' });
+      if (this.count(item) > before) return;
+    }
+    throw new Error(`the chests of ${structure.key} keep no ${item}`);
+  }
+
+  /** The chest blocks within a structure's reach of its centre. */
+  private chestsAround(site: { x: number; y: number; z: number }): Cell[] {
+    const chests: Cell[] = [];
+    for (let dy = -2; dy <= SALVAGE_HEIGHT; dy++)
+      for (let dz = -SALVAGE_REACH; dz <= SALVAGE_REACH; dz++)
+        for (let dx = -SALVAGE_REACH; dx <= SALVAGE_REACH; dx++) {
+          const cell = { x: site.x + dx, y: site.y + dy, z: site.z + dz };
+          if (this.registry.blockDef(this.blockAt(cell)).blockEntity === 'container')
+            chests.push(cell);
+        }
+    return chests;
+  }
+
+  /** An open cell beside a chest (feet and head free over solid ground), or null. */
+  private besideChest(chest: Cell): Cell | null {
+    for (const [dx, dz] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const cell = { x: chest.x + dx, y: chest.y, z: chest.z + dz };
+      if (standable(this.view.world, this.registry, cell)) return cell;
+    }
+    return null;
   }
 
   /** Entity id of the newest creature of a kind (−1: none). */

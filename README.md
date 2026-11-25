@@ -138,18 +138,23 @@ of them:
 
 ## Try this milestone
 
-**M25 — Fauna of the new biomes** (plan v3, `docs/conception.md` « M25 »). `npm run dev`, then open
+**M26 — The lost colony** (plan v3, `docs/conception.md` « M26 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **The Glimmerback** grazes the Capwood under the giant mushrooms, its spore spots and antlers
-  glowing in the dark; it bolts when startled.
-- **The Reedwader**, a wading bird on two long legs, stalks the shores of the Mirror Basin in
-  flocks; hurt one and the flock pecks back.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m25`;
-  `__game.entities.spawn('creature:reedwader', x, 'surface', z)`.
+- **Your crashed capsule** lies near where you wake: its salvage locker keeps the capsule's parts
+  (the Field Scanner is made from them) and your log.
+- **The colony's sites**: the outpost 120–250 blocks away, the north relay in the Rimefrost and the
+  marsh station in the Sporefen, each with its journal; ruins everywhere keep torn pages.
+- **Blueprints** teach the Colony Lamp and Colony Bricks at the workbench; journals are read in
+  their description.
+- **Story quests** follow the colonists from the crash to the relay and the station.
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m26`;
+  `__game.world.findStructure('structure:outpost')`.
 
 ### Earlier milestones
 
+- **M25, fauna of the new biomes**: the Glimmerback of the Capwood and the Reedwader of the Mirror
+  Basin; `?worldType=flat&fixedStep=1&selftest=m0,m25`.
 - **M24, caves to visit and common ores**: wide caves with walkable entrances near everywhere,
   Emberstone and copper in every biome; `?seed=7&rd=4&fixedStep=1&selftest=m0,m24`.
 - **M23, the biomes of Veyra**: eight biomes with their signature trees, rare giants, groves and

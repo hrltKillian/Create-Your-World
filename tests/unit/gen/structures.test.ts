@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { FLAG_SOLID } from '../../../src/content/registry.ts';
-import { findStructure } from '../../../src/world/gen/find.ts';
 import { columnHash, createGenContext } from '../../../src/world/gen/generateColumn.ts';
 import { LatticeCache } from '../../../src/world/gen/sample.ts';
+import { findStructure } from '../../../src/world/gen/sites.ts';
 import { REGION, regionOf, type StructureSite, siteIn } from '../../../src/world/gen/structures.ts';
 import { structureRegistry as registry } from '../../fixtures/structures.ts';
 import { blockIn, generate } from '../../helpers/gen.ts';

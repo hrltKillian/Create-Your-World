@@ -124,6 +124,10 @@ export interface ItemDef {
   readonly fuel?: FuelDef;
   /** Where the item is found (i18n key): the Logbook's hint for an ingredient not yet seen. */
   readonly hintKey?: string;
+  /** A journal of the lost colony (plan v3 « M26 »): its text (i18n key), read in its description. */
+  readonly lore?: string;
+  /** A blueprint: the `known: 'blueprint'` recipes it reveals once had. */
+  readonly blueprint?: readonly RecipeKey[];
 }
 
 /** Display name of a tool tier (hint « Tool too weak: copper pickaxe required »). */
@@ -183,8 +187,11 @@ export interface RecipeDef {
   readonly seconds: number;
   readonly inputs: readonly Ingredient[];
   readonly output: ItemCount;
-  /** Known from the start; the others are revealed once one of their ingredients has been seen. */
-  readonly known?: 'start';
+  /**
+   * Known from the start; revealed by the blueprint that names it (plan v3 « M26 »); the others
+   * are revealed once one of their ingredients has been seen.
+   */
+  readonly known?: 'start' | 'blueprint';
   /** Crafted only from this player level on (plan v3 « M22 »). */
   readonly level?: number;
 }

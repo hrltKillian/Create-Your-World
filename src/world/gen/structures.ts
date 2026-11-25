@@ -6,13 +6,15 @@ import { columnIndex, localIndex, SECTION_BITS, SECTION_SIZE, WORLD_HEIGHT } fro
 import { caveAt, heightIndex } from './caves.ts';
 import { emptySample } from './climate.ts';
 import type { GenContext } from './generateColumn.ts';
-import { biomeOf, heightAt, LatticeCache } from './sample.ts';
+import { biomeOf, heightAt, type LatticeCache } from './sample.ts';
 
 /*
  * Structures (docs « Génération » step 8): each 128×128 region has one candidate point, a pure
  * function of the seed; where its biome lists structures, one may stand there on flat, dry ground.
- * The site is analytic (heights, biome and caves only), and each column writes only its own part
- * of it, so the result does not depend on the order in which columns are generated.
+ * Story structures (`StructureDef.place`, plan v3 « M26 ») stand instead at the nearest such spot
+ * of their biomes around the spawn (sites.ts). A site is analytic (heights, biome and caves only),
+ * and each column writes only its own part of it, so the result does not depend on the order in
+ * which columns are generated.
  */
 
 /** Side of a region (at most one structure each), and its log2. */
@@ -40,8 +42,12 @@ const SALT_PICK = 52;
 /** A structure of the pack with its template and chances resolved. */
 export interface ResolvedStructure {
   readonly key: StructureKey;
-  /** Chance per biome index (0 where the structure never appears). */
+  /** Chance per biome index (0 where the structure never appears, and for story structures). */
   readonly chances: Float64Array;
+  /** 1 for each biome index the structure stands in. */
+  readonly inBiome: Uint8Array;
+  /** A story structure's distance range from the spawn (sites.ts), or null. */
+  readonly place: { readonly min: number; readonly max: number } | null;
   /** Template size: x, layers, z. */
   readonly width: number;
   readonly height: number;
@@ -82,9 +88,14 @@ export function resolveStructure(
       }
     });
   });
+  const place = def.place ? { min: def.place.distance[0], max: def.place.distance[1] } : null;
   return {
     key: def.key,
-    chances: Float64Array.from(biomes, (b) => (def.biomes.includes(b.key) ? def.chance : 0)),
+    chances: Float64Array.from(biomes, (b) =>
+      def.biomes.includes(b.key) && !place ? def.chance : 0,
+    ),
+    inBiome: Uint8Array.from(biomes, (b) => (def.biomes.includes(b.key) ? 1 : 0)),
+    place,
     width,
     height,
     depth,
@@ -122,12 +133,27 @@ export function siteIn(
   const roll = hash32(ctx.seedHash, rx, rz, SALT_POINT);
   const x = rx * REGION + MARGIN + MAX_SIDE / 2 + ((roll & 0xffff) % SPAN);
   const z = rz * REGION + MARGIN + MAX_SIDE / 2 + ((roll >>> 16) % SPAN);
+  const y = heightAt(ctx, cache, x, z, sample);
+  if (y <= ctx.def.seaLevel || y + 1 >= WORLD_HEIGHT) return null;
+  const biome = biomeOf(ctx, cache, x, z);
+  const structure = pickStructure(ctx, biome, hashUnit(ctx.seedHash, rx, rz, SALT_PICK));
+  return structure ? siteAt(ctx, cache, structure, x, z) : null;
+}
+
+/**
+ * A structure centred on (x, z) if the ground there is dry and flat enough (corners, edge middles
+ * and centre of the footprint within MAX_SLOPE of the centre) and no cave opens its centre.
+ */
+export function siteAt(
+  ctx: GenContext,
+  cache: LatticeCache,
+  structure: ResolvedStructure,
+  x: number,
+  z: number,
+): StructureSite | null {
   const sea = ctx.def.seaLevel;
   const y = heightAt(ctx, cache, x, z, sample);
   if (y <= sea || y + 1 >= WORLD_HEIGHT) return null;
-  const biome = biomeOf(ctx, cache, x, z);
-  const structure = pickStructure(ctx, biome, hashUnit(ctx.seedHash, rx, rz, SALT_PICK));
-  if (!structure) return null;
   const x0 = x - (structure.width >> 1);
   const z0 = z - (structure.depth >> 1);
   // Dry and flat enough: corners, edge middles and centre of the footprint.
@@ -147,29 +173,6 @@ export function siteIn(
   return { structure, x0, z0, y };
 }
 
-/**
- * Loot table of the structure container generated at a block, if any (analytic: whether the
- * block is still there is the caller's business).
- */
-export function structureLootAt(
-  ctx: GenContext,
-  x: number,
-  y: number,
-  z: number,
-): LootKey | undefined {
-  // Flat worlds have no structures.
-  if (ctx.worldType !== 'default') return undefined;
-  const site = siteIn(ctx, new LatticeCache(), regionOf(x), regionOf(z));
-  if (!site) return undefined;
-  const s = site.structure;
-  const layer = y - site.y;
-  const dx = x - site.x0;
-  const dz = z - site.z0;
-  if (layer < 0 || layer >= s.height || dx < 0 || dx >= s.width || dz < 0 || dz >= s.depth)
-    return undefined;
-  return s.loot.get(dx + dz * s.width + layer * s.width * s.depth);
-}
-
 /** Whether (x, z) lies within `margin` blocks of the site's footprint (a square margin). */
 export function nearSite(site: StructureSite, x: number, z: number, margin: number): boolean {
   return (
@@ -180,18 +183,19 @@ export function nearSite(site: StructureSite, x: number, z: number, margin: numb
   );
 }
 
-/** The structure site of a column's region, or null. */
-export function columnSite(
-  ctx: GenContext,
-  cache: LatticeCache,
-  column: Column,
-): StructureSite | null {
-  const shift = REGION_BITS - SECTION_BITS;
-  return siteIn(ctx, cache, column.cx >> shift, column.cz >> shift);
+/** Loot table of the structure container cell at a block of a site, if any. */
+export function lootIn(site: StructureSite, x: number, y: number, z: number): LootKey | undefined {
+  const s = site.structure;
+  const layer = y - site.y;
+  const dx = x - site.x0;
+  const dz = z - site.z0;
+  if (layer < 0 || layer >= s.height || dx < 0 || dx >= s.width || dz < 0 || dz >= s.depth)
+    return undefined;
+  return s.loot.get(dx + dz * s.width + layer * s.width * s.depth);
 }
 
 /**
- * Writes the column's part of its region's structure: the biome's filler under the bottom layer
+ * Writes the column's part of a structure: the biome's filler under the bottom layer
  * down to solid ground (over water, a dip or a cave entrance), then the template, then air up to
  * the ground and its plants where the ground is higher.
  */
@@ -199,9 +203,8 @@ export function placeStructure(
   ctx: GenContext,
   column: Column,
   heights: Int16Array,
-  site: StructureSite | null,
+  site: StructureSite,
 ): void {
-  if (!site) return;
   const s = site.structure;
   const air = ctx.registry.air;
   const x0 = column.cx * SECTION_SIZE;

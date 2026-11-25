@@ -73,7 +73,7 @@ const ingredients = (inputs: Inputs): Ingredient[] =>
 interface RecipeExtra {
   readonly count?: number;
   readonly station?: StationKey;
-  readonly known?: 'start';
+  readonly known?: 'start' | 'blueprint';
   readonly level?: number;
 }
 
@@ -130,7 +130,8 @@ export const recipes: readonly RecipeDef[] = [
   recipe('workbench', 'building', 3, { planks: 8, plant_fiber: 4 }, START),
   recipe('unfired_flask', 'survival', 2, { clay_lump: 3 }, START),
   // Wired from what the crash left (M18 gives it the capsule's parts).
-  recipe('scanner', 'equipment', 3, { flint: 1, cord: 2, resin: 1 }, START),
+  // The capsule's parts make the scanner (plan v3 « M26 »: the crash site's salvage locker).
+  recipe('scanner', 'equipment', 3, { capsule_parts: 1, cord: 2 }, START),
   recipe('bandage', 'survival', 2, { plant_fiber: 3, resin: 1 }),
   recipe('straw_hat', 'equipment', 3, { plant_fiber: 8, cord: 2 }),
   recipe('fiber_veil', 'equipment', 3, { plant_fiber: 6, cord: 1 }),
@@ -155,6 +156,29 @@ export const recipes: readonly RecipeDef[] = [
   bench('bronze_helmet', 'equipment', 4, { bronze_ingot: 4, leather: 1 }),
   bench('bronze_cuirass', 'equipment', 4, { bronze_ingot: 7, leather: 2 }),
   bench('shell_cuirass', 'equipment', 4, { shell_plate: 4, leather: 2, cord: 1 }),
+  // Blueprint recipes (plan v3 « M26 »): the colony's lamp and bricks, never needed on the way to
+  // iron.
+  recipe(
+    'colony_lamp',
+    'building',
+    4,
+    { copper_ingot: 1, crystal_shard: 1, glass: 1 },
+    {
+      station: BENCH,
+      known: 'blueprint',
+    },
+  ),
+  recipe(
+    'colony_brick',
+    'building',
+    3,
+    { stone_shard: 4, clay_lump: 2 },
+    {
+      station: BENCH,
+      known: 'blueprint',
+      count: 4,
+    },
+  ),
   // Level recipes (plan v3 « M22 »): never needed on the way to iron.
   recipe(
     'pack_frame',

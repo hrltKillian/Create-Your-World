@@ -541,6 +541,11 @@ export interface StructureDef {
   readonly legend: Readonly<Record<string, string>>;
   /** Character of a container block (a chest) → the loot table that fills it when generated. */
   readonly lootTables?: Readonly<Record<string, LootKey>>;
+  /**
+   * A story structure (plan v3 « M26 »): once per world, at the nearest flat, dry spot of its
+   * biomes whose distance from the spawn lies in `distance` (blocks); `chance` is unused.
+   */
+  readonly place?: { readonly distance: readonly [number, number] };
 }
 
 export type OreKey = `ore:${string}`;

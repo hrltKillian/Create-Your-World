@@ -1,7 +1,6 @@
 import { caveAt } from './caves.ts';
 import type { GenContext } from './generateColumn.ts';
 import { biomeOf, heightAt, LatticeCache } from './sample.ts';
-import { REGION, regionOf, siteIn } from './structures.ts';
 
 /*
  * Analytic searches over the generated world (nothing is generated): the nearest column of a
@@ -113,34 +112,6 @@ export function biomesWithin(
   if (missing.size === 0) return true;
   scanBiomes(ctx, cache, from, maxRadius, (biome) => missing.delete(biome) && missing.size === 0);
   return missing.size === 0;
-}
-
-/** The nearest structure of a kind (its key) within `maxRadius` blocks of `from`, or null. */
-export function findStructure(
-  ctx: GenContext,
-  structureKey: string,
-  from: Place,
-  maxRadius: number,
-): FoundStructure | null {
-  if (!ctx.structures.some((s) => s.key === structureKey))
-    throw new Error(`Unknown structure "${structureKey}"`);
-  const cache = new LatticeCache();
-  const reach = Math.ceil(maxRadius / REGION) + 1;
-  const rx0 = regionOf(Math.floor(from.x));
-  const rz0 = regionOf(Math.floor(from.z));
-  let best = null as FoundStructure | null;
-  for (let rz = rz0 - reach; rz <= rz0 + reach; rz++) {
-    for (let rx = rx0 - reach; rx <= rx0 + reach; rx++) {
-      const site = siteIn(ctx, cache, rx, rz);
-      if (!site || site.structure.key !== structureKey) continue;
-      const x = site.x0 + (site.structure.width >> 1);
-      const z = site.z0 + (site.structure.depth >> 1);
-      const distance = Math.sqrt((x - from.x) * (x - from.x) + (z - from.z) * (z - from.z));
-      if (distance <= maxRadius && (!best || distance < best.distance))
-        best = { x, y: site.y, z, distance };
-    }
-  }
-  return best;
 }
 
 /** Carved cells a cave pocket needs above its floor: the feet, the head and one more. */

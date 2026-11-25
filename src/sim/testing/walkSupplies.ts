@@ -17,7 +17,8 @@ import { type Cell, cellText, type WalkPort } from './walkPort.ts';
  * taken as they come); a process run in its station (inputs, the longest-burning gathered fuel,
  * the outputs taken back). An item a quest names comes the
  * world's way whenever the world yields it (walkGather.ts): the blocks that drop it are broken, the
- * creatures that leave it struck down with the weapon that reaches farthest. Every other raw
+ * creatures that leave it struck down with the weapon that reaches farthest; what only the
+ * colony's chests keep is taken out of them (and a blueprint before its recipe). Every other raw
  * material (logs, stone, clay, fuel, ores no quest names, hides, fur, resin) is given by
  * `debug.give`. Stations are crafted, then placed by hand on the home floor.
  */
@@ -54,8 +55,12 @@ export abstract class Supplies extends Gathering {
     const recipe = this.recipeFor(item);
     const process = recipe ? undefined : this.processFor(item);
     const creature = named && !recipe && !process ? this.creatureWith(item) : undefined;
+    // What only a structure's chests keep (the colony's relics) comes from them.
+    const elsewhere = sources.length > 0 || recipe || process || this.creatureWith(item);
+    const structure = elsewhere ? undefined : this.structureWith(item);
     const missing = need - this.count(ingredient);
     if (sources.length > 0) await this.harvest(item, need, sources);
+    else if (structure) await this.salvage(structure, item);
     else if (recipe) await this.craft(recipe, Math.ceil(missing / recipe.output.count), depth);
     else if (process)
       await this.runProcess(process, Math.ceil(missing / process.output.count), depth);
@@ -130,6 +135,11 @@ export abstract class Supplies extends Gathering {
    * are taken as they come.
    */
   private async craft(recipe: RecipeDef, crafts: number, depth: number): Promise<void> {
+    // A blueprint's recipe needs its blueprint had first.
+    if (recipe.known === 'blueprint') {
+      const blueprint = this.registry.items.find((i) => i.blueprint?.includes(recipe.key));
+      if (blueprint) await this.obtain(blueprint.key, 1, depth + 1);
+    }
     // The station first: making it must not use up the inputs (a campfire burns logs).
     const bench = recipe.station === undefined ? null : await this.station(recipe.station, depth);
     await this.inputs(recipe.inputs, crafts, depth);
