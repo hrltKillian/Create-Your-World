@@ -13,8 +13,8 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
  * How strongly each vignette shows (0–1) for a player's gauges, from the balance's thresholds:
- * health below `lowAt`, Cold and Hot from ±`mildAt` (stronger towards the limit), Nauseous from
- * `nauseousAt`, and the head under water.
+ * health below `lowAt`, Cold and Hot from ±`mildAt` (stronger towards the limit), toxicity from
+ * `harmAt`, and the head under water.
  */
 export function vignetteLevels(
   s: Readonly<SurvivalState>,
@@ -28,7 +28,7 @@ export function vignetteLevels(
   out.health = s.health < low ? FIRST_LEVEL + (1 - FIRST_LEVEL) * clamp01(1 - s.health / low) : 0;
   out.cold = s.temperature <= -t.mildAt ? clamp01(-s.temperature / t.limit) : 0;
   out.heat = s.temperature >= t.mildAt ? clamp01(s.temperature / t.limit) : 0;
-  out.toxicity = s.toxicity >= tox.nauseousAt ? clamp01(s.toxicity / tox.max) : 0;
+  out.toxicity = s.toxicity >= tox.harmAt ? clamp01(s.toxicity / tox.max) : 0;
   out.water = underwater ? 1 : 0;
   return out;
 }

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import { createHost } from '../../../src/sim/host.ts';
-import {
-  SLEEP_HOSTILES_HINT,
-  SLEEP_NIGHT_HINT,
-  SLEEP_SHELTER_HINT,
-  SLEEP_WAIT_HINT,
-} from '../../../src/sim/sleep.ts';
+import { SLEEP_HOSTILES_HINT, SLEEP_NIGHT_HINT, SLEEP_WAIT_HINT } from '../../../src/sim/sleep.ts';
 import {
   DAY_TICKS,
   dayOf,
@@ -20,27 +15,23 @@ import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim } from '../../helpers/simHarness.ts';
 
 /*
- * Sleeping (docs « Sommeil ») and the clock's messages (« Jour/nuit »): the hours and costs come
- * from the pack's balance.
+ * Sleeping (docs « Sommeil », plan v3 « M20 »: no shelter needed, only no hostile within 8 blocks)
+ * and the clock's messages (« Jour/nuit »): the hours and costs come from the pack's balance.
  */
 
 const b = registry.pack.balance;
 const BED = { x: 0, y: 65, z: -1 };
 const ON_BED = { target: { ...BED, face: 2 } };
 
-/** A closed plank hut around the player (inside x −1…1, y 65…67, z −2…1) with a bedroll. */
-function hut(seed: string) {
+/** A bedroll on open flat ground beside the player: no walls, no roof. */
+function camp(seed: string) {
   const s = playerTestSim({ seed });
-  s.send(
-    { type: 'debug.fill', x0: -2, y0: 64, z0: -3, x1: 2, y1: 68, z1: 2, state: 'block:planks' },
-    { type: 'debug.fill', x0: -1, y0: 65, z0: -2, x1: 1, y1: 67, z1: 1, state: 'block:air' },
-  );
   s.fill(BED.x, BED.y, BED.z, BED.x, BED.y, BED.z, 'block:bedroll[facing4=n]');
   return s;
 }
 
 /** Presses secondary on the bedroll for one tick; returns its events. */
-function lieDown(s: ReturnType<typeof hut>) {
+function lieDown(s: ReturnType<typeof camp>) {
   s.events.length = 0;
   s.tick(1, { ...ON_BED, secondary: true });
   s.tick(1);
@@ -48,8 +39,8 @@ function lieDown(s: ReturnType<typeof hut>) {
 }
 
 describe('sleeping', () => {
-  it('skips a night in a closed shelter to 06:00, for its hunger and thirst, and sets the respawn', () => {
-    const s = hut('sleep');
+  it('skips a night in the open to 06:00, for its hunger and thirst, and sets the respawn', () => {
+    const s = camp('sleep');
     s.send({ type: 'debug.setTime', hours: 22 });
     const day = dayOf(s.sim.time.ticks);
     const { hunger, thirst } = s.player.survival;
@@ -64,7 +55,7 @@ describe('sleeping', () => {
   });
 
   it('works past midnight too, until 05:00', () => {
-    const s = hut('sleep-late');
+    const s = camp('sleep-late');
     s.send({ type: 'debug.setTime', hours: b.sleep.toHour - 0.5 });
     const day = dayOf(s.sim.time.ticks);
     lieDown(s);
@@ -72,22 +63,18 @@ describe('sleeping', () => {
     expect(hourOf(s.sim.time.ticks)).toBeCloseTo(b.sleep.wakeHour, 2);
   });
 
-  it('is refused by day and outside a closed shelter, with a hint', () => {
-    const s = hut('sleep-refused');
+  it('is refused by day, with a hint', () => {
+    const s = camp('sleep-refused');
     s.send({ type: 'debug.setTime', hours: 12 });
     const noon = s.sim.time.ticks;
     expect(eventsOf(lieDown(s), 'hint').map((e) => e.key)).toEqual([SLEEP_NIGHT_HINT]);
     expect(s.sim.time.ticks).toBe(noon + 2);
-    s.send({ type: 'debug.setTime', hours: 23 });
-    // A hole in the roof: the sky comes in.
-    s.fill(0, 68, 0, 0, 68, 0, 'block:air');
-    s.step(2);
-    expect(eventsOf(lieDown(s), 'hint').map((e) => e.key)).toEqual([SLEEP_SHELTER_HINT]);
     expect(s.player.respawn).toBeNull();
   });
 
-  it('is refused with a hostile creature within 16 blocks, not farther', () => {
-    const s = hut('sleep-hostile');
+  it('is refused with a hostile creature within 8 blocks (a Prowler at 7), not farther', () => {
+    expect(b.sleep.hostileRadius).toBe(8);
+    const s = camp('sleep-hostile');
     s.send({ type: 'debug.setTime', hours: 23 }, { type: 'debug.freezeTime', frozen: true });
     const place = (creature: string, z: number) =>
       s.send({ type: 'debug.spawn', creature, x: 0.5, y: 'surface', z });
@@ -101,7 +88,7 @@ describe('sleeping', () => {
   });
 
   it('forgets the respawn point once the bedroll is broken', () => {
-    const s = hut('sleep-break');
+    const s = camp('sleep-break');
     s.send({ type: 'debug.setTime', hours: 22 });
     lieDown(s);
     expect(s.player.respawn).toEqual(BED);
@@ -111,7 +98,7 @@ describe('sleeping', () => {
   });
 
   it('forgets the respawn point once a debug fill replaces the bedroll', () => {
-    const s = hut('sleep-fill');
+    const s = camp('sleep-fill');
     s.send({ type: 'debug.setTime', hours: 22 });
     lieDown(s);
     expect(s.player.respawn).toEqual(BED);
@@ -120,9 +107,9 @@ describe('sleeping', () => {
   });
 });
 
-/** The hut with a second player inside, beside a second bedroll (both players' commands). */
+/** The camp with a second player, beside a second bedroll (both players' commands). */
 function twoSleepers(seed: string) {
-  const s = hut(seed);
+  const s = camp(seed);
   const BED2 = { x: 1, y: 65, z: -1 };
   s.fill(BED2.x, BED2.y, BED2.z, BED2.x, BED2.y, BED2.z, 'block:bedroll[facing4=n]');
   const second = s.sim.addPlayer(2, 2);
@@ -185,11 +172,11 @@ describe('sleeping with two players (allPlayersSleeping)', () => {
     expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);
   });
 
-  it('gets a sleeper up when a hostile creature comes within 16 blocks', () => {
+  it('gets a sleeper up when a hostile creature comes within 8 blocks', () => {
     const s = twoSleepers('sleep-hostile-near');
     s.both({ ...ON_BED, secondary: true }, {});
     expect(s.player.sleeping).not.toBeNull();
-    s.send({ type: 'debug.spawn', creature: 'creature:prowler', x: 0.5, y: 'surface', z: -9.5 });
+    s.send({ type: 'debug.spawn', creature: 'creature:prowler', x: 0.5, y: 'surface', z: -6.5 });
     s.both({}, {});
     expect(s.player.sleeping).toBeNull();
     expect(hourOf(s.sim.time.ticks)).toBeGreaterThan(b.sleep.fromHour);

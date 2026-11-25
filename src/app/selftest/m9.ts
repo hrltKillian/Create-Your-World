@@ -23,7 +23,7 @@ import {
   setTime,
   withinFrames,
 } from '../automation.ts';
-import { equip, kill, setStat, shelterHere } from '../survivalAutomation.ts';
+import { equip, kill, setStat } from '../survivalAutomation.ts';
 import {
   aimAt,
   arenaOf,
@@ -44,9 +44,7 @@ import {
 import {
   balance,
   boiler,
-  buildCabin,
   buildPool,
-  CABIN_ROOM,
   clearRoom,
   coldestBiome,
   emptyHand,
@@ -65,14 +63,14 @@ import {
 
 /**
  * M9 « Fait quand » browser checks in the generated world with fixed steps
- * (?seed=7&rd=4&fixedStep=1&selftest=m0,m9): the tundra at 23:00 makes the body Cold within
- * step(5400); a cabin with a campfire, built by debug fills, is enclosed and warms it back; a
- * bedroll there sleeps until 06:00; the marsh at noon gives its day toxicity over step(9000), a
+ * (?seed=7&rd=4&fixedStep=1&selftest=m0,m9): the tundra at 23:00 cools the body below −mildAt
+ * within step(5400), the HUD naming no status; two campfires beside the player warm it back; a
+ * bedroll in the open sleeps until 06:00 (no shelter needed); the marsh at noon gives its day toxicity over step(9000), a
  * filter mask its share of it; a sip from a pool, a flask filled there, the flask boiled in a
  * campfire; a death opens #screen-death, Respawn brings the player back where they should be,
  * and the compass points at the Abandoned Pack, also after save.reload() (IndexedDB only, the
  * default storage). Blocks, items and biomes come from the pack's data (engine code never names
- * content): the coldest biome by night, the most toxic one by day, the arena's cabin wall, pond
+ * content): the coldest biome by night, the most toxic one by day, the arena's cabin wall (floors), pond
  * water and tree log, the station that boils that water, the bedroll block, the air filter.
  */
 
@@ -85,7 +83,7 @@ const MARSH_TICKS = 9000;
 /** « toxicité 20 ± 2 »; « ≤ 3,3 avec masque »: 10 % over the filtered rate. */
 const TOXICITY_TOLERANCE = 2;
 const MASK_MARGIN = 1.1;
-/** « température ≥ −10 » in the cabin with its fire. */
+/** « température ≥ −10 » beside the campfires. */
 const WARM_FLOOR = -10;
 /** Aim just above the floor in the middle of a low block's cell (bedroll, campfire). */
 const LOW_AIM = 1 / 16;
@@ -102,14 +100,6 @@ const MINUTE = 1 / 60;
 const RESPAWN_EPSILON = 0.01;
 const DEATH_CAUSE: DeathCause = 'cold';
 
-/** Waits until the HUD's effect list shows a status or effect. */
-async function effectShown(key: string): Promise<void> {
-  const selector = `#hud-effects [data-effect="${key}"]`;
-  const shown = await withinFrames(UI_FRAMES, () => document.querySelector(selector) !== null);
-  const listed = document.querySelector('#hud-effects')?.textContent ?? '';
-  assert(shown, `the HUD's effects do not list ${key} (they read "${listed}")`);
-}
-
 /** Toxicity after MARSH_TICKS at noon (frozen clock), from 0, the air sampled at noon first. */
 async function marshToxicity(app: App): Promise<number> {
   const session = app.session!;
@@ -117,7 +107,7 @@ async function marshToxicity(app: App): Promise<number> {
   await keepingClock(app, () => {
     setTime(app, NOON);
     freezeTime(app, true);
-    session.step(ticksOf(balance(app).shelter.checkSec));
+    session.step(ticksOf(balance(app).climate.sampleSec));
     freshGauges(app);
     session.step(MARSH_TICKS);
     toxicity = session.player.survival.toxicity;
@@ -142,7 +132,7 @@ async function packMarked(app: App, pack: Cell): Promise<void> {
 
 export const M9_SUITE: readonly SelftestCase[] = [
   {
-    name: `in the tundra, time.set(${NIGHT_HOUR}) then step(${TUNDRA_TICKS}) leave the body at −40 or below: Cold`,
+    name: `in the tundra, time.set(${NIGHT_HOUR}) then step(${TUNDRA_TICKS}) leave the body at −40 or below, no status word shown`,
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
     skip: needsGeneratedFixedPlayer,
@@ -158,13 +148,13 @@ export const M9_SUITE: readonly SelftestCase[] = [
         const body = `the body is at ${s.temperature.toFixed(1)} (air ${s.ambient.toFixed(1)} °C, target ${s.target.toFixed(1)})`;
         assert(s.temperature <= -b.temperature.mildAt, `${body}, above −${b.temperature.mildAt}`);
         const status = thermalStatus(s.temperature, b);
-        assert(status === -1, `${body}: thermal status ${status}, not Cold (−1)`);
-        await effectShown('cold');
+        assert(status === -1, `${body}: thermal band ${status}, not the first cold one (−1)`);
+        assert(!document.querySelector('#hud-effects'), 'the HUD still lists statuses');
       });
     },
   },
   {
-    name: 'a cabin with a campfire, built by debug fills in the tundra at night, is enclosed and warms the body to −10 or above',
+    name: 'two campfires beside the player in the open tundra at night warm the body to −10 or above',
     scenes: PLAY_SCENES,
     timeoutMs: 60_000,
     skip: needsGeneratedFixedPlayer,
@@ -172,8 +162,10 @@ export const M9_SUITE: readonly SelftestCase[] = [
       const session = await playerSession(app);
       const gauge = balance(app).temperature;
       const feet = await visitBiome(app, coldestBiome(app));
-      buildCabin(app, feet);
+      clearRoom(app, feet, PAD_ROOM, PAD_HEIGHT);
+      // The thermal model adds the two strongest sources: one fire on either side.
       setBlock(app, feet.x + 1, feet.y, feet.z, litFire(app));
+      setBlock(app, feet.x - 1, feet.y, feet.z, litFire(app));
       // Twice the time from Cold back to −10 at the rate towards 0.
       const ticks = 2 * ticksOf((60 * (gauge.mildAt + WARM_FLOOR)) / gauge.backPerMin);
       await keepingClock(app, () => {
@@ -182,20 +174,15 @@ export const M9_SUITE: readonly SelftestCase[] = [
         setStat(app, 'temperature', -gauge.mildAt);
         session.step(ticks);
         const s = session.player.survival;
-        const shelter = shelterHere(app);
-        assert(
-          shelter === 'enclosed' && s.shelter === 'enclosed',
-          `in the cabin the shelter is ${shelter} (last sample: ${s.shelter}), not enclosed`,
-        );
         assert(
           s.temperature >= WARM_FLOOR,
-          `after step(${ticks}) in the cabin the body is at ${s.temperature.toFixed(1)} (air ${s.ambient.toFixed(1)} °C, target ${s.target.toFixed(1)}), below ${WARM_FLOOR}`,
+          `after step(${ticks}) by the fires the body is at ${s.temperature.toFixed(1)} (air ${s.ambient.toFixed(1)} °C, target ${s.target.toFixed(1)}), below ${WARM_FLOOR}`,
         );
       });
     },
   },
   {
-    name: 'secondary on a bedroll in the cabin at night sleeps until 06:00 and makes it the respawn point',
+    name: 'secondary on a bedroll in the open at night sleeps until 06:00 and makes it the respawn point',
     scenes: PLAY_SCENES,
     timeoutMs: 30_000,
     skip: needsGeneratedFixedPlayer,
@@ -204,11 +191,11 @@ export const M9_SUITE: readonly SelftestCase[] = [
       const registry = app.registry!;
       const wake = balance(app).sleep.wakeHour;
       const feet = feetCell(app);
-      // The previous case's cabin, built again around the player.
-      buildCabin(app, feet);
+      // Open ground around the player: no shelter needed (plan v3 « M20 »).
+      clearRoom(app, feet, PAD_ROOM, PAD_HEIGHT);
       const bedroll = registry.blocks.find((def) => def.blockEntity === 'bed');
       assert(bedroll, 'the pack has no bedroll');
-      const bed = { x: feet.x, y: feet.y, z: feet.z - CABIN_ROOM };
+      const bed = { x: feet.x, y: feet.y, z: feet.z - 2 };
       setBlock(app, bed.x, bed.y, bed.z, stateKey(app, registry.defaultState(bedroll.key)));
       setTime(app, NIGHT_HOUR);
       const day = readClock(app).day;
@@ -219,7 +206,7 @@ export const M9_SUITE: readonly SelftestCase[] = [
       const morning = clockText(wake, day + 1);
       assert(
         Math.abs(clock.hour - wake) < MINUTE && clock.day === day + 1,
-        `after sleeping the clock reads ${reads}, not ${morning} (shelter: ${shelterHere(app)})`,
+        `after sleeping the clock reads ${reads}, not ${morning}`,
       );
       const respawn = canonicalJson(session.player.respawn);
       assert(respawn === canonicalJson(bed), `the respawn point is ${respawn}, not the bedroll`);
@@ -434,10 +421,6 @@ export const M9_SUITE: readonly SelftestCase[] = [
       assert(
         gauges.every((d) => Math.abs(d) < 0.5),
         `respawned with health ${s.health}, hunger ${s.hunger}, thirst ${s.thirst}`,
-      );
-      assert(
-        s.effects.some((e) => e.key === 'weakened'),
-        'the player came back without Weakened',
       );
       const closed = await withinFrames(UI_FRAMES, () => app.hud?.deathOpen() === false);
       assert(closed, 'the death screen stays open after Respawn');

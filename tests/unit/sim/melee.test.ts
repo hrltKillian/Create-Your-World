@@ -3,13 +3,12 @@ import { armorFactor, COMBAT, strike } from '../../../src/sim/combat.ts';
 import type { CreatureState } from '../../../src/sim/creatures.ts';
 import { MELEE, meleeDamage, meleeKnockback } from '../../../src/sim/melee.ts';
 import { eyeHeight } from '../../../src/sim/physics.ts';
-import { addEffect } from '../../../src/sim/survival.ts';
 import { registry } from '../../helpers/registry.ts';
 import { eventsOf, playerTestSim, rejections } from '../../helpers/simHarness.ts';
 
 /*
  * The player's side of combat (docs « Combat », plan v3 « M19 »): plain and strong blows by the
- * attack gauge, stealth, Weakened,
+ * attack gauge, stealth,
  * the weapon's cooldown and wear, primary's priority over mining, and the player's armour,
  * invulnerability and dodge against a creature's blow. The player stands at (0.5, 65, 0.5) looking
  * north (−z) in a flat world at noon.
@@ -65,12 +64,11 @@ function click(s: Harness, pitch: number, hold = 1): void {
 const blows = (s: Harness) => eventsOf(s.events, 'creatureHurt').map((e) => e.amount);
 
 describe('melee formulas', () => {
-  it('strong blows deal ×1.8 and knock back ×1.5, stealthy ones ×1.5, Weakened ×0.8', () => {
-    expect(meleeDamage(spear, false, false, 1)).toBe(6);
-    expect(meleeDamage(spear, false, true, 1)).toBeCloseTo(9, 9);
-    expect(meleeDamage(knife, true, false, 1)).toBeCloseTo(4 * 1.8, 9);
-    expect(meleeDamage(knife, true, true, 1)).toBeCloseTo(4 * 1.8 * 1.5, 9);
-    expect(meleeDamage(hand, false, false, balance.respawn.weakenedDamage)).toBeCloseTo(1.6, 9);
+  it('strong blows deal ×1.8 and knock back ×1.5, stealthy ones ×1.5', () => {
+    expect(meleeDamage(spear, false, false)).toBe(6);
+    expect(meleeDamage(spear, false, true)).toBeCloseTo(9, 9);
+    expect(meleeDamage(knife, true, false)).toBeCloseTo(4 * 1.8, 9);
+    expect(meleeDamage(knife, true, true)).toBeCloseTo(4 * 1.8 * 1.5, 9);
     expect(meleeKnockback(hand, false)).toBe(1);
     expect(meleeKnockback(hand, true)).toBe(1.5);
     expect(MELEE.strongDamage).toBe(1.8);
@@ -131,16 +129,6 @@ describe('melee', () => {
     s.tick(1, { primary: true, pitch: 0.5 });
     expect(s.player.attackCooldown).toBe(Math.round(hand.cooldown * 30) - 1);
     expect(eventsOf(s.events, 'playerSwung')).toHaveLength(1);
-  });
-
-  it('a Weakened player deals 20 % less', () => {
-    const s = world('weakened');
-    addEffect(s.player.survival, 'weakened', 600);
-    const c = trotter(s, true);
-    s.events.length = 0;
-    click(s, pitchAt(s, c));
-    // A first blow, gauge full: strong (×1.8) and stealthy (×1.5).
-    expect(blows(s)[0]).toBeCloseTo(hand.damage * 1.8 * 1.5 * 0.8, 9);
   });
 
   it('primary attacks a creature in reach before the block behind it, else mines', () => {

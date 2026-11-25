@@ -7,14 +7,7 @@ import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory, type ItemStack } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
-import {
-  createSurvival,
-  fallDamage,
-  hurt,
-  type SurvivalState,
-  staminaCap,
-  staminaRegen,
-} from './survival.ts';
+import { createSurvival, fallDamage, hurt, type SurvivalState } from './survival.ts';
 
 /** Stamina rules (docs/conception.md « Survie »). */
 export const STAMINA = {
@@ -220,12 +213,11 @@ export function spendStamina(player: PlayerState, amount: number): void {
   if (player.stamina === 0) player.exhausted = true;
 }
 
-/** Regenerates stamina after a rest delay (slower while parched, capped while starving). */
-export function restStamina(player: PlayerState, dt: number, balance: BalanceDef): void {
+/** Regenerates stamina after a rest delay. */
+export function restStamina(player: PlayerState, dt: number): void {
   player.restTicks++;
   if (player.restTicks >= STAMINA.regenDelayTicks) {
-    const rate = STAMINA.regenPerSecond * staminaRegen(player.survival, balance);
-    player.stamina = Math.min(STAMINA.max, player.stamina + rate * dt);
+    player.stamina = Math.min(STAMINA.max, player.stamina + STAMINA.regenPerSecond * dt);
   }
   if (player.exhausted && player.stamina >= STAMINA.recoverAt) player.exhausted = false;
 }
@@ -286,8 +278,7 @@ export function stepPlayer(
   const moving = Math.abs(body.vx) + Math.abs(body.vz) > 0.1;
   player.sprinting = result.sprinting && moving;
   if (player.sprinting) spendStamina(player, STAMINA.sprintPerSecond * dt);
-  else restStamina(player, dt, balance);
-  player.stamina = Math.min(player.stamina, staminaCap(player.survival, balance, STAMINA.max));
+  else restStamina(player, dt);
   if (result.landedFrom > 0) {
     out.push({ type: 'playerLanded', playerId: player.playerId, fall: result.landedFrom });
     hurt(player.survival, fallDamage(result.landedFrom, balance), 'fall');

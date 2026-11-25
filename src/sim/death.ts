@@ -9,7 +9,6 @@ import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
 import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
 import { noteChanged } from './blockUpdates.ts';
-import { ticksOf } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { editBlock } from './edits.ts';
 import { wearSlotOf } from './equipment.ts';
@@ -21,7 +20,7 @@ import { type BlockCell, type PlayerState, STAMINA } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { closeScreen, stowCursor } from './screens.ts';
 import { collisionReader, surfaceAt } from './surface.ts';
-import { addEffect, createSurvival } from './survival.ts';
+import { createSurvival } from './survival.ts';
 
 /*
  * Death and respawn (docs « Mort », tick step 14). A player whose health ran out leaves all they
@@ -29,7 +28,7 @@ import { addEffect, createSurvival } from './survival.ts';
  * Abandoned Pack where they died, recorded in their `graves` for the compass, and lies still until
  * the Respawn command: back at the bedroll slept on last, else on the ground at the spawn (beside
  * it when the ground there was dug below the spawn's height: never over a shaft), with 60 health, 50
- * hunger and 50 thirst, Weakened for 2 minutes and untargeted for 5 seconds. Secondary on a pack
+ * hunger and 50 thirst. Secondary on a pack
  * takes back what fits, the worn items back on (the pack keeps them apart); an emptied pack goes,
  * and its marker with it. Nothing is ever lost: a pack that cannot be left (no free cell near, no
  * grave block in the pack) spills on the ground.
@@ -227,8 +226,6 @@ export function respawn(sim: Simulation, player: PlayerState, out: SimEvent[]): 
   s.health = r.health;
   s.hunger = r.hunger;
   s.thirst = r.thirst;
-  addEffect(s, 'weakened', ticksOf(r.weakenedSec));
-  addEffect(s, 'untargeted', ticksOf(r.untargetedSec));
   player.stamina = STAMINA.max;
   player.exhausted = false;
   out.push({ type: 'respawned', playerId: player.playerId, x, y, z });

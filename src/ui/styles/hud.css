@@ -1,5 +1,5 @@
 /*
- * Survival HUD (docs « Interface »): vials, thermometer, compass, clock, objectives, effects,
+ * Survival HUD (docs « Interface »): vials, thermometer, compass, clock, objectives,
  * vignettes, banners and the death screen. Scripts only change CSS variables (`--fill`, `--x`,
  * `--o`, `--v`), classes and text; every motion is a transform or an opacity.
  */
@@ -506,7 +506,7 @@
   opacity: 0;
 }
 
-/* ---- Right: objectives and effects (beside the debug panel when it shows) ---- */
+/* ---- Right: objectives (beside the debug panel when it shows) ---- */
 
 .hud-right {
   position: absolute;
@@ -553,60 +553,6 @@ body:has(#debug-overlay:not([hidden])) .hud-right {
   margin: 3px 0 0;
   color: var(--c-ink-muted);
   font-size: 0.75rem;
-}
-
-.hud-effects {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.effect {
-  --tone: #e6b04f;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 10px 3px 8px;
-  border-left: 3px solid var(--tone);
-  border-radius: 4px 999px 999px 4px;
-  background: var(--c-panel);
-  font-size: 0.78rem;
-}
-
-.effect-time {
-  color: var(--c-ink-muted);
-  font: 600 0.72rem var(--font-mono);
-}
-
-.effect-drowning,
-.effect-freezing,
-.effect-overheating,
-.effect-starving,
-.effect-dehydrated,
-.effect-poisoned {
-  --tone: var(--c-danger);
-}
-
-.effect-cold {
-  --tone: #86c8f0;
-}
-
-.effect-hot {
-  --tone: #ec8a4c;
-}
-
-.effect-nauseous {
-  --tone: #9cc95a;
-}
-
-.effect-untargeted,
-.effect-sheltered,
-.effect-covered {
-  --tone: #79c7a6;
 }
 
 /* ---- Full screen: vignettes ---- */

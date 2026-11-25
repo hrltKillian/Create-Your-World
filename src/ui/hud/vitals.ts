@@ -72,7 +72,7 @@ class Thermometer {
     );
   }
 
-  /** `status`: −2 Freezing, −1 Cold, 0 none, 1 Hot, 2 Overheating (sim `thermalStatus`). */
+  /** `status`: the temperature band, −2…2 (sim `thermalStatus`). */
   set(s: Readonly<SurvivalState>, status: number): void {
     const n = Math.round(s.temperature);
     const air = Math.round(s.ambient);
@@ -169,7 +169,7 @@ export class Vitals {
     this.thermo.set(s, status);
     const clean = s.toxicity <= 0;
     if (this.toxicity.element.hidden !== clean) this.toxicity.element.hidden = clean;
-    this.toxicity.set(s.toxicity, s.toxicity >= b.toxicity.nauseousAt);
+    this.toxicity.set(s.toxicity, s.toxicity >= b.toxicity.harmAt);
     this.breath.set(s.breath, b.breath.seconds);
   }
 }

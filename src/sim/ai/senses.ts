@@ -10,7 +10,6 @@ import type { SimEvent } from '../events.ts';
 import { eyeHeight } from '../physics.ts';
 import type { PlayerState } from '../player.ts';
 import type { Simulation } from '../Simulation.ts';
-import { hasEffect } from '../survival.ts';
 
 /*
  * Creature senses (docs « Créatures et combat »): hearing the player's noises, sight within a range
@@ -43,10 +42,9 @@ export function noiseOf(player: Readonly<PlayerState>): number {
   return b.crouching ? NOISE.crouch : NOISE.walk;
 }
 
-/** Whether a creature may go after a player: alive, in a loaded column, not Unnoticed. */
+/** Whether a creature may go after a player: alive, in a loaded column. */
 export function targetable(sim: Simulation, player: Readonly<PlayerState>): boolean {
-  const s = player.survival;
-  return s.health > 0 && sim.isActive(player) && !hasEffect(s, 'untargeted');
+  return player.survival.health > 0 && sim.isActive(player);
 }
 
 /** The player a creature is after, if still targetable. */

@@ -13,7 +13,6 @@ import {
   headingOf,
   POINT_BEARINGS,
 } from '../../../src/ui/hud/compass.ts';
-import { EffectList, HUD_EFFECTS } from '../../../src/ui/hud/effects.ts';
 import { ObjectivesPanel, objectiveProgress } from '../../../src/ui/hud/objectives.ts';
 import {
   FADE_SECONDS,
@@ -171,7 +170,7 @@ describe('vitals and vignettes', () => {
     expect(el.querySelector('.vial-toxicity')!.hidden).toBe(true);
     expect(el.querySelector('.breath')!.hidden).toBe(true);
     s.health = b.health.lowAt - 1;
-    s.toxicity = b.toxicity.nauseousAt;
+    s.toxicity = b.toxicity.harmAt;
     s.breath = b.breath.seconds / 2;
     vitals.update(s, 0);
     expect(health.classList.contains('alarm')).toBe(true);
@@ -228,12 +227,12 @@ describe('vitals and vignettes', () => {
     expect(vignetteLevels(s, b, false, levels())).toEqual(levels());
     s.health = 0;
     s.temperature = -b.temperature.mildAt;
-    s.toxicity = b.toxicity.nauseousAt;
+    s.toxicity = b.toxicity.harmAt;
     const out = vignetteLevels(s, b, true, levels());
     expect(out.health).toBe(1);
     expect(out.cold).toBeCloseTo(b.temperature.mildAt / b.temperature.limit);
     expect(out.heat).toBe(0);
-    expect(out.toxicity).toBeCloseTo(b.toxicity.nauseousAt / b.toxicity.max);
+    expect(out.toxicity).toBeCloseTo(b.toxicity.harmAt / b.toxicity.max);
     expect(out.water).toBe(1);
     s.health = b.health.lowAt - 0.01;
     expect(vignetteLevels(s, b, false, levels()).health).toBeGreaterThanOrEqual(0.3);
@@ -241,26 +240,7 @@ describe('vitals and vignettes', () => {
   });
 });
 
-describe('effects and the death screen', () => {
-  it('lists effects in order with the time left of the timed ones', () => {
-    const list = new EffectList();
-    const el = fake(list.element);
-    list.update([
-      { key: 'freezing', seconds: null },
-      { key: 'weakened', seconds: 90 },
-    ]);
-    const rows = () => el.childNodes.map((row) => (row as FakeElement).getAttribute('data-effect'));
-    expect(rows()).toEqual(['freezing', 'weakened']);
-    expect(el.textContent).toBe('Freezing' + 'Weakened1:30');
-    list.update([{ key: 'weakened', seconds: 89 }]);
-    expect(rows()).toEqual(['weakened']);
-    expect(el.textContent).toBe('Weakened1:29');
-    // Every effect has its name.
-    list.update(HUD_EFFECTS.map((key) => ({ key, seconds: null })));
-    expect(rows()).toEqual([...HUD_EFFECTS]);
-    expect(i18nMissing()).toEqual([]);
-  });
-
+describe('the death screen', () => {
   it('names the cause and where the player wakes, and respawns on its button', () => {
     let respawns = 0;
     const death = new DeathScreen(() => respawns++);

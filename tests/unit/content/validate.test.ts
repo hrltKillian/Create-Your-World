@@ -226,8 +226,6 @@ describe('content validation of the balance', () => {
     const pack = JSON.parse(JSON.stringify(basePack));
     pack.balance.hunger.perMin = -4;
     pack.balance.sleep.wakeHour = 24;
-    pack.balance.shelter.maxDistance = 16;
-    pack.balance.shelter.coveredToxicity = 1.5;
     pack.balance.climate.heatSources = 0;
     pack.balance.creatures.spawnGraceTicks = 5400.5;
     pack.balance.combat.hand.reach = 0;
@@ -240,8 +238,6 @@ describe('content validation of the balance', () => {
         'balance.consume.moveFactor',
         'balance.hunger.perMin',
         'balance.sleep.wakeHour',
-        'balance.shelter.maxDistance',
-        'balance.shelter.coveredToxicity',
         'balance.climate.heatSources',
         'balance.creatures.spawnGraceTicks',
         'balance.combat.hand.reach',

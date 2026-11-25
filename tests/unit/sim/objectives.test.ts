@@ -17,7 +17,7 @@ const objective = (match: (c: (typeof chain)[number]['condition']) => boolean) =
 const gather = chain[0]!;
 const byStation = objective((c) => c.items === undefined && c.stations?.length === 1);
 const night = objective((c) => c.nights === 1);
-const shelter = objective((c) => c.enclosed === true);
+const camp = objective((c) => c.stations?.includes('station:campfire') === true);
 const drink = objective((c) => c.drank === true);
 
 /** Gives one of each item a step asks for; returns that tick's events. */
@@ -82,18 +82,15 @@ describe('objectives', () => {
     expect(s.player.objectives).toContain(byStation.key);
   });
 
-  it('reads the shelter and the nights survived at the time of the check', () => {
+  it('reads the nights survived and the stations at the time of the check', () => {
     const s = playerTestSim({ seed: 'objectives-night' });
     const { sim, player } = s;
     expect(conditionHolds(sim, player, night.condition)).toBe(false);
     sim.time.ticks = DAY_TICKS + 6 * HOUR_TICKS;
     expect(conditionHolds(sim, player, night.condition)).toBe(true);
-    player.survival.shelter = 'covered';
-    expect(conditionHolds(sim, player, { enclosed: true })).toBe(false);
-    player.survival.shelter = 'enclosed';
-    expect(conditionHolds(sim, player, { enclosed: true })).toBe(true);
-    // The shelter step also wants its station near.
-    expect(conditionHolds(sim, player, shelter.condition)).toBe(false);
+    // The camp step wants its station near: no shelter is asked for any more.
+    for (const item of camp.condition.items ?? []) player.seen[item] = true;
+    expect(conditionHolds(sim, player, camp.condition)).toBe(false);
   });
 
   it('asks for a drink besides the items of the flask step, and the fired flask', () => {

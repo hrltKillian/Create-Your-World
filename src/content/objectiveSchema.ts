@@ -16,8 +16,6 @@ export interface ObjectiveCondition {
   readonly items?: readonly (ItemKey | TagKey)[];
   /** A block of each station within crafting reach of the player (placed or found). */
   readonly stations?: readonly StationKey[];
-  /** Standing in an enclosed shelter. */
-  readonly enclosed?: boolean;
   /** Nights survived since the world began (the clock passed 06:00 of a later day). */
   readonly nights?: number;
   /** The player has drunk: a sip, or a drink that quenches thirst (`PlayerState.drank`). */

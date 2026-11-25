@@ -25,7 +25,6 @@ const thermal = (fields: Partial<ThermalInput>): ThermalInput => ({
   day: 1,
   y: 64,
   cave: false,
-  shelter: 'exposed',
   heat: 0,
   inWater: false,
   warmth: 0,
@@ -42,11 +41,8 @@ describe('thermal model', () => {
     expect(feltTemperature(thermal({ cave: true, dayC: -30, nightC: -30 }), c)).toBe(c.caveC);
   });
 
-  it('shades a covered player only in hot air, and gear never goes past comfort', () => {
+  it('brings gear never past comfort', () => {
     const c = b.climate;
-    expect(feltTemperature(thermal({ shelter: 'covered' }), c)).toBe(20);
-    const hot = thermal({ shelter: 'covered', dayC: 40 });
-    expect(feltTemperature(hot, c)).toBe(40 - c.shadeC);
     const warm = thermal({ dayC: 5, warmth: 30 });
     expect(feltTemperature(warm, c)).toBe(c.comfortMinC);
     const cool = thermal({ dayC: 40, cooling: 30 });
@@ -128,25 +124,23 @@ function setBiome(sim: Simulation, key: string): void {
 }
 
 describe('environment in the simulation', () => {
-  it('chills an exposed player in the tundra at night: Cold within 3 min', () => {
+  it('chills a player in the tundra at night past the first cold band within 3 min', () => {
     const s = biomeWorld('biome:tundra', 23);
     s.step(5400);
-    expect(s.player.survival.shelter).toBe('exposed');
     expect(s.player.survival.temperature).toBeLessThanOrEqual(-b.temperature.mildAt);
     expect(thermalStatus(s.player.survival.temperature, b)).toBe(-1);
   });
 
-  it('warms a player in a closed hut with a campfire in the tundra at night', () => {
+  it('warms a player between two campfires in the open tundra at night (no shelter)', () => {
     const s = biomeWorld('biome:tundra', 23);
     s.host.send({ type: 'debug.setStat', stat: 'temperature', value: -50 });
-    const fill =
-      (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => (state: string) =>
-        s.host.send({ type: 'debug.fill', x0, y0, z0, x1, y1, z1, state });
-    fill(-2, 65, -2, 2, 68, 2)('block:planks');
-    fill(-1, 65, -1, 1, 67, 1)('block:air');
-    fill(1, 65, 1, 1, 65, 1)('block:campfire[lit=1]');
+    for (const x of [-1, 1])
+      s.host.send({
+        type: 'debug.fill',
+        ...{ x0: x, y0: 65, z0: 0, x1: x, y1: 65, z1: 0 },
+        state: 'block:campfire[lit=1]',
+      });
     s.step(3 * MINUTE);
-    expect(s.player.survival.shelter).toBe('enclosed');
     expect(s.player.survival.ambient).toBeGreaterThan(b.climate.comfortMinC);
     expect(s.player.survival.temperature).toBeGreaterThanOrEqual(-10);
   });

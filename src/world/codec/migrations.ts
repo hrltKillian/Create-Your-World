@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -99,6 +99,18 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     world: (record) => record,
     player: (record) => ({ ...record, bestiary: {} }),
+    column: (record) => record,
+  },
+  // 9 → 10 (plan v3 « M20 »): no status nor shelter any more: a player's timed effects and last
+  // shelter sample go. A done objective of an older chain keeps its key (unknown keys cost nothing);
+  // the pack's new steps are checked as usual.
+  {
+    world: (record) => record,
+    player: (record) => {
+      if (typeof record.survival !== 'object' || record.survival === null) return record;
+      const { effects: _effects, shelter: _shelter, ...survival } = record.survival as PlainRecord;
+      return { ...record, survival };
+    },
     column: (record) => record,
   },
 ];

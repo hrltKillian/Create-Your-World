@@ -4,7 +4,6 @@ import { columnHash, generateColumn } from '../../world/gen/generateColumn.ts';
 import { pointInfo } from '../../world/gen/sample.ts';
 import type { App } from '../App.ts';
 import { blockKey, fill, lightAt, setBlock, waitForChunks, yieldTask } from '../automation.ts';
-import { shelterHere } from '../survivalAutomation.ts';
 
 /** The player's (or free camera's) block column, the default origin of searches. */
 function playerPlace(app: App): { x: number; z: number } | null {
@@ -21,8 +20,6 @@ export function worldHook(app: App) {
     setBlock: (x: number, y: number, z: number, state: string) => setBlock(app, x, y, z, state),
     /** Sky and block light (0–15 each) at a position; unloaded cells are dark. */
     light: (x: number, y: number, z: number) => lightAt(app, x, y, z),
-    /** The shelter at the player's head now: 'enclosed', 'covered' or 'exposed'. */
-    shelter: () => shelterHere(app),
     voxelBytes: () => app.world?.voxelBytes() ?? 0,
     seed: () => app.session?.seed ?? null,
     spawn: () => app.session?.spawn ?? null,

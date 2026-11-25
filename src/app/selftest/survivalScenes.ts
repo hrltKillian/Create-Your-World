@@ -28,9 +28,6 @@ import {
 const GROUND_RINGS = 40;
 /** Longest wait for a teleport's loading radius to be meshed (stretched on slow renderers). */
 export const VISIT_MS = 30_000;
-/** The cabin's room: 2 blocks either side of the player, 3 high (walls and roof around it). */
-export const CABIN_ROOM = 2;
-const CABIN_HEIGHT = 3;
 /** The open pad: 3 blocks either side of the player, 4 high. */
 export const PAD_ROOM = 3;
 export const PAD_HEIGHT = 4;
@@ -137,19 +134,6 @@ const wallKey = (app: App) => stateKey(app, app.registry!.defaultState(arenaOf(a
 export function clearRoom(app: App, c: Cell, r: number, h: number): void {
   fill(app, c.x - r, c.y, c.z - r, c.x + r, c.y + h - 1, c.z + r, stateKey(app, app.registry!.air));
   fill(app, c.x - r, c.y - 1, c.z - r, c.x + r, c.y - 1, c.z + r, wallKey(app));
-}
-
-/** A closed cabin around the feet cell: the room cleared, then its walls and roof. */
-export function buildCabin(app: App, c: Cell): void {
-  const r = CABIN_ROOM + 1;
-  const top = c.y + CABIN_HEIGHT;
-  const wall = wallKey(app);
-  clearRoom(app, c, r, CABIN_HEIGHT + 1);
-  fill(app, c.x - r, top, c.z - r, c.x + r, top, c.z + r, wall);
-  fill(app, c.x - r, c.y, c.z - r, c.x + r, top - 1, c.z - r, wall);
-  fill(app, c.x - r, c.y, c.z + r, c.x + r, top - 1, c.z + r, wall);
-  fill(app, c.x - r, c.y, c.z - r, c.x - r, top - 1, c.z + r, wall);
-  fill(app, c.x + r, c.y, c.z - r, c.x + r, top - 1, c.z + r, wall);
 }
 
 /** The arena pond's liquid, the first empty container it fills and the filled one. */

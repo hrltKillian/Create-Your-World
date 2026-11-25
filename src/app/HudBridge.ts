@@ -14,11 +14,10 @@ import { creatureName } from '../ui/bestiary.ts';
 import { clockText } from '../ui/hud/clock.ts';
 import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
-import type { HudEffect } from '../ui/hud/effects.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
 import type { GameSession } from './GameSession.ts';
-import { BiomeWatch, hudEffects, targetText } from './hudModel.ts';
+import { BiomeWatch, targetText } from './hudModel.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import type { PlayGate } from './playGate.ts';
 
@@ -28,7 +27,7 @@ interface DuskTip {
   dusk(): boolean;
 }
 
-/** Seconds between two refreshes of the gauges, clock, target, objectives and effects (10 Hz). */
+/** Seconds between two refreshes of the gauges, clock, target and objectives (10 Hz). */
 const REFRESH_SECONDS = 0.1;
 
 /**
@@ -54,7 +53,6 @@ export class HudBridge {
   /** Respawn was clicked: the screen stays shut while the simulation brings the player back. */
   private waking = false;
   private readonly biomes = new BiomeWatch();
-  private readonly effects: HudEffect[] = [];
   private readonly levels: Record<Vignette, number> = {
     health: 0,
     cold: 0,
@@ -155,7 +153,6 @@ export class HudBridge {
     hud.vitals.update(s, thermalStatus(s.temperature, balance));
     hud.stamina.update(player.stamina, STAMINA.max, player.exhausted);
     hud.vignettes.update(vignetteLevels(s, balance, player.body.headInWater, this.levels));
-    hud.effects.update(hudEffects(player, balance, this.effects));
     const ticks = view.time().ticks;
     const hour = hourOf(ticks);
     hud.setClock(clockText(hour, dayOf(ticks)));

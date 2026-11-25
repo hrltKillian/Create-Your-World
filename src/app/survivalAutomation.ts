@@ -1,15 +1,13 @@
 import type { DebugStat } from '../sim/commands.ts';
 import { serializeInventory } from '../sim/inventory.ts';
-import { type Shelter, shelterOfBody } from '../sim/shelter.ts';
 import type { DeathCause } from '../sim/survival.ts';
 import { inBag, shiftClick } from '../sim/testing/slotMoves.ts';
 import type { App } from './App.ts';
 import { sendAndStep, sendNow } from './automation.ts';
-import { hudEffects } from './hudModel.ts';
 
 /**
  * Survival automation (M9) shared by the debug hook and the selftests: the gauges, death and
- * immunity by debug command, worn items, the shelter test at the player and what the player's
+ * immunity by debug command, worn items and what the player's
  * survival state reads.
  */
 
@@ -38,17 +36,9 @@ export function equip(app: App, slot: number): void {
   sendAndStep(app, ...(app.session?.player.screen ? [click] : inBag(click)));
 }
 
-/** The shelter test of docs « Abri » at the player's head, now (null without a player). */
-export function shelterHere(app: App): Shelter | null {
-  const session = app.session;
-  if (!session) return null;
-  const { world, registry } = session.host.view;
-  return shelterOfBody(world, registry.tables, session.player.body, registry.pack.balance.shelter);
-}
-
 /**
- * The player's survival as automation reads it (null without a player): the gauges, the statuses
- * and timed effects as the HUD lists them, the last environment sample (shelter, felt °C, the
+ * The player's survival as automation reads it (null without a player): the gauges, exhaustion,
+ * the last environment sample (felt °C, the
  * temperature's target, the air's toxicity per minute), death, immunity, the bedroll, the
  * Abandoned Packs, the objectives done and the worn items (head to feet).
  */
@@ -65,8 +55,7 @@ export function playerStats(app: App) {
     temperature: s.temperature,
     toxicity: s.toxicity,
     breath: s.breath,
-    effects: hudEffects(player, session.host.view.registry.pack.balance, []),
-    shelter: s.shelter,
+    exhausted: player.exhausted,
     ambient: s.ambient,
     target: s.target,
     airToxicity: s.airToxicity,

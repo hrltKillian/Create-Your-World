@@ -41,7 +41,7 @@ export function playerHook(app: App) {
     teleport: (x: number, y: number | 'surface', z: number) => teleport(app, x, y, z),
     /** Sets a gauge now, clamped: health, hunger, thirst, stamina, temperature, toxicity, breath. */
     setStat: (stat: DebugStat, value: number) => setStat(app, stat, value),
-    /** Gauges, HUD effects, shelter, felt °C, death, bedroll, packs, objectives, worn items. */
+    /** Gauges, exhaustion, felt °C, death, bedroll, packs, objectives, worn items. */
     stats: () => playerStats(app),
     /** Takes all health for a cause (the death screen shows `death.cause.<cause>`). */
     kill: (cause: DeathCause = 'fall') => kill(app, cause),

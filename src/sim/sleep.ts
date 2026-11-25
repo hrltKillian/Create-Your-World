@@ -2,23 +2,20 @@ import { hostileNear } from './creatures.ts';
 import type { SimEvent } from './events.ts';
 import type { PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
-import { shelterOfBody } from './shelter.ts';
 import { adjustGauges } from './survival.ts';
 import { dayOf, hourOf, nextHour, withinHours } from './time.ts';
 
 /*
- * Sleeping on a bedroll (docs « Sommeil »): secondary on it between 19:30 and 05:00, in an
- * enclosed shelter, with no hostile creature within 16 blocks (`sleep.hostileRadius`). The
+ * Sleeping on a bedroll (docs « Sommeil », plan v3 « M20 »): secondary on it between 19:30 and
+ * 05:00, with no hostile creature within 8 blocks (`sleep.hostileRadius`), wherever it lies. The
  * player then lies on it (`sleeping`); the rule is `allPlayersSleeping`: once every living,
  * active player lies on a bedroll, the clock skips to 06:00, each sleeper pays a night's hunger
  * and thirst and wakes with that bedroll as their respawn point (until it is broken). Moving,
- * taking damage, dying, leaving the shelter, a hostile coming near or the end of the night gets
- * a sleeper up again.
+ * taking damage, dying, a hostile coming near or the end of the night gets a sleeper up again.
  */
 
 /** HUD hints of a refused or pending sleep (engine i18n keys). */
 export const SLEEP_NIGHT_HINT = 'hint.sleepNight';
-export const SLEEP_SHELTER_HINT = 'hint.sleepShelter';
 export const SLEEP_WAIT_HINT = 'hint.sleepWait';
 export const SLEEP_HOSTILES_HINT = 'hint.sleepHostiles';
 
@@ -44,19 +41,12 @@ export function sleepOn(
     hint(SLEEP_NIGHT_HINT);
     return;
   }
-  const rules = sim.registry.pack.balance.shelter;
-  if (shelterOfBody(sim.world, sim.registry.tables, player.body, rules) !== 'enclosed') {
-    hint(SLEEP_SHELTER_HINT);
-    return;
-  }
   if (hostileNearBody(sim, player)) {
     hint(SLEEP_HOSTILES_HINT);
     return;
   }
+  // stepSleep alone ends the night, once the other sleepers' commands of this tick are applied.
   player.sleeping = { x, y, z, health: player.survival.health };
-  // The shelter is sampled again this tick, before the sleepers are checked: stepSleep alone ends
-  // the night, once the other sleepers' commands of this tick have been applied too.
-  player.survival.sampleTicks = 1;
   if (!allPlayersSleeping(sim)) hint(SLEEP_WAIT_HINT);
 }
 
@@ -99,14 +89,14 @@ function wake(sim: Simulation, out: SimEvent[]): void {
   }
 }
 
-/** Whether something got a sleeper up: moving, damage, death, the shelter, a hostile, morning. */
+/** Whether something got a sleeper up: moving, damage, death, a hostile, morning. */
 function disturbed(sim: Simulation, player: PlayerState): boolean {
   const bed = player.sleeping!;
   const s = player.survival;
   const input = player.input;
   if (s.dead || s.health < bed.health) return true;
   if (input.forward !== 0 || input.strafe !== 0 || input.jump) return true;
-  return s.shelter !== 'enclosed' || !sleepingHours(sim) || hostileNearBody(sim, player);
+  return !sleepingHours(sim) || hostileNearBody(sim, player);
 }
 
 /**

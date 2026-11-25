@@ -4,7 +4,6 @@ import { DeathScreen } from '../screens/death.ts';
 import { AttackGauge } from './attackGauge.ts';
 import { CombatMarks } from './combatMarks.ts';
 import { Compass } from './compass.ts';
-import { EffectList } from './effects.ts';
 import { Flash } from './flash.ts';
 import { ObjectivesPanel } from './objectives.ts';
 import { PickupFeed } from './pickups.ts';
@@ -18,7 +17,7 @@ import { Vitals } from './vitals.ts';
  * The survival HUD of a play session (docs « Interface », original layout): vignettes under
  * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc, the
  * hit marker and the damage arcs around the crosshair; the compass, the clock and the target name
- * at the top centre; objectives at the top right; effects on the right; the day's banners, the
+ * at the top centre; objectives at the top right; the day's banners, the
  * biome's name on entering it and the sleep fade; and the death screen. Built once;
  * `app/HudBridge.ts` refreshes it.
  */
@@ -35,7 +34,6 @@ export class Hud {
   readonly clock: HTMLElement;
   readonly target = new TargetLine();
   readonly objectives: ObjectivesPanel;
-  readonly effects = new EffectList();
   readonly banner = new Flash('hud-banner', 'hud-banner');
   readonly biome = new Flash('hud-biome', 'hud-biome');
   readonly pickups = new PickupFeed();
@@ -58,7 +56,7 @@ export class Hud {
       this.combat.element,
       this.vitals.element,
       this.pickups.element,
-      h('div', { class: 'hud-right' }, this.objectives.element, this.effects.element),
+      h('div', { class: 'hud-right' }, this.objectives.element),
       this.banner.element,
       this.biome.element,
       this.sleep.element,

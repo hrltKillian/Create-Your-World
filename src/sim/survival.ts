@@ -4,13 +4,13 @@ import { type Contact, sampleEnvironment, touch } from './environment.ts';
 import { wearFilters } from './equipment.ts';
 import type { SimEvent } from './events.ts';
 import type { Simulation } from './Simulation.ts';
-import type { Shelter } from './shelter.ts';
 
 /*
  * Survival gauges (docs « Survie »): health, hunger, thirst, temperature, toxicity and breath, the
  * damage they deal and the cause of a death. All rates come from the pack's balance; the gauges
  * move every tick (tick step 11), the environment they react to is sampled every
- * `shelter.checkSec` (environment.ts). Zero allocation per tick.
+ * `climate.sampleSec` (environment.ts). No status changes another rule (plan v3 « M20 »): a gauge
+ * only hurts when it is empty or extreme. Zero allocation per tick.
  */
 
 /** What took a player's last health (the death screen shows `death.cause.<cause>`). */
@@ -36,16 +36,6 @@ export const DEATH_CAUSES: readonly DeathCause[] = [
   'creature',
 ];
 
-/** Timed effects (docs « Mort »): Weakened after a respawn, Untargeted for its first seconds. */
-export type EffectKey = 'weakened' | 'untargeted';
-export const EFFECT_KEYS: readonly EffectKey[] = ['weakened', 'untargeted'];
-
-export interface TimedEffect {
-  key: EffectKey;
-  /** Ticks left. */
-  ticks: number;
-}
-
 /** A player's survival state: plain data, hashed and saved whole. */
 export interface SurvivalState {
   health: number;
@@ -68,12 +58,10 @@ export interface SurvivalState {
   packLeft: boolean;
   /** Takes no damage (`debug.god`); the gauges still move. */
   god: boolean;
-  effects: TimedEffect[];
-  /** The last environment sample (environment.ts): shelter, felt °C and the gauge's target. */
-  shelter: Shelter;
+  /** The last environment sample (environment.ts): felt °C and the gauge's target. */
   ambient: number;
   target: number;
-  /** Toxicity per minute of the air (biome, shelter, filter mask). */
+  /** Toxicity per minute of the air (biome, filter mask). */
   airToxicity: number;
   /** Ticks before the next environment sample (1: the next tick). */
   sampleTicks: number;
@@ -94,8 +82,6 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     dead: false,
     packLeft: false,
     god: false,
-    effects: [],
-    shelter: 'exposed',
     ambient: b.climate.comfortMinC,
     target: 0,
     airToxicity: 0,
@@ -156,7 +142,7 @@ export function fallDamage(blocks: number, b: BalanceDef): number {
   return Math.max(0, blocks - b.fall.safeBlocks) * b.fall.damagePerBlock;
 }
 
-/** −1 Cold, −2 Freezing, 1 Hot, 2 Overheating, 0 none. */
+/** The temperature gauge's band: ±1 from ±`mildAt` (the HUD warns), ±2 from ±`severeAt` (hurts). */
 export function thermalStatus(temperature: number, b: BalanceDef): number {
   const t = b.temperature;
   if (temperature <= -t.severeAt) return -2;
@@ -164,32 +150,6 @@ export function thermalStatus(temperature: number, b: BalanceDef): number {
   if (temperature >= t.severeAt) return 2;
   if (temperature >= t.mildAt) return 1;
   return 0;
-}
-
-/** Largest stamina: lowered while starving. */
-export function staminaCap(s: Readonly<SurvivalState>, b: BalanceDef, max: number): number {
-  return s.hunger < b.hunger.lowAt ? Math.min(max, b.hunger.lowStaminaMax) : max;
-}
-
-/** Stamina regeneration factor: slower while parched. */
-export function staminaRegen(s: Readonly<SurvivalState>, b: BalanceDef): number {
-  return s.thirst < b.thirst.lowAt ? b.thirst.lowStaminaRegen : 1;
-}
-
-/** Adds a timed effect, or extends it to `ticks`. */
-export function addEffect(s: SurvivalState, key: EffectKey, ticks: number): void {
-  for (const effect of s.effects) {
-    if (effect.key !== key) continue;
-    effect.ticks = Math.max(effect.ticks, ticks);
-    return;
-  }
-  s.effects.push({ key, ticks });
-}
-
-/** Whether a timed effect is on (Untargeted: creatures ignore the player). */
-export function hasEffect(s: Readonly<SurvivalState>, key: EffectKey): boolean {
-  for (let i = 0; i < s.effects.length; i++) if (s.effects[i]!.key === key) return true;
-  return false;
 }
 
 /** What a player does and touches this tick, besides the sampled environment. */
@@ -210,23 +170,14 @@ function drift(value: number, target: number, b: BalanceDef, minutes: number): n
   return back && (up ? next > 0 : next < 0) ? 0 : next;
 }
 
-/** One tick of the gauges, their damage, regeneration and timed effects. */
+/** One tick of the gauges, their damage and regeneration. */
 export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
   const minutes = TICK_SECONDS / 60;
-  const status = thermalStatus(s.temperature, b);
-  const hunger =
-    b.hunger.perMin *
-    (e.sprinting ? b.hunger.sprintFactor : 1) *
-    (status < 0 ? b.hunger.coldFactor : 1) *
-    minutes;
+  const hunger = b.hunger.perMin * (e.sprinting ? b.hunger.sprintFactor : 1) * minutes;
   const effort = s.staminaSpent / b.hunger.staminaPerPoint;
   s.hunger = clamp(s.hunger - hunger - effort, b.hunger.max);
   s.staminaSpent = 0;
-  const thirst =
-    b.thirst.perMin *
-    (e.sprinting ? b.thirst.sprintFactor : 1) *
-    (status > 0 ? b.thirst.hotFactor : 1) *
-    minutes;
+  const thirst = b.thirst.perMin * (e.sprinting ? b.thirst.sprintFactor : 1) * minutes;
   s.thirst = clamp(s.thirst - thirst, b.thirst.max);
   s.temperature = drift(s.temperature, s.target, b, minutes);
   const sources = s.airToxicity + e.toxicity;
@@ -238,7 +189,6 @@ export function stepGauges(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure
   s.calmTicks++;
   takeDamage(s, b, e, minutes);
   regenerate(s, b);
-  stepEffects(s);
 }
 
 /** Damage over time of the empty or extreme gauges and of the blocks touched. */
@@ -256,26 +206,14 @@ function takeDamage(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>, minu
   hurt(s, e.damage * TICK_SECONDS, 'contact');
 }
 
-/** Health comes back while fed, not Nauseous, with no thermal status and calm for a while. */
+/** Health comes back while fed and calm for a while. */
 function regenerate(s: SurvivalState, b: BalanceDef): void {
   const h = b.health;
   if (s.health <= 0 || s.health >= h.max || s.calmTicks < ticksOf(h.regenDelaySec)) return;
   if (s.hunger < h.regenFedAt || s.thirst < h.regenFedAt) return;
-  if (s.toxicity >= b.toxicity.nauseousAt || thermalStatus(s.temperature, b) !== 0) return;
   const healed = Math.min(h.regenPerSec * TICK_SECONDS, h.max - s.health);
   s.health += healed;
   s.hunger = Math.max(0, s.hunger - healed * h.hungerPerPoint);
-}
-
-/** Counts the timed effects down and drops the finished ones (in place). */
-function stepEffects(s: SurvivalState): void {
-  const effects = s.effects;
-  let kept = 0;
-  for (let i = 0; i < effects.length; i++) {
-    const effect = effects[i]!;
-    if (--effect.ticks > 0) effects[kept++] = effect;
-  }
-  effects.length = kept;
 }
 
 /** Whether a block changed this tick (events from `first`) within `radius` blocks of a cell. */
@@ -302,8 +240,8 @@ const exposure: Exposure = { sprinting: false, underwater: false, toxicity: 0, d
 
 /**
  * Tick step 11 « Survie et environnement » for every living player in a loaded column. The
- * environment is sampled every `shelter.checkSec`, and again the tick after a block changed
- * nearby (this tick's `blocksChanged` events, from `first`), once its light is resolved. A worn
+ * environment is sampled every `climate.sampleSec`, and again the tick after a block changed
+ * nearby (this tick's `blocksChanged` events, from `first`: a fire lit or put out). A worn
  * filter wears every second it filters a toxic air.
  */
 export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): void {
@@ -313,11 +251,11 @@ export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): v
     if (s.health <= 0 || !sim.isActive(player)) continue;
     const body = player.body;
     if (--s.sampleTicks <= 0)
-      s.sampleTicks = sampleEnvironment(sim, player) ? ticksOf(b.shelter.checkSec) : 1;
+      s.sampleTicks = sampleEnvironment(sim, player) ? ticksOf(b.climate.sampleSec) : 1;
     const x = Math.floor(body.x);
     const y = Math.floor(body.y);
     const z = Math.floor(body.z);
-    if (editedNear(out, first, x, y, z, b.shelter.editRadius)) s.sampleTicks = 1;
+    if (editedNear(out, first, x, y, z, b.climate.editRadius)) s.sampleTicks = 1;
     touch(sim.registry, sim.world, player, exposure);
     exposure.sprinting = player.sprinting;
     exposure.underwater = body.headInWater;

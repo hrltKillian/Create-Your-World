@@ -10,7 +10,7 @@ import { createTestSim } from '../../helpers/simHarness.ts';
 const b = registry.pack.balance;
 
 /**
- * A flat world whose player is mid-game: hurt, chilled, poisoned, weakened, in fur, with a grave,
+ * A flat world whose player is mid-game: hurt, chilled, poisoned, in fur, with a grave,
  * immune to damage (debug).
  */
 function midGame() {
@@ -23,7 +23,6 @@ function midGame() {
   survival.toxicity = 41;
   survival.cause = 'cold';
   survival.god = true;
-  survival.effects.push({ key: 'weakened', ticks: 900 }, { key: 'untargeted', ticks: 40 });
   player.equipment[2] = { item: 'item:fur_coat', count: 1, durability: 120 };
   player.respawn = { x: 4, y: 65, z: -3 };
   player.graves.push({ x: 10, y: 65, z: 10 }, { x: -20, y: 40, z: 7 });
@@ -34,7 +33,7 @@ function midGame() {
 }
 
 describe('survival saves', () => {
-  it('round-trip the gauges, effects, gear, bedroll, graves and objectives, which run on alike', async () => {
+  it('round-trip the gauges, gear, bedroll, graves and objectives, which run on alike', async () => {
     const straight = midGame();
     const first = midGame();
     const storage = new MemoryStorage();
@@ -62,12 +61,7 @@ describe('survival saves', () => {
         hunger: 12,
         shelter: 'castle',
         cause: 'boredom',
-        effects: [
-          { key: 'weakened', ticks: 0 },
-          { key: 'cursed', ticks: 9 },
-          null,
-          { key: 'untargeted', ticks: 3 },
-        ],
+        effects: [{ key: 'untargeted', ticks: 3 }],
       },
       equipment: [{ item: 'item:fur_hood', count: 1 }, { item: 4 }, null, null, null, 'x'],
       respawn: { x: 1.5, y: 2, z: 3 },
@@ -75,11 +69,8 @@ describe('survival saves', () => {
       objectives: ['objective:a', 7],
     };
     const player = readPlayer(saved, registry, spawn)!;
-    expect(player.survival).toEqual({
-      ...createSurvival(b),
-      hunger: 12,
-      effects: [{ key: 'untargeted', ticks: 3 }],
-    });
+    // Fields of older saves (effects, shelter) are not read.
+    expect(player.survival).toEqual({ ...createSurvival(b), hunger: 12 });
     expect(player.equipment).toEqual([{ item: 'item:fur_hood', count: 1 }, null, null, null, null]);
     expect(player.respawn).toBeNull();
     expect(player.graves).toEqual([{ x: 1, y: 2, z: 3 }]);
@@ -92,10 +83,8 @@ describe('survival saves', () => {
   it('copy a field only onto one of its own type, and keep the gauges within their ranges', () => {
     const spawn = { x: 1, y: 2, z: 3 };
     const survival = {
-      // Numbers where lists and text belong, text and lists where numbers and flags belong.
-      effects: 3,
+      // Numbers where text belongs, text and lists where numbers and flags belong.
       cause: 5,
-      shelter: 7,
       dead: 1,
       god: 'yes',
       calmTicks: [4],
@@ -117,7 +106,6 @@ describe('survival saves', () => {
       toxicity: b.toxicity.max,
       breath: 0,
     });
-    expect(Array.isArray(player.survival.effects)).toBe(true);
     expect(player.drank).toBe(false);
   });
 });

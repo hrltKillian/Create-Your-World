@@ -166,10 +166,12 @@ export const strings = {
     'Hold right click on water with an empty hand; shape shore clay and fire it on a campfire',
   'objective.workbench': 'Build a workbench',
   'objective.workbench.hint': 'Split logs into planks by hand, then set the bench down',
-  'objective.shelter': 'Before night, a closed shelter with a campfire',
-  'objective.shelter.hint': 'Walls, a roof and a shut door around you, a campfire close by',
+  'objective.camp': 'Before night, a camp: a campfire and a bedroll',
+  'objective.camp.hint':
+    'Light a campfire; the bedroll is made at the workbench from hide and fiber',
   'objective.night': 'Survive the first night',
-  'objective.night.hint': 'Sleep on a bedroll in your shelter, or keep the fire burning until dawn',
+  'objective.night.hint':
+    'Sleep on a bedroll with no hostile creature near, or keep the fire burning until dawn',
   'objective.copper': 'Build a clay kiln and smelt a copper ingot',
   'objective.copper.hint': 'Copper ore needs a flint pickaxe; the kiln is made at the workbench',
   'objective.copper_tools': 'Make a copper pickaxe and a copper hatchet',
