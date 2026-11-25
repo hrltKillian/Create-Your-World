@@ -221,7 +221,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     typed by `content/balanceSchema.ts`; per-content numbers stay on biomes, blocks and items, block
     heat in `tables.heat`/`heatRadius`); gauges, damage (`hurt`, `fallDamage`), `thermalStatus`,
     tick step 11 `stepSurvival` (no status changes another rule, plan v3 « M20 ») in
-    `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`, `objectives`);
+    `sim/survival.ts` (the player's `survival`, `equipment`, `respawn`, `graves`);
     the thermal model, worn gear (`wornGear`), heat sources, contact and `sampleEnvironment` in
     `sim/environment.ts` (sampled every `climate.sampleSec`); `debug.setStat` sets
     any gauge, `debug.kill` takes all health for a cause, `debug.god` stops damage (`survival.god`,
@@ -239,15 +239,21 @@ They never override the rules above (determinism, zero allocations in hot loops,
     step 14 `stepDeaths`; `survival.dead` until the respawn); the clock's messages (`sunset`,
     `nightSurvived`) `clockEvents` and `withinHours`/`nextHour`/`passedHour`/`nightsSurvived` in
     `sim/time.ts`;
-  - objectives (docs « Objectifs jusqu'au fer »): the chain in data `content/packs/base/
-    objectives.ts` (`ObjectiveDef`, `content/objectiveSchema.ts`: items seen, stations within
-    crafting reach, nights survived; a `compass` point), checked once a second
-    at tick step 16 (`stepObjectives`, `conditionHolds`, `stationNear`/`STATION_REACH` in
-    `sim/objectives.ts`; event
-    `objectiveDone`, the keys in `player.objectives`);
+  - quests (plan v3 « M21 »): the graph in data `content/packs/base/quests.ts` (`QuestDef`,
+    `content/questSchema.ts`: `requires` earlier quests, exactly one of a `condition` (items seen,
+    stations within crafting reach, a drink, `biomes` walked, creatures `met`) and a `counter`
+    (`killed`, `night`, counted from the unlock on), `rewards`, a `compass` point while pinned;
+    `content/validateQuests.ts`), tick step 16 `stepQuests` (`sim/quests.ts`: counters every tick
+    from the tick's events, unlocks and conditions once a second in one pass, `conditionHolds`,
+    `stationNear`/`STATION_REACH`; `player.quests` (`QuestState { progress, done, claimed }`),
+    `player.pinned`, `player.biomes`; events `questUnlocked`, `questDone { already }`,
+    `questProgress`, `questClaimed`; commands `quest.claim`, `quest.pin`); the Bag's Quests page
+    (key J) `ui/quests.ts` (`questRows`, `questLine`) and `ui/screens/questsPanel.ts`, the pinned
+    line `ui/hud/pinnedQuest.ts` (`#hud-quest`); HudBridge shows a frame's quest messages on one
+    line (not the unlocks of the quests open from the start);
   - the survival HUD `ui/hud/hud.ts` (`Vitals`, `StaminaArc`, `Compass` with `bearingOf`/
-    `headingOf`/`compassOffset`, `clockText`/`durationText`, `ObjectivesPanel` with
-    `objectiveProgress`, `Vignettes` with `vignetteLevels`, `Flash` banners
+    `headingOf`/`compassOffset`, `clockText`, `PinnedQuest`, `Vignettes` with `vignetteLevels`,
+    `Flash` banners
     (`replay` restarts a `.play` animation), `CombatMarks` (`#hud-hit`, `#hud-damage`,
     `damageBearing`)) and the death screen `ui/screens/death.ts`; `app/HudBridge.ts` refreshes them
     (compass every frame, the rest at 10 Hz) and hands the gate over to the death screen; what needs
@@ -267,7 +273,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`localStorage` `cyw.settings.v1`): `platform/settings.ts` (`loadSettings`, `saveSettings`);
   - plan v3 controls (M18): Esc only opens the pause menu, over an open screen too (`Game.onPauseKey`;
     `PlayGate.resume` plays at once, a refused lock showing the light prompt); the Bag's page keys
-    `inventory`/`logbook`/`bestiary` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
+    `inventory`/`logbook`/`bestiary`/`quests` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
     jump cooldown `PHYSICS.jumpCooldownTicks`; item descriptions `ui/itemInfo.ts` (`itemLines`)
     over the shared break rule `toolBreakSeconds` (`content/items.ts`); creatures look at and
     strike the middle of the body (`BODY_HEIGHT`, core/player.ts); the base pack has no structure
@@ -335,13 +341,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sendBotCommands`, `BotTally`/`tallyEvent`; `BOT_KINDS`, `createBot(kind, seed, world)`, which
     asks to respawn while dead; `wanderBot`; wanderMineBuild in `wanderMineBuild.ts` with
     `botSenses.ts`, `botState.ts`, `botNeeds.ts`); the browser driver `app/botDriver.ts` (`pilot`,
-    `driveBot`; `GameSession.pilot` replaces the keyboard input each tick); the objectives walk
-    `sim/testing/objectiveWalk.ts` (`walkObjectives`: the pad, the cabin built with secondary, the
+    `driveBot`; `GameSession.pilot` replaces the keyboard input each tick); the quests walk
+    `sim/testing/questWalk.ts` (`walkQuests`: the pad, biomes walked, creatures hunted in a pit, the cabin built with secondary, the
     sip, the night; `walkPort.ts` with `hold(action, slot, at, ticks, until?)`; `walkSupplies.ts`:
-    crafts, processes, stations, then the world for the items an objective names: `walkGather.ts`
+    crafts, processes, stations, then the world for the items a quest names: `walkGather.ts`
     (sources found or staged, ores in their biome, the hunt in a pit), `walkHands.ts` (break with
     the best tool, place, pick up, strike) and `walkReach.ts` (stands and aims along the sim's own
-    ray)), its browser port `app/walkAutomation.ts` (`walkObjectivesHere`); view angles to a point
+    ray)), its browser port `app/walkAutomation.ts` (`walkQuestsHere`); view angles to a point
     `anglesTo` and a yaw `yawOf` (`core/angles.ts`);
   - tests: `tests/helpers/` (`registry`, `flatWorld`/`emptyWorld`, `createTestSim`; `playerTestSim`
     with player 1's `send`/`give`/`put`/`fill`/`block`, `eventsOf`, `rejections`; `FakeTarget`,
@@ -402,11 +408,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `container.open` needs the cell in sight of the eye (`cellInSight`, sim/targeting.ts).
 - M9 screens: `ui.screen()` also names `'death'` (`#screen-death`, `data-action="respawn"`; it
   follows `survival.dead`, so a world saved dead opens on it). HUD ids: `#hud-vitals`,
-  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-objectives`, `#hud-banner`,
+  `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-quest` (M21), `#hud-banner`,
   `#hud-sleep` (M20 removed `#hud-effects`: no status words).
 - M9 hook entries (version 9): `player.setStat(stat, value)` (any gauge, now; `setStamina` is gone),
   `player.stats()` (gauges, `exhausted`, felt °C and target, death and
-  cause, `god`, bedroll, packs, objectives, worn items), `player.kill(cause = 'fall')` (the death
+  cause, `god`, bedroll, packs, `quests` and `pinned`, worn items), `player.kill(cause = 'fall')` (the death
   at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
   wearable on, a worn item 64–68 off); `ui.text(selector)` reads the HUD (`#hud-clock`…).
   M20 removed `world.shelter()`.
@@ -445,6 +451,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Quest checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m21` (`selftest/m21.ts`): J
+  opens the Quests page, a quest done ahead is done at its unlock (« already done »), a claim by
+  its button pays, a pinned quest shows under the compass. Hook (version 21): `quests.list()`,
+  `quests.claim(key)`, `quests.pin(key | null)`, `quests.walk(maxRadius?)` (was `objectives.walk`).
 - Survival checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m20` (`selftest/m20.ts`):
   a bedroll in the open sleeps, refused with a hostile 7 blocks off (`sleep.hostileRadius` 8); the
   first cold band takes no health and the HUD names no status.
@@ -495,13 +505,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `render.setQuality(preset)`, `render.chunks()` adds `inPlace` and `hidden`; `perf.benchmark(kind,
   seconds?)` for walk, fly, cave, mobs, dig (the number of edits) and load, `perf.throttle()`,
   `perf.snapshot().spans` (8 spans); `onboarding.state()` (`{ on, card, tip, seen }`) and
-  `onboarding.restart(on = true)` (in memory: the card shows); `objectives.walk(maxRadius = 3000)`
+  `onboarding.restart(on = true)` (in memory: the card shows); `quests.walk(maxRadius = 3000)`
   (a fresh player, the generated world, fixed steps; the keys done); `bot.kinds()` and
   `bot.run(kind = 'wanderMineBuild', seconds = 300)` (game seconds: 8 ticks a frame in fixed steps,
   real time otherwise; `{ kind, ticks, deaths, respawns, broken, placed, pickedUp, consumed, alive,
   x, y, z, errors }`).
-- M11 checks (`selftest/m11.ts`, one case file per part): the objectives walk first
-  (`selftest/objectivesWalk.ts`: `?seed=7&rd=4&fixedStep=1`; a player who did objectives walks in
+- M11 checks (`selftest/m11.ts`, one case file per part): the quests walk first
+  (`selftest/questsWalk.ts`: `?seed=7&rd=4&fixedStep=1`; a player who did quests walks in
   a new world of the same seed, `freshWorld`), onboarding (`onboardingCases.ts`: the card in any
   world with a player, the tips flat), audio (`m11audio.ts`: `?worldType=arena&fixedStep=1`, keys
   from the pack's bindings; the clock case ends on day 2), render feel (`m11feel.ts`: flat, fixed

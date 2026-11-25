@@ -3,7 +3,7 @@ import type { CameraPose } from '../render/WorldView.ts';
 import type { App } from './App.ts';
 import { ambienceView, audioMark, heardSince } from './audioAutomation.ts';
 import { clock, freezeTime, look, press, setTime } from './automation.ts';
-import { botHook, craftHooks, entitiesHook, objectivesHook, playerHook } from './hook/player.ts';
+import { botHook, craftHooks, entitiesHook, playerHook, questsHook } from './hook/player.ts';
 import { perfHook, renderHook } from './hook/render.ts';
 import { onboardingHook, saveHook, settingsHook, uiHook } from './hook/screens.ts';
 import { worldHook } from './hook/world.ts';
@@ -11,12 +11,12 @@ import { worldHook } from './hook/world.ts';
 /**
  * Dev-only automation API (`window.__game`). Loaded through a dynamic import guarded by
  * `__DEBUG_HOOK__`, so it never ships in production builds. The larger groups are in `hook/`:
- * player, entities, craft, container, objectives and bot (`player.ts`), world (`world.ts`), render
+ * player, entities, craft, container, quests and bot (`player.ts`), world (`world.ts`), render
  * and perf (`render.ts`), ui, settings, save and onboarding (`screens.ts`).
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 13,
+    version: 21,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -74,7 +74,7 @@ export function installDebugHook(app: App): void {
     player: playerHook(app),
     entities: entitiesHook(app),
     ...craftHooks(app),
-    objectives: objectivesHook(app),
+    quests: questsHook(app),
     bot: botHook(app),
     world: worldHook(app),
     render: renderHook(app),

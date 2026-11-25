@@ -14,12 +14,12 @@ import type {
   StationDef,
   TierDef,
 } from './itemSchema.ts';
-import type { ObjectiveDef } from './objectiveSchema.ts';
+import type { QuestDef } from './questSchema.ts';
 
 export * from './balanceSchema.ts';
 export * from './creatureSchema.ts';
 export * from './itemSchema.ts';
-export * from './objectiveSchema.ts';
+export * from './questSchema.ts';
 
 export type BlockKey = `block:${string}`;
 export type ItemKey = `item:${string}`;
@@ -164,7 +164,7 @@ export interface BlockDef {
   readonly blockEntity?: 'container' | 'station' | 'workbench' | 'grave' | 'bed';
   /**
    * The station this block is: a processing station runs its processes, a workbench makes its
-   * recipes; objectives may ask for one nearby.
+   * recipes; quests may ask for one nearby.
    */
   readonly station?: StationKey;
   /**
@@ -656,8 +656,8 @@ export interface ContentPack {
   readonly creatures?: readonly CreatureDef[];
   /** Survival rules (balance.ts). */
   readonly balance: BalanceDef;
-  /** The objectives chain, in order (the HUD shows the first one not done yet). */
-  readonly objectives?: readonly ObjectiveDef[];
+  /** The quest graph: each quest after those it requires (plan v3 « M21 »). */
+  readonly quests?: readonly QuestDef[];
   readonly sounds?: SoundBindings;
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];

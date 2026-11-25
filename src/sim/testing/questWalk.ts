@@ -1,28 +1,30 @@
 import { blockItemKey } from '../../content/items.ts';
-import type { ObjectiveDef } from '../../content/schema.ts';
+import type { QuestDef } from '../../content/schema.ts';
+import { findBiome } from '../../world/gen/find.ts';
 import { TICKS_PER_SECOND, ticksOf } from '../clock.ts';
 import type { PlayerState } from '../player.ts';
-import { DAY_TICKS, nightsSurvived } from '../time.ts';
+import type { QuestState } from '../quests.ts';
+import { DAY_TICKS } from '../time.ts';
 import { type Cell, cellText, type WalkOptions, type WalkPort } from './walkPort.ts';
 import { Supplies } from './walkSupplies.ts';
 
 export type { Cell, HoldAction, Point, WalkOptions, WalkPort } from './walkPort.ts';
 
 /*
- * The scripted walk through the pack's objectives (docs « Objectifs jusqu'au fer », M11 « Fait
- * quand »): from a home pad levelled around the player, each objective in chain order is done with
- * the game's own actions (walkSupplies.ts, walkHands.ts: blocks broken by holding primary with the
- * right tool and their drops walked onto, crafts queued as the Logbook does, stations placed and
- * fed, a sip, a cabin built block by block with secondary, a night held out in it, journeys to the
- * biomes of the deposits, a creature struck down with a spear), then the walk waits for the
- * once-a-second check and requires the objectives done so far to be exactly the chain's first
- * ones, in order. Everything is read from the pack (engine code never names content). The browser
- * runs it through `__game`'s automation (selftest/objectivesWalk.ts), tests on an inline
- * simulation of the same seed.
- * Debug commands stage what is not an objective's (« Retenu à l'intégration » of M11): the home pad
+ * The scripted walk through the pack's quests (plan v3 « M21 », after M11's objectives walk):
+ * from a home pad levelled around the player, each quest in the pack's order (each after those it
+ * requires) must unlock at its turn, then is done with the game's own actions (walkSupplies.ts,
+ * walkHands.ts: blocks broken by holding primary with the right tool and their drops walked
+ * onto, crafts queued as the Logbook does, stations placed and fed, a sip, journeys to biomes not
+ * walked yet and to the biomes of the deposits, creatures struck down with a spear in a pit, a
+ * cabin built block by block with secondary and a night held out in it), and the walk waits for
+ * the quest to be done. Everything is read from the pack (engine code never names content). The
+ * browser runs it through `__game`'s automation (selftest/questsWalk.ts), tests on inline
+ * simulations of several seeds.
+ * Debug commands stage what is not a quest's (« Retenu à l'intégration » of M11): the home pad
  * and the hunting pit are levelled and the drinking pool poured by `debug.fill`, a source block is
- * staged beside the player when none lies within the search, the materials no objective names are
- * given (`debug.give`), the hunted creature is placed (`debug.spawn`) at night (`debug.setTime`),
+ * staged beside the player when none lies within the search, the materials no quest names are
+ * given (`debug.give`), the hunted creatures are placed (`debug.spawn`) at night (`debug.setTime`),
  * stations open without aiming (`debug.open`) and the walk teleports between its stands.
  */
 
@@ -60,16 +62,17 @@ const FULL = 0.9;
 const LATE_HOUR = 23;
 
 /**
- * Walks the pack's objectives in order and returns the keys done (the whole chain). Throws when
- * one cannot be done, or the check does an objective out of its turn.
+ * Walks the pack's quests in their order and returns the keys done (every quest). Throws when one
+ * does not unlock in its turn or cannot be done.
  */
-export async function walkObjectives(port: WalkPort, options: WalkOptions): Promise<string[]> {
-  const walk = new ObjectiveWalk(port, options);
+export async function walkQuests(port: WalkPort, options: WalkOptions): Promise<string[]> {
+  const walk = new QuestWalk(port, options);
   await walk.run();
-  return [...walk.player.objectives];
+  const quests = walk.player.quests;
+  return Object.keys(quests).filter((key) => quests[key]!.done);
 }
 
-class ObjectiveWalk extends Supplies {
+class QuestWalk extends Supplies {
   private readonly options: WalkOptions;
   private spots = 0;
 
@@ -83,50 +86,89 @@ class ObjectiveWalk extends Supplies {
   }
 
   async run(): Promise<void> {
-    const chain = this.registry.pack.objectives ?? [];
-    if (this.me().objectives.length > 0)
-      throw new Error(`the player has already done ${this.me().objectives.join(', ')}`);
+    const quests = this.registry.pack.quests ?? [];
+    const done = Object.keys(this.me().quests).filter((key) => this.me().quests[key]!.done);
+    if (done.length > 0) throw new Error(`the player has already done ${done.join(', ')}`);
     await this.preparePad();
-    for (let i = 0; i < chain.length; i++) {
-      const objective = chain[i]!;
+    for (let i = 0; i < quests.length; i++) {
+      const quest = quests[i]!;
       await this.quench();
-      await this.satisfy(objective);
-      this.awaitCheck(chain, i);
+      this.awaitQuest(quest, (state) => state !== undefined, 'unlocked');
+      await this.satisfy(quest);
+      this.awaitQuest(quest, (state) => state?.done === true, 'done');
       await this.goHome();
-      await this.options.onDone?.(objective, i);
+      await this.options.onDone?.(quest, i);
     }
   }
 
-  /** Does what an objective asks for, part by part. */
-  private async satisfy(objective: ObjectiveDef): Promise<void> {
-    const c = objective.condition;
-    for (const item of c.items ?? []) await this.obtain(item, 1, 0);
-    for (const station of c.stations ?? []) await this.station(station, 0);
-    if (c.drank) await this.sip();
-    if (c.nights === undefined) return;
-    // No rule asks for a shelter: the cabin keeps the night's creatures out of the walk.
-    await this.buildCabin();
-    this.holdOut(c.nights);
+  /** Does what a quest asks for: its condition part by part, or its counter's deeds. */
+  private async satisfy(quest: QuestDef): Promise<void> {
+    const c = quest.condition;
+    const counter = quest.counter;
+    if (c) {
+      for (const item of c.items ?? []) await this.obtain(item, 1, 0);
+      for (const station of c.stations ?? []) await this.station(station, 0);
+      if (c.drank) await this.sip();
+      if (c.biomes !== undefined) await this.explore(c.biomes);
+      if (c.met !== undefined) await this.meet(c.met);
+    }
+    const done = () => this.me().quests[quest.key]?.done === true;
+    if (counter?.event === 'night') {
+      // No rule asks for a shelter: the cabin keeps the night's creatures out of the walk.
+      await this.buildCabin();
+      this.holdOut(counter.count, done);
+    } else if (counter?.event === 'killed') {
+      const creatures = this.registry.pack.creatures ?? [];
+      const prey = creatures.find((def) => def.key === (counter.target ?? def.key));
+      if (!prey) throw new Error(`no ${counter.target} to hunt`);
+      await this.hunt(prey, await this.weapon(0), done);
+    }
   }
 
   /**
-   * Steps until the next checks have done the objective, then requires the objectives done to be
-   * the chain's first ones, in order.
+   * Steps until the next quest checks (once a second: twice that) find a quest `in` a state, or
+   * throws.
    */
-  private awaitCheck(chain: readonly ObjectiveDef[], index: number): void {
-    const objective = chain[index]!;
-    // The objectives are checked once a second: twice that.
-    const ticks = 2 * TICKS_PER_SECOND;
+  private awaitQuest(
+    quest: QuestDef,
+    holds: (state: QuestState | undefined) => boolean,
+    what: string,
+  ): void {
     const me = this.me();
-    this.stepUntil(() => me.objectives.includes(objective.key), ticks);
-    const expected = chain.slice(0, index + 1).map((o) => o.key);
-    const done = me.objectives.join(', ');
-    if (done === expected.join(', ')) return;
+    if (this.stepUntil(() => holds(me.quests[quest.key]), 2 * TICKS_PER_SECOND)) return;
     const s = me.survival;
+    const open = Object.keys(me.quests).join(', ');
     throw new Error(
-      `after ${objective.key} the objectives done are [${done}], not [${expected.join(', ')}] ` +
-        `(${s.dead ? `dead of ${s.cause}` : 'alive'})`,
+      `${quest.key} is not ${what} (quests open: ${open}; ${s.dead ? `dead of ${s.cause}` : 'alive'})`,
     );
+  }
+
+  /** Stands in biomes not walked yet, the nearest of each found from home, until `count`. */
+  private async explore(count: number): Promise<void> {
+    const ctx = this.view.gen;
+    const walked = () => Object.keys(this.me().biomes);
+    for (const biome of ctx.biomes) {
+      if (walked().length >= count) break;
+      if (walked().includes(biome.def.key)) continue;
+      const hit = findBiome(ctx, biome.def.key, this.home, this.searchRadius);
+      if (!hit) continue;
+      await this.port.travel(hit.x + 0.5, 'surface', hit.z + 0.5);
+      this.stepUntil(() => walked().includes(biome.def.key), 2 * TICKS_PER_SECOND);
+    }
+    await this.goHome();
+    if (walked().length < count) throw new Error(`only ${walked().join(', ')} walked`);
+  }
+
+  /** Strikes creatures of kinds not met yet (each hunted in the pit) until `count` are met. */
+  private async meet(count: number): Promise<void> {
+    const bestiary = this.me().bestiary;
+    const met = () => Object.keys(bestiary).length;
+    for (const creature of this.registry.pack.creatures ?? []) {
+      if (met() >= count) return;
+      if (bestiary[creature.key] !== undefined) continue;
+      await this.hunt(creature, await this.weapon(0), () => bestiary[creature.key] !== undefined);
+    }
+    if (met() < count) throw new Error(`only ${Object.keys(bestiary).join(', ')} met`);
   }
 
   /**
@@ -228,21 +270,16 @@ class ObjectiveWalk extends Supplies {
       await this.sip();
   }
 
-  /** Holds out the night in the cabin: from LATE_HOUR, real ticks until the morning counts it. */
-  private holdOut(nights: number): void {
-    const time = this.view.time();
+  /**
+   * Holds out nights in the cabin: from LATE_HOUR, real ticks until `done` (the mornings counted).
+   */
+  private holdOut(nights: number, done: () => boolean): void {
     this.port.send({ type: 'debug.freezeTime', frozen: false });
     this.port.send({ type: 'debug.setTime', hours: LATE_HOUR });
-    const held = this.stepUntil(
-      () => nightsSurvived(time.ticks) >= nights,
-      DAY_TICKS * nights,
-      TICKS_PER_SECOND,
-    );
+    const held = this.stepUntil(done, DAY_TICKS * nights, TICKS_PER_SECOND);
     const s = this.me().survival;
     if (!held || s.dead)
-      throw new Error(
-        `${nightsSurvived(time.ticks)} night(s) held out, ${s.dead ? `dead of ${s.cause}` : 'alive'}`,
-      );
+      throw new Error(`the nights were not held out, ${s.dead ? `dead of ${s.cause}` : 'alive'}`);
   }
 
   /** The hunting pit: in the pad, a block in from its west edge (the door is east). */

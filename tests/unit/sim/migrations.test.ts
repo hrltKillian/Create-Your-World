@@ -27,6 +27,9 @@ import {
 import { cellKey, columnKey } from '../../../src/world/coords.ts';
 import { restoreFrom, settle } from '../../helpers/save.ts';
 
+/** What version 11 adds to every older player: no quest, none pinned, no biome walked. */
+const V11 = { quests: {}, pinned: null, biomes: [] };
+
 /** A stored world from `tests/fixtures/saves/vN/world.json` (payloads in base64). */
 function fixture(version: number): StoredWorld {
   const url = new URL(`../../fixtures/saves/v${version}/world.json`, import.meta.url);
@@ -137,17 +140,17 @@ describe('save versions', () => {
       },
     ]);
     expect(player.seen['item:copper_ore']).toBe(true);
-    // Version 3 adds full gauges, no gear, no bedroll, no graves and no objectives done.
+    // Version 3 adds full gauges, no gear, no bedroll, no graves and no objectives (quests) done.
     expect(player.survival).toEqual(createSurvival(sim.registry.pack.balance));
     expect(player.equipment).toEqual([null, null, null, null, null]);
-    expect(player).toMatchObject({ respawn: null, graves: [], objectives: [] });
+    expect(player).toMatchObject({ respawn: null, graves: [], quests: {} });
     settle(sim);
     step(160);
     expect(kiln.slots[3]).toEqual({ item: 'item:copper_ingot', count: 2 });
     expect(countItem(player.inventory, 'item:cord')).toBe(2);
   });
 
-  it('loads the v3 fixture: gauges (its effect dropped at v10), worn fur, a bedroll, a grave and objectives', async () => {
+  it('loads the v3 fixture: gauges (its effect dropped at v10), worn fur, a bedroll, a grave and objectives as quests', async () => {
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(3), removed: [] });
     const { sim, step } = await restoreFrom(storage);
@@ -164,7 +167,9 @@ describe('save versions', () => {
     expect(player.equipment[2]).toEqual({ item: 'item:fur_coat', count: 1, durability: 395 });
     expect(player.respawn).toEqual({ x: 3, y: 65, z: 3 });
     expect(player.graves).toEqual([{ x: -6, y: 65, z: 4 }]);
-    expect(player.objectives).toEqual(['objective:gather', 'objective:tools']);
+    // Version 11: the objectives done are the quests of the same id, done.
+    expect(player.quests['quest:gather']).toMatchObject({ done: true, claimed: false });
+    expect(player.quests['quest:tools']).toMatchObject({ done: true, claimed: false });
     // Version 4 adds the drink: not had yet.
     expect(player.drank).toBe(false);
     // Version 5: its stored column counts as having placed its herd.
@@ -217,6 +222,7 @@ describe('save versions', () => {
       drank: false,
       cursor: null,
       bestiary: {},
+      ...V11,
     });
   });
 
@@ -321,7 +327,7 @@ describe('save versions', () => {
 
   it('upgrades version 6 players: no cursor stack (no slot number of commands is saved)', () => {
     const player = { playerId: 1, inventory: [null], equipment: [] };
-    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null, bestiary: {} });
+    expect(migrate('player', player, 6)).toEqual({ ...player, cursor: null, bestiary: {}, ...V11 });
     expect(migrate('column', { blockEntities: [] }, 6)).toEqual({ blockEntities: [] });
   });
 
@@ -374,7 +380,7 @@ describe('save versions', () => {
   });
 
   it('gives version 8 players an empty bestiary, and keeps a v9 one (only the pack’s creatures)', async () => {
-    expect(migrate('player', { playerId: 1 }, 8)).toEqual({ playerId: 1, bestiary: {} });
+    expect(migrate('player', { playerId: 1 }, 8)).toEqual({ playerId: 1, bestiary: {}, ...V11 });
     const stored = fixture(9);
     const players = stored.players.map((p) => ({
       ...p,
@@ -392,12 +398,33 @@ describe('save versions', () => {
     expect(migrate('player', { playerId: 1, survival }, 9)).toEqual({
       playerId: 1,
       survival: { health: 50 },
+      ...V11,
     });
     const storage = new MemoryStorage();
     await storage.write({ ...fixture(10), removed: [] });
     const { sim } = await restoreFrom(storage);
     const player = [...sim.players.values()][0]!;
-    expect(player.objectives).toEqual(['objective:workbench']);
+    expect(player.quests).toMatchObject({
+      'quest:workbench': { progress: 0, done: true, claimed: false },
+    });
+    expect(player.pinned).toBeNull();
     expect(player.survival.health).toBe(100);
+  });
+
+  it('turns a version 10 player’s objectives into quests done, and loads the v11 fixture', async () => {
+    const record = { playerId: 1, objectives: ['objective:gather', 7, 'other:x'] };
+    expect(migrate('player', record, 10)).toEqual({
+      playerId: 1,
+      quests: { 'quest:gather': { progress: 0, done: true, claimed: false } },
+      pinned: null,
+      biomes: [],
+    });
+    const storage = new MemoryStorage();
+    await storage.write({ ...fixture(11), removed: [] });
+    const { sim } = await restoreFrom(storage);
+    const player = [...sim.players.values()][0]!;
+    expect(player.quests['quest:hunt']).toEqual({ progress: 0, done: false, claimed: false });
+    expect(player.pinned).toBe('quest:hunt');
+    expect(player.biomes).toEqual({ 'biome:meadow': true });
   });
 });

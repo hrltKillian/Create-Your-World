@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -110,6 +110,24 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       if (typeof record.survival !== 'object' || record.survival === null) return record;
       const { effects: _effects, shelter: _shelter, ...survival } = record.survival as PlainRecord;
       return { ...record, survival };
+    },
+    column: (record) => record,
+  },
+  // 10 → 11 (plan v3 « M21 »): quests replace the objectives chain; each objective done becomes
+  // the quest of the same id, done and its rewards still to claim. Nothing is pinned, and no
+  // biome was walked yet.
+  {
+    world: (record) => record,
+    player: ({ objectives, ...record }) => {
+      const quests: Record<string, unknown> = {};
+      for (const key of Array.isArray(objectives) ? objectives : [])
+        if (typeof key === 'string' && key.startsWith('objective:'))
+          quests[`quest:${key.slice('objective:'.length)}`] = {
+            progress: 0,
+            done: true,
+            claimed: false,
+          };
+      return { ...record, quests, pinned: null, biomes: [] };
     },
     column: (record) => record,
   },

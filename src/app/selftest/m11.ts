@@ -3,14 +3,14 @@ import { M11_AUDIO_CASES } from './m11audio.ts';
 import { FEEL_CASES } from './m11feel.ts';
 import { M11_PERF_CASES } from './m11perf.ts';
 import { SETTINGS_CASES } from './m11settings.ts';
-import { OBJECTIVES_WALK_CASES } from './objectivesWalk.ts';
 import { ONBOARDING_CASES } from './onboardingCases.ts';
+import { QUESTS_WALK_CASES } from './questsWalk.ts';
 import { noErrorsCase, type SelftestCase } from './support.ts';
 
 /**
  * M11 « Finition et performance » browser checks; each case skips outside its setup:
- * - the objectives walk: the generated world with fixed steps (?seed=7&rd=4&fixedStep=1), first
- *   (a player who has done objectives, after m9 under ?selftest=all, walks in a new world);
+ * - the quests walk: the generated world with fixed steps (?seed=7&rd=4&fixedStep=1), first
+ *   (a player who has done quests, after m9 under ?selftest=all, walks in a new world);
  * - the onboarding card: any world with a player; its tips: ?worldType=flat&fixedStep=1;
  * - audio: ?worldType=arena&fixedStep=1; the render feel and the settings (rebinding through the
  *   screens, live graphics switches): ?worldType=flat&fixedStep=1;
@@ -20,7 +20,7 @@ import { noErrorsCase, type SelftestCase } from './support.ts';
  *   player elsewhere).
  */
 export const M11_SUITE: readonly SelftestCase[] = [
-  ...OBJECTIVES_WALK_CASES,
+  ...QUESTS_WALK_CASES,
   ...ONBOARDING_CASES,
   ...M11_AUDIO_CASES,
   ...FEEL_CASES,

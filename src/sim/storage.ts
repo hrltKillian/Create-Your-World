@@ -8,6 +8,7 @@ import type { Inventory, ItemStack } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
 import type { BlockCell, InteractionState } from './player.ts';
+import type { QuestState } from './quests.ts';
 import type { SurvivalState } from './survival.ts';
 import type { TimeState } from './time.ts';
 
@@ -73,7 +74,7 @@ export interface PlayerRecord {
   readonly craft: readonly CraftEntry[];
   /** Item keys and tags seen (recipe reveal), sorted (from save version 2). */
   readonly seen: readonly string[];
-  /** Gauges, timed effects and the last environment sample (from save version 3). */
+  /** Gauges and the last environment sample (from save version 3). */
   readonly survival: SurvivalState;
   /** Worn items, one slot per wear slot, text keys (from save version 3). */
   readonly equipment: Inventory;
@@ -81,8 +82,12 @@ export interface PlayerRecord {
   readonly respawn: BlockCell | null;
   /** Abandoned Packs left by deaths (from save version 3). */
   readonly graves: readonly BlockCell[];
-  /** Keys of the objectives done, in order (from save version 3). */
-  readonly objectives: readonly string[];
+  /** The quests unlocked, by key, in unlock order (save version 11). */
+  readonly quests: Readonly<Record<string, QuestState>>;
+  /** The quest pinned to the compass (save version 11). */
+  readonly pinned: string | null;
+  /** Biome keys stood in, sorted (save version 11). */
+  readonly biomes: readonly string[];
   /** Has drunk at least once (from save version 4). */
   readonly drank: boolean;
   /** Creature key → MET (1) or STUDIED (2) (version 9). */

@@ -283,25 +283,41 @@ describe('content validation of the balance', () => {
   });
 });
 
-describe('content validation of the objectives', () => {
-  it('checks keys, strings, compass points and what each condition asks for', () => {
+describe('content validation of the quests', () => {
+  it('checks keys, strings, requirements, compass points, goals and rewards', () => {
     const pack = JSON.parse(JSON.stringify(basePack));
-    const [first, second, third, fourth] = pack.objectives;
+    const [first, second, third, fourth, fifth] = pack.quests;
     first.key = second.key;
-    second.textKey = 'objective.nope';
+    second.textKey = 'quest.nope';
     second.compass = 'up';
-    third.condition = { items: ['item:nope', 'tag:nope'], stations: ['station:nope'], nights: 1.5 };
-    fourth.condition = { enclosed: false, drank: false };
+    second.requires = [fifth.key];
+    third.condition = { items: ['item:nope', 'tag:nope'], stations: ['station:nope'], biomes: 1.5 };
+    fourth.condition = { drank: false };
+    delete fourth.counter;
+    fifth.counter = { event: 'killed', target: 'creature:nope', count: 0 };
+    fifth.rewards = [{ item: 'item:nope', count: 1 }];
     const issues = validatePack(pack as ContentPack).map((i) => i.path);
     expect(issues).toEqual([
-      'objectives[1].key',
-      'objectives[1].textKey',
-      'objectives[1].compass',
-      'objectives[2].condition.items[0]',
-      'objectives[2].condition.items[1]',
-      'objectives[2].condition.stations[0]',
-      'objectives[2].condition.nights',
-      'objectives[3].condition',
+      'quests[1].key',
+      'quests[1].textKey',
+      'quests[1].compass',
+      'quests[1].requires[0]',
+      'quests[2].condition.items[0]',
+      'quests[2].condition.items[1]',
+      'quests[2].condition.stations[0]',
+      'quests[2].condition.biomes',
+      'quests[3].condition',
+      // Its requirement was the first quest, whose key is now the second's.
+      'quests[4].requires[0]',
+      'quests[4]',
+      'quests[4].counter.target',
+      'quests[4].counter.count',
+      'quests[4].rewards[0]',
     ]);
+    pack.quests = pack.quests.map((q: { requires?: string[] }) => ({
+      ...q,
+      requires: ['quest:x'],
+    }));
+    expect(validatePack(pack as ContentPack).map((i) => i.path)).toContain('quests');
   });
 });

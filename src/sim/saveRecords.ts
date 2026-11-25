@@ -32,6 +32,7 @@ import {
 import type { DropBody, ItemDropState } from './itemDrops.ts';
 import { PHYSICS } from './physics.ts';
 import { type BlockCell, createPlayer, type PlayerState } from './player.ts';
+import type { QuestState } from './quests.ts';
 import type { BlockEntityRecord, CreatureRecord, DropRecord, PlayerRecord } from './storage.ts';
 import {
   clampGauge,
@@ -132,7 +133,9 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     equipment: serializeInventory(player.equipment),
     respawn: player.respawn ? { ...player.respawn } : null,
     graves: player.graves.map((cell) => ({ ...cell })),
-    objectives: [...player.objectives],
+    quests: savedQuests(player.quests),
+    pinned: player.pinned,
+    biomes: Object.keys(player.biomes).sort(),
     drank: player.drank,
     bestiary: { ...player.bestiary },
     fightTicks: player.fightTicks,
@@ -175,6 +178,26 @@ function readCraft(data: unknown, registry: Registry): CraftEntry[] {
     });
   }
   return queue;
+}
+
+/** The quests as saved: each state copied (insertion order kept: the unlock order). */
+function savedQuests(quests: Readonly<Record<string, QuestState>>): Record<string, QuestState> {
+  const out: Record<string, QuestState> = {};
+  for (const key in quests) out[key] = { ...quests[key]! };
+  return out;
+}
+
+/** Saved quests: malformed states are left out; quests of other packs are kept (they cost nothing). */
+function readQuests(data: unknown): Record<string, QuestState> {
+  const quests: Record<string, QuestState> = {};
+  if (!data || typeof data !== 'object') return quests;
+  for (const [key, value] of Object.entries(data)) {
+    const { progress, done, claimed } = (value ?? {}) as Partial<QuestState>;
+    if (!isWhole(progress, 0) || typeof done !== 'boolean' || typeof claimed !== 'boolean')
+      continue;
+    quests[key] = { progress, done, claimed: done && claimed };
+  }
+  return quests;
 }
 
 /** The strings of a saved list (keys of other packs are kept: they cost nothing). */
@@ -244,7 +267,9 @@ export function readPlayer(
   player.respawn = readCell(saved.respawn);
   const graves = Array.isArray(saved.graves) ? saved.graves.map(readCell) : [];
   player.graves = graves.filter((cell) => cell !== null);
-  player.objectives = readKeys(saved.objectives);
+  player.quests = readQuests(saved.quests);
+  player.pinned = typeof saved.pinned === 'string' ? saved.pinned : null;
+  player.biomes = readSeen(saved.biomes);
   player.drank = saved.drank === true;
   player.bestiary = readBestiary(saved.bestiary, registry);
   // A fight in progress (no field before version 5: none).

@@ -73,15 +73,15 @@ export interface CompassTargets {
   /** The sun and the moon while above the horizon. */
   readonly sun: number;
   readonly moon: number;
-  /** The direction the current objective sends the player. */
-  readonly objective: number;
+  /** The direction the pinned quest sends the player. */
+  readonly quest: number;
   /** The player's Abandoned Packs. */
   readonly graves: readonly number[];
 }
 
 /**
  * The compass strip at the top centre (docs « Interface »): N/E/S/W and the points between, the
- * sun or moon, the current objective's direction and a marker for each Abandoned Pack. Marks only
+ * sun or moon, the pinned quest's direction and a marker for each Abandoned Pack. Marks only
  * move through CSS variables; `update` may run every frame.
  */
 export class Compass {
@@ -89,7 +89,7 @@ export class Compass {
   private readonly fixed: { readonly mark: Mark; readonly bearing: number }[] = [];
   private readonly sun = new Mark('compass-sun');
   private readonly moon = new Mark('compass-moon');
-  private readonly objective = new Mark('compass-objective');
+  private readonly quest = new Mark('compass-quest');
   private readonly graves: Mark[] = [];
   private readonly strip: HTMLElement;
 
@@ -104,7 +104,7 @@ export class Compass {
       'div',
       { class: 'compass-strip' },
       ...this.fixed.map((f) => f.mark.element),
-      this.objective.element,
+      this.quest.element,
       this.sun.element,
       this.moon.element,
     );
@@ -119,7 +119,7 @@ export class Compass {
     for (const { mark, bearing } of this.fixed) mark.place(bearing, heading);
     this.sun.place(targets.sun, heading);
     this.moon.place(targets.moon, heading);
-    this.objective.place(targets.objective, heading);
+    this.quest.place(targets.quest, heading);
     const graves = targets.graves;
     while (this.graves.length < graves.length) {
       const mark = new Mark('compass-grave');

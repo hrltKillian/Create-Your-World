@@ -82,9 +82,9 @@ describe('ControlsScreen', () => {
     expect(s.slot('jump:0').textContent).toBe(t('controls.waiting'));
     expect(s.slot('jump:0').classList.contains('waiting')).toBe(true);
     expect(s.status()).toBe(t('controls.press', { action: t('action.jump') }));
-    expect(s.key('KeyJ')).toBe(true);
-    expect(s.changes).toEqual([{ ...DEFAULT_BINDINGS, jump: ['KeyJ'] }]);
-    expect(s.slot('jump:0').textContent).toBe('J');
+    expect(s.key('KeyK')).toBe(true);
+    expect(s.changes).toEqual([{ ...DEFAULT_BINDINGS, jump: ['KeyK'] }]);
+    expect(s.slot('jump:0').textContent).toBe('K');
     expect(s.status()).toBe('');
     // No longer waiting: the next key is left to the game.
     expect(s.key('KeyK')).toBe(false);
@@ -109,7 +109,7 @@ describe('ControlsScreen', () => {
   it('cancels on Esc and ignores repeats, but binds Esc to the pause slot', () => {
     const s = setup({ ...DEFAULT_BINDINGS, pause: ['KeyP'] });
     s.slot('jump:0').dispatch('click');
-    expect(s.key('KeyJ', true)).toBe(true);
+    expect(s.key('KeyK', true)).toBe(true);
     expect(s.key('Escape')).toBe(true);
     expect(s.changes).toEqual([]);
     expect(s.slot('jump:0').textContent).toBe(t('key.space'));
@@ -155,7 +155,7 @@ describe('ControlsScreen', () => {
   });
 
   it('resets every key to its default', () => {
-    const s = setup({ ...DEFAULT_BINDINGS, jump: ['KeyJ'], camera: ['KeyB'] });
+    const s = setup({ ...DEFAULT_BINDINGS, jump: ['KeyK'], camera: ['KeyB'] });
     s.slot('drop:0').dispatch('click');
     (s.screen.element as unknown as FakeElement).findAction('reset-keys')!.dispatch('click');
     expect(s.changes).toEqual([DEFAULT_BINDINGS]);

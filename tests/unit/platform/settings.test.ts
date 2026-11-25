@@ -47,7 +47,7 @@ const CUSTOM: Settings = {
   sensitivity: 1.35,
   invertY: true,
   crouch: 'toggle',
-  bindings: { ...DEFAULT_BINDINGS, jump: ['KeyJ'], inventory: ['KeyI', 'Tab'], pause: ['KeyP'] },
+  bindings: { ...DEFAULT_BINDINGS, jump: ['KeyK'], inventory: ['KeyI', 'Tab'], pause: ['KeyP'] },
   volumes: { master: 0.5, effects: 0.25, ambience: 0, ui: 0.75 },
   uiScale: 1.25,
 };
@@ -151,6 +151,6 @@ describe('settings', () => {
       DEFAULT_SETTINGS.renderDistance,
     );
     // A key another action holds: the bindings go back to the defaults.
-    expect(patchSettings(CUSTOM, { bindings: { drop: ['KeyJ'] } }).bindings).toBe(DEFAULT_BINDINGS);
+    expect(patchSettings(CUSTOM, { bindings: { drop: ['KeyK'] } }).bindings).toBe(DEFAULT_BINDINGS);
   });
 });

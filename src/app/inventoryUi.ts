@@ -54,7 +54,8 @@ interface ScreenView {
 /**
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
  * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
- * Tab opens the bag on its Inventory, L on its Logbook, B on its Bestiary (`toggleBag`); one of
+ * Tab opens the bag on its Inventory, L on its Logbook, B on its Bestiary, J on its Quests
+ * (`toggleBag`); one of
  * them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
  * a slot swaps; keys typed in a text box (the Logbook's search) are its own. Esc is the pause
  * menu's alone (Game.onPauseKey): it never closes a screen. The Bag opens in the simulation too (`screen.open`),
@@ -229,7 +230,12 @@ export class InventoryUi {
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat || isTextField(event.target) || this.gate.menuIsUp()) return;
     const action = actionForCode(this.input.bindings, event.code);
-    if (action === 'inventory' || action === 'logbook' || action === 'bestiary') {
+    if (
+      action === 'inventory' ||
+      action === 'logbook' ||
+      action === 'bestiary' ||
+      action === 'quests'
+    ) {
       // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.
       if (this.toggleBag(action)) event.preventDefault();
     } else if (!this.screen()) return;

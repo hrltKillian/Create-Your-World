@@ -26,14 +26,16 @@ function midGame() {
   player.equipment[2] = { item: 'item:fur_coat', count: 1, durability: 120 };
   player.respawn = { x: 4, y: 65, z: -3 };
   player.graves.push({ x: 10, y: 65, z: 10 }, { x: -20, y: 40, z: 7 });
-  player.objectives.push('objective:first');
+  player.quests['quest:first'] = { progress: 2, done: true, claimed: false };
+  player.pinned = 'quest:first';
+  player.biomes['biome:tundra'] = true;
   player.drank = true;
   s.step(45);
   return { ...s, player };
 }
 
 describe('survival saves', () => {
-  it('round-trip the gauges, gear, bedroll, graves and objectives, which run on alike', async () => {
+  it('round-trip the gauges, gear, bedroll, graves and quests, which run on alike', async () => {
     const straight = midGame();
     const first = midGame();
     const storage = new MemoryStorage();
@@ -66,7 +68,14 @@ describe('survival saves', () => {
       equipment: [{ item: 'item:fur_hood', count: 1 }, { item: 4 }, null, null, null, 'x'],
       respawn: { x: 1.5, y: 2, z: 3 },
       graves: [{ x: 1, y: 2, z: 3 }, { x: 1, y: -2, z: 3 }, 'grave'],
-      objectives: ['objective:a', 7],
+      quests: {
+        'quest:a': { progress: 1, done: false, claimed: false },
+        'quest:b': { progress: -1, done: true, claimed: false },
+        'quest:c': { progress: 0, done: false, claimed: true },
+        'quest:d': 'done',
+      },
+      pinned: 7,
+      biomes: ['biome:tundra', 3],
     };
     const player = readPlayer(saved, registry, spawn)!;
     // Fields of older saves (effects, shelter) are not read.
@@ -74,10 +83,22 @@ describe('survival saves', () => {
     expect(player.equipment).toEqual([{ item: 'item:fur_hood', count: 1 }, null, null, null, null]);
     expect(player.respawn).toBeNull();
     expect(player.graves).toEqual([{ x: 1, y: 2, z: 3 }]);
-    expect(player.objectives).toEqual(['objective:a']);
+    // A claim without the quest done is read as not claimed.
+    expect(player.quests).toEqual({
+      'quest:a': { progress: 1, done: false, claimed: false },
+      'quest:c': { progress: 0, done: false, claimed: false },
+    });
+    expect(player.pinned).toBeNull();
+    expect(player.biomes).toEqual({ 'biome:tundra': true });
     const bare = readPlayer({ playerId: 1, id: 1 }, registry, spawn)!;
     expect(bare.survival).toEqual(createSurvival(b));
-    expect(bare).toMatchObject({ respawn: null, graves: [], objectives: [], drank: false });
+    expect(bare).toMatchObject({
+      respawn: null,
+      graves: [],
+      quests: {},
+      pinned: null,
+      drank: false,
+    });
   });
 
   it('copy a field only onto one of its own type, and keep the gauges within their ranges', () => {

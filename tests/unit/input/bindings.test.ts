@@ -71,7 +71,7 @@ describe('key bindings', () => {
       reason: 'reserved',
     });
     expect(rebind(DEFAULT_BINDINGS, 'jump', 0, 'Digit3')).toMatchObject({ reason: 'reserved' });
-    expect(rebind(DEFAULT_BINDINGS, 'jump', 1, 'KeyJ')).toMatchObject({ reason: 'reserved' });
+    expect(rebind(DEFAULT_BINDINGS, 'jump', 1, 'KeyK')).toMatchObject({ reason: 'reserved' });
   });
 
   it('refuses a mouse button for the actions only key presses drive: bag, debug, pause', () => {
@@ -117,7 +117,7 @@ describe('key bindings', () => {
   });
 
   it('reads stored bindings action by action, and the defaults when a code is bound twice', () => {
-    const stored = { ...DEFAULT_BINDINGS, jump: ['KeyJ'], debug: ['F1', 'F2', 'KeyO'] };
+    const stored = { ...DEFAULT_BINDINGS, jump: ['KeyK'], debug: ['F1', 'F2', 'KeyO'] };
     expect(readBindings(JSON.parse(JSON.stringify(stored)))).toEqual(stored);
     const read = readBindings({
       ...stored,
