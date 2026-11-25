@@ -104,7 +104,15 @@ export interface RawTables {
   /** State → heat source: °C at the block, warming up to `heatRadius` blocks (environment.ts). */
   readonly heat: Int8Array;
   readonly heatRadius: Uint8Array;
+  /**
+   * State → height of a liquid's surface in sixteenths of its cell (by its `level`), 0 for other
+   * blocks; a liquid under the same liquid fills its cell (physics, meshing).
+   */
+  readonly liquidHeight: Uint8Array;
 }
+
+/** Surface height (sixteenths) of a liquid by its level: a source, then ever thinner flows. */
+export const LIQUID_HEIGHTS = [14, 12, 10, 9, 7, 5, 3, 2] as const;
 
 export const COLLISION_NONE = 0;
 export const COLLISION_FULL = 1;
@@ -342,6 +350,7 @@ export function buildRegistry(pack: ContentPack): Registry {
     friction: new Uint8Array(n),
     heat: new Int8Array(n),
     heatRadius: new Uint8Array(n),
+    liquidHeight: new Uint8Array(n),
   };
   const collisionIndex = new Map<string, number>();
   const boxShapeIndex = new Map<string, number>();
@@ -377,6 +386,10 @@ export function buildRegistry(pack: ContentPack): Registry {
     tables.friction[s] = Math.round((block.friction ?? 1) * 100);
     tables.heat[s] = eff.heat?.celsius ?? 0;
     tables.heatRadius[s] = eff.heat?.radius ?? 0;
+    if (block.shape === 'liquid') {
+      const level = Number(state.props.level ?? '0');
+      tables.liquidHeight[s] = state.props.falling === '1' ? 16 : LIQUID_HEIGHTS[level]!;
+    }
     if (eff.collision === 'full') tables.collision[s] = COLLISION_FULL;
     else if (eff.collision === 'liquid') tables.collision[s] = COLLISION_LIQUID;
     else if (typeof eff.collision === 'object') {

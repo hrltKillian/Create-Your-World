@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LIQUID_HEIGHTS } from '../../../src/content/registry.ts';
 import { Rng } from '../../../src/core/rng.ts';
 import { localIndex } from '../../../src/world/coords.ts';
 import { meshSection, type SectionMesh } from '../../../src/world/mesh/greedyMesher.ts';
@@ -250,6 +251,42 @@ describe('mesher review fixes', () => {
       };
       expect(unitFaces(mesh(build, 2, true))).toEqual(unitFaces(mesh(build, 2, false)));
     }
+  });
+
+  it('draws each water level at its height, a falling flow full, and merges equal ones only', () => {
+    const levelOf = (n: number, falling = false) =>
+      registry.withState(
+        registry.withState(WATER, 'level', String(n)),
+        'falling',
+        falling ? '1' : '0',
+      );
+    const m = mesh((w) => {
+      for (let n = 0; n < 8; n++) {
+        w.setBlock(n * 2, BASE + 4, 0, levelOf(n));
+        w.setBlock(n * 2, BASE + 4, 1, levelOf(n));
+      }
+      w.setBlock(20, BASE + 4, 0, levelOf(1, true));
+    });
+    const tops = quads(m).filter((q) => q[0]!.face === 2);
+    // One merged top per level (two cells each), and the falling cell's.
+    expect(tops).toHaveLength(9);
+    for (let n = 0; n < 8; n++) {
+      const top = tops.find((q) => q[0]!.x >= n * 2 && q[0]!.x <= n * 2 + 1)!;
+      expect(top.every((v) => v.y === 4 + LIQUID_HEIGHTS[n]! / 16)).toBe(true);
+    }
+    expect(tops.find((q) => q[0]!.x >= 20)!.every((v) => v.y === 5)).toBe(true);
+  });
+
+  it('draws the side of a deeper liquid above a shallower neighbour of itself', () => {
+    const m = mesh((w) => {
+      w.setBlock(5, BASE + 5, 5, WATER);
+      w.setBlock(6, BASE + 5, 5, registry.withState(WATER, 'level', '3'));
+    });
+    const east = quads(m).filter((q) => q.every((v) => v.x === 6));
+    expect(east).toHaveLength(1);
+    const ys = east[0]!.map((v) => v.y);
+    expect(Math.min(...ys)).toBe(5 + LIQUID_HEIGHTS[3] / 16);
+    expect(Math.max(...ys)).toBe(5 + LIQUID_HEIGHTS[0] / 16);
   });
 
   it('flips liquid side diagonals away from the occluded corner', () => {

@@ -8,6 +8,7 @@ import {
 import { cellKey, WORLD_HEIGHT } from '../world/coords.ts';
 import { spiral } from '../world/gen/find.ts';
 import { removeBlockEntity } from './blockEntities.ts';
+import { noteChanged } from './blockUpdates.ts';
 import { ticksOf } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { editBlock } from './edits.ts';
@@ -268,6 +269,7 @@ export function recoverPack(
   removeBlockEntity(sim, x, y, z);
   editBlock(sim.world, sim.light, x, y, z, registry.air, out);
   forgetGrave(sim, x, y, z);
+  noteChanged(sim, x, y, z);
   return null;
 }
 

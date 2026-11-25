@@ -53,7 +53,17 @@ export type SoundMaterial =
   | 'metal'
   | 'cloth';
 
-export type StateProp = 'axis' | 'facing4' | 'open' | 'lit' | 'half' | 'ripe' | 'attach' | 'placed';
+export type StateProp =
+  | 'axis'
+  | 'facing4'
+  | 'open'
+  | 'lit'
+  | 'half'
+  | 'ripe'
+  | 'attach'
+  | 'placed'
+  | 'level'
+  | 'falling';
 
 /** Possible values of each state property; the first one is the default. */
 export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
@@ -67,6 +77,10 @@ export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
   attach: ['floor', 'n', 'e', 's', 'w'],
   /** Set by a player's placement: decaying blocks (leaves) placed by hand never decay. */
   placed: ['0', '1'],
+  /** A liquid's level: 0 is a source, 1–7 flowing ever thinner (sim/liquids.ts). */
+  level: ['0', '1', '2', '3', '4', '5', '6', '7'],
+  /** A flowing liquid falling from the same liquid above (its level is then 1). */
+  falling: ['0', '1'],
 };
 
 export type TextureSlot = 'all' | 'top' | 'bottom' | 'side' | 'front';
@@ -104,6 +118,17 @@ export interface LiquidDef {
   readonly toxicityPerSip: number;
   /** Empty container item → filled item. */
   readonly fills: Readonly<Partial<Record<ItemKey, ItemKey>>>;
+  /**
+   * How the liquid flows (sim/liquids.ts, the reference game's rules): a block's update every
+   * `seconds`, flowing down first, else spreading towards the nearest drop within `holeSearch`
+   * blocks; `infinite`: two sources beside a cell over solid ground make it a source. Without it the
+   * liquid never moves. The block needs the `level` and `falling` states.
+   */
+  readonly flow?: {
+    readonly seconds: number;
+    readonly holeSearch: number;
+    readonly infinite: boolean;
+  };
 }
 
 export interface BlockDef {

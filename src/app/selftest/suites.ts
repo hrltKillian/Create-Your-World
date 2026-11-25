@@ -11,6 +11,7 @@ import { M11_SUITE } from './m11.ts';
 import { M12_SUITE } from './m12.ts';
 import { M13_SUITE } from './m13.ts';
 import { M14_SUITE } from './m14.ts';
+import { M15_SUITE } from './m15.ts';
 import {
   assert,
   assertTiming,
@@ -356,4 +357,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m12: M12_SUITE,
   m13: M13_SUITE,
   m14: M14_SUITE,
+  m15: M15_SUITE,
 };

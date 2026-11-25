@@ -94,8 +94,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     block out of the world (a player's break or the world's own, `BY_WORLD`): `sim/blockRemoval.ts`
     (`removeBlock`, `removeWhole`, `forgetCell`); block updates (tick step 10, M14):
     `sim/blockUpdates.ts` (`BlockUpdateQueue` on `sim.blockUpdates`, saved in the world record;
-    `noteRemoved`/`noteChanged` schedule the neighbours; kinds `UPDATE_SUPPORT`, `UPDATE_DECAY`;
-    at most `BLOCK_UPDATES.perTick`; updates of columns not simulated wait with them); the support
+    `noteRemoved`/`noteChanged` schedule the neighbours; kinds `UPDATE_SUPPORT`, `UPDATE_DECAY`,
+    `UPDATE_LIQUID`; at most `BLOCK_UPDATES.perTick`; updates of columns not simulated wait with
+    them; debug fills and generation schedule nothing); flowing liquids (M15) `sim/liquids.ts`
+    (`updateLiquid`, `noteLiquids`, `liquidTables`: amounts by state; `LiquidDef.flow`; states
+    `level`/`falling`; top heights `LIQUID_HEIGHTS` and `tables.liquidHeight` in
+    `content/registry.ts`, read by `isLiquid` and the mesher); the support
     rule `supportHolds` (`sim/placement.ts`: `below`, or `attach` for blocks hung on walls, state
     `attach`, `BlockDef.wallShape`); leaf decay `sim/leafDecay.ts` (`BlockDef.decay`: no anchor
     within its radius, Manhattan; `placed=1` never decays); state keys read leniently
@@ -412,6 +416,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Water checks: `?worldType=arena&fixedStep=1&selftest=m0,m15` (`selftest/m15.ts`): the player
+  breaks the pond's east bank into a dug channel; the levels and the fall are read from the pack's
+  pond liquid.
 - Controls and fuel checks: `?worldType=flat&fixedStep=1&selftest=m0,m12` (`selftest/m12.ts`): a
   held jump, the double tap, E and Esc as real key events at the focused element, a run while
   eating, the campfire's toggle clicked; in `?selftest=all` they run in the flat `forceNoIdb` boot

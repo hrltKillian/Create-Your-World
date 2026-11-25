@@ -2,6 +2,7 @@ import { blockToColumn, cellKey, columnKey, WORLD_HEIGHT } from '../world/coords
 import { BY_WORLD, removeWhole } from './blockRemoval.ts';
 import type { SimEvent } from './events.ts';
 import { checkDecay, decayDelay, decayTables } from './leafDecay.ts';
+import { noteLiquids, updateLiquid } from './liquids.ts';
 import { otherHalfY, supportHolds } from './placement.ts';
 import type { Simulation } from './Simulation.ts';
 import { simulated } from './stations.ts';
@@ -13,14 +14,17 @@ import { simulated } from './stations.ts';
  * - SUPPORT: a block whose support rule no longer holds pops off, harvested (placement.ts
  *   `supportHolds`); scheduled for the neighbours of a removed block, due at once;
  * - DECAY: a decaying block (leaves) that reaches no anchor falls apart (leafDecay.ts); scheduled
- *   with a delay when an anchor or a neighbouring decaying block goes.
+ *   with a delay when an anchor or a neighbouring decaying block goes;
+ * - LIQUID: a flowing liquid takes its level and spreads (liquids.ts); scheduled for the liquids
+ *   beside a changed cell, after the liquid's delay.
  * An update runs only where the world is simulated (its column lit and near a player); elsewhere
  * it waits with its column and comes back when a player does. The queue is saved with the world.
  */
 
 export const UPDATE_SUPPORT = 0;
 export const UPDATE_DECAY = 1;
-export const UPDATE_KINDS = 2;
+export const UPDATE_LIQUID = 2;
+export const UPDATE_KINDS = 3;
 
 export const BLOCK_UPDATES = {
   /** Updates run per tick at most (docs: « au plus 256 »). */
@@ -249,11 +253,15 @@ export function noteRemoved(sim: Simulation, x: number, y: number, z: number, st
   }
 }
 
-/** A cell changed so that it may hold up less (removed, a gate opened): its neighbours check. */
+/**
+ * A cell changed (removed, placed, a gate toggled): its neighbours check their support at once, and
+ * the liquids in and around it flow after their delay.
+ */
 export function noteChanged(sim: Simulation, x: number, y: number, z: number): void {
   const queue = sim.blockUpdates;
   for (let i = 0; i < 18; i += 3)
     queue.schedule(x + SIDES[i]!, y + SIDES[i + 1]!, z + SIDES[i + 2]!, UPDATE_SUPPORT, sim.tick);
+  noteLiquids(sim, x, y, z);
 }
 
 /** Schedules the decay check of a cell holding a decaying block, after its pseudo-random delay. */
@@ -279,6 +287,7 @@ export function stepBlockUpdates(sim: Simulation, out: SimEvent[]): void {
     }
     done++;
     if (kind === UPDATE_SUPPORT) checkSupport(sim, x, y, z, out);
+    else if (kind === UPDATE_LIQUID) updateLiquid(sim, x, y, z, out);
     else if (checkDecay(sim, x, y, z)) removeWhole(sim, BY_WORLD, x, y, z, true, out);
   }
 }

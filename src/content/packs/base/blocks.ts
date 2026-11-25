@@ -218,6 +218,7 @@ export const blocks = [
   {
     key: 'block:fresh_water',
     nameKey: 'block.fresh_water',
+    states: ['level', 'falling'],
     shape: 'liquid',
     pass: 'translucent',
     cullGroup: 'water',
@@ -236,6 +237,9 @@ export const blocks = [
       thirstPerSip: 8,
       toxicityPerSip: 2,
       fills: { 'item:flask_empty': 'item:flask_raw', 'item:waterskin_empty': 'item:waterskin_raw' },
+      // The reference game's water: a step every 0.25 s (5 ticks at 20 Hz), holes found 4 blocks
+      // away, two sources make a third.
+      flow: { seconds: 0.25, holeSearch: 4, infinite: true },
     },
   },
   {
