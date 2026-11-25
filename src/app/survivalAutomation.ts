@@ -40,7 +40,7 @@ export function equip(app: App, slot: number): void {
  * The player's survival as automation reads it (null without a player): the gauges, exhaustion,
  * the last environment sample (felt °C, the
  * temperature's target, the air's toxicity per minute), death, immunity, the bedroll, the
- * Abandoned Packs, the objectives done and the worn items (head to feet).
+ * Abandoned Packs, the quests and the worn items (head to feet).
  */
 export function playerStats(app: App) {
   const session = app.session;
@@ -64,7 +64,8 @@ export function playerStats(app: App) {
     god: s.god,
     respawn: player.respawn && { ...player.respawn },
     graves: player.graves.map((cell) => ({ ...cell })),
-    objectives: [...player.objectives],
+    quests: structuredClone(player.quests),
+    pinned: player.pinned,
     equipment: serializeInventory(player.equipment),
     bestiary: { ...player.bestiary },
     scan: { id: player.scanId, ticks: player.scanTicks },

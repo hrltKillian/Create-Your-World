@@ -1,10 +1,10 @@
-import type { ObjectiveDef } from '../../content/schema.ts';
+import type { QuestDef } from '../../content/schema.ts';
 import type { Command } from '../commands.ts';
 import type { SimView } from '../host.ts';
 
 /*
- * What the objectives walk (objectiveWalk.ts) needs of a play session: the browser's, through
- * `__game`'s automation (selftest/objectivesWalk.ts), or an inline simulation's (tests).
+ * What the quests walk (questWalk.ts) needs of a play session: the browser's, through
+ * `__game`'s automation (selftest/questsWalk.ts), or an inline simulation's (tests).
  */
 
 export interface Point {
@@ -42,8 +42,8 @@ export interface WalkPort {
 export interface WalkOptions {
   /** How far from home a biome is looked for (blocks). */
   readonly searchRadius: number;
-  /** Called once each objective is done and the player is home again (the browser's HUD checks). */
-  readonly onDone?: (objective: ObjectiveDef, index: number) => Promise<void> | void;
+  /** Called once each quest is done and the player is home again (the browser's HUD checks). */
+  readonly onDone?: (quest: QuestDef, index: number) => Promise<void> | void;
 }
 
 /** A cell for messages. */

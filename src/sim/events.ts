@@ -167,7 +167,22 @@ export type SimEvent =
       readonly z: number;
     }
   /** A player did an objective of the pack's chain (`player.objectives` holds it from now on). */
-  | { readonly type: 'objectiveDone'; readonly playerId: number; readonly objective: string }
+  | { readonly type: 'questUnlocked'; readonly playerId: number; readonly quest: string }
+  /** A quest is done; `already`: its condition held when it unlocked. */
+  | {
+      readonly type: 'questDone';
+      readonly playerId: number;
+      readonly quest: string;
+      readonly already: boolean;
+    }
+  /** A counter of a quest counted one more deed. */
+  | {
+      readonly type: 'questProgress';
+      readonly playerId: number;
+      readonly quest: string;
+      readonly progress: number;
+    }
+  | { readonly type: 'questClaimed'; readonly playerId: number; readonly quest: string }
   /** A player's swing (a blow, or in the air): `strong` when it struck with a full gauge. */
   | { readonly type: 'playerSwung'; readonly playerId: number; readonly strong: boolean }
   /** A creature entered a player's bestiary, or was studied (`level`: MET or STUDIED). */

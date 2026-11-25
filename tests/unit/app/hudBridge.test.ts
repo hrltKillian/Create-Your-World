@@ -271,15 +271,31 @@ describe('HudBridge', () => {
     expect(banner.textContent).toBe(basePack.strings[biomes[1]!.def.nameKey]);
   });
 
-  it('turns objectives, the clock and the night into lines and banners', () => {
+  it('turns quests, the clock and the night into lines and banners', () => {
     const { bridge, inventory, listeners } = setup();
-    const chain = registry.pack.objectives!;
+    const quests = registry.pack.quests!;
+    const [first, hunt] = [quests.find((q) => q.requires)!, quests.find((q) => q.counter)!];
+    const name = (key: string) => basePack.strings[key];
     for (const listener of listeners) {
-      listener({ type: 'objectiveDone', playerId: 1, objective: chain[0]!.key });
+      listener({ type: 'questUnlocked', playerId: 1, quest: first.key });
+      listener({ type: 'questDone', playerId: 1, quest: first.key, already: false });
+      listener({ type: 'questDone', playerId: 1, quest: first.key, already: true });
+      listener({ type: 'questProgress', playerId: 1, quest: hunt.key, progress: 0 });
+      listener({ type: 'questUnlocked', playerId: 1, quest: quests[0]!.key });
+      listener({ type: 'questDone', playerId: 2, quest: first.key, already: false });
       listener({ type: 'nightSurvived', night: 2 });
     }
+    // The messages of one frame share a line; another player's, and the unlock of a quest open
+    // from the start, are not shown.
+    expect(inventory.hint.shown).toEqual([]);
+    bridge.frame(0.01);
     expect(inventory.hint.shown).toEqual([
-      `Objective complete: ${basePack.strings[chain[0]!.textKey]}`,
+      [
+        `New quest: ${name(first.textKey)}`,
+        `Quest complete: ${name(first.textKey)} (claim it in the Quests tab)`,
+        `Quest complete: ${name(first.textKey)} (already done)`,
+        `${name(hunt.textKey)} 0/${hunt.counter!.count}`,
+      ].join(' · '),
     ]);
     const banner = bridge.hud.banner.element as unknown as FakeElement;
     expect(banner.textContent).toBe('Night 2 survived');

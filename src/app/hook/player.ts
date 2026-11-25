@@ -3,7 +3,14 @@ import { serializeInventory } from '../../sim/inventory.ts';
 import type { DeathCause } from '../../sim/survival.ts';
 import { BOT_KINDS, type BotKind } from '../../sim/testing/bots.ts';
 import type { App } from '../App.ts';
-import { blockEntityContents, craft, craftQueue, give, teleport } from '../automation.ts';
+import {
+  blockEntityContents,
+  craft,
+  craftQueue,
+  give,
+  sendAndStep,
+  teleport,
+} from '../automation.ts';
 import { driveBot } from '../botDriver.ts';
 import {
   census,
@@ -13,7 +20,7 @@ import {
   spawnLog,
 } from '../creatureAutomation.ts';
 import { equip, god, kill, playerStats, setStat } from '../survivalAutomation.ts';
-import { walkObjectivesHere } from '../walkAutomation.ts';
+import { walkQuestsHere } from '../walkAutomation.ts';
 
 /** `__game.player`: the local player's body, gauges, inventory and debug commands. */
 export function playerHook(app: App) {
@@ -41,7 +48,7 @@ export function playerHook(app: App) {
     teleport: (x: number, y: number | 'surface', z: number) => teleport(app, x, y, z),
     /** Sets a gauge now, clamped: health, hunger, thirst, stamina, temperature, toxicity, breath. */
     setStat: (stat: DebugStat, value: number) => setStat(app, stat, value),
-    /** Gauges, exhaustion, felt °C, death, bedroll, packs, objectives, worn items. */
+    /** Gauges, exhaustion, felt °C, death, bedroll, packs, quests, worn items. */
     stats: () => playerStats(app),
     /** Takes all health for a cause (the death screen shows `death.cause.<cause>`). */
     kill: (cause: DeathCause = 'fall') => kill(app, cause),
@@ -98,14 +105,23 @@ export function craftHooks(app: App) {
   };
 }
 
-/** `__game.objectives`: the scripted walk through the pack's objectives (M11). */
-export function objectivesHook(app: App) {
+/** `__game.quests`: the player's quests, their commands and the scripted walk (M11, M21). */
+export function questsHook(app: App) {
   return {
+    /** The quests unlocked, by key: `{ progress, done, claimed }`, and the one pinned. */
+    list: () => {
+      const player = app.session?.player;
+      return player ? { quests: structuredClone(player.quests), pinned: player.pinned } : null;
+    },
+    /** Claims a quest done (its rewards), applied at once in fixed steps. */
+    claim: (quest: string) => sendAndStep(app, { type: 'quest.claim', quest }),
+    /** Pins a quest to the compass (null unpins), applied at once in fixed steps. */
+    pin: (quest: string | null) => sendAndStep(app, { type: 'quest.pin', quest }),
     /**
-     * Does every objective in chain order from where the player stands (a player who has done
+     * Does every quest in the pack's order from where the player stands (a player who has done
      * none, the generated world, ?fixedStep=1; biomes searched within `maxRadius`); the keys done.
      */
-    walk: (maxRadius = 3000) => walkObjectivesHere(app, maxRadius),
+    walk: (maxRadius = 3000) => walkQuestsHere(app, maxRadius),
   };
 }
 

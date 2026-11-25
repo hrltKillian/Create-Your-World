@@ -15,7 +15,7 @@ import { type Cell, cellText, type Point, type WalkPort } from './walkPort.ts';
 import { type Aim, aimToBreak, aimToPlace, solidAt, standFor } from './walkReach.ts';
 
 /*
- * The objectives walk's body (objectiveWalk.ts, walkSupplies.ts): the player's state and the
+ * The quests walk's body (questWalk.ts, walkSupplies.ts): the player's state and the
  * game's own actions on the world, as a player does them. A block is broken by holding primary
  * with the best tool that harvests it (the hand when none fits), a block placed by secondary on a
  * face of its neighbour, a creature struck by primary; the walk first stands where its eye sees

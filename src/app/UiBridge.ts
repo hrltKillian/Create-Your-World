@@ -12,6 +12,7 @@ import type { PlayerState } from '../sim/player.ts';
 import { bestiaryRows } from '../ui/bestiary.ts';
 import type { Hotbar } from '../ui/hud/hotbar.ts';
 import { type HudHint, hintText } from '../ui/hud/hudHint.ts';
+import { questRows } from '../ui/quests.ts';
 import type { BagScreen } from '../ui/screens/bag.ts';
 import type { ContainerScreen } from '../ui/screens/container.ts';
 import type { LogbookState, QueueView } from '../ui/screens/logbook.ts';
@@ -133,12 +134,14 @@ export class UiBridge {
     const { inventory, equipment, craft, cursor } = this.player;
     const gear = wornGear(this.view.registry, equipment, this.gear);
     const bestiary = bestiaryRows(this.view.registry, this.player.bestiary);
+    const quests = questRows(this.view.registry, this.player.quests, this.player.pinned);
     this.views.bag.update(
       screenSlots(inventory, equipment),
       cursor,
       this.logbook(craft),
       gear,
       bestiary,
+      quests,
     );
   }
 

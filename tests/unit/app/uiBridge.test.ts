@@ -64,6 +64,8 @@ function setup(entity?: BlockEntity) {
     inventory: createInventory(),
     equipment: [null, null, null, null, null] as Inventory,
     bestiary: {},
+    quests: {},
+    pinned: null,
     seen: {},
     craft: [],
     cursor: null as Cursor,

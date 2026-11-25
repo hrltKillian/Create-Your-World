@@ -1,4 +1,3 @@
-import type { ObjectiveDef } from '../content/schema.ts';
 import { STUDIED } from '../core/creatures.ts';
 import { t } from '../i18n/i18n.ts';
 import type { InputManager } from '../input/InputManager.ts';
@@ -16,6 +15,7 @@ import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
+import { questLine } from '../ui/quests.ts';
 import type { GameSession } from './GameSession.ts';
 import { BiomeWatch, targetText } from './hudModel.ts';
 import type { InventoryUi } from './inventoryUi.ts';
@@ -27,14 +27,14 @@ interface DuskTip {
   dusk(): boolean;
 }
 
-/** Seconds between two refreshes of the gauges, clock, target and objectives (10 Hz). */
+/** Seconds between two refreshes of the gauges, clock, target and pinned quest (10 Hz). */
 const REFRESH_SECONDS = 0.1;
 
 /**
  * Keeps the survival HUD in step with the local player: the compass and the pickup lines every
- * frame, the rest at 10 Hz and at once after the player's objective, death and respawn events.
+ * frame, the rest at 10 Hz and at once after the player's quest, death and respawn events.
  * Shows the day's banners (the first sunset's goes to the onboarding's dusk tip when it shows
- * one), the biome entered, the sleep fade, the objective lines, the items
+ * one), the biome entered, the sleep fade, the quest messages and the pinned quest, the items
  * picked up, the hit marker and the damage arcs, and runs the death screen: it takes the open
  * screen's place (the mouse stays free) and Respawn, a click, captures the mouse again. The screen
  * follows `survival.dead`, so a world saved dead opens on it.
@@ -47,12 +47,13 @@ export class HudBridge {
   private readonly inventory: InventoryUi;
   private readonly tips: DuskTip | null;
   private elapsed = REFRESH_SECONDS;
-  private objective: ObjectiveDef | null = null;
   /** The death screen holds the gate's screen (given back on Respawn). */
   private holdsScreen = false;
   /** Respawn was clicked: the screen stays shut while the simulation brings the player back. */
   private waking = false;
   private readonly biomes = new BiomeWatch();
+  /** The quest messages of this frame, shown together on one line (a chain done at once). */
+  private readonly questLines: string[] = [];
   private readonly levels: Record<Vignette, number> = {
     health: 0,
     cold: 0,
@@ -63,7 +64,7 @@ export class HudBridge {
   private readonly targets = {
     sun: Number.NaN,
     moon: Number.NaN,
-    objective: Number.NaN,
+    quest: Number.NaN,
     graves: [] as number[],
   };
 
@@ -82,7 +83,7 @@ export class HudBridge {
     this.inventory = inventory;
     this.tips = tips;
     const pack = session.host.view.registry.pack;
-    this.hud = new Hud(pack.balance, pack.objectives ?? [], () => this.respawn());
+    this.hud = new Hud(pack.balance, () => this.respawn());
     layer.prepend(this.hud.element);
     layer.append(this.hud.death.element);
     session.listeners.push((event) => this.onEvent(event));
@@ -103,6 +104,10 @@ export class HudBridge {
     this.hud.compass.update(headingOf(this.session.rig.yaw), this.targets);
     this.hud.attack.update(attackGauge(this.session.host.view.registry, this.session.player));
     this.hud.pickups.frame(dt);
+    if (this.questLines.length > 0) {
+      this.inventory.hint.show(this.questLines.join(' · '));
+      this.questLines.length = 0;
+    }
   }
 
   private onEvent(event: SimEvent): void {
@@ -120,11 +125,20 @@ export class HudBridge {
         hud.combat.hurt(damageBearing(b.x, b.z, this.session.rig.yaw, event.x, event.z));
         break;
       }
-      case 'objectiveDone': {
-        const done = this.session.host.view.registry.pack.objectives?.find(
-          (objective) => objective.key === event.objective,
-        );
-        if (done) this.inventory.hint.show(t('hud.objectiveDone', { name: t(done.textKey) }));
+      case 'questUnlocked':
+      case 'questDone':
+      case 'questProgress': {
+        const quest = this.questOf(event.quest);
+        // The quests open from the start are no news: the Quests page lists them.
+        if (!quest || (event.type === 'questUnlocked' && !quest.requires)) break;
+        const name = t(quest.textKey);
+        const text =
+          event.type === 'questUnlocked'
+            ? t('hud.questUnlocked', { name })
+            : event.type === 'questProgress'
+              ? questLine(quest, player.quests[quest.key])
+              : t(event.already ? 'hud.questAlready' : 'hud.questDone', { name });
+        this.questLines.push(text);
         this.elapsed = REFRESH_SECONDS;
         break;
       }
@@ -156,7 +170,8 @@ export class HudBridge {
     const ticks = view.time().ticks;
     const hour = hourOf(ticks);
     hud.setClock(clockText(hour, dayOf(ticks)));
-    this.objective = hud.objectives.update(player.objectives);
+    const pinned = player.pinned === null ? undefined : this.questOf(player.pinned);
+    hud.quest.update(pinned ? questLine(pinned, player.quests[pinned.key]) : null);
     this.updateTarget();
     this.updateTargets(hour);
     this.updateBiome(dt);
@@ -219,14 +234,20 @@ export class HudBridge {
     this.hud.target.update(line.name, line.hint);
   }
 
-  /** Bearings of the sun or moon, the current objective's direction and the player's packs. */
+  /** A quest of the pack by key. */
+  private questOf(key: string) {
+    return this.session.host.view.registry.pack.quests?.find((quest) => quest.key === key);
+  }
+
+  /** Bearings of the sun or moon, the pinned quest's direction and the player's packs. */
   private updateTargets(hour: number): void {
     const targets = this.targets;
     const sun = sunBearing(hour);
     targets.sun = aboveHorizon(hour, false) ? sun : Number.NaN;
     targets.moon = aboveHorizon(hour, true) ? sun + Math.PI : Number.NaN;
-    const point = this.objective?.compass;
-    targets.objective = point ? POINT_BEARINGS[point] : Number.NaN;
+    const pinned = this.session.player.pinned;
+    const point = pinned === null ? undefined : this.questOf(pinned)?.compass;
+    targets.quest = point ? POINT_BEARINGS[point] : Number.NaN;
     const { body, graves } = this.session.player;
     targets.graves.length = graves.length;
     for (let i = 0; i < graves.length; i++) {

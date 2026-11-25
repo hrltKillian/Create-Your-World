@@ -6,19 +6,19 @@ import { ticksOf } from '../clock.ts';
 import { OPEN_SLOTS_BASE } from '../commands.ts';
 import { MAX_CRAFT_COUNT, queueRoom } from '../craftQueue.ts';
 import { countMatching } from '../inventory.ts';
-import { STATION_REACH } from '../objectives.ts';
+import { STATION_REACH } from '../quests.ts';
 import { moveClicks, shiftClick } from './slotMoves.ts';
 import { Gathering } from './walkGather.ts';
 import { type Cell, cellText, type WalkPort } from './walkPort.ts';
 
 /*
- * How the objectives walk (objectiveWalk.ts) gets its items, from the pack's data. A recipe is
+ * How the quests walk (questWalk.ts) gets its items, from the pack's data. A recipe is
  * crafted through the Logbook's queue: by hand, or at its workbench, open meanwhile (its outputs
  * taken as they come); a process run in its station (inputs, the longest-burning gathered fuel,
- * the outputs taken back). An item an objective names comes the
+ * the outputs taken back). An item a quest names comes the
  * world's way whenever the world yields it (walkGather.ts): the blocks that drop it are broken, the
  * creatures that leave it struck down with the weapon that reaches farthest. Every other raw
- * material (logs, stone, clay, fuel, ores no objective names, hides, fur, resin) is given by
+ * material (logs, stone, clay, fuel, ores no quest names, hides, fur, resin) is given by
  * `debug.give`. Stations are crafted, then placed by hand on the home floor.
  */
 
@@ -31,14 +31,14 @@ const TOP = 15 / 16;
 
 /** The walk's means of getting items; the walk itself picks the station spots. */
 export abstract class Supplies extends Gathering {
-  /** Every item an objective names: those the world yields come from it. */
+  /** Every item a quest names: those the world yields come from it. */
   private readonly named: ReadonlySet<string>;
   private readonly stations = new Map<string, Cell>();
 
   constructor(port: WalkPort, options: { readonly searchRadius: number }) {
     super(port, options);
-    const objectives = this.registry.pack.objectives ?? [];
-    this.named = new Set(objectives.flatMap((o) => o.condition.items ?? []));
+    const quests = this.registry.pack.quests ?? [];
+    this.named = new Set(quests.flatMap((q) => q.condition?.items ?? []));
   }
 
   /** Where the next station goes (a floor cell of the home room). */
@@ -59,8 +59,10 @@ export abstract class Supplies extends Gathering {
     else if (recipe) await this.craft(recipe, Math.ceil(missing / recipe.output.count), depth);
     else if (process)
       await this.runProcess(process, Math.ceil(missing / process.output.count), depth);
-    else if (creature) await this.hunt(creature, item, need, await this.weapon(depth));
-    else this.port.send({ type: 'debug.give', item, count: missing });
+    else if (creature) {
+      const weapon = await this.weapon(depth);
+      await this.hunt(creature, weapon, () => this.count(ingredient) >= need, item);
+    } else this.port.send({ type: 'debug.give', item, count: missing });
     if (this.count(ingredient) < need)
       throw new Error(
         `could not get ${need} × ${ingredient} (${this.count(ingredient)} in the bag)`,
@@ -68,7 +70,7 @@ export abstract class Supplies extends Gathering {
   }
 
   /** The weapon that reaches farthest (a spear), made first when the inventory has none. */
-  private async weapon(depth: number): Promise<string> {
+  protected async weapon(depth: number): Promise<string> {
     const weapons = this.registry.items.filter((i) => i.weapon !== undefined);
     const longest = weapons.reduce((a, b) => (b.weapon!.reach > a.weapon!.reach ? b : a));
     await this.obtain(longest.key, 1, depth + 1);
@@ -100,7 +102,7 @@ export abstract class Supplies extends Gathering {
     return cell;
   }
 
-  /** Whether a station's block still stands at a cell within an objective's reach of the player. */
+  /** Whether a station's block still stands at a cell within a quest's reach of the player. */
   private stationAt(cell: Cell, key: string): boolean {
     const { x, y, z } = cell;
     const here = this.registry.blockDef(this.view.world.getBlock(x, y, z)).station === key;

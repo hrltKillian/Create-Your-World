@@ -9,9 +9,3 @@ export function clockText(hour: number, day: number): string {
   const time = t('hud.time', { h: pad2(Math.floor(minutes / 60) % 24), m: pad2(minutes % 60) });
   return t('hud.clock', { time, day });
 }
-
-/** Time left of an effect, « 1:05 », rounded up so that a running effect never shows 0:00. */
-export function durationText(seconds: number): string {
-  const whole = Math.max(0, Math.ceil(seconds));
-  return t('hud.duration', { m: Math.floor(whole / 60), s: pad2(whole % 60) });
-}

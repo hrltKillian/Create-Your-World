@@ -25,10 +25,10 @@ import type { SimEvent } from './events.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
 import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
-import { stepObjectives } from './objectives.ts';
 import { resetBody } from './physics.ts';
 import { createPlayer, type PlayerState, stepPlayer } from './player.ts';
 import type { ColumnSink, ColumnSource } from './ports.ts';
+import { applyQuestCommand, stepQuests } from './quests.ts';
 import { applyScreenCommand, checkOpened } from './screens.ts';
 import { stepSleep } from './sleep.ts';
 import { applySlotCommand } from './slotClicks.ts';
@@ -78,7 +78,7 @@ export type Entity = PlayerState | ItemDropState | CreatureState;
  * only reads it (SimView) and sends commands. In v1 it runs on the main thread at 30 Hz. It owns
  * the state and the tick order, and delegates column streaming, players, interaction, creatures
  * (AI, combat, spawning), item drops, inventory, slot screens and their clicks, block entities
- * (chests, stations, packs), craft queues, survival, deaths, sleep, objectives and debug commands.
+ * (chests, stations, packs), craft queues, survival, deaths, sleep, quests and debug commands.
  */
 export class Simulation implements ColumnSink {
   readonly seed: string;
@@ -251,7 +251,7 @@ export class Simulation implements ColumnSink {
     stepLight(this.light, SEAM_NODES_PER_TICK, out);
     this.columns.promote(out);
     this.columns.stream(out);
-    stepObjectives(this, out);
+    stepQuests(this, out, first);
   }
 
   /** Integrates and requests outside play (loading screen, tests). */
@@ -344,6 +344,12 @@ export class Simulation implements ColumnSink {
       case 'craft.cancel': {
         const player = this.players.get(playerId);
         if (player) applyCraftCommand(this, player, command, out);
+        break;
+      }
+      case 'quest.claim':
+      case 'quest.pin': {
+        const player = this.players.get(playerId);
+        if (player) applyQuestCommand(this, player, command, out);
         break;
       }
       case 'player.respawn': {

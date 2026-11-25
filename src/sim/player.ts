@@ -7,6 +7,7 @@ import type { CraftEntry } from './craftQueue.ts';
 import type { SimEvent } from './events.ts';
 import { createInventory, type Inventory, type ItemStack } from './inventory.ts';
 import { type Body, createBody, type MoveInput, type StepResult, stepBody } from './physics.ts';
+import type { QuestState } from './quests.ts';
 import { createSurvival, fallDamage, hurt, type SurvivalState } from './survival.ts';
 
 /** Stamina rules (docs/conception.md « Survie »). */
@@ -120,9 +121,13 @@ export interface PlayerState {
   respawn: BlockCell | null;
   /** Abandoned Packs left by the player's deaths (compass markers), oldest first. */
   graves: BlockCell[];
-  /** Keys of the objectives done, in the order they were done. */
-  objectives: string[];
-  /** Has drunk at least once: a sip, or a consumable that quenches thirst (objectives). */
+  /** The quests unlocked, by key, in the order they unlocked (sim/quests.ts). */
+  quests: Record<string, QuestState>;
+  /** The quest pinned to the compass, if any. */
+  pinned: string | null;
+  /** Biome keys the player has stood in (quests). */
+  biomes: Record<string, true>;
+  /** Has drunk at least once: a sip, or a consumable that quenches thirst (quests). */
   drank: boolean;
   /** The bestiary: creature key → MET or STUDIED (sim/bestiary.ts). */
   bestiary: Record<string, number>;
@@ -194,7 +199,9 @@ export function createPlayer(
     equipment: new Array<null>(WEAR_SLOTS.length).fill(null),
     respawn: null,
     graves: [],
-    objectives: [],
+    quests: {},
+    pinned: null,
+    biomes: {},
     drank: false,
     bestiary: {},
     scanId: -1,

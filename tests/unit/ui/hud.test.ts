@@ -4,7 +4,7 @@ import { lookVector, type Vec3 } from '../../../src/core/angles.ts';
 import { addStrings, i18nMissing } from '../../../src/i18n/i18n.ts';
 import { createSurvival, DEATH_CAUSES } from '../../../src/sim/survival.ts';
 import { DAY_TICKS, HOUR_TICKS, hourOf } from '../../../src/sim/time.ts';
-import { clockText, durationText } from '../../../src/ui/hud/clock.ts';
+import { clockText } from '../../../src/ui/hud/clock.ts';
 import { CombatMarks, damageBearing } from '../../../src/ui/hud/combatMarks.ts';
 import {
   bearingOf,
@@ -13,25 +13,27 @@ import {
   headingOf,
   POINT_BEARINGS,
 } from '../../../src/ui/hud/compass.ts';
-import { ObjectivesPanel, objectiveProgress } from '../../../src/ui/hud/objectives.ts';
 import {
   FADE_SECONDS,
   PICKUP_LINES,
   PICKUP_SECONDS,
   PickupFeed,
 } from '../../../src/ui/hud/pickups.ts';
+import { PinnedQuest } from '../../../src/ui/hud/pinnedQuest.ts';
 import { VIGNETTES, type Vignette, vignetteLevels } from '../../../src/ui/hud/vignettes.ts';
 import { BREATH_BUBBLES, Vitals } from '../../../src/ui/hud/vitals.ts';
+import { questLine, questRows } from '../../../src/ui/quests.ts';
 import { DeathScreen } from '../../../src/ui/screens/death.ts';
+import { QuestsPanel } from '../../../src/ui/screens/questsPanel.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
+import { registry } from '../../helpers/registry.ts';
 
 /*
- * The HUD's pure formatting and selection (compass bearings, clock text, objective progress,
+ * The HUD's pure formatting and selection (compass bearings, clock text, quest rows,
  * vignette levels) and its views on the fake DOM. Thresholds come from the pack's balance.
  */
 
 const b = basePack.balance;
-const chain = basePack.objectives!;
 const QUARTER = Math.PI / 2;
 const fake = (element: HTMLElement) => element as unknown as FakeElement;
 const levels = (): Record<Vignette, number> => ({
@@ -83,7 +85,7 @@ describe('compass', () => {
     const marks = fake(compass.element).findAll((e) => e.className.includes('compass-mark'));
     const north = marks.find((m) => m.textContent === 'N')!;
     const south = marks.find((m) => m.textContent === 'S')!;
-    compass.update(0, { sun: QUARTER / 2, moon: Number.NaN, objective: Number.NaN, graves: [0] });
+    compass.update(0, { sun: QUARTER / 2, moon: Number.NaN, quest: Number.NaN, graves: [0] });
     expect(north.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('1');
     expect(south.style.getPropertyValue('--o')).toBe('0');
@@ -92,7 +94,7 @@ describe('compass', () => {
     const graves = () =>
       fake(compass.element).findAll((e) => e.className.includes('compass-grave'));
     expect(graves()).toHaveLength(1);
-    compass.update(Math.PI, { sun: Number.NaN, moon: Number.NaN, objective: 0, graves: [] });
+    compass.update(Math.PI, { sun: Number.NaN, moon: Number.NaN, quest: 0, graves: [] });
     expect(south.style.getPropertyValue('--x')).toBe('0');
     expect(north.style.getPropertyValue('--o')).toBe('0');
     expect(graves()[0]!.style.getPropertyValue('--o')).toBe('0');
@@ -111,49 +113,59 @@ describe('clock and durations', () => {
     }
     expect(clockText(hourOf(DAY_TICKS - 1), 1)).toBe('23:59 · Day 1');
   });
-
-  it('rounds the time left of an effect up', () => {
-    expect(durationText(0)).toBe('0:00');
-    expect(durationText(0.2)).toBe('0:01');
-    expect(durationText(65)).toBe('1:05');
-    expect(durationText(119.9)).toBe('2:00');
-    expect(durationText(-3)).toBe('0:00');
-  });
 });
 
-describe('objectives', () => {
-  it('shows the first step not done, counting the steps done in any order', () => {
-    expect(objectiveProgress(chain, [])).toEqual({
-      current: chain[0],
-      done: 0,
-      total: chain.length,
-    });
-    const ahead = objectiveProgress(chain, [chain[1]!.key, 'objective:removed']);
-    expect(ahead).toEqual({ current: chain[0], done: 1, total: chain.length });
-    const all = chain.map((o) => o.key);
-    expect(objectiveProgress(chain, all)).toEqual({
-      current: null,
-      done: all.length,
-      total: all.length,
-    });
+describe('quests', () => {
+  const quests = basePack.quests!;
+  const hunt = quests.find((q) => q.counter)!;
+  const open = { progress: 0, done: false, claimed: false };
+
+  it('lists the quests unlocked: to claim first, then open, then claimed', () => {
+    const states = {
+      [quests[1]!.key]: { ...open, done: true, claimed: true },
+      [hunt.key]: { ...open, progress: 0 },
+      [quests[0]!.key]: { ...open, done: true },
+    };
+    const rows = questRows(registry, states, hunt.key);
+    expect(rows.map((r) => [r.quest, r.status])).toEqual([
+      [quests[0]!.key, 'claim'],
+      [hunt.key, 'open'],
+      [quests[1]!.key, 'claimed'],
+    ]);
+    expect(rows[1]).toMatchObject({ progress: `0/${hunt.counter!.count}`, pinned: true });
+    expect(rows[0]!.rewards).toMatch(/^\d+ /);
+    expect(questLine(hunt, states[hunt.key])).toBe(
+      `${basePack.strings[hunt.textKey]} 0/${hunt.counter!.count}`,
+    );
+    expect(questLine(hunt, { ...open, done: true })).toBe(basePack.strings[hunt.textKey]);
   });
 
-  it('draws the count, the current objective and its hint, then the closing line', () => {
-    const panel = new ObjectivesPanel(chain);
+  it('claims a quest done and pins an open one by its buttons; the line shows the pinned one', () => {
+    const sent: unknown[] = [];
+    const panel = new QuestsPanel({ send: (c) => sent.push(c), click: () => {} });
     const el = fake(panel.element);
-    expect(panel.update([])).toBe(chain[0]);
-    expect(el.textContent).toContain(`0/${chain.length}`);
-    expect(el.querySelector('.objectives-text')!.textContent).toBe(
-      basePack.strings[chain[0]!.textKey],
-    );
-    expect(el.querySelector('.objectives-hint')!.textContent).toBe(
-      basePack.strings[chain[0]!.hintKey!],
-    );
-    const all = chain.map((o) => o.key);
-    expect(panel.update(all)).toBeNull();
-    expect(el.classList.contains('complete')).toBe(true);
-    expect(el.querySelector('.objectives-hint')!.hidden).toBe(true);
-    expect(new ObjectivesPanel([]).element.hidden).toBe(true);
+    panel.update([]);
+    expect(el.textContent).toBe('No quest yet.');
+    const states = { [quests[0]!.key]: { ...open, done: true }, [hunt.key]: open };
+    panel.update(questRows(registry, states, null));
+    const button = (action: string) =>
+      el.findAll((e) => e.getAttribute('data-action') === action)[0]!;
+    button('quest-claim').dispatch('click');
+    button('quest-pin').dispatch('click');
+    expect(sent).toEqual([
+      { type: 'quest.claim', quest: quests[0]!.key },
+      { type: 'quest.pin', quest: hunt.key },
+    ]);
+    panel.update(questRows(registry, states, hunt.key));
+    expect(button('quest-pin').getAttribute('aria-pressed')).toBe('true');
+    button('quest-pin').dispatch('click');
+    expect(sent.at(-1)).toEqual({ type: 'quest.pin', quest: null });
+    const line = new PinnedQuest();
+    expect(line.element.hidden).toBe(true);
+    line.update('Hunt');
+    expect([line.element.hidden, line.element.textContent]).toEqual([false, 'Hunt']);
+    line.update(null);
+    expect(line.element.hidden).toBe(true);
     expect(i18nMissing()).toEqual([]);
   });
 });

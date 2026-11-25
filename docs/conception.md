@@ -2688,6 +2688,17 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - branches parallèles ;
 - marche des quêtes sur 5 graines.
 
+**Retenu à la réalisation** :
+
+- `QuestDef` : `requires` seulement (le « unlocks » se déduit, une seule source) ; une quête suit dans le pack celles qu'elle demande, ce qui interdit les cycles et permet un seul passage : une chaîne entière se débloque et se termine dans la même vérification. Au moins une quête ouverte dès le départ.
+- Conditions d'état : objets eus, stations proches, boisson, `biomes` parcourus (nouveau `player.biomes`), créatures `met` du bestiaire ; vérifiées une fois par seconde. Compteurs : `killed` (créature visée, par le joueur) et `night` (nuit survécue vivant), comptés à chaque tick depuis le déblocage (événements `questProgress`). Un compteur « fabriquer » a été écarté : les fabrications d'un établi ne savent pas qui les a lancées.
+- Graphe du pack : quatre branches ouvertes au départ (cueillette, boisson, exploration de trois biomes, chasse d'un Trotter), puis outils, gourde, établi, camp, première nuit, rencontre de trois créatures, cuivre, nord, sud, bronze, outils de bronze, marais, bas fourneau et fer.
+- États : `player.quests` (`{ progress, done, claimed }` par quête débloquée, dans l'ordre de déblocage), `player.pinned`. Commandes `quest.claim` (récompenses une fois, ce qui dépasse tombe aux pieds) et `quest.pin` (une quête ouverte non réclamée, ou `null`).
+- HUD : le panneau d'objectifs disparaît. Les messages de quête d'une même image partagent une ligne (« Nouvelle quête », « Quête terminée », « déjà faite », progression) ; le déblocage des quêtes ouvertes d'office n'est pas annoncé. La quête épinglée s'affiche sous la boussole (`#hud-quest`) et la boussole montre son cap.
+- Onglet Quêtes (J) : à réclamer d'abord, puis ouvertes, puis réclamées ; boutons « Claim » et « Pin ».
+- SAVE 11 : chaque `objective:x` fait devient `quest:x` faite, à réclamer.
+- La marche des objectifs devient la marche des quêtes (six graines dans `npm run verify`) : elle parcourt les biomes manquants, chasse dans la fosse les créatures à rencontrer et compte la nuit dans la cabane.
+
 ### M22 — XP, niveaux, compétences (reste de l'ancien M19)
 
 - L'XP vient seulement des quêtes, et le jeu reste jouable sans elles.

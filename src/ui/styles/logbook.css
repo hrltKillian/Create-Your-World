@@ -433,6 +433,71 @@
   opacity: 0.55;
 }
 
+/* Quests: a card per quest unlocked, the ones to claim first, the claimed ones greyed. */
+
+.quests {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.quest-row {
+  padding: 8px 10px;
+  border: 1px solid rgba(232, 176, 74, 0.25);
+  border-radius: 6px;
+  background: rgba(20, 16, 10, 0.35);
+}
+
+.quest-row h3 {
+  margin: 0 0 4px;
+  color: var(--c-accent);
+  font-size: 0.85rem;
+}
+
+.quest-row p,
+.quests-empty {
+  margin: 2px 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+}
+
+.quest-row .quest-progress {
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+}
+
+.quest-row.status-claim {
+  border-color: #8fcf7a;
+}
+
+.quest-row.status-claimed {
+  opacity: 0.55;
+}
+
+.quest-claim,
+.quest-pin {
+  margin-top: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--c-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c-ink);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.quest-claim {
+  border-color: #8fcf7a;
+  background: rgba(143, 207, 122, 0.18);
+}
+
+.quest-pin[aria-pressed="true"] {
+  background: rgba(232, 176, 74, 0.25);
+}
+
 /* A recipe made at another station (found by a search). */
 .logbook-station {
   color: var(--c-ink-muted);

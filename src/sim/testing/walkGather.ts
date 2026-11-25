@@ -11,7 +11,7 @@ import { type Cell, cellText, type WalkPort } from './walkPort.ts';
 import { aimToBreak, solidAt, standable, standFor } from './walkReach.ts';
 
 /*
- * What the objectives walk takes from the world (walkSupplies.ts decides when): blocks that drop
+ * What the quests walk takes from the world (walkSupplies.ts decides when): blocks that drop
  * an item are broken (walkHands.ts) — the nearest one the walk can reach around the player, in the
  * biome of its deposit for an ore (a journey from home), else one staged beside the player (a
  * one-cell `debug.fill`, when none lies within a short search) — and creatures that leave it are
@@ -42,7 +42,7 @@ const POD_RISE = 3;
 
 /** The walk's sources in the world; the walk itself picks the hunting pit. */
 export abstract class Gathering extends Hands {
-  private readonly searchRadius: number;
+  protected readonly searchRadius: number;
 
   constructor(port: WalkPort, options: { readonly searchRadius: number }) {
     super(port);
@@ -96,7 +96,7 @@ export abstract class Gathering extends Hands {
     if (ore) await this.fetch(ore);
     for (let n = 0; n < MAX_HARVESTS && this.count(item) < need; n++) {
       const cell = this.sourceNear(sources) ?? this.stage(item, sources);
-      const before = this.count(item);
+      const before = item ? this.count(item) : 0;
       if (!(await this.breakAt(cell)))
         throw new Error(`no stand sees the source at ${cellText(cell)}`);
       await this.pickUp(item, before, { x: cell.x + 0.5, y: cell.y, z: cell.z + 0.5 });
@@ -204,16 +204,16 @@ export abstract class Gathering extends Hands {
   }
 
   /**
-   * Kills creatures that leave an item until the inventory holds `need`: each placed at night in
-   * a pit dug beside home (it cannot run off, and a light-shy one does not burrow away), struck
-   * from the pit's edge with a weapon of the inventory; the walk then goes down onto the loot. The
+   * Kills creatures of a kind until `enough` holds: each placed at night in a pit dug beside home
+   * (it cannot run off, and a light-shy one does not burrow away), struck from the pit's edge with
+   * a weapon of the inventory; for an `item` of its loot, the walk then goes down onto it. The
    * clock goes back to its hour afterwards.
    */
   protected async hunt(
     creature: CreatureDef,
-    item: string,
-    need: number,
     weapon: string,
+    enough: () => boolean,
+    item?: string,
   ): Promise<void> {
     const pit = this.pitSpot();
     const edge = { x: pit.x + 1, y: pit.y + PIT_DEPTH, z: pit.z };
@@ -222,7 +222,7 @@ export abstract class Gathering extends Hands {
       throw new Error(`the edge of the pit at ${cellText(pit)} is no ground to stand on`);
     const hour = hourOf(this.view.time().ticks);
     this.port.send({ type: 'debug.setTime', hours: NIGHT_HOUR });
-    for (let hunt = 0; hunt < MAX_HUNTS && this.count(item) < need; hunt++) {
+    for (let hunt = 0; hunt < MAX_HUNTS && !enough(); hunt++) {
       const at = { x: pit.x + 0.5, y: pit.y, z: pit.z + 0.5 };
       this.port.send({ type: 'debug.spawn', creature: creature.key, ...at });
       const id = this.newest(creature.key);
@@ -232,7 +232,7 @@ export abstract class Gathering extends Hands {
         return c?.kind === 'creature' && !isGone(c);
       };
       const slot = this.toHotbar(weapon);
-      const before = this.count(item);
+      const before = item ? this.count(item) : 0;
       for (let blow = 0; blow < MAX_BLOWS && alive(); blow++) {
         // Back to the middle of the edge (a blow taken pushes the player off): the pit's rim
         // stays out of the blow's way.
@@ -241,10 +241,10 @@ export abstract class Gathering extends Hands {
       }
       if (alive()) throw new Error(`the ${creature.key} still stands after ${MAX_BLOWS} blows`);
       this.stepUntil(() => !this.view.entities.has(id), DYING_LIMIT);
-      await this.pickUp(item, before, at);
+      if (item) await this.pickUp(item, before, at);
     }
     this.port.send({ type: 'debug.setTime', hours: hour });
-    if (this.count(item) < need) throw new Error(`${MAX_HUNTS} ${creature.key} left no ${item}`);
+    if (!enough()) throw new Error(`${MAX_HUNTS} ${creature.key} hunted, ${item ?? 'not enough'}`);
   }
 
   /** Entity id of the newest creature of a kind (−1: none). */

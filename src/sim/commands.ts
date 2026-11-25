@@ -19,6 +19,7 @@ export type Command =
   | SlotCommand
   | BlockEntityCommand
   | CraftCommand
+  | QuestCommand
   /** Comes back after a death (the death screen's Respawn button); refused while alive. */
   | { readonly type: 'player.respawn' }
   | DebugCommand;
@@ -124,6 +125,13 @@ export type CraftCommand =
    * ingredients come to the player (at their feet if the bag is full).
    */
   | { readonly type: 'craft.cancel'; readonly index: number; readonly workbench?: boolean };
+
+/** Quests (plan v3 « M21 », sim/quests.ts). */
+export type QuestCommand =
+  /** Takes the rewards of a quest done, once. */
+  | { readonly type: 'quest.claim'; readonly quest: string }
+  /** Pins an unlocked quest not claimed yet to the compass; null unpins. */
+  | { readonly type: 'quest.pin'; readonly quest: string | null };
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =

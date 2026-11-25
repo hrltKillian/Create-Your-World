@@ -1,13 +1,13 @@
 import { anglesTo } from '../core/angles.ts';
-import { type WalkOptions, type WalkPort, walkObjectives } from '../sim/testing/objectiveWalk.ts';
+import { type WalkOptions, type WalkPort, walkQuests } from '../sim/testing/questWalk.ts';
 import type { App } from './App.ts';
 import { frameOrFail, look, press, sendAndStep, teleport, waitForChunks } from './automation.ts';
 
 /**
- * The objectives walk (sim/testing/objectiveWalk.ts) in the browser (M11): its port over the play
+ * The quests walk (sim/testing/questWalk.ts) in the browser (M11, M21): its port over the play
  * session, driven by the automation helpers the debug hook and the selftests share (commands
  * applied with a tick, fixed steps, the view turned and a button or a key held as the player would,
- * teleports that wait for the meshed world). selftest/objectivesWalk.ts runs it.
+ * teleports that wait for the meshed world). selftest/questsWalk.ts runs it.
  */
 
 /** Ticks a teleported player gets to land and settle. */
@@ -43,10 +43,10 @@ export function walkPort(app: App): WalkPort {
 }
 
 /**
- * Walks the pack's objectives from where the player stands, in chain order (a player who has done
+ * Walks the pack's quests from where the player stands, in the pack's order (a player who has done
  * none, fixed steps; biomes searched within `searchRadius` of home); resolves with the keys done.
  */
-export function walkObjectivesHere(
+export function walkQuestsHere(
   app: App,
   searchRadius: number,
   onDone?: WalkOptions['onDone'],
@@ -54,5 +54,5 @@ export function walkObjectivesHere(
   if (!app.session || !app.input || app.params.freecam)
     return Promise.reject(new Error('the walk needs a player (no ?freecam)'));
   if (!app.params.fixedStep) return Promise.reject(new Error('the walk needs ?fixedStep=1'));
-  return walkObjectives(walkPort(app), { searchRadius, onDone });
+  return walkQuests(walkPort(app), { searchRadius, onDone });
 }

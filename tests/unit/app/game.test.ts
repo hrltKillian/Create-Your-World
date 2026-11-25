@@ -221,7 +221,7 @@ describe('settings', () => {
   it('applies the settings at once and again to each world it opens', async () => {
     const s = setup();
     expect(s.pixelRatios).toEqual([DEFAULT_SETTINGS.pixelRatio]);
-    const bindings = { ...DEFAULT_BINDINGS, jump: ['KeyJ'] };
+    const bindings = { ...DEFAULT_BINDINGS, jump: ['KeyK'] };
     s.game.changeSettings({
       ...DEFAULT_SETTINGS,
       pixelRatio: 0.75,
@@ -329,15 +329,15 @@ describe('settings', () => {
     s.button('controls').dispatch('click');
     const jump = menus.findAll((e) => e.getAttribute('data-bind') === 'jump:0')[0]!;
     jump.dispatch('click');
-    press(s, 'KeyJ');
-    expect(input.bindings.jump).toEqual(['KeyJ']);
-    expect(s.game.settings.bindings.jump).toEqual(['KeyJ']);
+    press(s, 'KeyK');
+    expect(input.bindings.jump).toEqual(['KeyK']);
+    expect(s.game.settings.bindings.jump).toEqual(['KeyK']);
     s.button('back').dispatch('click');
     expect(s.game.menus.screen()).toBe('settings');
     const box = menus.findAll((e) => e.getAttribute('name') === 'viewBob')[0]!;
     (box as FakeElement & { checked: boolean }).checked = false;
     box.dispatch('change');
-    expect(s.game.settings).toMatchObject({ viewBob: false, bindings: { jump: ['KeyJ'] } });
+    expect(s.game.settings).toMatchObject({ viewBob: false, bindings: { jump: ['KeyK'] } });
     s.game.changeSettings(DEFAULT_SETTINGS);
   });
 

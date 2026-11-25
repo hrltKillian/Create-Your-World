@@ -94,9 +94,9 @@ const rebindingCase: SelftestCase = {
     await onSettingsScreen(app, () => {
       click('#screen-settings [data-action="controls"]');
       assert(game.menus.screen() === 'controls', `Key bindings showed ${game.menus.screen()}`);
-      rebindBy('jump:0', 'KeyJ', 'j');
-      assert(input.bindings.jump[0] === 'KeyJ', `jump is bound to ${input.bindings.jump}`);
-      const label = input.labels.label('KeyJ');
+      rebindBy('jump:0', 'KeyK', 'k');
+      assert(input.bindings.jump[0] === 'KeyK', `jump is bound to ${input.bindings.jump}`);
+      const label = input.labels.label('KeyK');
       assert(
         keySlot('jump:0').textContent === label,
         `the jump slot shows "${keySlot('jump:0').textContent}"`,
@@ -108,7 +108,7 @@ const rebindingCase: SelftestCase = {
       );
 
       // A key another action holds is refused, and the line says so.
-      rebindBy('forward:0', 'KeyJ', 'j');
+      rebindBy('forward:0', 'KeyK', 'k');
       assert(input.bindings.forward[0] === 'KeyW', `forward moved to ${input.bindings.forward}`);
       const taken = t('controls.taken', { key: label, action: t('action.jump') });
       assert(controlsStatus() === taken, `the line says "${controlsStatus()}"`);

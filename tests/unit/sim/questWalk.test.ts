@@ -6,17 +6,17 @@ import { type Command, type InputCommand, NEUTRAL_INPUT } from '../../../src/sim
 import type { SimEvent } from '../../../src/sim/events.ts';
 import { eyeHeight } from '../../../src/sim/physics.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';
-import { type WalkPort, walkObjectives } from '../../../src/sim/testing/objectiveWalk.ts';
+import { type WalkPort, walkQuests } from '../../../src/sim/testing/questWalk.ts';
 import { blockToColumn } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';
 
 /*
- * The objectives walk (sim/testing/objectiveWalk.ts) on an inline simulation of the browser
- * walk's world (?seed=7, the generated world, no natural spawns, and a few other seeds): every objective of the pack is
- * done in chain order with the game's own actions (« téléports et actions réelles »: the items the
- * objectives name that the world yields are broken out of it and picked up, the creature's struck
- * down, the cabin built block by block), and an objective done out of its turn fails the walk. The
- * browser case (selftest/objectivesWalk.ts) drives the same walk through `__game`'s automation.
+ * The quests walk (sim/testing/questWalk.ts) on inline simulations of the browser walk's world
+ * (?seed=7, the generated world, no natural spawns) and five other seeds: every quest of the pack
+ * unlocks at its turn and is done with the game's own actions (« téléports et actions réelles »:
+ * the items quests name that the world yields are broken out of it and picked up, creatures struck
+ * down, the cabin built block by block); a player who has done a quest cannot start the walk. The
+ * browser case (selftest/questsWalk.ts) drives the same walk through `__game`'s automation.
  */
 
 /** The browser walk's seed and search radius (selftest/support.ts SEARCH_RADIUS). */
@@ -98,11 +98,11 @@ function inlinePort(seed: string) {
   return { sim, player, port, sent, seen };
 }
 
-/** Every item an objective names. */
-const NAMED = new Set<string>(registry.pack.objectives!.flatMap((o) => o.condition.items ?? []));
+/** Every item a quest names. */
+const NAMED = new Set<string>(registry.pack.quests!.flatMap((q) => q.condition?.items ?? []));
 
 /**
- * The items an objective names that the world yields: a block that no recipe or process makes
+ * The items a quest names that the world yields: a block that no recipe or process makes
  * drops it (its own item, or its loot), or a creature leaves it.
  */
 function worldItems(): string[] {
@@ -121,24 +121,24 @@ function worldItems(): string[] {
   );
 }
 
-describe('objectives walk', () => {
+describe('quests walk', () => {
   it.each([SEED, ...OTHER_SEEDS])(
-    'does every objective of the pack in chain order with the game actions (seed %s)',
+    'does every quest of the pack in its order with the game actions (seed %s)',
     async (seed) => {
       const { player, port } = inlinePort(seed);
-      const done = await walkObjectives(port, { searchRadius: SEARCH_RADIUS });
-      const chain = registry.pack.objectives!.map((o) => o.key);
-      expect(done).toEqual(chain);
+      const done = await walkQuests(port, { searchRadius: SEARCH_RADIUS });
+      const keys = registry.pack.quests!.map((q) => q.key);
+      expect([...done].sort()).toEqual([...keys].sort());
       expect(player.survival.dead).toBe(false);
     },
-    60_000,
+    90_000,
   );
 
-  it('takes the named items from the world, strikes the creature, builds the cabin', async () => {
+  it('takes the named items from the world, strikes the creatures, builds the cabin', async () => {
     const { player, port, sent, seen } = inlinePort(SEED);
-    await walkObjectives(port, { searchRadius: SEARCH_RADIUS });
+    await walkQuests(port, { searchRadius: SEARCH_RADIUS });
     const mine = (e: SimEvent) => 'playerId' in e && e.playerId === player.playerId;
-    // Nothing an objective names is given, and no creature dies by command.
+    // Nothing a quest names is given, and no creature dies by command.
     const given = sent.flatMap((c) => (c.type === 'debug.give' ? [c.item] : []));
     expect(given.filter((item) => NAMED.has(item))).toEqual([]);
     expect(sent.filter((c) => c.type === 'debug.killCreature')).toEqual([]);
@@ -149,9 +149,9 @@ describe('objectives walk', () => {
     const world = worldItems();
     expect(world.length).toBeGreaterThan(0);
     for (const item of world) expect(picked, item).toContain(item);
-    // The creature that leaves an item fell to the player's blows.
+    // The creatures hunted and met fell to the player's blows.
     const kills = seen.filter((e) => e.type === 'creatureDied' && e.attacker === player.id);
-    expect(kills.length).toBeGreaterThan(0);
+    expect(kills.length).toBeGreaterThanOrEqual(3);
     // The cabin's walls, roof and door went in by secondary (72 blocks of the wall, one door).
     const placed = (block: string) =>
       seen.filter(
@@ -161,16 +161,16 @@ describe('objectives walk', () => {
     const door = registry.blocks.find((b) => b.placement?.tall === 2)!.key;
     expect(placed(wall)).toBeGreaterThanOrEqual(70);
     expect(placed(door)).toBe(1);
-  }, 60_000);
+  }, 90_000);
 
-  it('fails when the check does an objective out of its turn', async () => {
+  it('fails for a player who has done a quest already', async () => {
     const { port } = inlinePort(SEED);
-    // The second objective's items in hand: its check comes before the first one is done.
-    const second = registry.pack.objectives![1]!;
-    for (const item of second.condition.items ?? [])
+    const first = registry.pack.quests![0]!;
+    for (const item of first.condition?.items ?? [])
       port.send({ type: 'debug.give', item, count: 1 });
-    await expect(walkObjectives(port, { searchRadius: SEARCH_RADIUS })).rejects.toThrow(
-      `objectives done are [${second.key}, ${registry.pack.objectives![0]!.key}]`,
+    port.step(60);
+    await expect(walkQuests(port, { searchRadius: SEARCH_RADIUS })).rejects.toThrow(
+      `already done ${first.key}`,
     );
   });
 });
