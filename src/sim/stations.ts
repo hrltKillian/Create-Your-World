@@ -13,7 +13,7 @@ import { advanceWorkbench } from './workbench.ts';
 
 /**
  * Station processing (docs « Stations de transformation », tick step 9). Each tick a station runs
- * the first of its processes whose inputs are all there: the fire burns its fuel only while a
+ * the process whose inputs are all there (`processFor`): the fire burns its fuel only while a
  * process runs (or, for a campfire, while the player keeps it burning: `keepLit`), the process
  * advances while the fire burns and completes into the outputs; full outputs pause it. Stations
  * (and workbenches: workbench.ts) only tick inside the simulation radius; one that comes back into
@@ -26,7 +26,11 @@ export const SIM_RADIUS = 4;
 /** Longest catch-up of a station that was out of the simulation radius: one game day. */
 export const MAX_REPLAY_TICKS = 36_000;
 
-/** The first process of the station whose inputs are all in its input slots. */
+/**
+ * The process of the station whose inputs are all in its input slots, the one asking for the most
+ * kinds of input first (raw meat with berries makes a stew, not grilled meat), else the first in
+ * pack order.
+ */
 function processFor(
   station: StationEntity,
   def: StationDef,
@@ -34,16 +38,18 @@ function processFor(
 ): ProcessDef | undefined {
   const crafting = registry.crafting;
   const processes = crafting.processesOf(def.key);
+  let best: ProcessDef | undefined;
   for (let p = 0; p < processes.length; p++) {
     const process = processes[p]!;
+    if (best && process.inputs.length <= best.inputs.length) continue;
     let ready = true;
     for (let i = 0; i < process.inputs.length && ready; i++) {
       const input = process.inputs[i]!;
       ready = countMatching(station.slots, 0, def.inputSlots, crafting, input.item) >= input.count;
     }
-    if (ready) return process;
+    if (ready) best = process;
   }
-  return undefined;
+  return best;
 }
 
 /** Lights the next fuel item of the fuel slot if the rule accepts it (its burn time in ticks). */

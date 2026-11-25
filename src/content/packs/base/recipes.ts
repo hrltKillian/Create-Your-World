@@ -126,6 +126,8 @@ export const recipes: readonly RecipeDef[] = [
   recipe('flint_pickaxe', 'tools', 2.5, { flint: 2, stick: 2, cord: 1 }, START),
   recipe('flint_spear', 'tools', 2, { flint: 1, stick: 3, cord: 1 }, START),
   recipe('torch', 'building', 1, { stick: 1, plant_fiber: 2 }, { count: 2, ...START }),
+  // Plan v3 « M33 »: fishing in fresh water.
+  recipe('fishing_rod', 'tools', 2, { stick: 3, cord: 2 }),
   // Plan v3 « M27 »: down shafts and into caves.
   recipe('ladder', 'building', 2, { stick: 7 }, { count: 3, ...START }),
   recipe('campfire', 'building', 3, { 'tag:log': 2, stick: 4, flint: 1 }, START),
@@ -222,6 +224,9 @@ const process = (
 /** Processes (docs « Stations de transformation »). */
 export const processes: readonly ProcessDef[] = [
   process('grilled_meat', CAMPFIRE, 8, { raw_meat: 1 }),
+  // Plan v3 « M33 »: dishes that feed better.
+  process('grilled_fish', CAMPFIRE, 6, { raw_fish: 1 }),
+  process('hearty_stew', CAMPFIRE, 12, { raw_meat: 1, berries: 2 }),
   // Firing the clay flask; boiling raw water.
   process('flask_empty', CAMPFIRE, 10, { unfired_flask: 1 }),
   process('flask_boiled', CAMPFIRE, 6, { flask_raw: 1 }),

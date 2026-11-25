@@ -2,6 +2,7 @@ import type { CreatureDef } from '../../content/schema.ts';
 import { feetCell } from '../../core/creatures.ts';
 import { BY_WORLD, removeBlock } from '../blockRemoval.ts';
 import { type CreatureState, SEEK_FOOD, SEEK_WATER } from '../creatures.ts';
+import { isRipeCrop, stripCrop } from '../crops.ts';
 import type { SimEvent } from '../events.ts';
 import { removeDrop } from '../itemDrops.ts';
 import type { Simulation } from '../Simulation.ts';
@@ -81,16 +82,19 @@ export function reachNeed(sim: Simulation, c: CreatureState, def: CreatureDef, o
   const x = Math.floor(c.goalX);
   const y = feetCell(c.goalY);
   const z = Math.floor(c.goalZ);
-  if (eats(sim, def, sim.world.getBlock(x, y, z))) {
-    removeBlock(sim, BY_WORLD, x, y, z, false, out);
+  const state = sim.world.getBlock(x, y, z);
+  if (eats(sim, def, state)) {
+    // A crop is grazed bare (it ripens again), another plant eaten whole.
+    if (isRipeCrop(sim.registry, state)) stripCrop(sim, x, y, z, out);
+    else removeBlock(sim, BY_WORLD, x, y, z, false, out);
     c.hunger = Math.min(100, c.hunger + needs.plantFood);
   }
 }
 
-/** Whether a block is a plant of the creature's diet. */
+/** Whether a block is a plant of the creature's diet (a crop only while ripe). */
 function eats(sim: Simulation, def: CreatureDef, state: number): boolean {
   const plants = def.diet.plants;
-  if (!plants) return false;
+  if (!plants || sim.registry.prop(state, 'ripe') === '0') return false;
   const key = sim.registry.blockDef(state).key;
   for (let i = 0; i < plants.length; i++) if (plants[i] === key) return true;
   return false;

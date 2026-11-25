@@ -58,6 +58,17 @@ export const quests: readonly QuestDef[] = [
   quest('tools', { xp: 30, condition: { items: ['item:flint_hatchet', 'item:torch'] } }, [
     'gather',
   ]),
+  // Plan v3 « M33 »: crops, fishing and the campfire's dishes.
+  quest(
+    'harvest',
+    {
+      xp: 30,
+      counter: { event: 'harvested', count: 3 },
+      rewards: [{ item: 'item:grilled_meat', count: 2 }],
+    },
+    ['gather'],
+  ),
+  quest('fishing', { xp: 40, condition: { items: ['item:raw_fish'] } }, ['drink']),
   quest('flask', { xp: 30, condition: { items: ['item:flask_empty'] } }, ['drink']),
   quest('workbench', { xp: 40, condition: { stations: ['station:workbench'] } }, ['tools']),
   quest(
@@ -73,6 +84,15 @@ export const quests: readonly QuestDef[] = [
       rewards: [{ item: 'item:grilled_meat', count: 3 }],
     },
     ['camp'],
+  ),
+  quest(
+    'cooking',
+    {
+      xp: 60,
+      condition: { items: ['item:grilled_fish', 'item:hearty_stew'] },
+      rewards: [{ item: 'item:bandage', count: 2 }],
+    },
+    ['fishing', 'camp'],
   ),
   quest(
     'creatures',

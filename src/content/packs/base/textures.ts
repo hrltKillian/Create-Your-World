@@ -282,6 +282,14 @@ export const textures = [
     alpha: 'coverage',
   },
   {
+    // Picked (plan v3 « M33 »): the same leaves without berries.
+    key: 'tex:berry_bush_bare',
+    pattern: 'leaves',
+    palette: ['#2f4a2a', '#3d5e36', '#4e7343'],
+    seed: 73,
+    alpha: 'coverage',
+  },
+  {
     key: 'tex:thornbush',
     pattern: 'cross',
     palette: ['#4a3b2e', '#6b5a45', '#8c7a5e'],
@@ -299,6 +307,13 @@ export const textures = [
     key: 'tex:palmthorn',
     pattern: 'bark',
     palette: ['#3d5a32', '#4c6c3d', '#5d7f49', '#d9cf9a'],
+    seed: 79,
+  },
+  {
+    // Fruiting (plan v3 « M33 »): orange fruit where the bare one has pale spines.
+    key: 'tex:palmthorn_ripe',
+    pattern: 'bark',
+    palette: ['#3d5a32', '#4c6c3d', '#5d7f49', '#e8963a'],
     seed: 79,
   },
   {

@@ -86,6 +86,15 @@ export interface ConsumeDef {
   readonly bagSlots?: number;
 }
 
+/**
+ * A fishing rod (plan v3 « M33 »): secondary held on a liquid that has fish lands a catch after a
+ * pseudo-random `seconds` of the range, one use of its `durability` each.
+ */
+export interface RodDef {
+  readonly seconds: readonly [number, number];
+  readonly durability: number;
+}
+
 export type ContainerContents = 'empty' | 'raw' | 'boiled' | 'foul';
 
 /**
@@ -123,6 +132,7 @@ export interface ItemDef {
   readonly wear?: WearDef;
   readonly consume?: ConsumeDef;
   readonly container?: LiquidContainerDef;
+  readonly rod?: RodDef;
   readonly fuel?: FuelDef;
   /** Where the item is found (i18n key): the Logbook's hint for an ingredient not yet seen. */
   readonly hintKey?: string;

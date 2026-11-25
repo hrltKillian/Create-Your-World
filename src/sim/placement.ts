@@ -72,6 +72,8 @@ export function planPlacement(
   }
   if (registry.prop(placed, 'placed') !== undefined)
     placed = registry.withState(placed, 'placed', '1');
+  // A planted crop starts bare (plan v3 « M33 », crops.ts).
+  if (registry.prop(placed, 'ripe') !== undefined) placed = registry.withState(placed, 'ripe', '0');
   if (!supportHolds(world, registry, x, y, z, placed)) return 'support';
   if (rules?.orient === 'axis')
     placed = registry.withState(placed, 'axis', hit.nx !== 0 ? 'x' : hit.nz !== 0 ? 'z' : 'y');

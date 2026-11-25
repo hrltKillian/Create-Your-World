@@ -40,6 +40,17 @@ export type SimEvent =
       readonly z: number;
       readonly state: number;
     }
+  /** A player picked a ripe crop (plan v3 « M33 »): `state` is the ripe block it was. */
+  | {
+      readonly type: 'cropHarvested';
+      readonly playerId: number;
+      readonly x: number;
+      readonly y: number;
+      readonly z: number;
+      readonly state: number;
+    }
+  /** A player's rod landed a catch (plan v3 « M33 »). */
+  | { readonly type: 'fishCaught'; readonly playerId: number; readonly item: string }
   /** Crack stage (0–7) of the block a player mines; −1 when mining stops. */
   | {
       readonly type: 'mineProgress';

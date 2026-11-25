@@ -108,8 +108,9 @@ function deedOf(sim: Simulation, player: PlayerState, e: SimEvent): boolean {
     deed.target = e.creature;
   } else if (e.type === 'nightSurvived') deed.event = 'night';
   else if (!('playerId' in e) || e.playerId !== player.playerId) return false;
-  else if (e.type === 'blockBroken' || e.type === 'blockPlaced') {
-    deed.event = e.type === 'blockBroken' ? 'broken' : 'placed';
+  else if (e.type === 'blockBroken' || e.type === 'blockPlaced' || e.type === 'cropHarvested') {
+    deed.event =
+      e.type === 'blockBroken' ? 'broken' : e.type === 'blockPlaced' ? 'placed' : 'harvested';
     deed.target = sim.registry.blockDef(e.state).key;
   } else if (e.type === 'consumed') {
     deed.event = 'consumed';

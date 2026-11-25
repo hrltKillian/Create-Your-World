@@ -47,6 +47,25 @@ export const loot = [
     entries: [{ item: 'item:stick', count: [1, 2], weight: 1 }],
   },
   {
+    // Fishing (plan v3 « M33 »): fresh water gives a fish half the time, else what drifts in it.
+    key: 'loot:fish',
+    rolls: [1, 1],
+    entries: [
+      { item: 'item:raw_fish', count: [1, 1], weight: 4 },
+      { item: 'item:stick', count: [1, 2], weight: 2 },
+      { item: 'item:plant_fiber', count: [1, 2], weight: 2 },
+    ],
+  },
+  {
+    // The Mirror Basin's lakes: fish nearly always, now and then two, or a lump of its clay.
+    key: 'loot:fish_basin',
+    rolls: [1, 1],
+    entries: [
+      { item: 'item:raw_fish', count: [1, 2], weight: 9 },
+      { item: 'item:clay_lump', count: [1, 2], weight: 1 },
+    ],
+  },
+  {
     key: 'loot:berry_bush',
     rolls: [1, 1],
     entries: [{ item: 'item:berries', count: [1, 3], weight: 1 }],

@@ -49,6 +49,30 @@ const plant = (
   ...extra,
 });
 
+/** Light a crop needs to ripen: the reference game's. */
+const CROP_LIGHT = 9;
+
+/**
+ * A crop (plan v3 « M33 »): ripe it bears `harvest` (its `ripe` texture), picked by secondary or
+ * with the plant when broken; it drops itself, to plant again, and ripens in 9 light or more.
+ * Never replaced by a block placed into it.
+ */
+const crop = (
+  key: `block:${string}`,
+  nameKey: PackI18nKey,
+  bare: `tex:${string}`,
+  ripe: `tex:${string}`,
+  harvest: `loot:${string}`,
+  seconds: readonly [number, number],
+): PackBlock =>
+  plant(key, nameKey, bare, {
+    states: ['ripe'],
+    whenState: { ripe: { textures: { all: ripe } } },
+    crop: { harvest, seconds, light: CROP_LIGHT },
+    replaceable: false,
+    drops: 'self',
+  });
+
 /** A tree trunk (plan v3 « M23 »: each species its own bark), a log of the recipes. */
 const log = (
   key: `block:${string}`,
@@ -180,13 +204,28 @@ export const natureBlocks = [
     drops: 'loot:tall_grass',
   }),
   plant('block:reed', 'block.reed', 'tex:reed', { drops: 'loot:tall_grass' }),
-  plant('block:frost_bulb', 'block.frost_bulb', 'tex:frost_bulb', { drops: 'loot:frost_bulb' }),
+  // Crops (plan v3 « M33 »): picked bare, they ripen again in a few minutes.
+  crop(
+    'block:frost_bulb',
+    'block.frost_bulb',
+    'tex:frost_bulb_bare',
+    'tex:frost_bulb',
+    'loot:frost_bulb',
+    [300, 480],
+  ),
   plant('block:crystal_sprout', 'block.crystal_sprout', 'tex:crystal_sprout', {
     light: { emit: 4 },
     drops: 'loot:crystal_sprout',
   }),
   plant('block:dry_shrub', 'block.dry_shrub', 'tex:dry_shrub', { drops: 'loot:dry_shrub' }),
-  plant('block:berry_bush', 'block.berry_bush', 'tex:berry_bush', { drops: 'loot:berry_bush' }),
+  crop(
+    'block:berry_bush',
+    'block.berry_bush',
+    'tex:berry_bush_bare',
+    'tex:berry_bush',
+    'loot:berry_bush',
+    [240, 420],
+  ),
   plant('block:thornbush', 'block.thornbush', 'tex:thornbush', {
     contact: { damagePerSec: 1 },
     drops: 'loot:dry_shrub',
@@ -207,7 +246,11 @@ export const natureBlocks = [
     light: { filter: 1 },
     contact: { damagePerSec: 1 },
     hardness: 0.4,
-    drops: 'loot:palmthorn',
+    // A crop of the Ochre Waste (plan v3 « M33 »): its fruit ripens on its sides.
+    states: ['ripe'],
+    whenState: { ripe: { textures: { side: 'tex:palmthorn_ripe' } } },
+    crop: { harvest: 'loot:palmthorn', seconds: [360, 600], light: CROP_LIGHT },
+    drops: 'self',
     placement: { support: 'below' },
     sound: 'wood',
   },

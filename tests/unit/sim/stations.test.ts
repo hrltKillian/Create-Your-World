@@ -160,6 +160,22 @@ describe('station processing', () => {
     expect(output(charcoal)).toEqual(stack('iron_ingot', 1));
   });
 
+  it('runs the process asking for the most kinds of input: meat with berries makes a stew', () => {
+    const fire = station(
+      'station:campfire',
+      [stack('raw_meat', 1), stack('berries', 2)],
+      stack('broadleaf_log', 1),
+    );
+    run(fire, 1);
+    expect(fire.process).toBe('process:hearty_stew');
+    run(fire, ticksOf(12));
+    expect(output(fire)).toEqual(stack('hearty_stew', 1));
+    // Meat alone grills.
+    fire.slots[0] = stack('raw_meat', 1);
+    run(fire, 1);
+    expect(fire.process).toBe('process:grilled_meat');
+  });
+
   it('starts over when the inputs call for another process', () => {
     const kiln = station('station:kiln', [stack('copper_ore', 1)], stack('broadleaf_log', 1));
     run(kiln, 50);

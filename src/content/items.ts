@@ -9,7 +9,7 @@ export const DEFAULT_STACK = 64;
  * `maxStack`, else DEFAULT_STACK.
  */
 export function stackLimit(item: ItemDef): number {
-  if (item.tool || item.weapon || item.wear || item.container) return 1;
+  if (item.tool || item.weapon || item.wear || item.container || item.rod) return 1;
   return item.maxStack ?? DEFAULT_STACK;
 }
 
@@ -97,8 +97,8 @@ export interface ItemTables {
   /** Most items of a stack (`stackLimit`). */
   readonly maxStack: Uint16Array;
   /**
-   * Uses of a fresh stack: a tool's, a wearable's wear, a filled container's charges; 0 for items
-   * that do not wear.
+   * Uses of a fresh stack: a tool's, a wearable's wear, a rod's, a filled container's charges; 0
+   * for items that do not wear.
    */
   readonly durability: Uint16Array;
   /** Block state the item places, −1 if it places nothing. */
@@ -121,7 +121,11 @@ export function buildItemTables(
   items.forEach((item, i) => {
     tables.maxStack[i] = stackLimit(item);
     tables.durability[i] =
-      item.tool?.durability ?? item.weapon?.durability ?? item.wear?.durability ?? charges(item);
+      item.tool?.durability ??
+      item.weapon?.durability ??
+      item.wear?.durability ??
+      item.rod?.durability ??
+      charges(item);
     const block = placed.get(item.key);
     if (block !== undefined) tables.places[i] = blockState(block);
   });

@@ -20,6 +20,7 @@ function targetsOf(pack: ContentPack, refs: ItemRefs): Targets {
     broken: blocks,
     placed: blocks,
     consumed: new Set(refs.items.keys()),
+    harvested: new Set(pack.blocks.filter((block) => block.crop).map((block) => block.key)),
   };
 }
 

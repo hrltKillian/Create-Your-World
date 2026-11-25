@@ -138,17 +138,22 @@ of them:
 
 ## Try this milestone
 
-**M32 — Inventory comfort** (plan v3, `docs/conception.md` « M32 »). `npm run dev`, then open
-`http://localhost:5173/?skipMenu=1`.
+**M33 — Farming, cooking and fishing** (plan v3, `docs/conception.md` « M33 »). `npm run dev`,
+then open `http://localhost:5173/?skipMenu=1`.
 
-- **Sort** the bag (never the hotbar) or a chest: stacks merged, items in order.
-- **Stack into chests nearby**: the bag's items go into the chests within 6 blocks that already
-  hold them.
-- **The workbench uses its neighbours**: its recipes take ingredients from the chests within 6
-  blocks of it, and its Logbook counts them.
-- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m32`.
+- **Pick crops**: right click a ripe berry bush, frost bulb or palmthorn; the harvest goes to the
+  bag and the plant grows back in a few minutes in the light. Break one to replant it elsewhere.
+- **Cook**: at a campfire, a raw fish grills; raw meat with two berries makes a hearty stew, the
+  most filling dish.
+- **Fish**: craft a fishing rod (3 sticks, 2 cords) and hold right click on fresh water; the
+  Mirror Basin's lakes teem with fish.
+- **Quests**: pick three crops, catch a fish, cook both dishes.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m33`.
 
 ### Earlier milestones
+
+- **M32, inventory comfort**: sort the bag or a chest, stack into chests nearby, a workbench
+  crafting from its neighbouring chests; `?worldType=arena&fixedStep=1&selftest=m0,m32`.
 
 - **M31, the detailed map**: a pixel a block, the big map dragged, waypoints with symbols,
   colours, names and coordinates; `?worldType=flat&fixedStep=1&selftest=m0,m31`.

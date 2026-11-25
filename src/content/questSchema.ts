@@ -27,12 +27,20 @@ export interface QuestCondition {
 }
 
 /** Events a counter counts, each from the quest's (or task's) start on. */
-export const QUEST_EVENTS = ['killed', 'night', 'broken', 'placed', 'consumed'] as const;
+export const QUEST_EVENTS = [
+  'killed',
+  'night',
+  'broken',
+  'placed',
+  'consumed',
+  'harvested',
+] as const;
 export type QuestEvent = (typeof QUEST_EVENTS)[number];
 
 /**
  * A count of the player's own deeds: creatures killed, blocks broken or placed, items eaten or
- * drunk (of `target` when given: a creature, block or item key), or nights survived alive.
+ * drunk, ripe crops picked (of `target` when given: a creature, block or item key), or nights
+ * survived alive.
  */
 export interface QuestCounter {
   readonly event: QuestEvent;

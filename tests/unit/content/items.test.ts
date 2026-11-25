@@ -157,7 +157,7 @@ describe('stack sizes', () => {
   it('stacks every block and item to 64 unless it says otherwise, and never a tool or gear', () => {
     expect(DEFAULT_STACK).toBe(64);
     for (const def of registry.items) {
-      const one = def.tool || def.weapon || def.wear || def.container;
+      const one = def.tool || def.weapon || def.wear || def.container || def.rod;
       expect(items.maxStack[id(def.key)], def.key).toBe(one ? 1 : (def.maxStack ?? 64));
     }
     expect(stackLimit({ key: 'item:x', nameKey: 'x', icon: 'tex:x', maxStack: 16 })).toBe(16);

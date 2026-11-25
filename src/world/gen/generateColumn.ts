@@ -31,7 +31,7 @@ import { columnSites, storySites } from './sites.ts';
 import { placeStructure, type ResolvedStructure, resolveStructure } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 11;
+export const GEN_VERSION = 12;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;

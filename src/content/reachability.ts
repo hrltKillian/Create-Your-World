@@ -23,6 +23,8 @@ export interface Reach {
  * - the drops of blocks the world generates, once a tool harvests them (`harvests`);
  * - the loot of structure chests and of creatures (hostile ones only when the rules allow them);
  * - containers filled at the liquids the world generates;
+ * - the harvest of the crops it generates, and once a rod is in hand the fish of its liquids (in
+ *   every biome: a biome's own fish where its liquid has some);
  * - the output of recipes and processes whose ingredients, station and fuel are obtainable.
  * Repeated until nothing new appears. A loot entry counts whatever its weight, and amounts do
  * not matter: the world renews its blocks and creatures. Recipe discovery never blocks: a recipe
@@ -51,12 +53,21 @@ export function reachable(pack: ContentPack, rules: ReachRules): Reach {
     if (rules.hostiles || creature.category !== 'hostile') addLoot(creature.loot);
 
   const blocks = naturalBlocks(pack);
+  const rod = () => all.some((item) => item.rod && items.has(item.key));
+  const fishing = (block: BlockDef) => {
+    if (!block.liquid?.fish) return;
+    addLoot(block.liquid.fish);
+    for (const biome of pack.biomes ?? [])
+      if (biome.fish && biome.liquid === block.key) addLoot(biome.fish);
+  };
   for (let before = -1; items.size !== before; ) {
     before = items.size;
     const owned = tools();
     for (const block of blocks) {
       for (const [empty, filled] of Object.entries(block.liquid?.fills ?? {}))
         if (filled !== undefined && items.has(empty)) items.add(filled);
+      if (rod()) fishing(block);
+      if (block.crop) addLoot(block.crop.harvest);
       if (block.hardness < 0 || !harvestable(block, owned)) continue;
       if (block.drops === 'self') items.add(blockItemKey(block.key));
       else if (block.drops !== 'none') addLoot(block.drops);

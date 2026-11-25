@@ -50,6 +50,7 @@ describe('quests', () => {
       { type: 'questDone', playerId: 1, quest: 'quest:gather', already: false },
       { type: 'questUnlocked', playerId: 1, quest: 'quest:tools' },
       { type: 'questDone', playerId: 1, quest: 'quest:tools', already: true },
+      { type: 'questUnlocked', playerId: 1, quest: 'quest:harvest' },
       { type: 'questUnlocked', playerId: 1, quest: 'quest:workbench' },
     ]);
     // Items spent since undo nothing, and nothing is done twice.

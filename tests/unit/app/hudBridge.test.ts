@@ -40,6 +40,12 @@ describe('HUD model', () => {
     });
     expect(targetText(registry, stone, item('item:flint_pickaxe'), 'Right click').hint).toBeNull();
     const bed = registry.pack.blocks.find((def) => def.blockEntity === 'bed')!;
+    // A crop: picked while ripe, growing back once bare (plan v3 « M33 »).
+    const bush = registry.pack.blocks.find((b) => b.crop)!;
+    const ripe = registry.defaultState(bush.key);
+    expect(targetText(registry, ripe, -1, 'Right click').hint).toBe('Right click to pick');
+    const bare = registry.withState(ripe, 'ripe', '0');
+    expect(targetText(registry, bare, -1, 'Right click').hint).toBe('Growing back');
     expect(targetText(registry, block(bed.key), -1, 'Right click').hint).toBe(
       'Right click to sleep',
     );

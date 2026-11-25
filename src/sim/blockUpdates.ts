@@ -1,5 +1,6 @@
 import { blockToColumn, cellKey, columnKey, WORLD_HEIGHT } from '../world/coords.ts';
 import { BY_WORLD, removeWhole } from './blockRemoval.ts';
+import { ripenCrop } from './crops.ts';
 import type { SimEvent } from './events.ts';
 import { checkDecay, decayDelay, decayTables } from './leafDecay.ts';
 import { noteLiquids, updateLiquid } from './liquids.ts';
@@ -16,7 +17,8 @@ import { simulated } from './stations.ts';
  * - DECAY: a decaying block (leaves) that reaches no anchor falls apart (leafDecay.ts); scheduled
  *   with a delay when an anchor or a neighbouring decaying block goes;
  * - LIQUID: a flowing liquid takes its level and spreads (liquids.ts); scheduled for the liquids
- *   beside a changed cell, after the liquid's delay.
+ *   beside a changed cell, after the liquid's delay;
+ * - GROW: a bare crop ripens (crops.ts); scheduled when it is planted or picked.
  * An update runs only where the world is simulated (its column lit and near a player); elsewhere
  * it waits with its column and comes back when a player does. The queue is saved with the world.
  */
@@ -24,7 +26,8 @@ import { simulated } from './stations.ts';
 export const UPDATE_SUPPORT = 0;
 export const UPDATE_DECAY = 1;
 export const UPDATE_LIQUID = 2;
-export const UPDATE_KINDS = 3;
+export const UPDATE_GROW = 3;
+export const UPDATE_KINDS = 4;
 
 export const BLOCK_UPDATES = {
   /** Updates run per tick at most (docs: « au plus 256 »). */
@@ -288,6 +291,7 @@ export function stepBlockUpdates(sim: Simulation, out: SimEvent[]): void {
     done++;
     if (kind === UPDATE_SUPPORT) checkSupport(sim, x, y, z, out);
     else if (kind === UPDATE_LIQUID) updateLiquid(sim, x, y, z, out);
+    else if (kind === UPDATE_GROW) ripenCrop(sim, x, y, z, out);
     else if (checkDecay(sim, x, y, z)) removeWhole(sim, BY_WORLD, x, y, z, true, out);
   }
 }

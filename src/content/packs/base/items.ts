@@ -94,6 +94,8 @@ const tools = [
   hatchet('flint', 4),
   pickaxe('flint'),
   item('flint_spear', { weapon: weapon(6, 0.8, 4, 'flint') }),
+  // Plan v3 « M33 »: a bite every 5–12 s on water with fish.
+  item('fishing_rod', { rod: { seconds: [5, 12], durability: 48 } }),
   hatchet('copper', 5),
   pickaxe('copper'),
   blade('copper', 7),
@@ -137,6 +139,14 @@ const consumables = [
     consume: { seconds: 1.2, hunger: 15, saturation: 9, toxicity: 10 },
   }),
   item('grilled_meat', { consume: { seconds: 1.2, hunger: 40, saturation: 64 } }),
+  // Plan v3 « M33 »: fish from a rod, grilled at the campfire; a stew of meat and berries feeds
+  // the best (the reference game's cod, cooked cod and rabbit stew).
+  item('raw_fish', {
+    hintKey: 'where.raw_fish',
+    consume: { seconds: 1, hunger: 10, saturation: 2 },
+  }),
+  item('grilled_fish', { consume: { seconds: 1.2, hunger: 25, saturation: 30 } }),
+  item('hearty_stew', { maxStack: 16, consume: { seconds: 1.6, hunger: 50, saturation: 60 } }),
   // Melts in the mouth: water from the Rimefrost (plan v3 « M23 »).
   found('ice_bulb', 'where.ice_bulb', { consume: { seconds: 0.8, thirst: 15 } }),
   // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).

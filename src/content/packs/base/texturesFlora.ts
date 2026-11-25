@@ -123,6 +123,14 @@ export const floraTextures = [
     alpha: 'coverage',
   },
   {
+    // Picked (plan v3 « M33 »): the stems without their bright bulbs.
+    key: 'tex:frost_bulb_bare',
+    pattern: 'cross',
+    palette: ['#3e6570', '#4f7f8c', '#6a98a4'],
+    seed: 433,
+    alpha: 'coverage',
+  },
+  {
     key: 'tex:crystal_sprout',
     pattern: 'cross',
     palette: ['#5a4a7a', '#b49cf0', '#f4ecff'],

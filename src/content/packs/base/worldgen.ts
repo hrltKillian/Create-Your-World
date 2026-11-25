@@ -100,6 +100,8 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b25a', foliage: '#64a046', water: '#3a78c6' },
     fog: '#9cc0dc',
+    // Its lakes teem with fish (plan v3 « M33 »).
+    fish: 'loot:fish_basin',
     features: [{ feature: 'feature:willow', chance: 0.1 }],
     plants: [
       { block: 'block:reed', chance: 0.08 },
