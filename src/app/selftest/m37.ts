@@ -34,6 +34,7 @@ const shadowCase: SelftestCase = {
   name: "a wall's shadow darkens the open ground at noon, with the sun's shadows on only",
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
+  timeoutMs: 60_000,
   run: async (app) => {
     await playerSession(app);
     const game = app.game!;

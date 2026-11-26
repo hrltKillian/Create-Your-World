@@ -9,6 +9,7 @@ import {
   SRGBColorSpace,
   WebGLRenderTarget,
 } from 'three';
+import { fnv1aBytes } from '../core/hash.ts';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
 import { Precipitation } from './Precipitation.ts';
@@ -43,6 +44,8 @@ export interface CaptureStats {
   readonly height: number;
   readonly avgLuma: number;
   readonly uniqueColors: number;
+  /** FNV-1a of the pixels: equal captures, an unchanged view (plan v4 « M38 »). */
+  readonly hash: number;
 }
 
 /** What the weather looks like (plan v3 « M34 », the client's WeatherFeel): 0–1 each. */
@@ -67,8 +70,8 @@ const FOG_NEAR = 0.85;
 const FOG_FAR = 0.65;
 const scratch = new Color();
 
-/** Underwater fog (docs « Ciel et brouillard »): blue, from 1 to 20 blocks. */
-const WATER_FOG = new Color('#1f4f78');
+/** Underwater fog (docs « Ciel et brouillard »): Veyra's teal water (plan v4 « M38 »), 1 to 20 blocks. */
+const WATER_FOG = new Color('#2a7486');
 const WATER_FOG_NEAR = 1;
 const WATER_FOG_FAR = 20;
 
@@ -257,6 +260,7 @@ export class WorldView {
   /** The camera is inside a liquid: short blue fog and no sky. */
   setUnderwater(underwater: boolean): void {
     this.underwater = underwater;
+    this.materials.uniforms.uUnderwater.value = underwater ? 1 : 0;
   }
 
   frame(dt: number): void {
@@ -293,6 +297,8 @@ export class WorldView {
     const uniforms = this.materials.uniforms;
     sky.update(this.hour);
     this.weatherSky();
+    uniforms.uZenith.value.copy(sky.colors.zenith);
+    uniforms.uHorizon.value.copy(sky.colors.horizon);
     const weather = this.weather;
     const light = sunLightAt(this.hour, sky.colors.light, weather.cloud, this.light);
     uniforms.uSunDir.value.copy(light.direction);
@@ -356,7 +362,13 @@ export class WorldView {
       luma += 0.2126 * r + 0.7152 * g + 0.0722 * b;
       colors.add(((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3));
     }
-    return { width, height, avgLuma: luma / (width * height) / 255, uniqueColors: colors.size };
+    return {
+      width,
+      height,
+      avgLuma: luma / (width * height) / 255,
+      uniqueColors: colors.size,
+      hash: fnv1aBytes(pixels),
+    };
   }
 
   dispose(): void {

@@ -4,6 +4,19 @@
  * turn with them. Directions are unit vectors in world space; the dome follows the camera.
  */
 
+/**
+ * The sky's colour along a direction: the palette's horizon below and at the horizon, its zenith
+ * above. Shared by the sky dome and the water's reflection (plan v4 « M38 »).
+ */
+export const SKY_GRADIENT = /* glsl */ `
+uniform vec3 uZenith;
+uniform vec3 uHorizon;
+
+vec3 skyGradient(vec3 dir) {
+  return mix(uHorizon, uZenith, pow(clamp(dir.y, 0.0, 1.0), 0.6));
+}
+`;
+
 export const skyVertex = /* glsl */ `
 out vec3 vDirection;
 
@@ -16,8 +29,7 @@ void main() {
 `;
 
 export const skyFragment = /* glsl */ `
-uniform vec3 uZenith;
-uniform vec3 uHorizon;
+${SKY_GRADIENT}
 uniform vec3 uSunDir;
 uniform vec3 uMoonDir;
 uniform float uStars;
@@ -49,7 +61,7 @@ float disc(vec3 dir, vec3 center, float cosRadius) {
 
 void main() {
   vec3 dir = normalize(vDirection);
-  vec3 color = mix(uHorizon, uZenith, pow(clamp(dir.y, 0.0, 1.0), 0.6));
+  vec3 color = skyGradient(dir);
   // Sun, moon and stars only above the horizon (the ground hides the rest).
   float above = smoothstep(-0.02, 0.02, dir.y);
 

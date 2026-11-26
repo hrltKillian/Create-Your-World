@@ -1,8 +1,10 @@
 import type { Camera, Material, Mesh, Object3D } from 'three';
+import { liquidLayerMask } from '../../src/render/liquidLayers.ts';
 import type { Renderer } from '../../src/render/Renderer.ts';
 import { createTextureArray } from '../../src/render/textureArray.ts';
 import { WorldView } from '../../src/render/WorldView.ts';
 import { layers, materialLayers, TEXTURE_SIZE } from './packPixels.ts';
+import { registry } from './registry.ts';
 
 /** The materials of every mesh, line or sprite under `root`, hidden or not. */
 export function sceneMaterials(root: Object3D): Set<Material> {
@@ -37,7 +39,7 @@ export function createTestWorldView(renderDistance = 2) {
   const materials = createTextureArray(materialLayers, TEXTURE_SIZE, false);
   const view = new WorldView(
     renderer as unknown as Renderer,
-    { textures, materials },
+    { textures, materials, liquids: liquidLayerMask(registry.tables) },
     [],
     renderDistance,
   );

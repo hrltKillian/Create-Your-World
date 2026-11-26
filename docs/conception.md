@@ -3095,28 +3095,22 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 **Tests** : lumière de jour et de nuit sans saut, nuages, brume, cadrage de la carte par texels entiers, réglage ; selftest `m37` (`?worldType=flat&fixedStep=1&selftest=m0,m37`) : l'ombre d'un mur assombrit le sol à midi avec les ombres, pas sans, et le préréglage bas ne dessine pas de passe d'ombre ; selftest `m36` : les deux tableaux de textures.
 
-#### M38 — Eau et lave
+#### M38 — Eau et lave (fait)
 
-**Eau** :
+**Les liquides dans le shader des chunks** : un masque des couches de texture des faces liquides (`render/liquidLayers.ts`, `liquidLayerMask`, uniforme `uLiquidLayers`), sans rien changer au format des sommets.
 
-- shader dédié : deux couches de normales animées ;
-- Fresnel, avec le ciel réfléchi par la fonction de ciel partagée ;
-- éclat du soleil ;
-- couleur qui se fonce avec l'angle et la profondeur ;
-- rides sous la pluie.
+**L'eau** (passe translucide, `shaders/water.glsl.ts`) :
 
-**Lave** : émissive, croûte en mouvement.
+- le dessus des faces d'eau prend la pente de quatre vagues qui voyagent, plus des anneaux de gouttes sous la pluie (`waterSlope`, `rainRings`) ;
+- Fresnel : l'eau reflète le ciel d'autant plus que le regard la rase (`skyGradient`, le dégradé du ciel partagé avec le dôme, `SKY_GRADIENT`), et devient plus opaque ;
+- l'éclat du soleil sur une eau lisse (rugosité 0,03) ;
+- tout est analytique : aucune texture en plus.
 
-**Sous l'eau** :
+**La lave** (passe opaque) : sa croûte dérive lentement et sa lueur pulse lieu par lieu.
 
-- brouillard teinté ;
-- caustiques bon marché sur les surfaces immergées (motif animé selon la lumière du ciel).
+**Sous l'eau** : des caustiques ondulent sur toutes les surfaces éclairées par le ciel tant que la caméra est dans un liquide ; le brouillard sous-marin passe au sarcelle de Veyra.
 
-**Tests** :
-
-- shaders ;
-- captures ;
-- perf avec un lac à l'écran.
+**Tests** : le masque marque les couches des liquides et elles seules ; selftest `m38` (`?worldType=flat&fixedStep=1&selftest=m0,m38`) : une mare de l'eau du pack et une de sa lave changent d'une image à l'autre, le sol nu à côté non (empreinte `capture().hash`).
 
 #### M39 — Ciel, atmosphère et nuages
 
