@@ -64,6 +64,10 @@ export interface Body {
   /** The feet touch a liquid (water exit boost). */
   feetInWater: boolean;
   headInWater: boolean;
+  /** The head is under a liquid that drowns (not lava: plan v5 « M46 »). */
+  headDrowns: boolean;
+  /** Share of water's swimming speeds in the liquid the body is in (1 out of liquids). */
+  liquidMove: number;
   /** Feet or middle in a ladder: forward or jump climbs, crouch holds, nothing slides down. */
   onLadder: boolean;
   /** Direction (−1, 0, 1) of horizontal moves blocked last tick, per axis (climbing out of water). */
@@ -119,6 +123,8 @@ export function createBody(x: number, y: number, z: number): Body {
     onLadder: false,
     feetInWater: false,
     headInWater: false,
+    headDrowns: false,
+    liquidMove: 1,
     wallX: 0,
     wallZ: 0,
     crouching: false,
@@ -208,6 +214,14 @@ export function stepBody(
   body.inWater = isLiquid(world, tables, body.x, body.y + 0.4, body.z);
   body.feetInWater = body.inWater || isLiquid(world, tables, body.x, body.y + 0.05, body.z);
   body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
+  const cellX = Math.floor(body.x);
+  const cellZ = Math.floor(body.z);
+  body.liquidMove = body.inWater
+    ? tables.liquidMove[world.getBlock(cellX, Math.floor(body.y + 0.4), cellZ)]! / 100
+    : 1;
+  body.headDrowns =
+    body.headInWater &&
+    tables.drowns[world.getBlock(cellX, Math.floor(body.y + eyeHeight(body)), cellZ)] === 1;
   body.onLadder =
     !body.inWater &&
     (climbableAt(world, tables, body.x, body.y + 0.05, body.z) ||
@@ -265,7 +279,7 @@ function accelerate(
       : sprinting
         ? PHYSICS.sprint
         : PHYSICS.walk;
-  const speed = mode * input.speedFactor;
+  const speed = mode * input.speedFactor * body.liquidMove;
   let fx = input.forward;
   let fs = input.strafe;
   const len = Math.sqrt(fx * fx + fs * fs);
@@ -332,17 +346,17 @@ function jumpAndGravity(
       body.vy = Math.max(body.vy, exit);
     } else if (out.sprinting && body.headInWater) {
       // Sprinting under water swims along the view: up, down or level, no sinking.
-      const want = PHYSICS.swimSprint * Math.sin(input.pitch) * input.speedFactor;
+      const want = PHYSICS.swimSprint * Math.sin(input.pitch) * input.speedFactor * body.liquidMove;
       const step = PHYSICS.waterAccel * dt;
       body.vy += Math.max(-step, Math.min(step, want - body.vy));
       return body.vy * dt;
-    } else if (input.jump && body.vy < PHYSICS.swimUp) {
-      body.vy = Math.min(PHYSICS.swimUp, body.vy + 30 * dt);
+    } else if (input.jump && body.vy < PHYSICS.swimUp * body.liquidMove) {
+      body.vy = Math.min(PHYSICS.swimUp * body.liquidMove, body.vy + 30 * dt);
     }
     // Water slows swimming speeds only: a jump or a climb out keeps full gravity.
     const g = body.vy > PHYSICS.swimUp ? PHYSICS.gravity : PHYSICS.gravity * 0.25;
     const dy = body.vy * dt - 0.5 * g * dt * dt;
-    body.vy = Math.max(-PHYSICS.swim * 1.5, body.vy - g * dt);
+    body.vy = Math.max(-PHYSICS.swim * 1.5 * body.liquidMove, body.vy - g * dt);
     return dy;
   }
   if (body.onLadder) {

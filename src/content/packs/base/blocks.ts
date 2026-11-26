@@ -283,6 +283,7 @@ export const blocks = [
     wallShape: { boxes: WALL_TORCH },
     pass: 'cutout',
     textures: { all: 'tex:torch' },
+    wallTextures: { all: 'tex:torch_wall' },
     collision: 'none',
     opaque: false,
     light: { emit: 14 },

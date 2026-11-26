@@ -333,6 +333,7 @@
 
 .logbook-batches {
   display: flex;
+  flex: none;
   gap: 6px;
   margin-top: 8px;
 }
@@ -410,9 +411,23 @@
   max-height: none;
 }
 
+/*
+ * The selected recipe under the inventory (plan v5 « M46 »): it takes the column's room left, its
+ * details scroll and its craft buttons stay below them, always in view.
+ */
+.logbook-recipe {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.logbook-recipe[hidden] {
+  display: none;
+}
+
 .screen-slots .logbook-detail {
-  flex: none;
-  height: 130px;
+  flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
 }

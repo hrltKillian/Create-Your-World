@@ -73,7 +73,7 @@ const bubbleCase: SelftestCase = {
     const at = { clientX: box.left + 4, clientY: box.top + 4, bubbles: true };
     view()!.dispatchEvent(new PointerEvent('pointermove', at));
     view()!.dispatchEvent(new PointerEvent('pointerover', at));
-    const bubble = document.querySelector<HTMLElement>('#screen-bag > .tooltip-anchor');
+    const bubble = document.querySelector<HTMLElement>('#ui-tooltip');
     assert(bubble && !bubble.hidden, 'no bubble over the hovered tool');
     assert(
       bubble.textContent?.includes(t(tool.nameKey)),

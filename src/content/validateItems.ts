@@ -48,6 +48,9 @@ export function validateItems(
     const hardens = block.liquid?.hardens;
     for (const key of hardens ? [hardens.source, hardens.flow] : [])
       if (!blockKeys.has(key)) add(`blocks[${i}].liquid.hardens`, `unknown block "${key}"`);
+    const move = block.liquid?.moveFactor ?? 1;
+    if (!(move > 0 && move <= 1))
+      add(`blocks[${i}].liquid.moveFactor`, 'must be above 0 and at most 1');
     const step = block.liquid?.flow?.step ?? 1;
     if (!Number.isInteger(step) || step < 1 || step > 7)
       add(`blocks[${i}].liquid.flow.step`, 'must be a whole number from 1 to 7');

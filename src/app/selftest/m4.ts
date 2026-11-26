@@ -251,7 +251,7 @@ export const M4_SUITE: readonly SelftestCase[] = [
       assert(inventory, 'no bag');
       const mode = session.rig.mode;
       try {
-        session.rig.mode = 'third';
+        session.rig.mode = 'back';
         await framesFor(200);
         inventory.toggleBag();
         assert(inventory.bag.isOpen(), 'the bag did not open');

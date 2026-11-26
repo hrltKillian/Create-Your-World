@@ -4,6 +4,7 @@ import { approach } from '../core/ease.ts';
 import { Sky } from './Sky.ts';
 import { createSunLight, mistAt, sunLightAt } from './sunLight.ts';
 import type { VoxelUniforms } from './voxelMaterial.ts';
+import { advanceWind } from './wind.ts';
 
 /** What the weather looks like (plan v3 « M34 », the client's WeatherFeel): 0–1 each. */
 export interface WeatherLook {
@@ -58,6 +59,7 @@ export class Atmosphere {
   private hour = 12;
   private days = 0;
   private daylight = 1;
+  private windPhase = 0;
   private underwater = false;
   /** The biome's air: its colour and auroras now, eased towards those of the biome around. */
   private readonly air = { tint: new Color(1, 1, 1), share: 0, aurora: 0 };
@@ -152,7 +154,10 @@ export class Atmosphere {
     uniforms.uGroundLight.value.copy(light.ground);
     uniforms.uHaze.value.copy(light.haze);
     uniforms.uWetness.value = weather.wet;
-    uniforms.uWind.value = 1 + STORM_WIND * weather.cloud;
+    const wind = 1 + STORM_WIND * weather.cloud;
+    uniforms.uWind.value = wind;
+    this.windPhase = advanceWind(this.windPhase, wind, dt);
+    uniforms.uWindPhase.value = this.windPhase;
     uniforms.uMist.value = this.underwater ? 0 : mistAt(this.hour) * (1 - weather.fog);
     this.cloudLight.copy(colors.light).multiplyScalar(0.12 + 0.78 * this.litDaylight());
     sky.look(

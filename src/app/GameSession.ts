@@ -330,7 +330,7 @@ export class GameSession {
     frame.dt = dt;
     frame.firstPerson = rig.mode === 'first';
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
-    frame.avatarVisible = rig.mode === 'third' && rig.distance >= AVATAR_MIN_DISTANCE;
+    frame.avatarVisible = rig.mode !== 'first' && rig.distance >= AVATAR_MIN_DISTANCE;
     frame.eating = eating(this.player, this.registry);
     frame.motes = this.motes.count > 0 && this.motes.night > 0 ? this.motes : null;
     this.play.draw(frame);

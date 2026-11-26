@@ -57,6 +57,9 @@ export const undergroundBlocks = [
       // A step every 1.5 s, holes found 2 blocks away, two levels lost a block: about 3 blocks.
       flow: { seconds: 1.5, holeSearch: 2, infinite: false, step: 2 },
       hardens: { source: 'block:darkstone', flow: 'block:stone' },
+      // Thick (the reference game's lava: half water's speeds) and burning, never drowning.
+      moveFactor: 0.5,
+      drowns: false,
     },
   },
   deposit('block:magma', 'block.magma', 'tex:magma', 2, 1, {

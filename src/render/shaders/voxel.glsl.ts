@@ -27,9 +27,10 @@ float lightCurve(float level) {
  */
 export const VOXEL_DECODE = /* glsl */ `
 in uvec2 aPacked;
-uniform float uTime;
 /** Wind: 1 calm, more in a storm (plan v4 « M40 »); plants sway that much further. */
 uniform float uWind;
+/** The sway's phase, advanced by the wind's speed (render/wind.ts, plan v5 « M46 »). */
+uniform float uWindPhase;
 
 uint voxelFace() {
   return (aPacked.y >> 9u) & 7u;
@@ -73,7 +74,7 @@ vec2 voxelUv(vec3 pos) {
 vec3 voxelSway(vec3 pos) {
   if ((voxelFlags() & 1u) != 0u && voxelFace() > 5u && voxelAo() >= 2u) {
     vec3 origin = mod(modelMatrix[3].xyz, 256.0);
-    float phase = uTime * (1.2 + 0.5 * uWind) + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
+    float phase = uWindPhase + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
     pos.x += 0.05 * uWind * sin(phase);
     pos.z += 0.05 * uWind * cos(phase * 0.8);
   }

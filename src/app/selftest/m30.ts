@@ -129,7 +129,7 @@ const unitsCase: SelftestCase = {
     const at = { clientX: box.left + 4, clientY: box.top + 4, bubbles: true };
     view()!.dispatchEvent(new PointerEvent('pointermove', at));
     view()!.dispatchEvent(new PointerEvent('pointerover', at));
-    const symbol = document.querySelector('#screen-bag > .tooltip-anchor .mini-icon.gauge-hunger');
+    const symbol = document.querySelector('#ui-tooltip .mini-icon.gauge-hunger');
     assert(symbol, 'the food’s description has no ration pod');
     app.inventory!.closeScreen();
     // A sprint tires the player (the reference game's exhaustion).

@@ -39,7 +39,7 @@ export function installDebugHook(app: App): void {
       get: (): CameraPose | null =>
         app.freecam ? { ...app.freecam.pose } : app.session ? { ...app.session.rig.pose } : null,
       set: (pose: Partial<CameraPose>) => app.freecam?.set(pose),
-      /** Mode ('first' | 'third') and current third-person distance. */
+      /** Mode ('first' | 'back' | 'front') and current third-person distance. */
       mode: () =>
         app.session ? { mode: app.session.rig.mode, distance: app.session.rig.distance } : null,
       toggle: () => app.session?.rig.toggleMode(),

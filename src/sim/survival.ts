@@ -364,7 +364,7 @@ export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): v
     }
     exposure.sprinting = player.sprinting;
     exposure.metabolism = metabolismFactor(player, b);
-    exposure.underwater = body.headInWater;
+    exposure.underwater = body.headDrowns;
     exposure.fireTicks = exposure.ignites ? fireTicks(sim, player, b) : 0;
     stepGauges(s, b, exposure);
     if (sim.tick % TICKS_PER_SECOND === 0) wearFilters(sim.registry, player, out);

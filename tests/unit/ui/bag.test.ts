@@ -6,6 +6,7 @@ import { type Command, OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { CRAFT_QUEUE, MAX_CRAFT_COUNT } from '../../../src/sim/craftQueue.ts';
 import { BASE_INVENTORY_SLOTS, type Inventory } from '../../../src/sim/inventory.ts';
 import { bestiaryRows } from '../../../src/ui/bestiary.ts';
+import { h } from '../../../src/ui/h.ts';
 import type { LogbookSource } from '../../../src/ui/logbook.ts';
 import { BagScreen } from '../../../src/ui/screens/bag.ts';
 import { ContainerScreen } from '../../../src/ui/screens/container.ts';
@@ -13,6 +14,7 @@ import { LogbookPanel, type QueueView } from '../../../src/ui/screens/logbook.ts
 import { StationScreen } from '../../../src/ui/screens/station.ts';
 import { WorkbenchScreen } from '../../../src/ui/screens/workbench.ts';
 import type { ScreenDeps } from '../../../src/ui/slotBoard.ts';
+import { Tooltip } from '../../../src/ui/tooltip.ts';
 import { type FakeElement, installFakeDom, removeFakeDom } from '../../helpers/fakeDom.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -32,6 +34,7 @@ function deps(label = () => 'E') {
     slotCount: BASE_INVENTORY_SLOTS,
     openBase: OPEN_SLOTS_BASE,
     closeKey: label,
+    tooltip: new Tooltip(),
   };
   return { screen, sent };
 }
@@ -64,7 +67,10 @@ describe('BagScreen', () => {
   it('shows the close key as labelled when it opens (the layout map loads after boot)', () => {
     let label = 'E';
     const { screen } = deps(() => label);
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     const hint = () => fake(bag.element).querySelector('.bag-close');
     bag.open();
     expect(hint()?.textContent).toBe('E to close');
@@ -76,7 +82,10 @@ describe('BagScreen', () => {
 
   it('has the 32 inventory slots and the 5 equipment slots of the silhouette', () => {
     const { screen } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     expect(slotNumbers(bag.element).sort((a, b) => a - b)).toEqual([
       ...Array.from({ length: BASE_INVENTORY_SLOTS }, (_, i) => i),
       ...WEAR_SLOTS.map((_, i) => OPEN_SLOTS_BASE + i),
@@ -91,7 +100,10 @@ describe('BagScreen', () => {
 
   it('sends a slot click per press: left or right, with Shift, and outside the panel', () => {
     const { screen, sent } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     bag.open();
     const slot = (n: number) => byAttr(bag.element, 'data-slot', String(n))[0]!;
     const head = OPEN_SLOTS_BASE + WEAR_SLOTS.indexOf('head');
@@ -124,7 +136,7 @@ describe('BagScreen', () => {
 
   it('shows a page from its tab bar, and opens on the page its key names', () => {
     const { screen } = deps();
-    const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS);
+    const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip);
     const bag = new BagScreen(screen, logbook);
     const wear = fake(bag.element).querySelector('.wear')!;
     const tab = (page: string) => byAttr(bag.element, 'data-page', page)[0]!;
@@ -160,7 +172,10 @@ describe('BagScreen', () => {
 
   it('draws the cursor stack under the pointer while it holds one', () => {
     const { screen } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     bag.open();
     const cursor = fake(bag.element).querySelector('.slot-cursor')!;
     // Not a slot: a press on it (it ignores the pointer anyway) clicks nothing.
@@ -182,7 +197,10 @@ describe('BagScreen', () => {
 
   it('shows a hovered stack’s name and description in a bubble by the pointer, none off the stacks', () => {
     const { screen } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     bag.open();
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[3] = { item: 'item:flint_pickaxe', count: 1 };
@@ -190,21 +208,27 @@ describe('BagScreen', () => {
     bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], [], [], STATUS);
     const slot = (n: number) =>
       fake(bag.element).findAll((el) => el.getAttribute('data-slot') === String(n))[0]!;
-    const bubble = fake(bag.element).querySelector('.tooltip-anchor')!;
+    // The screens' one bubble, outside the panel (plan v5 « M46 »).
+    const bubble = fake(screen.tooltip.element);
+    expect(fake(bag.element).querySelector('.tooltip-anchor')).toBeNull();
     expect(bubble.hidden).toBe(true);
-    fake(bag.element).dispatch('pointermove', { clientX: 100, clientY: 60 });
-    fake(bag.element).dispatch('pointerover', { target: slot(3) });
+    // Over the slot before any move there: the bubble shows at the pointer, not where it was.
+    fake(bag.element).dispatch('pointermove', { clientX: 10, clientY: 10 });
+    fake(bag.element).dispatch('pointerover', { target: slot(3), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(false);
     expect(bubble.textContent).toContain('Flint Pickaxe');
     expect(bubble.textContent).toContain('Stone:');
     expect(bubble.style.transform).toBe('translate(114px, 74px)');
-    fake(bag.element).dispatch('pointerover', { target: slot(4) });
+    fake(bag.element).dispatch('pointerover', { target: slot(4), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(true);
   });
 
   it('shows what the worn items protect from', () => {
     const { screen } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     slots[9] = { item: 'item:fur_hood', count: 1 };
     const gear = { armor: 3, warmth: 16, cooling: 0, airFilter: 1, waterproof: false };
@@ -218,8 +242,9 @@ describe('BagScreen', () => {
 describe('LogbookPanel', () => {
   function panel() {
     const { screen, sent } = deps();
-    const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS);
-    return { logbook, sent, root: logbook.element };
+    const logbook = new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip);
+    // The panel and its recipe pane, which a screen places under its inventory.
+    return { logbook, sent, root: h('div', null, logbook.element, logbook.recipe) };
   }
   const tools = { 'item:flint': 2, 'item:stick': 2, 'item:cord': 1 };
 
@@ -405,7 +430,10 @@ describe('LogbookPanel', () => {
 describe('WorkbenchScreen', () => {
   it('numbers its outputs from 64 beside its Logbook, which lists the bench recipes', () => {
     const { screen } = deps();
-    const bench = new WorkbenchScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bench = new WorkbenchScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     const def = registry.crafting.station(BENCH)!;
     bench.open(def, 'Workbench');
     const title = fake(bench.element).findAll((e) => e.tagName === 'H2')[0];
@@ -534,7 +562,10 @@ describe('StationScreen', () => {
 
   it('shows the Bestiary as a tab: unknown creatures, then what a met or studied one is', () => {
     const { screen } = deps();
-    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
     const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
     const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
     const rows = bestiaryRows(registry, { 'creature:trotter': 2, 'creature:prowler': 1 });
