@@ -1,13 +1,16 @@
-import type { SfxDef, SfxLayer } from '../../content/schema.ts';
+import { SFX_LEVELS, type SfxDef, type SfxLayer } from '../../content/schema.ts';
 import { sfxSeconds } from '../../content/validateSounds.ts';
 import { fnv1aString, hashUnit } from '../../core/hash.ts';
+import { bubbles, colouredNoise, crackle, impact, voice, wind } from './synthModels.ts';
 
 /**
- * The sound synthesizer (plan v4 « M44 »), sample by sample and pure: a recipe always gives the
- * same samples, in the browser and under Node (tests). Each layer is a source (noise, a tone
- * gliding between two pitches, resonant modes struck at once, or a stream of short grains),
+ * The sound synthesizer (plan v4 « M44 », plan v5 « M53 »), sample by sample and pure: a recipe
+ * and a variant always give the same samples, in the browser and under Node (tests). Each layer
+ * is a source (noise, a tone, struck modes, grains, or a model of a real sound: synthModels.ts),
  * through an optional biquad filter, shaped by a linear attack, a hold and an exponential decay;
- * the layers are mixed and the mix kept under full scale.
+ * the layers are mixed, brought to the loudness of the recipe's class (SFX_LEVELS) and kept under
+ * full scale. A variant other than 0 is another take: other noise, the pitches and the times a
+ * few per cent off.
  */
 
 /** Sample rate of the rendered sounds (the AudioContext resamples if it differs). */
@@ -20,17 +23,74 @@ export const PEAK = 0.95;
 const RING = Math.log(1000);
 const TAU = Math.PI * 2;
 
-/** Renders a recipe into mono samples at `rate`. */
-export function synthesize(def: SfxDef, rate = SFX_SAMPLE_RATE): Float32Array<ArrayBuffer> {
-  const out = new Float32Array(Math.max(1, Math.ceil(sfxSeconds(def) * rate)));
-  const seed = fnv1aString(def.key);
-  def.layers.forEach((layer, i) => {
+/** Pitch and time spread between the variants of a sound (±). */
+const VARIANT_PITCH = 0.05;
+const VARIANT_TIME = 0.1;
+/** The window of the short-term loudness (s). */
+const LOUDNESS_WINDOW = 0.05;
+
+/** Renders a recipe's `variant` into mono samples at `rate`. */
+export function synthesize(
+  def: SfxDef,
+  rate = SFX_SAMPLE_RATE,
+  variant = 0,
+): Float32Array<ArrayBuffer> {
+  const seed = (fnv1aString(def.key) + variant * 7919) >>> 0;
+  const pitch = variant === 0 ? 1 : 1 + (hashUnit(seed, 101) * 2 - 1) * VARIANT_PITCH;
+  const time = variant === 0 ? 1 : 1 + (hashUnit(seed, 102) * 2 - 1) * VARIANT_TIME;
+  const layers = variant === 0 ? def.layers : def.layers.map((layer) => varied(layer, pitch, time));
+  const out = new Float32Array(Math.max(1, Math.ceil(sfxSeconds({ ...def, layers }) * rate)));
+  layers.forEach((layer, i) => {
     addLayer(out, layer, seed + i, rate);
   });
   let peak = 0;
   for (let i = 0; i < out.length; i++) peak = Math.max(peak, Math.abs(out[i]!));
-  if (peak > PEAK) for (let i = 0; i < out.length; i++) out[i] = (out[i]! * PEAK) / peak;
+  let gain = peak > PEAK ? PEAK / peak : 1;
+  if (def.level) {
+    const loud = loudness(out, rate);
+    if (loud > 0)
+      gain = Math.min(10 ** (SFX_LEVELS[def.level] / 20) / loud, PEAK / Math.max(peak, 1e-9));
+  }
+  if (gain !== 1) for (let i = 0; i < out.length; i++) out[i] = out[i]! * gain;
   return out;
+}
+
+/** The loudest short-term RMS of samples (over LOUDNESS_WINDOW, every fifth of one). */
+export function loudness(samples: Float32Array, rate: number): number {
+  const n = Math.max(1, Math.round(LOUDNESS_WINDOW * rate));
+  const hop = Math.max(1, Math.round(n / 5));
+  let best = 0;
+  for (let start = 0; start < samples.length; start += hop) {
+    let e = 0;
+    const end = Math.min(samples.length, start + n);
+    for (let i = start; i < end; i++) e += samples[i]! * samples[i]!;
+    best = Math.max(best, e / n);
+    if (end === samples.length) break;
+  }
+  return Math.sqrt(best);
+}
+
+/** A layer of another take: its pitches × `pitch`, its times × `time`. */
+function varied(layer: SfxLayer, pitch: number, time: number): SfxLayer {
+  const v = layer.voice;
+  const b = layer.bubbles;
+  const c = layer.crackle;
+  return {
+    ...layer,
+    ...(layer.freq ? { freq: [layer.freq[0] * pitch, layer.freq[1] * pitch] as const } : {}),
+    ...(layer.modes
+      ? { modes: layer.modes.map(([f, r, g]) => [f * pitch, r * time, g] as const) }
+      : {}),
+    ...(layer.filter ? { filter: { ...layer.filter, freq: layer.filter.freq * pitch } } : {}),
+    ...(v ? { voice: { ...v, pitch: [v.pitch[0] * pitch, v.pitch[1] * pitch] as const } } : {}),
+    ...(b
+      ? { bubbles: { ...b, radius: [b.radius[0] / pitch, b.radius[1] / pitch] as const } }
+      : {}),
+    ...(c ? { crackle: { ...c, freq: [c.freq[0] * pitch, c.freq[1] * pitch] as const } } : {}),
+    decay: layer.decay * time,
+    ...(layer.hold ? { hold: layer.hold * time } : {}),
+    ...(layer.delay ? { delay: layer.delay * time } : {}),
+  };
 }
 
 /** One layer's source, filter and envelope, added into `out`. */
@@ -58,10 +118,14 @@ function addLayer(out: Float32Array, layer: SfxLayer, seed: number, rate: number
 
 function source(samples: Float32Array, layer: SfxLayer, seed: number, rate: number): void {
   const kind = layer.source;
-  if (kind === 'noise') {
-    for (let i = 0; i < samples.length; i++) samples[i] = hashUnit(seed, i) * 2 - 1;
-  } else if (kind === 'modal') modes(samples, layer.modes ?? [], seed, rate);
+  if (kind === 'noise' || kind === 'pink' || kind === 'brown') colouredNoise(samples, kind, seed);
+  else if (kind === 'modal') modes(samples, layer.modes ?? [], seed, rate);
   else if (kind === 'grains') grains(samples, layer, seed, rate);
+  else if (kind === 'impact') impact(samples, layer, seed, rate);
+  else if (kind === 'bubbles') bubbles(samples, layer, seed, rate);
+  else if (kind === 'crackle') crackle(samples, layer, seed, rate);
+  else if (kind === 'wind') wind(samples, layer, seed, rate);
+  else if (kind === 'voice') voice(samples, layer, seed, rate);
   else tone(samples, kind, layer.freq ?? [440, 440], rate, layer.vibrato);
 }
 

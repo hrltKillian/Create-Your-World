@@ -35,7 +35,7 @@ import { quests } from './quests.ts';
 import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
 import { sky } from './sky.ts';
-import { sounds } from './sounds.ts';
+import { levelOf, sounds } from './sounds.ts';
 import { survivorSkins } from './survivorSkins.ts';
 import { tasks } from './tasks.ts';
 import { crackTextures, textures } from './textures.ts';
@@ -43,7 +43,9 @@ import { floraTextures } from './texturesFlora.ts';
 import { tiers, toolNames } from './tiers.ts';
 import { biomes, features, ores, worldgen } from './worldgen.ts';
 
-/** The neutral placeholder content pack shipped with the game. */
+/** Every sound a creature makes (its voice). */
+const VOICES = new Set<string>(creatures.flatMap((c) => Object.values(c.sounds) as string[]));
+
 /** The blocks' drawn icons (plan v5 « M50 »): each block's item shows its art in slots. */
 const blockIcons = [
   ...soilIcons,
@@ -61,6 +63,7 @@ const withArt = (block: BlockDef): BlockDef => {
   return icon ? { ...block, item: { ...block.item, art: icon.texture.key } } : block;
 };
 
+/** The neutral placeholder content pack shipped with the game. */
 export const basePack: ContentPack = {
   manifest: {
     id: 'base',
@@ -130,7 +133,10 @@ export const basePack: ContentPack = {
   quests,
   tasks,
   sounds,
-  sfx: [...sfx, ...playerSfx, ...ambienceSfx, ...creatureSfx],
+  sfx: [...sfx, ...playerSfx, ...ambienceSfx, ...creatureSfx].map((def) => ({
+    ...def,
+    level: def.level ?? levelOf(def, VOICES),
+  })),
   worldgen,
   sky,
   biomes,

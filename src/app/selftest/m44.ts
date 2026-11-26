@@ -1,5 +1,5 @@
 import { FLAT_SURFACE } from '../../world/gen/flat.ts';
-import { fill, withinFrames } from '../automation.ts';
+import { fill, frameOrFail, withinFrames } from '../automation.ts';
 import {
   arenaOf,
   assert,
@@ -14,15 +14,16 @@ import {
 
 /*
  * M44 the sound engine (plan v4 « M44 »), on the flat world with fixed steps
- * (?worldType=flat&fixedStep=1): the room the effects ring in follows the place, the biome's air
- * outside, an indoor room under a roof (the arena cabin's roof block).
+ * (?worldType=flat&fixedStep=1): the effects ring only in a real room (plan v5 « M53 »): outdoors
+ * they are dry, and a roof alone (a lean-to, the arena cabin's roof block) is no room. The closed
+ * room and the cave are m53's.
  */
 
 /** Where the roof is laid, away from the other cases' places. */
 const SPOT = { x: 64, z: 64 };
 
 const roomCase: SelftestCase = {
-  name: 'the effects ring in the room of the place: outdoors, then indoors under a roof',
+  name: 'the effects are dry outdoors, under a roof alone too',
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
   run: async (app) => {
@@ -34,15 +35,12 @@ const roomCase: SelftestCase = {
     const { x, z } = SPOT;
     const y = FLAT_SURFACE + 4;
     await standAt(app, SPOT);
-    const outside = await withinFrames(
-      10,
-      () => audio.reverb() !== null && audio.reverb() !== 'indoor',
-    );
+    const outside = await withinFrames(10, () => audio.reverb() === 'dry');
     assert(outside, `outdoors the room is ${audio.reverb()}`);
     try {
       fill(app, x - 2, y, z - 2, x + 2, y, z + 2, roof);
-      const inside = await withinFrames(20, () => audio.reverb() === 'indoor');
-      assert(inside, `under a roof the room is ${audio.reverb()}`);
+      for (let i = 0; i < 20; i++) await frameOrFail();
+      assert(audio.reverb() === 'dry', `under a roof alone the room is ${audio.reverb()}`);
     } finally {
       fill(app, x - 2, y, z - 2, x + 2, y, z + 2, air);
     }

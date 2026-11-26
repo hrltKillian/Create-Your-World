@@ -16,7 +16,11 @@ const recipes = new Map<string, SfxDef>(basePack.sfx!.map((def) => [def.key, def
 const copy = () =>
   JSON.parse(JSON.stringify(basePack)) as {
     sfx: { key: string; loop?: boolean; layers: Record<string, unknown>[] }[];
-    sounds: { player: { jump: string }; ambience: { cave: string }; lit: Record<string, string> };
+    sounds: {
+      player: { jump: string };
+      ambience: { cave: { bed: string; events?: unknown[] } };
+      lit: Record<string, string>;
+    };
   };
 const issuePaths = (pack: unknown) => validatePack(pack as ContentPack).map((issue) => issue.path);
 
@@ -83,13 +87,27 @@ describe('sound recipes', () => {
 
   it('wants loops for the ambience only, and known stations and biomes', () => {
     const pack = copy();
-    pack.sounds.player.jump = pack.sounds.ambience.cave;
+    pack.sounds.player.jump = pack.sounds.ambience.cave.bed;
     pack.sounds.lit['station:nowhere'] = 'sfx:fire';
     const paths = issuePaths(pack);
     expect(paths).toContain('sounds.player.jump');
     expect(paths).toContain('sounds.lit.station:nowhere');
-    const cave = pack.sfx.find((def) => def.key === pack.sounds.ambience.cave)!;
+    const cave = pack.sfx.find((def) => def.key === pack.sounds.ambience.cave.bed)!;
     cave.loop = false;
-    expect(issuePaths(pack)).toContain('sounds.ambience.cave');
+    expect(issuePaths(pack)).toContain('sounds.ambience.cave.bed');
+  });
+
+  it('wants events of one-shots, at rising times and distances (plan v5 « M53 »)', () => {
+    const pack = copy();
+    pack.sounds.ambience.cave = {
+      bed: pack.sounds.ambience.cave.bed,
+      events: [
+        { sound: pack.sounds.ambience.cave.bed, every: [2, 4], distance: [4, 8] },
+        { sound: 'sfx:click', every: [5, 1], distance: [4, 8] },
+      ],
+    };
+    const paths = issuePaths(pack);
+    expect(paths).toContain('sounds.ambience.cave.events.0.sound');
+    expect(paths).toContain('sounds.ambience.cave.events[1]');
   });
 });

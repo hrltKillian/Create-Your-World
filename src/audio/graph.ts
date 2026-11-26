@@ -8,6 +8,9 @@ export const WATER_FILTER = {
   glide: 0.08,
 } as const;
 
+/** The master limiter: hard and fast over −6 dBFS (plan v5 « M53 »). */
+export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.003, release: 0.25 } as const;
+
 /** What voice stealing needs to know about a voice. */
 export interface VoiceSlot {
   /** Clock time (ms) the voice started and the time its sound ends. */
@@ -55,7 +58,13 @@ export interface PannerRange {
  */
 export function createGraph(voices: number, range: PannerRange): Graph {
   const ctx = new AudioContext();
+  // A limiter (plan v5 « M53 »): the mix of loud sounds never clips.
   const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = LIMITER.threshold;
+  compressor.knee.value = LIMITER.knee;
+  compressor.ratio.value = LIMITER.ratio;
+  compressor.attack.value = LIMITER.attack;
+  compressor.release.value = LIMITER.release;
   compressor.connect(ctx.destination);
   const master = ctx.createGain();
   master.connect(compressor);

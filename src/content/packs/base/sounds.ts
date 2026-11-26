@@ -1,4 +1,12 @@
-import type { BlockSounds, SoundBindings, SoundMaterial } from '../../schema.ts';
+import type {
+  AmbienceDef,
+  BlockSounds,
+  SfxDef,
+  SfxKey,
+  SfxLevel,
+  SoundBindings,
+  SoundMaterial,
+} from '../../schema.ts';
 
 const material = (m: SoundMaterial): BlockSounds => ({
   break: `sfx:break_${m}`,
@@ -19,8 +27,11 @@ export const LOOPS = {
   rain: 'sfx:amb_rain',
 } as const;
 
-const insects = { day: LOOPS.insectsDay, night: LOOPS.insectsNight } as const;
-const windy = { day: LOOPS.wind, night: LOOPS.wind } as const;
+/** An ambience of its bed alone. */
+const bed = (key: SfxKey): AmbienceDef => ({ bed: key });
+
+const insects = { day: bed(LOOPS.insectsDay), night: bed(LOOPS.insectsNight) } as const;
+const windy = { day: bed(LOOPS.wind), night: bed(LOOPS.wind) } as const;
 
 /**
  * One break, hit, place and step sound per sound material, the pickup sound, the UI click and the
@@ -70,14 +81,34 @@ export const sounds: SoundBindings = {
       'biome:meadow': insects,
       'biome:forest': insects,
       'biome:lake_basin': insects,
-      'biome:fungal_marsh': { day: LOOPS.marsh, night: LOOPS.marsh },
+      'biome:fungal_marsh': { day: bed(LOOPS.marsh), night: bed(LOOPS.marsh) },
       'biome:tundra': windy,
       'biome:highlands': windy,
-      'biome:ochre_desert': { day: LOOPS.sand, night: LOOPS.wind },
+      'biome:ochre_desert': { day: bed(LOOPS.sand), night: bed(LOOPS.wind) },
     },
     fallback: insects,
-    cave: LOOPS.cave,
-    underwater: LOOPS.bubbles,
-    rain: LOOPS.rain,
+    cave: bed(LOOPS.cave),
+    underwater: bed(LOOPS.bubbles),
+    rain: bed(LOOPS.rain),
   },
 };
+
+/** Sounds heard at the interface's level, and the weather's. */
+const UI_SOUNDS = new Set(['sfx:pickup', 'sfx:click', 'sfx:craft', 'sfx:dusk', 'sfx:dawn']);
+const EVENTS = new Set(['sfx:fire', 'sfx:kiln']);
+
+/**
+ * The loudness class of a recipe (plan v5 « M53 », SFX_LEVELS), from what it is: a bed, a step,
+ * a block's blow, an interface sound, a fire's crackle, the thunder, a creature's voice (`voices`:
+ * the keys the creatures name), else one of the player's own.
+ */
+export function levelOf(def: SfxDef, voices: ReadonlySet<string>): SfxLevel {
+  const key = def.key;
+  if (def.loop) return 'bed';
+  if (key.startsWith('sfx:step_')) return 'step';
+  if (/^sfx:(break|hit|place)_/.test(key)) return 'impact';
+  if (UI_SOUNDS.has(key)) return 'ui';
+  if (EVENTS.has(key)) return 'event';
+  if (key === sounds.thunder) return 'weather';
+  return voices.has(key) ? 'voice' : 'player';
+}

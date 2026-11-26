@@ -1,7 +1,7 @@
 import type { LoopPlayer } from '../../src/audio/Ambience.ts';
 import type { CuePlayer } from '../../src/audio/cues.ts';
 
-/** Records every play (`at`: 'world' with its x, 'local' or 'ui') and every loop gain set. */
+/** Records every play (`at`: 'world' or 'ambient' with its x, 'local' or 'ui') and every loop gain set. */
 export class FakePlayer implements CuePlayer, LoopPlayer {
   readonly calls: { key: string; at: string; x: number; pitch: number }[] = [];
   /** The gain of each loop as last set (0: stopped). */
@@ -21,6 +21,9 @@ export class FakePlayer implements CuePlayer, LoopPlayer {
   }
   setLoop(key: string, gain: number): void {
     this.loops.set(key, gain);
+  }
+  playAmbient(key: string, x: number): void {
+    this.calls.push({ key, at: 'ambient', x, pitch: 1 });
   }
 
   keys(): string[] {
