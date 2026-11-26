@@ -126,6 +126,7 @@ export const biomes = [
     liquid: 'block:foul_water',
     tints: { grass: '#7d8c45', foliage: '#6b7a3c', water: '#6e7a3f' },
     fog: '#9aa27c',
+    acoustics: 'forest',
     motes: { color: '#b9ff6e', count: 40 },
     features: [{ feature: 'feature:podtree', chance: 0.14 }],
     plants: [
@@ -225,6 +226,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#5f7a4c', foliage: '#4f6a40', water: '#3a6aa8' },
     fog: '#7f86a0',
+    acoustics: 'forest',
     motes: { color: '#7fe0c8', count: 48 },
     groves: { scale: 90, contrast: 0.5 },
     features: [{ feature: 'feature:giant_mushroom', chance: 0.3 }],
@@ -246,6 +248,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#6fa84a', foliage: '#4f8f36', water: '#3a72c2' },
     fog: '#9dbdd6',
+    acoustics: 'forest',
     motes: { color: '#ffd66b', count: 28 },
     groves: { scale: 120, contrast: 0.9 },
     features: [

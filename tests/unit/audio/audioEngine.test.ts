@@ -25,7 +25,11 @@ class FakeNode {
       this.value = target;
     },
   };
-  connect(): void {}
+  normalize = true;
+  /** Returns what it connects to, as Web Audio does (chains). */
+  connect<T>(next?: T): T | this {
+    return next ?? this;
+  }
   disconnect(): void {}
 }
 
@@ -43,6 +47,7 @@ class FakeContext {
   }
   createDynamicsCompressor = () => new FakeNode();
   createGain = () => new FakeNode();
+  createConvolver = () => new FakeNode();
   createBiquadFilter = () => {
     const filter = new FakeNode();
     this.filters.push(filter);

@@ -475,6 +475,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `--glass-edge`, `--glass-blur`, `--metal`, `--slot-bg`, `--slot-edge`, `--c-sheen`; colours and
     shadows only, never sizes), `rise-in` for screens and menus, the title sky `app/titleSky.ts`
     (`runTitleSky`, run by `Game.showMenu`); item icons as data URLs (`createItemIcons`);
+  - sound engine (plan v4 « M44 »): the pure synthesizer `assets/procedural/synth.ts`
+    (`synthesize`, `biquad`, `PEAK`; sources noise, tones with polyBLEP, `modal` modes, `grains`;
+    `SfxLayer.modes`/`grains`; `renderSfx` wraps it in an AudioBuffer), recipe helpers `struck` and
+    `crunch` (packs/base/sfxParts.ts); rooms `audio/reverb.ts` (`REVERBS`, `impulseResponse`,
+    `doppler`), `AudioEngine.setReverb`/`reverb()` (two convolvers crossfaded), HRTF panners,
+    `BiomeDef.acoustics`; AudioBridge picks the room and applies Doppler to creature sounds;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -604,6 +610,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Sound checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m44` (`selftest/m44.ts`): the
+  room outdoors, then indoors under a roof. Hook: `audio.ambience().reverb`.
 - Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):
   the Bag and hotbar in smoked glass with the teal rim, slots pressed in.
 - Icon checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m42` (`selftest/m42.ts`): the

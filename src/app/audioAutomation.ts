@@ -1,5 +1,6 @@
 import type { AmbiencePlace } from '../audio/Ambience.ts';
 import type { LoopView } from '../audio/loops.ts';
+import type { ReverbPlace } from '../audio/reverb.ts';
 import type { App } from './App.ts';
 
 /**
@@ -28,6 +29,8 @@ export interface AmbienceView {
   readonly underwater: boolean;
   /** Where the loops were chosen on the last frame (null without an open world). */
   readonly place: AmbiencePlace | null;
+  /** The room the effects ring in (plan v4 « M44 »), null before the first. */
+  readonly reverb: ReverbPlace | null;
 }
 
 /** The ambience now (null without an audio engine). */
@@ -39,5 +42,6 @@ export function ambienceView(app: App): AmbienceView | null {
     loops: audio.ambience(),
     underwater: audio.underwater(),
     place: place ? { ...place } : null,
+    reverb: audio.reverb(),
   };
 }

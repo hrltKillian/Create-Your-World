@@ -4,6 +4,7 @@ import { lookVector, type Vec3 } from '../core/angles.ts';
 import { DEFAULT_SETTINGS, type Volumes } from '../platform/settings.ts';
 import { createGraph, type Graph, type Voice, type VoiceSlot, WATER_FILTER } from './graph.ts';
 import { LoopBank, type LoopView } from './loops.ts';
+import { impulseResponse, REVERBS, type ReverbPlace } from './reverb.ts';
 
 export type { VoiceSlot } from './graph.ts';
 
@@ -21,6 +22,12 @@ export const AUDIO = {
   /** Keys kept by `log()`. */
   logSize: 256,
 } as const;
+
+/** Time constant of the crossfade between two rooms (s). */
+const ROOM_GLIDE = 0.4;
+
+/** Milliseconds of synthesis between two yields to the page while prerendering. */
+const PRERENDER_SLICE_MS = 12;
 
 /** A free voice if there is one, else the least audible, then the oldest. */
 export function pickVoice(voices: readonly VoiceSlot[], now: number): number {
@@ -68,6 +75,10 @@ export class AudioEngine {
   private volumes: Volumes = DEFAULT_SETTINGS.volumes;
   private submerged = false;
   private readonly ear: Vec3 = { x: 0, y: 0, z: 0 };
+  /** The room the effects reverberate in, the room node it is in, the rooms' impulses. */
+  private place: ReverbPlace | null = null;
+  private room = 0;
+  private readonly impulses = new Map<ReverbPlace, AudioBuffer>();
   private readonly forward: Vec3 = { x: 0, y: 0, z: -1 };
 
   constructor(recipes: readonly SfxDef[], options: AudioOptions) {
@@ -77,11 +88,20 @@ export class AudioEngine {
     this.now = options.now ?? (() => performance.now());
   }
 
-  /** Renders every one-shot into a buffer (OfflineAudioContext); needs no user gesture. */
+  /**
+   * Renders every one-shot into a buffer (`synthesize`); needs no user gesture. A few at a time,
+   * yielding to the page between them, so the loading screen keeps moving.
+   */
   async prerender(): Promise<void> {
     if (this.muted) return;
-    // One after the other: a few milliseconds each, and no burst of offline contexts.
-    for (const def of this.recipes) this.buffers.set(def.key, await renderSfx(def));
+    let since = performance.now();
+    for (const def of this.recipes) {
+      this.buffers.set(def.key, renderSfx(def));
+      if (performance.now() - since > PRERENDER_SLICE_MS) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        since = performance.now();
+      }
+    }
   }
 
   /**
@@ -95,6 +115,7 @@ export class AudioEngine {
       this.graph = createGraph(AUDIO.voices, AUDIO);
       this.setVolumes(this.volumes);
       this.setUnderwater(this.submerged);
+      this.applyRoom();
     }
     void this.graph.ctx.resume();
   }
@@ -148,6 +169,47 @@ export class AudioEngine {
 
   underwater(): boolean {
     return this.submerged;
+  }
+
+  /** The room the effects reverberate in (plan v4 « M44 »): crossfaded to when it changes. */
+  setReverb(place: ReverbPlace): void {
+    if (place === this.place) return;
+    this.place = place;
+    this.applyRoom();
+  }
+
+  /** The room set last (null before the first). */
+  reverb(): ReverbPlace | null {
+    return this.place;
+  }
+
+  /** Loads the place's impulse into the idle room and crossfades to it. */
+  private applyRoom(): void {
+    const graph = this.graph;
+    const place = this.place;
+    if (!graph || !place) return;
+    const ctx = graph.ctx;
+    let impulse = this.impulses.get(place);
+    if (!impulse) {
+      const [left, right] = impulseResponse(place, ctx.sampleRate);
+      impulse = new AudioBuffer({
+        length: left.length,
+        sampleRate: ctx.sampleRate,
+        numberOfChannels: 2,
+      });
+      impulse.copyToChannel(left, 0);
+      impulse.copyToChannel(right, 1);
+      this.impulses.set(place, impulse);
+    }
+    const rooms = graph.reverb.rooms;
+    const next = 1 - this.room;
+    const now = ctx.currentTime;
+    const coming = rooms[next]!;
+    coming.convolver.buffer = impulse;
+    coming.level.gain.setTargetAtTime(1, now, ROOM_GLIDE);
+    rooms[this.room]!.level.gain.setTargetAtTime(0, now, ROOM_GLIDE);
+    graph.reverb.send.gain.setTargetAtTime(REVERBS[place].wet, now, ROOM_GLIDE);
+    this.room = next;
   }
 
   /** Plays a sound at a world position (sfx bus). False when it is too far or a duplicate. */

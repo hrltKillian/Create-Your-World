@@ -2,7 +2,8 @@ import { Ambience, type AmbiencePlace, ambienceKey } from '../audio/Ambience.ts'
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import { type BodyFrame, BodySounds } from '../audio/bodySounds.ts';
 import { Crackles } from '../audio/crackles.ts';
-import { AudioCues } from '../audio/cues.ts';
+import { AudioCues, type CuePlayer } from '../audio/cues.ts';
+import { doppler } from '../audio/reverb.ts';
 import { COLLISION_NONE, type Registry } from '../content/registry.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { TICK_SECONDS } from '../sim/clock.ts';
@@ -35,6 +36,9 @@ export interface WeatherSound {
  * footsteps, strokes and heartbeat, and the crackles of the nearest lit station; thunder comes
  * after a lightning strike's light, later the farther it is.
  */
+/** A sound this close to a creature (blocks) is its own: it moves with it. */
+const DOPPLER_REACH = 1.5;
+
 export class AudioBridge {
   private readonly audio: AudioEngine;
   private readonly view: SimView;
@@ -51,7 +55,10 @@ export class AudioBridge {
   private lastTick = -1;
   /** Where the ear was on the last frame. */
   private earX = 0;
+  private earY = 0;
   private earZ = 0;
+  /** A roof over the ear on the last frame (the rain is softer, the room an indoor one). */
+  private covered = false;
   /** Thunders on their way: seconds left before each is heard. */
   private readonly thunders: number[] = [];
   /** Reused every frame (no allocation). */
@@ -78,7 +85,13 @@ export class AudioBridge {
     const sounds = registry.pack.sounds;
     this.audio = audio;
     this.view = view;
-    this.cues = new AudioCues(audio, registry, view.playerId);
+    // Sounds from a moving creature shift a little in pitch (plan v4 « M44 »: Doppler).
+    const player: CuePlayer = {
+      play: (key, x, y, z, pitch = 1) => audio.play(key, x, y, z, pitch * this.dopplerAt(x, y, z)),
+      playLocal: (key, pitch) => audio.playLocal(key, pitch),
+      playUi: (key, pitch) => audio.playUi(key, pitch),
+    };
+    this.cues = new AudioCues(player, registry, view.playerId);
     this.ambience = new Ambience(audio);
     this.body = sounds
       ? new BodySounds(audio, sounds.player, registry.pack.balance.health.lowAt, PHYSICS.sprint * 2)
@@ -100,10 +113,11 @@ export class AudioBridge {
     const { world, registry } = this.view;
     const underwater = isLiquid(world, registry.tables, pose.x, pose.y, pose.z);
     this.earX = pose.x;
+    this.earY = pose.y;
     this.earZ = pose.z;
     this.audio.setUnderwater(underwater);
     this.hearPlace(dt, pose, underwater);
-    this.hearWeather(dt, pose, weather.rain);
+    this.hearWeather(dt, weather.rain);
     this.hearBody();
     this.scanWait -= dt;
     if (this.scanWait <= 0) {
@@ -128,6 +142,21 @@ export class AudioBridge {
     this.audio.setUnderwater(false);
   }
 
+  /** The Doppler factor of a sound at (x, y, z) from the creature making it, if one is there. */
+  private dopplerAt(x: number, y: number, z: number): number {
+    let best = DOPPLER_REACH * DOPPLER_REACH;
+    let factor = 1;
+    for (const entity of this.view.entities.values()) {
+      if (entity.kind !== 'creature') continue;
+      const b = entity.body;
+      const d2 = (b.x - x) ** 2 + (b.y + 0.5 - y) ** 2 + (b.z - z) ** 2;
+      if (d2 >= best) continue;
+      best = d2;
+      factor = doppler(b.vx, b.vy, b.vz, this.earX - x, this.earY - y, this.earZ - z);
+    }
+    return factor;
+  }
+
   private hearPlace(dt: number, pose: CameraPose, underwater: boolean): void {
     const bindings = this.view.registry.pack.sounds?.ambience;
     if (!bindings) return;
@@ -143,20 +172,29 @@ export class AudioBridge {
     place.cave = inCave(world, x, y, z, registry.pack.balance.climate.caveDepth);
     place.underwater = underwater;
     this.ambience.update(ambienceKey(bindings, place), dt);
+    // The room the effects ring in (plan v4 « M44 »).
+    this.covered = world.heightAt(x, z) > y + 1;
+    const acoustics = biome < 0 ? undefined : gen.biomeDefs[biome]?.acoustics;
+    const room = place.cave
+      ? 'cave'
+      : this.covered
+        ? 'indoor'
+        : acoustics === 'forest'
+          ? 'forest'
+          : 'open';
+    this.audio.setReverb(room);
   }
 
   /**
    * The rain loop over the place's (its gain the rain's, softer under a roof, none underwater or
    * in a cave), and the thunders whose time has come.
    */
-  private hearWeather(dt: number, pose: CameraPose, rain: number): void {
+  private hearWeather(dt: number, rain: number): void {
     const sounds = this.view.registry.pack.sounds;
     const loop = sounds?.ambience.rain;
     if (loop) {
       const place = this.place;
-      const top = this.view.world.heightAt(Math.floor(pose.x), Math.floor(pose.z));
-      const covered = top > Math.floor(pose.y) + 1;
-      const gain = place.underwater || place.cave ? 0 : rain * (covered ? RAIN_COVERED : 1);
+      const gain = place.underwater || place.cave ? 0 : rain * (this.covered ? RAIN_COVERED : 1);
       this.audio.setLoop(loop, gain);
     }
     const thunders = this.thunders;

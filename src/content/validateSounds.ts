@@ -1,4 +1,4 @@
-import type { ContentPack, SfxDef, SoundBindings } from './schema.ts';
+import type { ContentPack, SfxDef, SfxLayer, SoundBindings } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -62,6 +62,37 @@ export function validateSounds(pack: ContentPack, add: AddIssue): void {
     if (!biomes.has(biome)) add(`sounds.ambience.biomes.${biome}`, 'unknown biome');
 }
 
+/** What each source needs (plan v4 « M44 »): a tone its glide, modes and grains their fields. */
+function checkSource(layer: SfxLayer, lpath: string, add: AddIssue): void {
+  const source = layer.source;
+  if (source === 'noise') return;
+  if (source === 'modal') {
+    const modes = layer.modes ?? [];
+    if (modes.length === 0) add(`${lpath}.modes`, 'a modal layer needs modes');
+    modes.forEach(([freq, ring, gain], m) => {
+      if (!inRange(freq, 20, MAX_FREQ) || !inRange(ring, 0.001, 10) || !inRange(gain, 0, 1))
+        add(
+          `${lpath}.modes[${m}]`,
+          `frequency in 20–${MAX_FREQ} Hz, ring in (0, 10] s, gain in 0–1`,
+        );
+    });
+    return;
+  }
+  if (source === 'grains') {
+    const g = layer.grains;
+    const ok =
+      g &&
+      inRange(g.rate, 0.1, 2000) &&
+      inRange(g.seconds[0], 0.0005, 1) &&
+      inRange(g.seconds[1], g.seconds[0], 1) &&
+      (!g.tone || (inRange(g.tone[0], 20, MAX_FREQ) && inRange(g.tone[1], g.tone[0], MAX_FREQ)));
+    if (!ok) add(`${lpath}.grains`, 'a grain layer needs a rate, grain lengths and (tone) pitches');
+    return;
+  }
+  if (!layer.freq?.every((f) => inRange(f, 20, MAX_FREQ)))
+    add(`${lpath}.freq`, `a tone needs two frequencies in 20–${MAX_FREQ} Hz`);
+}
+
 /** Gains, envelope times, frequencies and the length of one recipe. */
 function validateLayers(def: SfxDef, path: string, add: AddIssue): void {
   const max = def.loop ? MAX_LOOP_SECONDS : MAX_SFX_SECONDS;
@@ -73,9 +104,7 @@ function validateLayers(def: SfxDef, path: string, add: AddIssue): void {
     if (!inRange(layer.decay, 0.001, max)) add(`${lpath}.decay`, 'must be > 0');
     if (!inRange(layer.delay ?? 0, 0, max)) add(`${lpath}.delay`, 'must be ≥ 0');
     if (!inRange(layer.hold ?? 0, 0, max)) add(`${lpath}.hold`, 'must be ≥ 0');
-    const tone = layer.source !== 'noise';
-    if (tone && !layer.freq?.every((f) => inRange(f, 20, MAX_FREQ)))
-      add(`${lpath}.freq`, `a tone needs two frequencies in 20–${MAX_FREQ} Hz`);
+    checkSource(layer, lpath, add);
     const filter = layer.filter;
     if (filter && !inRange(filter.freq, 20, MAX_FREQ))
       add(`${lpath}.filter.freq`, `must be in 20–${MAX_FREQ} Hz`);
