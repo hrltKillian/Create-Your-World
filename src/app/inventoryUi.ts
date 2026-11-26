@@ -25,6 +25,7 @@ import type { GameSession } from './GameSession.ts';
 import { MapModel } from './mapModel.ts';
 import type { PlayGate } from './playGate.ts';
 import { UiBridge } from './UiBridge.ts';
+import { playUiCue, playUiPanel } from './uiSounds.ts';
 
 const log = createLogger('ui');
 
@@ -106,12 +107,10 @@ export class InventoryUi {
         art.figure = createFigure(registry, layers, registry.pack.manifest.textureSize);
       })
       .catch((error: unknown) => log.error('item icons failed', error));
-    const click = registry.pack.sounds?.click;
     const actions: ScreenActions = {
       send: (command) => session.host.send(command),
-      click: () => {
-        if (click) audio.playUi(click);
-      },
+      sound: (cue) => playUiCue(registry, audio, cue),
+      panel: (panel, open) => playUiPanel(registry, audio, panel, open),
     };
     const tooltip = new Tooltip();
     tooltip.element.id = 'ui-tooltip';

@@ -20,7 +20,10 @@ const fake = (element: HTMLElement) => element as unknown as FakeElement;
 
 function setup() {
   const sent: Command[] = [];
-  const screen = new MapScreen({ send: (c) => sent.push(c), click: () => {} }, () => 'M');
+  const screen = new MapScreen(
+    { send: (c) => sent.push(c), sound: () => {}, panel: () => {} },
+    () => 'M',
+  );
   const view: MapView = {
     centreX: 10,
     centreZ: 20,

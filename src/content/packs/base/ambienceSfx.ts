@@ -1,156 +1,222 @@
-import { hashUnit } from '../../../core/hash.ts';
-import type { SfxDef, SfxLayer } from '../../schema.ts';
-import { type Filter, noise, tone } from './sfxParts.ts';
-import { LOOPS } from './sounds.ts';
+import type { SfxDef, SfxKey, SfxLayer } from '../../schema.ts';
+import { air, bubbles, burst, crackle, crunch, impact, voice } from './sfxParts.ts';
 
-/** Length of every ambience loop (s). */
-const LOOP = 6;
-/** Fade in and out of a bed at the rendering's ends (s), blended away by the loop's wrap. */
-const EDGE = 0.005;
+/*
+ * The ambiences (plan v5 « M54 », decision 32): long beds of the place's air, leaves, water or
+ * stone, and the sounds dropped into them at random around the ear: gusts, rustles, a twig
+ * snapping, a branch creaking, water lapping, mud bubbling, drips, a pebble falling. Only the
+ * world's own sounds: nothing that calls, sings or chirps, so that no ambience is ever taken for
+ * a creature.
+ */
 
-/** A steady layer of filtered noise across the whole loop. */
-const bed = (filter: Filter, gain: number): SfxLayer => ({
-  ...noise(filter, gain, EDGE),
-  attack: EDGE,
-  hold: LOOP - 2 * EDGE,
+/** Seconds of a bed: long enough that its loop is not heard under its events. */
+const BED = 20;
+
+/** A bed: its layers held BED seconds, faded in and out over half a second. */
+const bed = (key: SfxKey, layers: readonly SfxLayer[]): SfxDef => ({
+  key,
+  loop: true,
+  level: 'bed',
+  layers: layers.map((layer) => ({ ...layer, attack: 0.5, hold: BED, decay: 0.5, delay: 0 })),
 });
 
-/**
- * `count` moments spread over the loop, each jittered within its share (the same every time:
- * hashed from `seed`), leaving `tail` seconds before the loop's end so nothing rings past it.
- */
-function moments(count: number, seed: number, tail: number): number[] {
-  const share = (LOOP - tail) / count;
-  return Array.from({ length: count }, (_, i) => (i + 0.1 + 0.8 * hashUnit(seed, i)) * share);
-}
-
-/** A swell (bee, gust, hiss): `rise` s up then `fall` s down, starting at `delay`. */
-const swell = (layer: SfxLayer, rise: number, fall: number, delay: number): SfxLayer => ({
-  ...layer,
-  attack: rise,
-  decay: fall,
-  delay,
+const event = (key: SfxKey, layers: readonly SfxLayer[]): SfxDef => ({
+  key,
+  level: 'event',
+  layers,
 });
 
-/**
- * A stream of grains across the whole loop (plan v4 « M45 »): `rate` a second, of noise, or with
- * `tone` pitched clicks or drops.
- */
-const grainBed = (
-  rate: number,
-  gain: number,
-  filter?: Filter,
-  tone?: readonly [number, number],
-): SfxLayer => ({
-  source: 'grains',
-  grains: { rate, seconds: [0.003, 0.012], ...(tone ? { tone } : {}) },
-  ...(filter ? { filter } : {}),
-  gain,
-  attack: EDGE,
-  hold: LOOP - 2 * EDGE,
-  decay: EDGE,
-});
+const LEAVES = { type: 'highpass', freq: 2600, q: 0.7 } as const;
+const GRASS = { type: 'highpass', freq: 3800, q: 0.6 } as const;
+const SAND = { type: 'bandpass', freq: 3400, q: 0.5 } as const;
 
-/** A sung note of Veyra's fauna: a sine wavering slowly, swelling in and out. */
-const song = (hz: number, gain: number, delay: number): SfxLayer => ({
-  ...swell(tone('sine', hz, hz * 1.03, gain, 0), 0.6, 1.1, delay),
-  vibrato: { rate: 5.5, depth: 0.6 },
-});
+/** The keys of the beds and events, shared with the bindings (sounds.ts). */
+export const AMBIENCE = {
+  meadowDay: 'sfx:bed_meadow_day',
+  meadowNight: 'sfx:bed_meadow_night',
+  forestDay: 'sfx:bed_forest_day',
+  forestNight: 'sfx:bed_forest_night',
+  lake: 'sfx:bed_lake',
+  marsh: 'sfx:bed_marsh',
+  cold: 'sfx:bed_cold',
+  desertDay: 'sfx:bed_desert_day',
+  desertNight: 'sfx:bed_desert_night',
+  cave: 'sfx:bed_cave',
+  underwater: 'sfx:bed_underwater',
+  rainOpen: 'sfx:bed_rain_open',
+  rainWater: 'sfx:bed_rain_water',
+  rainLeaves: 'sfx:bed_rain_leaves',
+  rainRoof: 'sfx:bed_rain_roof',
+  grassGust: 'sfx:amb_grass_gust',
+  leafGust: 'sfx:amb_leaf_gust',
+  twig: 'sfx:amb_twig',
+  creak: 'sfx:amb_branch_creak',
+  lap: 'sfx:amb_water_lap',
+  mud: 'sfx:amb_mud',
+  snowGust: 'sfx:amb_snow_gust',
+  sandGust: 'sfx:amb_sand_gust',
+  drip: 'sfx:amb_drip',
+  pebbles: 'sfx:amb_pebbles',
+  rise: 'sfx:amb_bubbles_rise',
+  bigDrop: 'sfx:amb_rain_drop',
+  gutter: 'sfx:amb_gutter',
+} as const satisfies Record<string, SfxKey>;
 
-/** Day: a leafy hiss, bees passing, bird chirps and a few alien whistles. */
-const insectsDay: SfxLayer[] = [
-  bed({ type: 'highpass', freq: 3500 }, 0.02),
-  ...moments(2, 1, 1.8).map((t) =>
-    swell(
-      { ...tone('sawtooth', 190, 210, 0.03, 0), filter: { type: 'lowpass', freq: 900 } },
-      0.8,
-      0.9,
-      t,
-    ),
-  ),
-  ...moments(4, 2, 0.3).flatMap((t) => [
-    tone('sine', 2600, 3400, 0.05, 0.06, t),
-    tone('sine', 2800, 3600, 0.04, 0.05, t + 0.09),
-  ]),
-  grainBed(2.5, 0.05, { type: 'bandpass', freq: 2600, q: 2 }, [1800, 3200]),
-];
+const A = AMBIENCE;
 
-/**
- * Night: crickets, three pulses a chirp, over a low murmur; a chorus of Veyra's night fauna
- * clicking and, now and then, singing (plan v4 « M45 »).
- */
-const insectsNight: SfxLayer[] = [
-  bed({ type: 'lowpass', freq: 300 }, 0.02),
-  ...moments(10, 3, 0.2).flatMap((t) =>
-    [0, 0.05, 0.1].map((p) => ({ ...tone('sine', 4400, 4380, 0.04, 0.02, t + p), attack: 0.003 })),
-  ),
-  grainBed(14, 0.035, { type: 'bandpass', freq: 3000, q: 3 }, [2400, 3600]),
-  ...moments(2, 12, 1.8).map((t, i) => song(i ? 523 : 392, 0.025, t)),
-];
-
-/** The marsh: croaks and a whining buzz over still water. */
-const marsh: SfxLayer[] = [
-  bed({ type: 'lowpass', freq: 400 }, 0.03),
-  ...moments(5, 4, 0.4).flatMap((t) =>
-    [0, 0.14].map((p) => ({
-      ...tone('sawtooth', 130, 110, 0.12, 0.12, t + p),
-      filter: { type: 'lowpass' as const, freq: 600 },
-      attack: 0.01,
-    })),
-  ),
-  ...moments(2, 5, 2.2).map((t) => swell(tone('sine', 620, 640, 0.015, 0), 1, 1, t)),
-];
-
-/** Open heights: a wind bed and gusts. */
-const wind: SfxLayer[] = [
-  bed({ type: 'bandpass', freq: 500, q: 0.5 }, 0.1),
-  ...moments(3, 6, 2.3).map((t) =>
-    swell(noise({ type: 'bandpass', freq: 800, q: 0.8 }, 0.12, 0), 1, 1.2, t),
-  ),
-];
-
-/** The desert by day: a dry wind and hissing sand. */
-const sand: SfxLayer[] = [
-  bed({ type: 'bandpass', freq: 450, q: 0.5 }, 0.07),
-  ...moments(3, 7, 1.9).map((t) =>
-    swell(noise({ type: 'highpass', freq: 5000 }, 0.05, 0), 0.8, 1, t),
-  ),
-];
-
-/** Caves: a deep rumble and drips (the cave's room adds their echo). */
-const cave: SfxLayer[] = [
-  bed({ type: 'lowpass', freq: 120 }, 0.06),
-  ...moments(6, 8, 0.3).map((t) => tone('sine', 1200, 2100, 0.15, 0.05, t)),
-  grainBed(1.5, 0.08, undefined, [900, 2200]),
-];
-
-/** Under water: a muffled wash and bubbles rising. */
-const bubbles: SfxLayer[] = [
-  bed({ type: 'lowpass', freq: 400 }, 0.12),
-  ...moments(12, 9, 0.1).map((t) => tone('sine', 300, 1100, 0.08, 0.03, t)),
-];
+/** A branch creaking in the wind: wood straining, a slow stick-slip. */
+const CREAK = {
+  tract: 1.6,
+  formants: [
+    [300, 120, 1],
+    [820, 160, 0.5],
+    [1900, 240, 0.2],
+  ],
+  breath: 0.1,
+  jitter: 0.35,
+  shimmer: 0.5,
+  rough: 0.4,
+} as const;
 
 /**
- * Rain (plan v3 « M34 », v4 « M45 »): a steady wash, a dense patter of drops on leaves and ground,
- * and a few heavier drops.
+ * A drop falling into water: its plip, the one bubble it traps ringing at its Minnaert pitch and
+ * rising as it closes, over the tap of the impact.
  */
-const rain: SfxLayer[] = [
-  bed({ type: 'bandpass', freq: 2200, q: 0.4 }, 0.07),
-  bed({ type: 'lowpass', freq: 500 }, 0.05),
-  grainBed(260, 0.06, { type: 'bandpass', freq: 3800, q: 0.9 }),
-  ...moments(24, 10, 0.05).map((t) =>
-    noise({ type: 'bandpass', freq: 3200 + 1600 * hashUnit(11, t), q: 3 }, 0.05, 0.03, t),
-  ),
-];
+const drop = (radius: number, gain: number): SfxLayer[] => {
+  const pitch = 3260 / radius;
+  return [
+    { source: 'sine', freq: [pitch, pitch * 1.5], gain, attack: 0.001, decay: 0.05 },
+    impact([[pitch * 0.7, 0.01, 0.3]], 0.0008, gain * 0.3),
+  ];
+};
 
-/** The ambience loops (docs « Audio »: insects, wind, sand, bubbles, cave drips, rain; no music). */
 export const ambienceSfx: readonly SfxDef[] = [
-  { key: LOOPS.insectsDay, loop: true, layers: insectsDay },
-  { key: LOOPS.insectsNight, loop: true, layers: insectsNight },
-  { key: LOOPS.marsh, loop: true, layers: marsh },
-  { key: LOOPS.wind, loop: true, layers: wind },
-  { key: LOOPS.sand, loop: true, layers: sand },
-  { key: LOOPS.cave, loop: true, layers: cave },
-  { key: LOOPS.bubbles, loop: true, layers: bubbles },
-  { key: LOOPS.rain, loop: true, layers: rain },
+  // Grass under a light breeze; by night the air drops.
+  bed(A.meadowDay, [air(0.12, 0.55, [250, 1400], 0.8, BED), crunch(GRASS, 30, 0.15, BED)]),
+  bed(A.meadowNight, [air(0.08, 0.35, [140, 650], 0.8, BED)]),
+  // Leaves stirring overhead, the trunks' low air.
+  bed(A.forestDay, [
+    air(0.18, 0.6, [900, 3600], 0.7, BED),
+    air(0.1, 0.4, [120, 500], 0.5, BED),
+    crunch(LEAVES, 60, 0.15, BED),
+  ]),
+  bed(A.forestNight, [
+    air(0.12, 0.45, [700, 2600], 0.6, BED),
+    air(0.07, 0.3, [100, 400], 0.5, BED),
+  ]),
+  // Open water lapping at the bank under the wind.
+  bed(A.lake, [
+    air(0.1, 0.4, [200, 1100], 0.6, BED),
+    bubbles(3, [6, 14], 0.5, BED),
+    burst('brown', { type: 'lowpass', freq: 380 }, 0.4, 1),
+  ]),
+  // The Sporefen: still, damp air, mud breathing out thick bubbles.
+  bed(A.marsh, [
+    air(0.05, 0.3, [120, 500], 0.6, BED),
+    bubbles(1.5, [12, 20], 0.6, BED, {}, { type: 'lowpass', freq: 500 }),
+  ]),
+  // Cold heights: a hard wind with gusts whistling, snow hissing.
+  bed(A.cold, [
+    air(0.25, 0.8, [320, 2600], 0.9, BED),
+    burst('pink', { type: 'highpass', freq: 5000 }, 0.15, 1),
+  ]),
+  // The desert: dry wind, sand hissing along the ground; by night the wind falls.
+  bed(A.desertDay, [air(0.15, 0.55, [220, 1300], 0.8, BED), crunch(SAND, 160, 0.2, BED)]),
+  bed(A.desertNight, [air(0.08, 0.35, [150, 700], 0.7, BED)]),
+  // A cave: the stone's deep hush.
+  bed(A.cave, [
+    burst('brown', { type: 'lowpass', freq: 140 }, 0.7, 1),
+    air(0.04, 0.3, [80, 260], 0.4, BED),
+  ]),
+  // Under water: pressure in the ears, bubbles rising.
+  bed(A.underwater, [
+    burst('brown', { type: 'lowpass', freq: 280 }, 0.8, 1),
+    bubbles(5, [1, 4], 0.4, BED, {}, { type: 'lowpass', freq: 1800 }),
+  ]),
+  // Rain: on open ground and grass, drumming on leaves, tapping on a roof.
+  bed(A.rainOpen, [
+    burst('pink', { type: 'highpass', freq: 1600 }, 0.6, 1),
+    crunch({ type: 'bandpass', freq: 3200, q: 0.6 }, 350, 0.5, BED),
+  ]),
+  // Rain on open water: every drop a tiny bubble plinking, the surface hissing.
+  bed(A.rainWater, [
+    bubbles(500, [0.7, 2.2], 0.6, BED),
+    burst('pink', { type: 'highpass', freq: 3000 }, 0.4, 1),
+  ]),
+  bed(A.rainLeaves, [
+    crunch({ type: 'highpass', freq: 2200, q: 0.6 }, 700, 0.7, BED),
+    burst('pink', { type: 'highpass', freq: 2500 }, 0.4, 1),
+  ]),
+  bed(A.rainRoof, [
+    crackle(260, [700, 2600], 0.7, BED, {}, { type: 'lowpass', freq: 3000 }),
+    burst('pink', { type: 'lowpass', freq: 900 }, 0.3, 1),
+  ]),
+  // Events.
+  event(A.grassGust, [
+    air(0.6, 0.7, [400, 2400], 0.8, 2.5, { attack: 0.8 }),
+    crunch(GRASS, 120, 0.3, 2, { attack: 0.6 }),
+  ]),
+  event(A.leafGust, [
+    air(0.6, 0.8, [1200, 4200], 0.8, 2.5, { attack: 0.7 }),
+    crunch(LEAVES, 400, 0.4, 2, { attack: 0.6 }),
+  ]),
+  event(A.twig, [
+    impact(
+      [
+        [2300, 0.01, 0.5],
+        [3700, 0.008, 0.3],
+      ],
+      0.0005,
+      0.7,
+    ),
+    crunch(LEAVES, 200, 0.3, 0.05),
+  ]),
+  event(A.creak, [
+    voice(CREAK, [45, 60], 0.7, 0.3, { attack: 0.2, hold: 0.6 }, { type: 'lowpass', freq: 1800 }),
+  ]),
+  event(A.lap, [
+    burst('pink', { type: 'lowpass', freq: 700 }, 0.6, 0.35, { attack: 0.12 }),
+    bubbles(25, [4, 10], 0.5, 0.3, { delay: 0.05 }),
+  ]),
+  event(A.mud, [bubbles(4, [13, 19], 0.8, 0.5, {}, { type: 'lowpass', freq: 400 })]),
+  event(A.snowGust, [
+    air(0.8, 0.8, [500, 3200], 0.9, 2.5, { attack: 0.6 }),
+    burst('pink', { type: 'highpass', freq: 4500 }, 0.4, 1.5, { attack: 0.5 }),
+  ]),
+  event(A.sandGust, [
+    air(0.7, 0.7, [300, 1800], 0.8, 2.5, { attack: 0.6 }),
+    crunch(SAND, 500, 0.5, 2, { attack: 0.5 }),
+  ]),
+  event(A.drip, drop(2.5, 0.8)),
+  event(A.pebbles, [
+    impact(
+      [
+        [1100, 0.02, 0.5],
+        [2600, 0.015, 0.3],
+      ],
+      0.0007,
+      0.6,
+    ),
+    impact(
+      [
+        [1300, 0.02, 0.5],
+        [3000, 0.015, 0.3],
+      ],
+      0.0007,
+      0.4,
+      { delay: 0.14 },
+    ),
+    impact(
+      [
+        [1500, 0.02, 0.5],
+        [3300, 0.015, 0.3],
+      ],
+      0.0007,
+      0.25,
+      { delay: 0.25 },
+    ),
+  ]),
+  event(A.rise, [bubbles(30, [2, 6], 0.7, 0.5, { attack: 0.05 }, { type: 'lowpass', freq: 2200 })]),
+  event(A.bigDrop, drop(4, 0.7)),
+  event(A.gutter, [...drop(3, 0.6), ...drop(3.5, 0.5).map((layer) => ({ ...layer, delay: 0.3 }))]),
 ];

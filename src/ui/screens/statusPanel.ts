@@ -40,7 +40,7 @@ export class StatusPanel {
         attrs: { type: 'button', 'data-action': 'skill-spend', 'data-skill': row.skill },
         on: {
           click: () => {
-            this.actions.click();
+            this.actions.sound('button');
             this.actions.send({ type: 'skill.spend', skill: row.skill });
           },
         },

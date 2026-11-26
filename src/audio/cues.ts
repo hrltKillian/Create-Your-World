@@ -34,8 +34,8 @@ export function consumeSound(registry: Registry, item: string): 'eat' | 'drink' 
  * doors into `sound` events at world positions, played as they are, with the rising pitch of a
  * series of pickups. The other events take their sounds from the pack's bindings: chests opening
  * and closing at their cell (any player's), the local player's jumps, landings (with the hurt sound
- * past the balance's safe fall), meals, drinks and death at the ear, a craft on the interface bus,
- * and the stingers of dusk and dawn.
+ * past the balance's safe fall), meals, drinks, swings and death at the ear, a craft on the
+ * interface bus, and the bell of dusk and dawn.
  */
 export class AudioCues {
   private readonly player: CuePlayer;
@@ -83,7 +83,7 @@ export class AudioCues {
         return;
       case 'workbenchCrafted':
         // The bench's own chime, heard around it.
-        this.player.play(s.craft, event.x + 0.5, event.y + 0.5, event.z + 0.5);
+        this.player.play(s.ui.craft, event.x + 0.5, event.y + 0.5, event.z + 0.5);
         return;
     }
     if (!('playerId' in event) || event.playerId !== this.playerId) return;
@@ -99,7 +99,10 @@ export class AudioCues {
         this.player.playLocal(s.player[consumeSound(this.registry, event.item)]);
         return;
       case 'crafted':
-        this.player.playUi(s.craft);
+        this.player.playUi(s.ui.craft);
+        return;
+      case 'playerSwung':
+        this.player.playLocal(s.player.swing);
         return;
       case 'died':
         this.player.playLocal(s.player.death);

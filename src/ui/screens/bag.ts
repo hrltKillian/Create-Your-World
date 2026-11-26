@@ -160,7 +160,7 @@ export class BagScreen {
   }
 
   private send(command: Command): void {
-    this.actions.click();
+    this.actions.sound('button');
     this.actions.send(command);
   }
 
@@ -179,7 +179,7 @@ export class BagScreen {
           click: () => {
             if (page === this.page) return;
             this.show(page);
-            this.actions.click();
+            this.actions.sound('tab');
           },
         },
       },

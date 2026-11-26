@@ -25,6 +25,7 @@ import { Menus } from './Menus.ts';
 import { OpenWorld } from './OpenWorld.ts';
 import type { FrameStats } from './perf.ts';
 import { runTitleSky } from './titleSky.ts';
+import { playUiCue, playUiPanel } from './uiSounds.ts';
 import {
   createWorld,
   loadWorld,
@@ -102,16 +103,14 @@ export class Game {
     this.loading.hidden = true;
     host.root.append(this.loading);
     if (backend.unavailable) host.root.append(savingBanner());
-    const click = host.registry.pack.sounds?.click;
     this.menus = new Menus({
       storage: backend.storage,
       touchOnly: host.touchOnly,
       seed: host.params.seed ?? '',
       settings: () => this.settings,
       keyLabel: (code) => host.input.labels.label(code),
-      click: () => {
-        if (click) host.audio.playUi(click);
-      },
+      sound: (cue) => playUiCue(host.registry, host.audio, cue),
+      panel: (panel, open) => playUiPanel(host.registry, host.audio, panel, open),
       play: (id) => void this.openWorld(id),
       create: (form) => void this.createWorld(form),
       resume: () => this.resume(),

@@ -42,7 +42,7 @@ export class QuestsPanel {
   /** A task's card: its progress and XP, « Claim » once done, else « New task » once a day. */
   private task(row: TaskRow): HTMLElement {
     const send = (type: 'task.claim' | 'task.reroll') => () => {
-      this.actions.click();
+      this.actions.sound('button');
       this.actions.send({ type, index: row.index });
     };
     const button = h(
@@ -89,7 +89,7 @@ export class QuestsPanel {
     if (row.status === 'claimed') return h('p', { class: 'quest-claimed' }, t('quests.claimed'));
     const claim = row.status === 'claim';
     const send = () => {
-      this.actions.click();
+      this.actions.sound('button');
       this.actions.send(
         claim
           ? { type: 'quest.claim', quest: row.quest }

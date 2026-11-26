@@ -138,6 +138,21 @@ of them:
 
 ## Try this milestone
 
+**M54 — Every sound remade** (plan v5, `docs/conception.md` « M54 »). `npm run dev`, then open
+`http://localhost:5173/?soundboard=1` to hear them all, or play.
+
+- **No old sound kept**: every block, the player, doors, chests, fires, lava, the bell at dusk
+  and dawn, all modelled on their sources.
+- **The interface**: buttons, tabs, a stack taken, put down or thrown, a craft done, and the Bag,
+  the map, a journal and the menus each sounding as they open and close.
+- **Creatures** speak from their bodies (a deep chest, a shell, chitin and wings, a bill) and are
+  heard stepping as they walk.
+- **Thunder** cracks close by and rumbles far off; **rain** sounds on the ground, on water, on
+  leaves and on a roof; **ambiences** are the world's own sounds, nothing that calls or sings.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m54`.
+
+### Earlier milestones
+
 **M53 — The realistic sound engine** (plan v5, `docs/conception.md` « M53 »). `npm run dev`, then
 open `http://localhost:5173/?soundboard=1` to hear every sound and its takes, or play.
 
@@ -149,8 +164,6 @@ open `http://localhost:5173/?soundboard=1` to hear every sound and its takes, or
 - **Reverb only in a real room**: a cave or a closed interior; outdoors, forests included, dry.
 - **Ambiences** as a long bed with sounds dropped in around you (the sounds themselves: M54).
 - **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m53` and `?worldType=flat&fixedStep=1&selftest=m0,m53`.
-
-### Earlier milestones
 
 **M52 — The creatures redrawn** (plan v5, `docs/conception.md` « M52 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1&spawns=1`.

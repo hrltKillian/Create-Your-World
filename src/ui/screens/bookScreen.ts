@@ -48,7 +48,7 @@ export class BookScreen {
     this.text.scrollTop = 0;
     this.closeHint.textContent = t('bag.close', { key: this.closeKey() });
     this.element.hidden = false;
-    this.actions.click();
+    this.actions.panel('book', true);
   }
 
   close(): void {
@@ -56,7 +56,7 @@ export class BookScreen {
     const active = document.activeElement as HTMLElement | null | undefined;
     if (active && this.element.contains(active)) active.blur();
     this.element.hidden = true;
-    this.actions.click();
+    this.actions.panel('book', false);
   }
 
   /** No slots in a book. */

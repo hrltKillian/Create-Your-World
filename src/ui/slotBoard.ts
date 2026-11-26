@@ -12,11 +12,18 @@ export const BAG_COLUMNS = 6;
 const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
 
+/** The interface's sounds a screen plays (plan v5 « M54 »: the pack's `sounds.ui`). */
+export type UiCue = 'button' | 'tab' | 'take' | 'put' | 'throw';
+/** The screens that sound as they open and close. */
+export type UiPanel = 'bag' | 'map' | 'book' | 'menu';
+
 export interface ScreenActions {
   /** Sends a command to the simulation (the only way a screen changes anything). */
   send(command: Command): void;
-  /** Interface click sound. */
-  click(): void;
+  /** Plays an interface sound. */
+  sound(cue: UiCue): void;
+  /** Plays a screen's opening (true) or closing sound. */
+  panel(panel: UiPanel, open: boolean): void;
 }
 
 /** What every slot screen needs. */
@@ -61,6 +68,8 @@ export class SlotBoard {
   /** The cursor stack's view, under the mouse (it ignores the pointer); hidden while it is empty. */
   private readonly cursor: SlotView;
   private slots: Slots = [];
+  /** The cursor holds a stack (a click puts it down). */
+  private holding = false;
   private hovered = -1;
   /** The pointer's last place in the viewport, where the cursor stack shows. */
   private pointerX = 0;
@@ -137,7 +146,7 @@ export class SlotBoard {
     if (this.isOpen()) return;
     this.closeHint.textContent = t('bag.close', { key: this.closeKey() });
     this.element.hidden = false;
-    this.actions.click();
+    this.actions.panel('bag', true);
   }
 
   close(): void {
@@ -147,7 +156,7 @@ export class SlotBoard {
     if (active && this.element.contains(active)) active.blur();
     this.element.hidden = true;
     this.hover(-1);
-    this.actions.click();
+    this.actions.panel('bag', false);
   }
 
   /**
@@ -159,6 +168,7 @@ export class SlotBoard {
     for (let i = 0; i < this.views.length; i++) this.views[i]?.set(slots[i] ?? null);
     if (this.hovered >= 0) this.hover(this.hovered);
     this.cursor.set(cursor);
+    this.holding = cursor !== null;
     const view = this.cursor.element;
     if (view.hidden === (cursor !== null)) {
       view.hidden = cursor === null;
@@ -172,10 +182,21 @@ export class SlotBoard {
       this.send({ type: 'slot.hotkey', slot: this.hovered, hotbar: hotbarSlot });
   }
 
-  /** Sends a command with the click sound. */
+  /**
+   * Sends a command with its sound (plan v5 « M54 »): a stack taken onto the empty cursor, the
+   * cursor's put down, one thrown beside the panel, a hotkey's move; a tick on an empty slot.
+   */
   send(command: Command): void {
     this.actions.send(command);
-    this.actions.click();
+    this.actions.sound(this.cueOf(command));
+  }
+
+  private cueOf(command: Command): UiCue {
+    if (command.type === 'slot.hotkey') return 'put';
+    if (command.type !== 'slot.click') return 'button';
+    if (command.slot < 0) return 'throw';
+    if (this.holding) return 'put';
+    return this.slots[command.slot] ? 'take' : 'tab';
   }
 
   /** The hovered slot's item: its name, then its description (ui/itemInfo.ts), in the bubble. */

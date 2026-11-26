@@ -34,20 +34,34 @@ describe('sound recipes', () => {
     expect(new Set(bound)).toEqual(new Set(recipes.keys()));
   });
 
-  it('binds about 45 sounds (docs « Audio »): every material, player, place and stinger', () => {
+  it('binds every sound (plan v5 « M54 »): materials, player, places, bell, the interface’s', () => {
     const paths = boundSounds(sounds).map(([path]) => path);
     for (const material of Object.keys(sounds.blocks))
       for (const action of ['break', 'hit', 'place', 'step'])
         expect(paths).toContain(`sounds.blocks.${material}.${action}`);
-    for (const path of ['player.jump', 'player.heartbeat', 'door.open', 'chest.close', 'craft'])
+    for (const path of [
+      'player.jump',
+      'player.heartbeat',
+      'player.swing',
+      'door.open',
+      'chest.close',
+    ])
       expect(paths).toContain(`sounds.${path}`);
-    expect(new Set(boundSounds(sounds).map(([, key]) => key)).size).toBeGreaterThanOrEqual(45);
+    // The interface (plan v5 « M54 »): buttons, tabs, stacks taken, put and thrown, every screen.
+    for (const path of ['button', 'tab', 'take', 'put', 'throw', 'craft'])
+      expect(paths).toContain(`sounds.ui.${path}`);
+    for (const panel of ['bag', 'map', 'book', 'menu'])
+      for (const end of ['open', 'close']) expect(paths).toContain(`sounds.ui.${panel}.${end}`);
+    // Each a sound of its own: no two bindings of the interface share one.
+    const ui = boundSounds(sounds).filter(([path]) => path.startsWith('sounds.ui.'));
+    expect(new Set(ui.map(([, key]) => key)).size).toBe(ui.length);
+    expect(new Set(boundSounds(sounds).map(([, key]) => key)).size).toBeGreaterThanOrEqual(90);
   });
 
-  it('keeps one-shots short and ambience loops looped and within their own limit', () => {
+  it('keeps one-shots short and the ambiences’ beds looped and within their own limit', () => {
     const loops = new Set(
       boundSounds(sounds)
-        .filter(([path]) => path.startsWith('sounds.ambience.'))
+        .filter(([path]) => path.endsWith('.bed'))
         .map(([, key]) => key),
     );
     expect(loops.size).toBeGreaterThanOrEqual(5);
@@ -76,7 +90,7 @@ describe('sound recipes', () => {
     const layers = pack.sfx[0]!.layers;
     layers[0]!.gain = 0;
     layers.push({ source: 'sine', gain: 0.5, attack: 0.01, decay: 0.1 });
-    layers.push({ source: 'noise', gain: 0.5, attack: 0.01, decay: 5 });
+    layers.push({ source: 'noise', gain: 0.5, attack: 0.01, decay: 7 });
     const paths = issuePaths(pack);
     const n = layers.length;
     expect(paths).toContain('sounds.pickup');

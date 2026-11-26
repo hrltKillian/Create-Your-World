@@ -11,6 +11,7 @@ import { type NewWorldForm, NewWorldScreen } from '../ui/screens/newWorld.ts';
 import { PauseScreen } from '../ui/screens/pause.ts';
 import { SettingsScreen } from '../ui/screens/settings.ts';
 import { WorldsScreen } from '../ui/screens/worlds.ts';
+import type { UiCue, UiPanel } from '../ui/slotBoard.ts';
 import { MenuNav, type MenuScreen } from './appState.ts';
 import {
   byLastPlayed,
@@ -29,8 +30,9 @@ export interface MenuHost {
   settings(): Settings;
   /** A key's or mouse button's label on the player's keyboard layout. */
   keyLabel(code: string): string;
-  /** Interface click sound. */
-  click(): void;
+  /** Interface sounds (plan v5 « M54 »): a button pressed, a menu panel opening or closing. */
+  sound(cue: UiCue): void;
+  panel(panel: UiPanel, open: boolean): void;
   play(id: string): void;
   create(form: NewWorldForm): void;
   resume(): void;
@@ -61,6 +63,8 @@ export class Menus {
   private readonly notice: HTMLElement;
   /** Stored worlds, most recently played first. */
   private list: WorldRecord[] = [];
+  /** The screen rendered last (its panel's sound plays on a change). */
+  private shown: MenuScreen | null = null;
 
   constructor(host: MenuHost) {
     this.host = host;
@@ -120,10 +124,11 @@ export class Menus {
       this.notice,
       ...Object.values(this.screens),
     );
-    // Every menu button clicks (the sound plays once the audio context exists).
+    // Every menu button sounds (once the audio context exists); a slider or a box, a tab's tick.
     this.element.addEventListener('click', (event) => {
-      if (event.target instanceof Element && event.target.closest('button')) host.click();
+      if (event.target instanceof Element && event.target.closest('button')) host.sound('button');
     });
+    this.element.addEventListener('change', () => host.sound('tab'));
     this.render();
   }
 
@@ -206,6 +211,9 @@ export class Menus {
   /** Shows the current screen (and the notice: an i18n key, cleared by default), focused. */
   private render(notice: string | null = null): void {
     const current = this.nav.current;
+    // A panel slides in for each screen shown, out when the menus close.
+    if (current !== this.shown) this.host.panel('menu', current !== null);
+    this.shown = current;
     // A key the Key bindings screen waited for is not awaited once it is gone.
     if (current !== 'controls') this.controls.stop();
     this.element.hidden = current === null;

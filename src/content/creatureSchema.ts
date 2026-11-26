@@ -98,7 +98,7 @@ export interface CreatureSpawn {
   readonly weight: number;
 }
 
-export const CREATURE_SOUNDS = ['idle', 'alert', 'hurt', 'attack', 'death'] as const;
+export const CREATURE_SOUNDS = ['idle', 'alert', 'hurt', 'attack', 'death', 'step'] as const;
 export type CreatureSound = (typeof CREATURE_SOUNDS)[number];
 
 export interface CreatureDef {

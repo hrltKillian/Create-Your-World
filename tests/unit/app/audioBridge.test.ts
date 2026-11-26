@@ -91,23 +91,54 @@ describe('AudioBridge', () => {
 
   it('plays the rain over the place, softer under a roof; thunder after the light', () => {
     const { s, audio, bridge, frames, weather, heard } = setup();
-    const rain = sounds.ambience.rain!.bed;
-    const gain = () => audio.ambience().find((l) => l.key === rain)?.gain ?? 0;
+    const rain = sounds.ambience.rain!;
+    const gain = (bed: string) => audio.ambience().find((l) => l.key === bed)?.gain ?? 0;
     frames(10);
-    expect(gain()).toBe(0);
+    expect(gain(rain.open.bed)).toBe(0);
     weather.rain = 1;
     frames(200);
-    expect(gain()).toBe(1);
+    expect(gain(rain.open.bed)).toBe(1);
+    // Under a roof (plan v5 « M54 »): its own tapping, softer, the open ground's gone.
     s.put(0, 70, 0, 'block:stone');
-    frames(200);
-    expect(gain()).toBeLessThan(0.5);
-    expect(gain()).toBeGreaterThan(0);
-    // A strike 170 blocks off: its thunder half a second after the light.
+    frames(220);
+    expect(gain(rain.open.bed)).toBe(0);
+    expect(gain(rain.roof.bed)).toBeGreaterThan(0.4);
+    expect(gain(rain.roof.bed)).toBeLessThan(1);
+    // Over water, in the open: drops plinking into it.
+    s.put(0, 70, 0, 'block:air');
+    s.fill(-1, 64, -1, 1, 64, 1, 'block:fresh_water');
+    frames(220);
+    expect(gain(rain.water.bed)).toBe(1);
+    // Under leaves: their drumming.
+    s.put(0, 70, 0, 'block:foliage');
+    frames(220);
+    expect(gain(rain.leaves.bed)).toBe(1);
+    // A strike 170 blocks off: its rumble half a second after the light; one close by cracks.
     bridge.onEvent({ type: 'lightning', x: 170, y: 70, z: 0 });
     frames(20);
-    expect(heard(sounds.thunder!)).toBe(false);
+    expect(heard(sounds.thunder!.far)).toBe(false);
     frames(20);
-    expect(heard(sounds.thunder!)).toBe(true);
+    expect(heard(sounds.thunder!.far)).toBe(true);
+    bridge.onEvent({ type: 'lightning', x: 20, y: 70, z: 0 });
+    frames(10);
+    expect(heard(sounds.thunder!.near)).toBe(true);
+  });
+});
+
+describe('creature steps (plan v5 « M54 »)', () => {
+  it('steps a creature walking on the ground near the ear, with its own step sound', () => {
+    const { s, frames, heard } = setup();
+    s.send({ type: 'debug.spawn', creature: 'creature:trotter', x: 4.5, y: 'surface', z: 0.5 });
+    const step = registry.creature('creature:trotter')!.sounds.step!;
+    const trotter = [...s.sim.entities.values()].find((e) => e.kind === 'creature')!;
+    frames(5);
+    expect(heard(step)).toBe(false);
+    for (let i = 0; i < 40; i++) {
+      trotter.body.x += 0.05;
+      trotter.body.onGround = true;
+      frames(1);
+    }
+    expect(heard(step)).toBe(true);
   });
 });
 
@@ -135,7 +166,7 @@ describe('rooms (plan v5 « M53 »)', () => {
 });
 
 describe('litSounds', () => {
-  it('gives the lit states of the bound stations their sound, every other state none', () => {
+  it('gives lit stations, the fire block and lava their sound, every other state none', () => {
     const keys: string[] = [];
     const table = litSounds(registry, keys);
     const lit = registry.stateId('block:campfire[lit=1]');
@@ -143,6 +174,11 @@ describe('litSounds', () => {
     expect(keys[table[lit]!]).toBe(sounds.lit['station:campfire']);
     expect(table[unlit]).toBe(-1);
     expect(table[registry.air]).toBe(-1);
-    expect(new Set(keys)).toEqual(new Set(Object.values(sounds.lit)));
+    expect(new Set(keys)).toEqual(
+      new Set([...Object.values(sounds.lit), sounds.burning, sounds.lava]),
+    );
+    const fire = registry.pack.manifest.bindings.fire!;
+    expect(keys[table[registry.defaultState(fire)]!]).toBe(sounds.burning);
+    expect(keys[table[registry.defaultState(registry.pack.worldgen!.magma)]!]).toBe(sounds.lava);
   });
 });

@@ -1,183 +1,223 @@
 import type { SfxDef, SfxLayer } from '../../schema.ts';
-import { crunch, type Filter, noise, tone } from './sfxParts.ts';
+import {
+  air,
+  bubbles,
+  burst,
+  crackle,
+  crunch,
+  impact,
+  type Modes,
+  type Throat,
+  VOWELS,
+  voice,
+} from './sfxParts.ts';
 import { sounds } from './sounds.ts';
 
-const LOW: Filter = { type: 'lowpass', freq: 500 };
-const WOOD: Filter = { type: 'bandpass', freq: 900, q: 1.4 };
-const WATER: Filter = { type: 'lowpass', freq: 1800, q: 0.8 };
+/*
+ * The player's own sounds, fires, lava, thunder and the colony's bell (plan v5 « M54 »), each
+ * modelled on its source: a body's push and landing, water swallowing it, bites and gulps, a heart,
+ * a last breath, a swing through the air; a fire's pops over its roar, lava's thick bubbles; the
+ * thunder's crack and its rumble rolling down the bolt; a bell rung far off at dusk and dawn.
+ */
 
-/** A soft note with a slow fade (stingers, chimes): `attack` s in, `decay` s out. */
-const note = (freq: number, gain: number, delay: number, decay: number): SfxLayer => ({
-  source: 'sine',
-  freq: [freq, freq * 0.995],
-  gain,
-  attack: 0.04,
-  decay,
-  delay,
-});
+const { player, clock } = sounds;
 
-/** Short pops of noise at the given delays (crackles, crunches). */
-const pops = (filter: Filter, gain: number, delays: readonly number[]): SfxLayer[] =>
-  delays.map((delay, i) => noise(filter, gain * (1 - i * 0.08), 0.02, delay, 1 + (i % 3) * 0.15));
+/** The survivor's breath and voice: an adult's tract, breathy. */
+const BREATH: Throat = { tract: 1, formants: VOWELS.a, breath: 0.7, jitter: 0.03, shimmer: 0.15 };
+const GROAN: Throat = {
+  tract: 1,
+  formants: VOWELS.o,
+  breath: 0.45,
+  jitter: 0.05,
+  shimmer: 0.25,
+  rough: 0.3,
+};
 
-/** A creaking hinge: a slow sawtooth glide through a lowpass. */
-const creak = (from: number, to: number, gain: number, decay: number): SfxLayer => ({
-  source: 'sawtooth',
-  freq: [from, to],
-  filter: { type: 'lowpass', freq: 900, q: 2 },
-  gain,
-  attack: 0.04,
-  decay,
-});
+/** The body landing on the ground: the heels, the knees taking it. */
+const BODY: Modes = [
+  [85, 0.07, 0.6],
+  [190, 0.05, 0.35],
+  [420, 0.03, 0.15],
+];
 
-const { player, door, chest, clock } = sounds;
+/** A bronze bell of the colony: its partials (hum, prime, tierce, quint, nominal…) to its pitch. */
+const BELL = [0.5, 1, 1.183, 1.506, 2, 2.514, 3.011] as const;
+const bell = (pitch: number, gain: number, delay: number): SfxLayer =>
+  impact(
+    BELL.map(
+      (ratio, i) =>
+        [pitch * ratio, 3.2 / (1 + i * 0.35), [0.5, 1, 0.6, 0.35, 0.45, 0.2, 0.15][i]!] as const,
+    ),
+    0.0015,
+    gain,
+    { delay },
+  );
 
-/** The local player's own sounds, the craft chime, doors, chests, lit stations and the stingers. */
+/** A bite: the teeth crunching through, then the chew's dull knock. */
+const bite = (delay: number): SfxLayer[] => [
+  crunch({ type: 'bandpass', freq: 2400, q: 0.8 }, 420, 0.8, 0.06, { delay }),
+  impact([[160, 0.03, 0.5]], 0.008, 0.4, { delay: delay + 0.05 }),
+];
+
+/** A gulp: the throat's thump and the bubble of air going down. */
+const gulp = (delay: number): SfxLayer[] => [
+  impact([[130, 0.04, 0.6]], 0.01, 0.6, { delay }),
+  bubbles(40, [7, 11], 0.7, 0.05, { delay: delay + 0.02 }),
+];
+
+/** A heartbeat's « lub », then its quieter « dub ». */
+const beat = (delay: number, gain: number): SfxLayer =>
+  impact(
+    [
+      [48, 0.09, 0.7],
+      [78, 0.06, 0.4],
+    ],
+    0.02,
+    gain,
+    { delay },
+  );
+
+/** A fire's sound: its pops over the roar of its flames. */
+const fire = (pops: number, roar: number, seconds: number): SfxLayer[] => [
+  crackle(pops, [1200, 7000], 0.7, seconds),
+  air(1.5, 0.4, [120, 420], roar, seconds, { attack: 0.15 }),
+];
+
+/**
+ * The thunder (plan v5 « M54 »): close by, the crack of the shock wave and the rumble of the
+ * channel's every turn arriving later and lower; far off, the rumble alone, darker and slower.
+ */
+const thunder = (near: boolean): SfxLayer[] => [
+  ...(near
+    ? [
+        burst('noise', { type: 'highpass', freq: 900 }, 0.9, 0.08),
+        burst('pink', { type: 'lowpass', freq: 1400 }, 0.8, 0.5, { delay: 0.02 }),
+      ]
+    : []),
+  crackle(
+    near ? 34 : 18,
+    [35, near ? 220 : 120],
+    0.8,
+    near ? 2.6 : 3.4,
+    { delay: near ? 0.05 : 0.2, attack: near ? 0.05 : 0.6 },
+    {
+      type: 'lowpass',
+      freq: near ? 700 : 260,
+    },
+  ),
+  burst('brown', { type: 'lowpass', freq: near ? 320 : 160 }, 0.9, near ? 2 : 2.4, {
+    delay: near ? 0.08 : 0.3,
+    attack: near ? 0.25 : 0.9,
+    hold: near ? 1.2 : 1.6,
+  }),
+];
+
+/** The local player's own sounds, fires, lava, thunder and the clock's bell. */
 export const playerSfx: readonly SfxDef[] = [
-  // A short breath and the swish of clothes.
   {
+    // The push off: a scuff of the soles, clothes swishing, a short breath.
     key: player.jump,
+    level: 'player',
     layers: [
-      noise({ type: 'bandpass', freq: 1200, q: 1 }, 0.2, 0.08),
-      tone('triangle', 180, 260, 0.1, 0.07),
+      burst('pink', { type: 'bandpass', freq: 700, q: 0.8 }, 0.5, 0.06),
+      crunch({ type: 'lowpass', freq: 2400 }, 300, 0.4, 0.08, { delay: 0.01 }),
+      voice(BREATH, [260, 220], 0.35, 0.1, { attack: 0.02 }),
     ],
   },
-  // Feet hitting the ground: a low thump.
   {
+    // The landing: both feet at once, the body's weight, clothes settling.
     key: player.land,
-    layers: [tone('sine', 110, 55, 0.45, 0.12), noise({ type: 'lowpass', freq: 400 }, 0.3, 0.08)],
-  },
-  // Lava meeting water: a long steam hiss over a few crackles.
-  {
-    key: sounds.hardens!,
+    level: 'player',
     layers: [
-      noise({ type: 'highpass', freq: 2600, q: 0.7 }, 0.35, 0.9),
-      ...pops({ type: 'bandpass', freq: 1400, q: 1.2 }, 0.18, [0.05, 0.13, 0.22, 0.34]),
+      impact(BODY, 0.01, 0.9),
+      impact(BODY, 0.012, 0.5, { delay: 0.03, pitch: 1.2 }),
+      crunch({ type: 'lowpass', freq: 2000 }, 260, 0.5, 0.1, { delay: 0.01 }),
     ],
   },
-  // Into the water: a wash of noise, then a bubble.
   {
+    // Into the water: the surface breaking, a cloud of bubbles, the water closing over.
     key: player.splash,
+    level: 'player',
     layers: [
-      noise(WATER, 0.5, 0.35),
-      ...pops({ type: 'bandpass', freq: 3000, q: 1 }, 0.2, [0.04, 0.09, 0.15]),
-      tone('sine', 500, 900, 0.15, 0.08, 0.05),
+      burst('noise', { type: 'bandpass', freq: 1400, q: 0.5 }, 0.8, 0.22),
+      bubbles(180, [1, 7], 0.8, 0.35, { delay: 0.02 }),
+      bubbles(25, [8, 16], 0.6, 0.4, { delay: 0.08 }),
     ],
   },
-  // A stroke: a slow whoosh of water.
   {
+    // A stroke: water pushed by the arms, a few bubbles.
     key: player.swim,
+    level: 'player',
     layers: [
-      { ...noise({ type: 'bandpass', freq: 900, q: 0.8 }, 0.25, 0.25), attack: 0.06 },
-      tone('sine', 380, 620, 0.08, 0.06, 0.12),
+      burst('pink', { type: 'bandpass', freq: 650, q: 0.7 }, 0.7, 0.28, { attack: 0.09 }),
+      bubbles(45, [2, 6], 0.5, 0.25, { delay: 0.05 }),
     ],
   },
-  // Three bites with a chew under them, crunching grain by grain (plan v4 « M45 »).
-  {
-    key: player.eat,
-    layers: [
-      ...pops({ type: 'bandpass', freq: 2200, q: 1.5 }, 0.3, [0, 0.09, 0.18]),
-      noise(LOW, 0.2, 0.25),
-      crunch({ type: 'bandpass', freq: 1800, q: 1 }, 70, 0.25, 0.22),
-    ],
-  },
-  // Two gulps, each with its bubble.
-  {
-    key: player.drink,
-    layers: [
-      tone('sine', 300, 520, 0.25, 0.09),
-      tone('sine', 280, 500, 0.22, 0.09, 0.16),
-      {
-        source: 'grains',
-        grains: { rate: 14, seconds: [0.01, 0.025], tone: [350, 700] },
-        gain: 0.18,
-        attack: 0.005,
-        hold: 0.26,
-        decay: 0.03,
-      },
-    ],
-  },
-  // Lub-dub.
+  { key: player.eat, level: 'player', layers: [...bite(0), ...bite(0.2), ...bite(0.42)] },
+  { key: player.drink, level: 'player', layers: [...gulp(0), ...gulp(0.34), ...gulp(0.7)] },
   {
     key: player.heartbeat,
-    layers: [tone('sine', 60, 45, 0.6, 0.12), tone('sine', 55, 42, 0.45, 0.1, 0.16)],
+    level: 'player',
+    layers: [beat(0, 0.9), beat(0.19, 0.55)],
   },
-  // A falling groan and a thud.
   {
+    // The last breath going out, then the body falling.
     key: player.death,
+    level: 'player',
     layers: [
-      { ...tone('triangle', 300, 90, 0.4, 0.8), filter: { type: 'lowpass', freq: 1200 } },
-      noise({ type: 'lowpass', freq: 600 }, 0.3, 0.6, 0.1),
-      tone('sine', 80, 40, 0.35, 1, 0.5),
+      voice(GROAN, [150, 70], 0.8, 0.6, { attack: 0.04, hold: 0.3 }),
+      impact(BODY, 0.015, 0.9, { delay: 0.75 }),
+      crunch({ type: 'lowpass', freq: 1500 }, 200, 0.5, 0.12, { delay: 0.76 }),
     ],
   },
-  // A rising two-note chime and a light tick: an item made.
   {
-    key: sounds.craft,
+    // A swing: the arm and the tool cutting the air.
+    key: player.swing,
+    level: 'player',
     layers: [
-      note(660, 0.22, 0, 0.25),
-      note(990, 0.2, 0.08, 0.35),
-      noise({ type: 'highpass', freq: 5000 }, 0.1, 0.015),
+      burst('noise', { type: 'bandpass', freq: 1100, q: 0.9 }, 0.7, 0.1, { attack: 0.06 }),
+      burst('pink', { type: 'lowpass', freq: 600 }, 0.5, 0.12, { attack: 0.05 }),
     ],
   },
-  { key: door.open, layers: [creak(180, 260, 0.12, 0.3), noise(WOOD, 0.2, 0.06, 0.25)] },
+  { key: sounds.lit['station:campfire']!, level: 'event', layers: fire(26, 0.5, 1.5) },
   {
-    key: door.close,
-    layers: [
-      noise(WOOD, 0.4, 0.08),
-      tone('triangle', 260, 200, 0.25, 0.1),
-      tone('sine', 110, 70, 0.3, 0.1),
-    ],
-  },
-  // A lower creak, then the latch.
-  {
-    key: chest.open,
-    layers: [creak(140, 200, 0.1, 0.25), noise({ type: 'highpass', freq: 3000 }, 0.15, 0.02, 0.22)],
-  },
-  {
-    key: chest.close,
-    layers: [
-      noise(WOOD, 0.35, 0.07, 0, 0.8),
-      tone('sine', 120, 80, 0.3, 0.08),
-      noise({ type: 'highpass', freq: 3000 }, 0.15, 0.02, 0.06),
-    ],
-  },
-  // A campfire: pops and crackles over a soft roar.
-  {
-    key: sounds.lit['station:campfire']!,
-    layers: [
-      { ...noise({ type: 'lowpass', freq: 700 }, 0.12, 0.3), attack: 0.08 },
-      ...pops({ type: 'highpass', freq: 2500 }, 0.25, [0, 0.07, 0.19, 0.31]),
-      crunch({ type: 'highpass', freq: 3000 }, 40, 0.2, 0.3),
-    ],
-  },
-  // A kiln: a deeper roar, fewer pops.
-  {
+    // A kiln: a deep draught roaring through it, a few pops.
     key: sounds.lit['station:kiln']!,
+    level: 'event',
     layers: [
-      { ...noise({ type: 'lowpass', freq: 350 }, 0.25, 0.4), attack: 0.1 },
-      ...pops({ type: 'bandpass', freq: 1500, q: 1 }, 0.15, [0.05, 0.27]),
+      air(0.8, 0.3, [90, 300], 0.8, 1.5, { attack: 0.2 }),
+      crackle(8, [800, 3000], 0.4, 1.5),
     ],
   },
-  // Thunder (plan v3 « M34 », v4 « M45 »): a tearing crack, then a low rumble rolling away in
-  // waves, each a little later and lower.
+  { key: sounds.burning!, level: 'event', layers: fire(45, 0.7, 1.5) },
   {
-    key: sounds.thunder!,
+    // Lava: thick bubbles rising and bursting, now and then a spatter.
+    key: sounds.lava!,
+    level: 'event',
     layers: [
-      noise({ type: 'highpass', freq: 1800 }, 0.35, 0.12),
-      crunch({ type: 'bandpass', freq: 900, q: 0.7 }, 120, 0.3, 0.2),
-      { ...noise({ type: 'lowpass', freq: 140 }, 0.6, 1.6, 0.05), attack: 0.25 },
-      { ...noise({ type: 'lowpass', freq: 320 }, 0.25, 1, 0.4), attack: 0.3 },
-      { ...noise({ type: 'lowpass', freq: 110 }, 0.35, 0.75, 0.8), attack: 0.35 },
+      bubbles(5, [11, 19], 0.8, 1.4, { attack: 0.05 }, { type: 'lowpass', freq: 600 }),
+      crackle(4, [300, 1500], 0.4, 1.4),
+      burst('brown', { type: 'lowpass', freq: 200 }, 0.3, 0.6, { attack: 0.3, hold: 0.6 }),
     ],
   },
-  // Dusk: three notes falling away. Dawn: the same notes rising.
+  { key: sounds.thunder!.near, level: 'weather', layers: thunder(true) },
+  { key: sounds.thunder!.far, level: 'weather', layers: thunder(false) },
+  // The colony's bell, far off: twice low at dusk, three times higher at dawn.
   {
     key: clock.dusk,
-    layers: [note(523, 0.16, 0, 1), note(392, 0.15, 0.35, 1), note(262, 0.15, 0.7, 1.1)],
+    level: 'ui',
+    layers: [
+      bell(196, 0.8, 0),
+      bell(196, 0.7, 1.4),
+      burst('pink', { type: 'lowpass', freq: 300 }, 0.05, 0.1),
+    ].map((layer) => ({ ...layer, filter: { type: 'lowpass' as const, freq: 2200 } })),
   },
   {
     key: clock.dawn,
-    layers: [note(262, 0.15, 0, 1), note(392, 0.15, 0.35, 1), note(523, 0.16, 0.7, 1.1)],
+    level: 'ui',
+    layers: [bell(262, 0.8, 0), bell(262, 0.7, 0.9), bell(262, 0.6, 1.8)].map((layer) => ({
+      ...layer,
+      filter: { type: 'lowpass' as const, freq: 2600 },
+    })),
   },
 ];

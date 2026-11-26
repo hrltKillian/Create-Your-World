@@ -57,7 +57,7 @@ export class StationScreen {
     this.flame = h('span', { class: 'flame' });
     this.bar = h('span', { class: 'station-bar' }, h('span', { class: 'station-bar-fill' }));
     this.keepLit = menuButton('keep-lit', t('station.keepLit'), () => {
-      deps.actions.click();
+      deps.actions.sound('button');
       // A flip in the simulation: the state shown here may be a refresh behind (UiBridge).
       deps.actions.send({ type: 'station.keepLit' });
     });

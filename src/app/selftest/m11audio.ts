@@ -242,7 +242,7 @@ export const M11_AUDIO_CASES: readonly SelftestCase[] = [
       const mark = audioMark(app);
       craft(app, recipe.key, 1);
       app.session!.step(ticksOf(recipe.seconds) + SLACK_TICKS);
-      assertHeard(app, mark, [soundsOf(app).craft], `crafting ${recipe.key}`);
+      assertHeard(app, mark, [soundsOf(app).ui.craft], `crafting ${recipe.key}`);
     },
   },
   {

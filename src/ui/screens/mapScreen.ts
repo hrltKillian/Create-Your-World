@@ -152,7 +152,7 @@ export class MapScreen {
     this.picked = null;
     this.element.hidden = false;
     this.stale = true;
-    this.actions.click();
+    this.actions.panel('map', true);
   }
 
   close(): void {
@@ -162,7 +162,7 @@ export class MapScreen {
     if (active && this.element.contains(active)) active.blur();
     this.element.hidden = true;
     this.drag = null;
-    this.actions.click();
+    this.actions.panel('map', false);
   }
 
   /** No slots on the map. */
@@ -208,7 +208,7 @@ export class MapScreen {
       'waypoint-remove',
       t('map.remove'),
       () => {
-        this.actions.click();
+        this.actions.sound('button');
         this.actions.send({ type: 'waypoint.remove', index });
       },
       'quest-pin',
@@ -272,13 +272,13 @@ export class MapScreen {
   private choose(icon: WaypointIcon, colour: number): void {
     this.icon = icon;
     this.colour = colour;
-    this.actions.click();
+    this.actions.sound('tab');
     this.drawPickers();
   }
 
   /** Marks the new waypoint at the picked place, else at the feet. */
   private mark(): void {
-    this.actions.click();
+    this.actions.sound('button');
     const at = this.picked ?? {};
     this.actions.send({
       type: 'waypoint.add',
@@ -298,7 +298,7 @@ export class MapScreen {
     const levels: readonly number[] = MAP_ZOOMS;
     const level = levels.indexOf(this.canvas.zoom) + step;
     if (!view || level < 0 || level >= levels.length) return;
-    this.actions.click();
+    this.actions.sound('tab');
     // The point under the pixel stays under it: the centre moves towards it (whole blocks).
     const half = BIG_MAP_SIDE / 2;
     const before = this.canvas.zoom;
@@ -317,7 +317,7 @@ export class MapScreen {
 
   /** Centres the map on the player again. */
   private centre(): void {
-    this.actions.click();
+    this.actions.sound('button');
     this.panX = 0;
     this.panZ = 0;
     this.stale = true;
@@ -327,7 +327,7 @@ export class MapScreen {
   private showOn(w: MapWaypoint): void {
     const view = this.view;
     if (!view) return;
-    this.actions.click();
+    this.actions.sound('button');
     this.panX = w.x - Math.floor(view.player.x);
     this.panZ = w.z - Math.floor(view.player.z);
     this.stale = true;
@@ -375,7 +375,7 @@ export class MapScreen {
     // A click: the place is picked for the next waypoint.
     const p = this.pixel(event);
     this.picked = this.canvas.blockAt(this.view, p.x, p.y);
-    this.actions.click();
+    this.actions.sound('tab');
     this.showWhere();
   };
 }

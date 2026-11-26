@@ -497,6 +497,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `crunch` (packs/base/sfxParts.ts); rooms `audio/reverb.ts` (`REVERBS`, `impulseResponse`,
     `doppler`), `AudioEngine.setReverb`/`reverb()` (two convolvers crossfaded), HRTF panners;
     AudioBridge picks the room and applies Doppler to creature sounds;
+  - every sound remade (plan v5 « M54 »): recipe parts `content/packs/base/sfxParts.ts` (`impact`,
+    `crunch`, `burst`, `bubbles`, `crackle`, `air`, `voice` with `Throat` and `VOWELS`,
+    `footstep`), blocks and things `sfx.ts`, the player, fires, thunder and the bell
+    `playerSfx.ts`, the interface `uiSfx.ts`, creatures `creatureSfx.ts` (voices and steps,
+    `voicesOf`), ambiences `ambienceSfx.ts` (`AMBIENCE` keys: beds `sfx:bed_*`, events);
+    bindings `sounds.ui` (`UiSounds`: button, tab, take, put, throw, craft, and the bag, map,
+    book and menu `OpenClose`), `player.swing`, `burning`, `lava`, `thunder.near`/`far`,
+    `ambience.rain` by cover (`RainAmbience`: open, water, leaves, roof); screens name their sound
+    (`ScreenActions.sound(UiCue)`, `panel(UiPanel, open)`; Menus' host the same), played by
+    `app/uiSounds.ts` (`playUiCue`, `playUiPanel`); creature steps (`CreatureDef.sounds.step`,
+    AudioBridge `hearSteps`); `litSounds` covers the fire block and lava; `MAX_SFX_SECONDS` 6;
   - realistic sound engine (plan v5 « M53 »): models `assets/procedural/synthModels.ts` (sources
     `pink`, `brown`, `impact` with `contact`, `bubbles`, `crackle`, `wind`, `voice`;
     `contactSpectrum`), the footstep recipe `footstep` (sfxParts.ts: heel then toe); variants
@@ -685,6 +696,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Sound checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m54` (`selftest/m54.ts`):
+  every recipe rendered and played in all its takes, the Bag's and the map's sounds, thunder after
+  the bolt, every species' voices and steps.
 - Sound engine checks of plan v5: `?seed=7&rd=4&fixedStep=1&selftest=m0,m53` (every biome dry, a
   cave rings) and `?worldType=flat&fixedStep=1&selftest=m0,m53` (a closed hut rings).
 - Creature checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m52` (`selftest/m52.ts`):

@@ -110,7 +110,7 @@ export class LogbookPanel {
       t('logbook.craftableOnly'),
       () => {
         this.onlyCraftable = !this.onlyCraftable;
-        this.actions.click();
+        this.actions.sound('tab');
         this.redraw();
       },
       'logbook-filter',
@@ -167,7 +167,7 @@ export class LogbookPanel {
 
   /** A click on a tab or a row: its sound, then the panel again. */
   private choose(): void {
-    this.actions.click();
+    this.actions.sound('tab');
     this.redraw();
   }
 
@@ -358,7 +358,7 @@ export class LogbookPanel {
       t(`logbook.batch.${batch}`),
       () => {
         this.actions.send({ type: 'craft.enqueue', recipe, count });
-        this.actions.click();
+        this.actions.sound('button');
       },
       'button secondary logbook-batch',
     );
@@ -408,7 +408,7 @@ export class LogbookPanel {
             // A station's Logbook shows the open workbench's queue.
             const workbench = this.state?.source.station !== undefined;
             this.actions.send({ type: 'craft.cancel', index, ...(workbench ? { workbench } : {}) });
-            this.actions.click();
+            this.actions.sound('button');
           },
         },
       },

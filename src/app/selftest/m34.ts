@@ -53,7 +53,7 @@ const rainCase: SelftestCase = {
     try {
       setWeather(app, 'rain');
       await waitWeather(app, (w) => w.rain > 0.9 && w.drops > 0 && w.dim < 1);
-      const rain = app.registry!.pack.sounds?.ambience.rain?.bed;
+      const rain = app.registry!.pack.sounds?.ambience.rain?.open.bed;
       const loop = app.audio?.ambience().find((l) => l.key === rain);
       assert(loop !== undefined && loop.gain > 0.5, `the rain loop plays at ${loop?.gain}`);
       const s = session.player.survival;
@@ -125,7 +125,9 @@ const stormCase: SelftestCase = {
       setWeather(app, 'storm');
       await waitWeather(app, (v) => v.dim < (1 + w.dim.storm) / 2);
       const thunder = app.registry!.pack.sounds?.thunder;
-      await waitUntil(() => heardSince(app, mark).includes(thunder ?? ''), {
+      const heard = () =>
+        heardSince(app, mark).some((k) => k === thunder?.near || k === thunder?.far);
+      await waitUntil(heard, {
         timeoutMs: 20_000,
         label: 'no thunder',
         pump: () => session.step(ticksOf(1)),

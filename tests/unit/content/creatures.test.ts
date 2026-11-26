@@ -200,10 +200,10 @@ describe('creatures of the base pack', () => {
     }
   });
 
-  it('have their voices, an attack voice only when they attack', () => {
+  it('have their voices and steps, an attack voice only when they attack', () => {
     for (const c of creatures) {
       const sounds = Object.keys(c.sounds).sort();
-      const expected = ['alert', 'death', 'hurt', 'idle', ...(c.attack ? ['attack'] : [])];
+      const expected = ['alert', 'death', 'hurt', 'idle', 'step', ...(c.attack ? ['attack'] : [])];
       expect(sounds, c.key).toEqual(expected.sort());
     }
   });
