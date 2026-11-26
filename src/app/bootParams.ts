@@ -26,6 +26,11 @@ export interface BootParams {
   readonly rd: number | null;
   /** Graphics preset: its pixel-ratio cap and, without `rd`, its render distance. */
   readonly quality: Quality | null;
+  /**
+   * Share of the pixels drawn on each side (`?renderScale=0.5`: a quarter of them), 0.25–1: e2e on
+   * CI renders in software, where every pixel costs; the page's layout does not change.
+   */
+  readonly renderScale: number;
   /** Cave culling (`?occlusion=0` turns it off). */
   readonly occlusion: boolean;
   /**
@@ -74,6 +79,7 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   view: null,
   rd: null,
   quality: null,
+  renderScale: 1,
   occlusion: true,
   bench: null,
   worldType: 'default',
@@ -103,6 +109,12 @@ function ticks(value: string | null): number | null {
   if (value === null || value.trim() === '') return null;
   const n = Number(value);
   return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/** A render scale between 0.25 and 1 (1 when absent or malformed). */
+function scale(value: string | null): number {
+  const n = Number(value);
+  return value !== null && Number.isFinite(n) && n > 0 ? Math.max(0.25, Math.min(1, n)) : 1;
 }
 
 /** Parses `location.search`. When `allowDebug` is false (production), every parameter is ignored. */
@@ -135,6 +147,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
         ? QUALITY_PRESETS[quality].renderDistance
         : null,
     quality,
+    renderScale: scale(params.get('renderScale')),
     occlusion: params.get('occlusion') !== '0',
     bench: params.get('bench'),
     worldType: (['flat', 'arena'] as const).find((w) => w === params.get('worldType')) ?? 'default',
