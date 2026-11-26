@@ -16,14 +16,14 @@
   height: var(--slot-size);
   /*
    * A socket (plan v5 « M48 »): a recessed floor and a bracket bolted on each corner, pixel art
-   * drawn as a 9-slice (ui/uiArt.ts); hovered its brackets glow teal, in hand amber.
+   * drawn as a 9-slice (ui/uiArt.ts); hovered its brackets glow violet, in hand teal.
    */
   border: 6px solid transparent;
   border-image: var(--art-socket) 3 fill / 6px stretch;
   image-rendering: pixelated;
 }
 
-/* A faint glow in the socket: teal when hovered, amber in hand. */
+/* A faint glow in the socket: violet when hovered, teal in hand. */
 .slot::after {
   content: "";
   position: absolute;
@@ -126,7 +126,7 @@
   animation: slot-glow 2.4s ease-in-out infinite;
 }
 
-/* The slot in hand breathes a little amber light. */
+/* The slot in hand breathes a little teal light. */
 @keyframes slot-glow {
   50% {
     opacity: 0.55;
@@ -198,6 +198,17 @@
 
 .screen-slots .slot[data-slot] {
   cursor: pointer;
+}
+
+/*
+ * A slot's reach goes half-way into the gaps around it (its border is 6px, the gaps 6px): the
+ * pointer passing from one slot to the next never falls between them, so the bubble stays and
+ * changes item instead of blinking.
+ */
+.screen-slots .slot[data-slot]::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
 }
 
 .screen-slots .slot[data-slot]:hover {

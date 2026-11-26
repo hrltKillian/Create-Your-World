@@ -27,8 +27,8 @@ import {
 /** Places of the cases, away from the other suites'. */
 const LAVA_SPOT = { x: 96, z: -96 };
 const TORCH_SPOT = { x: 104, z: -96 };
-/** Pixels the bubble may stand from the pointer (its gap is 14). */
-const NEAR = 24;
+/** Pixels the bubble may stand from the pointer (it stands 24 to its right, clear of the arrow). */
+const NEAR = 32;
 /** The hotbar's last slot: the bubble of an item near the panel's right edge. */
 const LAST_HOTBAR = 7;
 

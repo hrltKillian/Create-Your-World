@@ -1,8 +1,15 @@
 import { h } from './h.ts';
 import { type InfoLine, lineElement, lineText } from './symbols.ts';
 
-/** Pixels between the pointer and the bubble. */
-const GAP = 14;
+/**
+ * Pixels from the pointer to the bubble: to its right, clear of the cursor's arrow (it points up
+ * and to the left from the pointer and runs about 20 pixels down and right); to its left when it
+ * flips, where no arrow stands.
+ */
+const RIGHT = 24;
+const LEFT = 10;
+/** The bubble's top, a little above the pointer: beside it, not under it. */
+const RISE = 6;
 /** Pixels kept free at the edges of the window. */
 const EDGE = 6;
 
@@ -49,8 +56,8 @@ export class Tooltip {
     const height = rect?.height ?? 0;
     const right = (globalThis.innerWidth ?? Number.POSITIVE_INFINITY) - EDGE;
     const bottom = (globalThis.innerHeight ?? Number.POSITIVE_INFINITY) - EDGE;
-    const left = x + GAP + width > right ? Math.max(EDGE, x - GAP - width) : x + GAP;
-    const top = y + GAP + height > bottom ? Math.max(EDGE, bottom - height) : y + GAP;
+    const left = x + RIGHT + width > right ? Math.max(EDGE, x - LEFT - width) : x + RIGHT;
+    const top = Math.max(EDGE, Math.min(y - RISE, bottom - height));
     this.element.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }
 
