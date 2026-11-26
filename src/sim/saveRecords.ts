@@ -354,7 +354,6 @@ export function dropRecord(drop: Readonly<ItemDropState>): DropRecord {
     body: { ...drop.body },
     age: drop.age,
     pickupDelay: drop.pickupDelay,
-    thrower: drop.thrower,
   };
   if (drop.durability !== undefined) record.durability = drop.durability;
   return record;
@@ -381,7 +380,6 @@ export function readDrop(data: unknown, registry: Registry): ItemDropState | nul
     prevZ: body.z,
     age: isWhole(saved.age, 0) ? saved.age : 0,
     pickupDelay: isWhole(saved.pickupDelay, 0) ? saved.pickupDelay : 0,
-    thrower: isWhole(saved.thrower, -1) ? saved.thrower : -1,
   };
   if (isWhole(saved.durability, 0)) drop.durability = saved.durability;
   loadItemKey(drop, registry);

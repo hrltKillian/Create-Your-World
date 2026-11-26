@@ -159,3 +159,36 @@ describe('flowing liquids', () => {
     expect(liquids).toBeGreaterThan(1000);
   }, 60_000);
 });
+
+describe('lava (plan v3 « M29 »)', () => {
+  const LAVA = 'block:lava';
+
+  it('flows slowly, two levels a block: three blocks from a source', () => {
+    const s = poured('lava-flow', 0, 65, 0, LAVA);
+    const lava = liquidTables(s.sim.registry).kinds.find((k) => k?.step === 2)!;
+    // Nothing moves before its delay, five times the water's.
+    s.step(lava.delay - 1);
+    expect(s.block(1, 65, 0)).toBe(AIR);
+    s.step(lava.delay * 6);
+    for (let d = 1; d <= 4; d++) {
+      const expected = d <= 3 ? level(LAVA, 2 * d) : AIR;
+      expect(s.block(d, 65, 0), `${d}`).toBe(expected);
+    }
+    expect(s.sim.blockUpdates.size).toBe(0);
+  });
+
+  it('hardens where water touches it: a source into dark stone, a flow into stone, hissing', () => {
+    const s = poured('lava-water', 0, 65, 0, LAVA);
+    s.put(3, 65, 0, level(LAVA, 2));
+    s.put(1, 65, 0, source(WATER));
+    noteLiquids(s.sim, 1, 65, 0);
+    s.put(4, 65, 0, source(WATER));
+    noteLiquids(s.sim, 4, 65, 0);
+    const lava = liquidTables(s.sim.registry).kinds.find((k) => k?.step === 2)!;
+    s.step(lava.delay + 1);
+    expect(s.block(0, 65, 0)).toBe('block:darkstone');
+    expect(s.block(3, 65, 0)).toBe('block:stone');
+    const hiss = s.sim.registry.pack.sounds!.hardens;
+    expect(eventsOf(s.events, 'sound').filter((e) => e.sfx === hiss).length).toBeGreaterThan(0);
+  });
+});

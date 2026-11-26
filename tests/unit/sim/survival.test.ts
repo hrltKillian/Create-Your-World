@@ -64,6 +64,9 @@ const idle: Exposure = {
   underwater: false,
   toxicity: 0,
   damage: 0,
+  ignites: false,
+  douses: false,
+  fireTicks: 0,
 };
 
 /**

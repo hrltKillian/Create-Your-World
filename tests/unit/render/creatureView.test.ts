@@ -259,7 +259,6 @@ describe('creature view budget', () => {
       prevZ: -1.5,
       age: 0,
       pickupDelay: 0,
-      thrower: -1,
     });
     const sim = { registry, world: flatWorld(), entities, playerId: 1 } as unknown as SimView;
     const play = new PlayView(worldView, sim, new CameraRig());

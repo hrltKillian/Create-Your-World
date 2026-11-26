@@ -47,16 +47,21 @@ export class Hud {
   readonly biome = new Flash('hud-biome', 'hud-biome');
   readonly pickups = new PickupFeed();
   readonly sleep = new Flash('hud-sleep', 'hud-sleep');
+  /** Flames at the bottom of the screen while the player burns (plan v3 « M29 »). */
+  readonly fire: HTMLElement;
   readonly death: DeathScreen;
 
   constructor(balance: BalanceDef, onRespawn: () => void) {
     this.vitals = new Vitals(balance);
     this.clock = h('p', { id: 'hud-clock', class: 'hud-clock' });
     this.death = new DeathScreen(onRespawn);
+    this.fire = h('div', { id: 'hud-fire', class: 'hud-fire' });
+    this.fire.hidden = true;
     this.element = h(
       'div',
       { class: 'hud' },
       this.vignettes.element,
+      this.fire,
       h(
         'div',
         { class: 'hud-top' },

@@ -67,6 +67,15 @@ export interface ToxicityBalance {
   readonly severePerMin: number;
 }
 
+/** Fire on the player (plan v3 « M29 »): lit by lava, out in water or after a while. */
+export interface FireBalance {
+  /** A fire lasts between these seconds once out of the lava (drawn each time). */
+  readonly minSeconds: number;
+  readonly maxSeconds: number;
+  /** Health lost per second while burning. */
+  readonly damagePerSec: number;
+}
+
 export interface BreathBalance {
   /** Air held with the head under water. */
   readonly seconds: number;
@@ -201,6 +210,7 @@ export interface BalanceDef {
   readonly temperature: TemperatureBalance;
   readonly toxicity: ToxicityBalance;
   readonly breath: BreathBalance;
+  readonly fire: FireBalance;
   readonly fall: FallBalance;
   readonly climate: ClimateBalance;
   readonly water: WaterBalance;

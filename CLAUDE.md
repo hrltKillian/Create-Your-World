@@ -262,6 +262,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `uGamma` in `LIGHT_CURVE` (render/shaders/voxel.glsl.ts, shared with the box shader); the
     gauges as rows of symbols over the hotbar (`ui/hud/vitals.ts`: `IconRow`, `ROW_ICONS`,
     `.row-health`…, `.stat-icon` `--fill` 0/0.5/1);
+  - world and rules of the third play test (plan v3 « M29 »): a throw waits
+    `DROPS.thrownPickupDelayTicks` (2 s) for everyone, the thrower too; the stone / dark stone
+    band `deepStoneAt` (`WorldgenDef.deepStoneBlend`, generateColumn.ts; `flatBiome`); lava
+    (`worldgen.magma` is the lava block: a liquid, `LiquidDef.flow.step` levels lost per block,
+    `LiquidDef.hardens` where another liquid touches it, `sounds.hardens`; drops burn in it);
+    fire `SurvivalState.burnTicks` (`contact.ignites` relights it for `balance.fire` seconds,
+    `Contact.douses`: feet in a liquid that does not burn; causes `lava`, `fire`; `#hud-fire`);
   - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
     `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
     `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),
@@ -444,7 +451,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   `#hud-stamina`, `#hud-compass`, `#hud-clock`, `#hud-target`, `#hud-quest` (M21), `#hud-banner`,
   `#hud-sleep` (M20 removed `#hud-effects`: no status words).
 - M9 hook entries (version 9): `player.setStat(stat, value)` (any gauge, now; `setStamina` is gone),
-  `player.stats()` (gauges, `exhausted`, felt °C and target, death and
+  `player.stats()` (gauges, `burning` (M29), `exhausted`, felt °C and target, death and
   cause, `god`, bedroll, packs, `quests` and `pinned`, worn items), `player.kill(cause = 'fall')` (the death
   at once in fixed steps), `player.god(on = true)`, `player.equip(slot)` (Shift+click in the Bag: a
   wearable on, a worn item 64–68 off); `ui.text(selector)` reads the HUD (`#hud-clock`…).
@@ -484,6 +491,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- World checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m29` (`selftest/m29.ts`): a
+  throw picked up standing on it, lava's fire shown and put out by water, lava hardening at
+  water; the stone band in the generated world (`?seed=7&rd=4&fixedStep=1`).
 - Interface checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m28` (`selftest/m28.ts`):
   a quest message on its own line, a hovered stack's bubble and the Bag's fixed size, a journal
   read on secondary and closed by E, the health row by halves over the hotbar.

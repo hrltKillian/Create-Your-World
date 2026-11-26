@@ -28,8 +28,37 @@ const deposit = (
   ...extra,
 });
 
-/** Underground blocks (M6): magma at the bottom of caves and the ores of the biomes. */
+/** Underground blocks (M6): magma, lava at the bottom of caves (M29) and the ores of the biomes. */
 export const undergroundBlocks = [
+  {
+    // Caves below y 10 fill with it (plan v3 « M29 »): the reference game's lava, slow and short,
+    // bright and hot; it burns whoever steps in and hardens where water meets it.
+    key: 'block:lava',
+    nameKey: 'block.lava',
+    states: ['level', 'falling'],
+    shape: 'liquid',
+    pass: 'opaque',
+    cullGroup: 'lava',
+    textures: { all: 'tex:lava' },
+    collision: 'liquid',
+    opaque: false,
+    replaceable: true,
+    light: { emit: 15, filter: 15 },
+    heat: { celsius: 60, radius: 4 },
+    contact: { damagePerSec: 20, ignites: true },
+    hardness: 0,
+    drops: 'none',
+    sound: 'water',
+    liquid: {
+      drinkable: false,
+      thirstPerSip: 0,
+      toxicityPerSip: 0,
+      fills: {},
+      // A step every 1.5 s, holes found 2 blocks away, two levels lost a block: about 3 blocks.
+      flow: { seconds: 1.5, holeSearch: 2, infinite: false, step: 2 },
+      hardens: { source: 'block:darkstone', flow: 'block:stone' },
+    },
+  },
   deposit('block:magma', 'block.magma', 'tex:magma', 2, 1, {
     light: { emit: 15 },
     heat: { celsius: 40, radius: 3 },

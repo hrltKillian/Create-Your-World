@@ -41,6 +41,7 @@ export const sounds: SoundBindings = {
     cloth: material('cloth'),
   },
   pickup: 'sfx:pickup',
+  hardens: 'sfx:hiss',
   click: 'sfx:click',
   craft: 'sfx:craft',
   combat: { hit: 'sfx:melee_hit', hurt: 'sfx:player_hurt' },

@@ -116,6 +116,8 @@ export const en = {
   'death.cause.drowning': 'Drowned',
   'death.cause.fall': 'Fell from too high',
   'death.cause.contact': 'Hurt by something you touched',
+  'death.cause.lava': 'Swam in lava',
+  'death.cause.fire': 'Burned to death',
   'death.cause.creature': 'Brought down by a creature',
   'death.cause.unknown': 'Your journey ended',
   'death.pack':

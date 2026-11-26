@@ -1,4 +1,4 @@
-import type { RawTables, Registry } from '../content/registry.ts';
+import { COLLISION_LIQUID, type RawTables, type Registry } from '../content/registry.ts';
 import type { BalanceDef, BiomeDef, ClimateBalance } from '../content/schema.ts';
 import { toColumn } from '../world/coords.ts';
 import { skyOf } from '../world/light.ts';
@@ -229,8 +229,12 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
 export interface Contact {
   /** Toxicity per minute (foul water at the feet, unless waterproof). */
   toxicity: number;
-  /** Health lost per second (thorns, magma). */
+  /** Health lost per second (thorns, magma, lava). */
   damage: number;
+  /** A block touched sets the player on fire (lava). */
+  ignites: boolean;
+  /** The feet are in a liquid that does not burn (water puts a fire out). */
+  douses: boolean;
 }
 
 /**
@@ -250,7 +254,12 @@ export function touch(
   const column = world.getColumn(toColumn(x), toColumn(z));
   out.toxicity = 0;
   out.damage = 0;
-  addContact(registry, world.blockIn(column, x, Math.floor(body.y + 0.05), z), out);
+  out.ignites = false;
+  const feet = world.blockIn(column, x, Math.floor(body.y + 0.05), z);
+  out.douses =
+    registry.tables.collision[feet] === COLLISION_LIQUID &&
+    !registry.blockDef(feet).contact?.ignites;
+  addContact(registry, feet, out);
   if (body.onGround)
     addContact(registry, world.blockIn(column, x, Math.floor(body.y - 0.05), z), out);
   if (out.toxicity > 0 && wornGear(registry, player.equipment, gear).waterproof) out.toxicity = 0;
@@ -261,4 +270,5 @@ function addContact(registry: Registry, state: number, out: Contact): void {
   if (!contact) return;
   out.toxicity = Math.max(out.toxicity, contact.toxicityPerMin ?? 0);
   out.damage = Math.max(out.damage, contact.damagePerSec ?? 0);
+  if (contact.ignites) out.ignites = true;
 }

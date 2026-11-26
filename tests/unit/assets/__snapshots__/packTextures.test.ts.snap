@@ -141,6 +141,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:kiln_top": "149e0fe2",
   "tex:ladder": "3e7ff032",
   "tex:lantern": "7a5fa0cc",
+  "tex:lava": "4dab58b0",
   "tex:log_bark": "920f4fbe",
   "tex:log_rings": "f5116883",
   "tex:magma": "a9cca2d5",

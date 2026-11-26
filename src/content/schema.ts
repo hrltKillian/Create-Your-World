@@ -128,7 +128,14 @@ export interface LiquidDef {
     readonly seconds: number;
     readonly holeSearch: number;
     readonly infinite: boolean;
+    /** Levels lost per block spread (water 1; lava 2: it reaches half as far). Default 1. */
+    readonly step?: number;
   };
+  /**
+   * What the liquid turns into where another liquid touches it (plan v3 « M29 »: lava meeting
+   * water): its source block, its flowing block.
+   */
+  readonly hardens?: { readonly source: BlockKey; readonly flow: BlockKey };
 }
 
 export interface BlockDef {
@@ -148,7 +155,15 @@ export interface BlockDef {
   readonly friction?: number;
   /** A ladder (plan v3 « M27 »): a body inside it climbs instead of falling. */
   readonly climbable?: boolean;
-  readonly contact?: { readonly toxicityPerMin?: number; readonly damagePerSec?: number };
+  /**
+   * What touching the block does (at the feet or under them): toxicity, damage, and `ignites`: the
+   * player catches fire (plan v3 « M29 », lava).
+   */
+  readonly contact?: {
+    readonly toxicityPerMin?: number;
+    readonly damagePerSec?: number;
+    readonly ignites?: boolean;
+  };
   readonly liquid?: LiquidDef;
   readonly hardness: number;
   readonly tool?: ToolKind;
@@ -291,6 +306,8 @@ export interface AmbienceBindings {
 export interface SoundBindings {
   readonly blocks: Readonly<Record<SoundMaterial, BlockSounds>>;
   readonly pickup: SfxKey;
+  /** A liquid hardening where another touches it (lava meeting water). */
+  readonly hardens?: SfxKey;
   /** Interface click (bag, slots). */
   readonly click: SfxKey;
   /** One craft of the queue is done (interface bus). */
@@ -413,7 +430,13 @@ export type Spline = readonly (readonly [number, number])[];
 
 export interface WorldgenDef {
   readonly seaLevel: number;
+  /** Stone from this y up; dark stone under it, all of it below `deepStoneBelowY − deepStoneBlend`. */
   readonly deepStoneBelowY: number;
+  /**
+   * Rows under `deepStoneBelowY` where stone and dark stone mix cell by cell, dark stone ever more
+   * often lower down (plan v3 « M29 »: no sharp line). 0: a sharp line.
+   */
+  readonly deepStoneBlend: number;
   /** Climate lattice spacing in blocks (bilinear interpolation in between). */
   readonly climateStep: number;
   /** Noise wavelengths in blocks. */

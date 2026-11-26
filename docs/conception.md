@@ -2876,6 +2876,14 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 - Lave liquide sous y 10, feu du joueur, durcissement au contact de l'eau.
 - Ramassage des objets lancés après 2 s.
 
+**Retenu à la réalisation** :
+
+- Ramassage : un objet jeté attend 2 s (`DROPS.thrownPickupDelayTicks`, 60 ticks) puis va à qui le touche, son lanceur compris, même s'il est resté dessus ; la mémoire du lanceur disparaît (SAVE 14 l'efface des objets au sol).
+- Pierre noire : `WorldgenDef.deepStoneBlend` (8) ; sous `deepStoneBelowY` (16), sur 8 rangées, chaque bloc de roche est de la pierre noire avec une chance qui croît d'un neuvième par rangée vers le bas (`deepStoneAt`), toute la roche en dessous. La pierre ne change pas au-dessus de y 16 (les minerais communs non plus). `GEN_VERSION` 11.
+- Lave (`block:lava`) : un liquide opaque et lumineux (15), chaud, qui remplit les grottes sous y 10 en sources. Elle coule toutes les 1,5 s, perd deux niveaux par bloc (`flow.step` 2 : trois blocs depuis une source), trouve les trous à 2 blocs, ne se multiplie pas. Au contact d'un autre liquide, elle durcit (`LiquidDef.hardens`) : une source en pierre noire, une coulée en pierre, avec un sifflement synthétisé (`sounds.hardens`). Elle brûle les objets qui y tombent. Le bloc de magma reste pour les anciennes sauvegardes.
+- Feu : la lave blesse vite (20 par seconde, cause « lava ») et allume le joueur (`contact.ignites`) ; tant qu'il la touche, le feu est rallumé pour une durée tirée entre 4 et 8 s (`balance.fire`), qui court une fois sorti, à 4 par seconde (cause « fire »). Les pieds dans l'eau l'éteignent. Le HUD montre des flammes (`#hud-fire`). `SurvivalState.burnTicks`, SAVE 14.
+- Selftest `m29` (`?worldType=flat&fixedStep=1&selftest=m0,m29` ; la bande dans le monde généré, `?seed=7&rd=4&fixedStep=1`).
+
 ### M30 — Confort d'inventaire
 
 - Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.

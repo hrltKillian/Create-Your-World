@@ -1,8 +1,10 @@
 import type { BalanceDef } from '../content/schema.ts';
+import { hash32 } from '../core/hash.ts';
 import { TICK_SECONDS, TICKS_PER_SECOND, ticksOf } from './clock.ts';
 import { type Contact, sampleEnvironment, touch } from './environment.ts';
 import { wearFilters } from './equipment.ts';
 import type { SimEvent } from './events.ts';
+import type { PlayerState } from './player.ts';
 import { metabolismFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 
@@ -24,6 +26,8 @@ export type DeathCause =
   | 'drowning'
   | 'fall'
   | 'contact'
+  | 'lava'
+  | 'fire'
   | 'creature';
 export const DEATH_CAUSES: readonly DeathCause[] = [
   'starvation',
@@ -34,6 +38,8 @@ export const DEATH_CAUSES: readonly DeathCause[] = [
   'drowning',
   'fall',
   'contact',
+  'lava',
+  'fire',
   'creature',
 ];
 
@@ -68,6 +74,8 @@ export interface SurvivalState {
   airToxicity: number;
   /** Ticks before the next environment sample (1: the next tick). */
   sampleTicks: number;
+  /** Ticks the player still burns (plan v3 « M29 »: lit by lava, put out by water; 0: not). */
+  burnTicks: number;
 }
 
 /** Full gauges, comfortable, the environment sampled on the first tick. */
@@ -90,6 +98,7 @@ export function createSurvival(b: BalanceDef): SurvivalState {
     target: 0,
     airToxicity: 0,
     sampleTicks: 1,
+    burnTicks: 0,
   };
 }
 
@@ -163,6 +172,8 @@ export function thermalStatus(temperature: number, b: BalanceDef): number {
 
 /** What a player does and touches this tick, besides the sampled environment. */
 export interface Exposure extends Contact {
+  /** The fire's length if lit now (drawn by stepSurvival within `fire.minSeconds`–`maxSeconds`). */
+  fireTicks: number;
   sprinting: boolean;
   /** Factor on the hunger and thirst rates (the metabolism skill). */
   metabolism: number;
@@ -216,7 +227,20 @@ function takeDamage(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>, minu
     s.toxicity >= t.severeAt ? t.severePerMin : s.toxicity >= t.harmAt ? t.harmPerMin : 0;
   hurt(s, poison * minutes, 'toxicity');
   if (e.underwater && s.breath === 0) hurt(s, b.breath.drowningPerSec * TICK_SECONDS, 'drowning');
-  hurt(s, e.damage * TICK_SECONDS, 'contact');
+  hurt(s, e.damage * TICK_SECONDS, e.ignites ? 'lava' : 'contact');
+  burn(s, b, e);
+}
+
+/**
+ * Fire (plan v3 « M29 »): lava lights it again every tick it is touched, so it lasts `fireTicks`
+ * once out of it; water puts it out; it hurts each tick it burns.
+ */
+function burn(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>): void {
+  if (e.ignites) s.burnTicks = e.fireTicks;
+  else if (e.douses) s.burnTicks = 0;
+  if (s.burnTicks <= 0) return;
+  s.burnTicks--;
+  hurt(s, b.fire.damagePerSec * TICK_SECONDS, 'fire');
 }
 
 /** Health comes back while fed and calm for a while. */
@@ -255,7 +279,20 @@ const exposure: Exposure = {
   underwater: false,
   toxicity: 0,
   damage: 0,
+  ignites: false,
+  douses: false,
+  fireTicks: 0,
 };
+
+/** Salt of the fire lengths drawn. */
+const FIRE_SALT = 0x46495245;
+
+/** A fire's length in ticks for a player at this tick, within the balance's seconds. */
+function fireTicks(sim: Simulation, player: PlayerState, b: BalanceDef): number {
+  const min = ticksOf(b.fire.minSeconds);
+  const span = ticksOf(b.fire.maxSeconds) - min + 1;
+  return min + (hash32(sim.ctx.seedHash, sim.tick, player.playerId, FIRE_SALT) % span);
+}
 
 /**
  * Tick step 11 « Survie et environnement » for every living player in a loaded column. The
@@ -279,6 +316,7 @@ export function stepSurvival(sim: Simulation, out: SimEvent[], first: number): v
     exposure.sprinting = player.sprinting;
     exposure.metabolism = metabolismFactor(player, b);
     exposure.underwater = body.headInWater;
+    exposure.fireTicks = exposure.ignites ? fireTicks(sim, player, b) : 0;
     stepGauges(s, b, exposure);
     if (sim.tick % TICKS_PER_SECOND === 0) wearFilters(sim.registry, player, out);
   }

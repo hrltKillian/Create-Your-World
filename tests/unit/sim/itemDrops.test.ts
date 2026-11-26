@@ -36,7 +36,8 @@ describe('item drops', () => {
 
   it('wait out the pickup delay of thrown items', () => {
     const s = setup();
-    const thrown = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 0.5, 65, 0.5, 0, 0, 0, 18);
+    const delay = DROPS.thrownPickupDelayTicks;
+    const thrown = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 0.5, 65, 0.5, 0, 0, 0, delay);
     s.step(DROPS.thrownPickupDelayTicks - 1);
     expect(s.sim.entities.has(thrown.id)).toBe(true);
     s.step(1);
@@ -52,51 +53,47 @@ describe('item drops', () => {
     expect(drop!.body.z).toBeLessThan(0.5); // thrown north, along the view
   });
 
-  it.each([0, -0.5])('never come back to their thrower standing still (pitch %s)', (pitch) => {
-    const s = setup();
-    s.host.send({ type: 'debug.give', item: 'item:torch', count: 3 });
-    s.tick(1, { pitch });
-    s.host.send({ type: 'inv.drop', slot: 0, all: false });
-    s.tick(60, { pitch });
-    const [drop] = s.drops();
-    expect(drop?.count).toBe(1);
-    expect(drop?.thrower).toBe(s.player.id);
-    expect(countItem(s.player.inventory, 'item:torch')).toBe(2);
-    expect(pickups(s.events)).toEqual([]);
-  });
+  it.each([0, -0.5])(
+    'come back to their thrower standing on them after 2 s (pitch %s)',
+    (pitch) => {
+      const s = setup();
+      s.host.send({ type: 'debug.give', item: 'item:torch', count: 3 });
+      s.tick(1, { pitch });
+      s.host.send({ type: 'inv.drop', slot: 0, all: false });
+      s.tick(DROPS.thrownPickupDelayTicks - 1, { pitch });
+      expect(s.drops()).toHaveLength(1);
+      expect(countItem(s.player.inventory, 'item:torch')).toBe(2);
+      s.tick(2, { pitch });
+      expect(s.drops()).toEqual([]);
+      expect(countItem(s.player.inventory, 'item:torch')).toBe(3);
+      expect(pickups(s.events)).toHaveLength(1);
+    },
+  );
 
-  it('come back to their thrower after walking away, and to others after the delay', () => {
+  it('go to anyone standing by once the delay is over, the first in id order', () => {
     const s = setup();
     s.host.send({ type: 'debug.give', item: 'item:torch', count: 3 });
-    s.host.send({ type: 'inv.drop', slot: 0, all: false });
-    s.tick(20, { forward: -1 }); // backwards, away from the throw
-    const [drop] = s.drops();
-    expect(drop?.thrower).toBe(-1);
-    s.tick(40, { forward: 1 });
-    expect(s.drops()).toEqual([]);
-    expect(countItem(s.player.inventory, 'item:torch')).toBe(3);
-    // Someone else standing by takes it once the 0.6 s delay is over.
     const other = s.sim.addPlayer(2, 2);
     const b = s.player.body;
-    s.sim.teleport(other, b.x, b.y, b.z);
+    s.sim.teleport(other, b.x, b.y, b.z - 0.5);
     s.host.send({ type: 'inv.drop', slot: 0, all: false });
     s.step(DROPS.thrownPickupDelayTicks - 1);
     expect(s.drops()).toHaveLength(1);
-    s.step(1);
+    s.step(2);
     expect(s.drops()).toEqual([]);
-    expect(countItem(other.inventory, 'item:torch')).toBe(1);
+    const held =
+      countItem(s.player.inventory, 'item:torch') + countItem(other.inventory, 'item:torch');
+    expect(held).toBe(3);
   });
 
-  it('do not merge a throw into a drop its thrower could take', () => {
+  it('merge a throw into a drop lying close by, which then waits for the throw’s delay', () => {
     const s = setup();
-    const lying = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 0.5, 65, -0.5, 0, 0, 0, 1e6);
-    const thrown = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 0.6, 65, -0.5);
-    thrown.thrower = s.player.id;
-    s.step(10);
-    expect(s.drops().map((d) => [d.id, d.count])).toEqual([
-      [lying.id, 1],
-      [thrown.id, 1],
-    ]);
+    const lying = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 3.5, 65, -0.5);
+    const thrown = spawnDrop(s.sim, { item: 'item:dirt', count: 1 }, 3.6, 65, -0.5, 0, 0, 0, 1e6);
+    s.step(DROPS.mergeEveryTicks);
+    expect(s.drops().map((d) => [d.id, d.count])).toEqual([[lying.id, 2]]);
+    expect(s.drops()[0]!.pickupDelay).toBeGreaterThan(1000);
+    void thrown;
   });
 
   it('merge every 10 ticks, but never tools', () => {

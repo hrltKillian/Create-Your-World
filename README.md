@@ -138,20 +138,20 @@ of them:
 
 ## Try this milestone
 
-**M28 — Interfaces from the third play test** (plan v3, `docs/conception.md` « M28 »).
+**M29 — World and rules from the third play test** (plan v3, `docs/conception.md` « M29 »).
 `npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
 
-- **Your gauges over the hotbar**: rows of our own symbols (vital cells, ration pods, drops,
-  spore crystals, bubbles), full, half or empty, and a horizontal thermometer.
-- **Bubbles**: hover an item or a recipe to read its description; screens keep their size and
-  scroll inside.
-- **Journals**: right-click with one in hand to read it like a book.
-- **Gamma** in Settings → Graphics brightens the dark.
-- **Quest messages** stay six seconds on a line of their own.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m28`.
+- **Lava** fills the deepest caves: it flows slowly, glows, hurts badly and sets you on fire; a
+  fire burns a few seconds once out of it, water puts it out; lava meeting water turns to rock.
+- **Stone and dark stone** now mix over a few rows instead of a sharp line.
+- **Thrown items** come back after two seconds, even when you stand on them.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m29`.
 
 ### Earlier milestones
 
+- **M28, interfaces**: gauges as rows of symbols over the hotbar, hover bubbles and fixed-size
+  screens, journals read as books, Gamma, longer quest messages;
+  `?worldType=flat&fixedStep=1&selftest=m0,m28`.
 - **M27, exploration**: the minimap and the big map (M), waypoints on the compass, ladders and
   trapdoors; `?worldType=flat&fixedStep=1&selftest=m0,m27`.
 - **M26, the lost colony**: the crashed capsule near the spawn, the outpost, the north relay and

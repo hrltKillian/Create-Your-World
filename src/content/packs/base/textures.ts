@@ -334,6 +334,13 @@ export const textures = [
     alpha: 'emissiveMask',
   },
   {
+    key: 'tex:lava',
+    pattern: 'sludge',
+    palette: ['#8a2c08', '#b8400f', '#e0621a', '#ff8f2e', '#ffd27a'],
+    seed: 117,
+    alpha: 'emissiveMask',
+  },
+  {
     key: 'tex:cassiterite',
     pattern: 'ore',
     palette: ['#5a5f63', '#6c7275', '#7f8587', '#3a3330', '#b9b2a8'],

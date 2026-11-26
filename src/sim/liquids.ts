@@ -9,9 +9,10 @@ import type { Simulation } from './Simulation.ts';
 /*
  * Flowing liquids (docs plan v2 « M15 — L'eau »), the reference game's rules, run as a block update
  * (blockUpdates.ts, kind LIQUID) `flow.seconds` after a change nearby:
+ * - a liquid that `hardens` turns to rock first where another liquid touches it (lava and water);
  * - a flowing cell (not a source) takes what its neighbours give it: a new source between two
- *   sources over solid ground or a source (`infinite`), a falling flow under the same liquid, one
- *   level thinner than its best horizontal neighbour, or nothing: it dries up;
+ *   sources over solid ground or a source (`infinite`), a falling flow under the same liquid,
+ *   `flow.step` levels thinner than its best horizontal neighbour, or nothing: it dries up;
  * - then it spreads: down first (a falling flow), and sideways when it cannot fall, or when it is a
  *   source (over a drop only when 3 sources surround it), one level thinner, towards the sides with the
  *   nearest drop within `holeSearch` blocks (every open side when none is that near);
@@ -27,6 +28,11 @@ interface LiquidKind {
   readonly holeSearch: number;
   readonly infinite: boolean;
   readonly delay: number;
+  /** Levels lost per block spread (`flow.step`). */
+  readonly step: number;
+  /** States it hardens into where another liquid touches it (-1: none): source, flow. */
+  readonly hardenSource: number;
+  readonly hardenFlow: number;
   /** States by level 0–7 (not falling); level 0 is the source. */
   readonly levels: readonly number[];
   readonly falling: number;
@@ -54,11 +60,15 @@ export function liquidTables(registry: Registry): LiquidTables {
       registry.withState(source, 'level', String(level)),
     );
     const falling = registry.withState(levels[1]!, 'falling', '1');
+    const hardens = block.liquid?.hardens;
     return {
       block: index,
       holeSearch: flow.holeSearch,
       infinite: flow.infinite,
       delay: Math.max(1, ticksOf(flow.seconds)),
+      step: flow.step ?? 1,
+      hardenSource: hardens ? registry.defaultState(hardens.source) : -1,
+      hardenFlow: hardens ? registry.defaultState(hardens.flow) : -1,
       levels,
       falling,
     };
@@ -107,6 +117,10 @@ export function updateLiquid(
   let state = sim.world.getBlock(x, y, z);
   const kind = liquidTables(registry).kinds[registry.tables.blockOf[state]!];
   if (!kind) return;
+  if (kind.hardenSource >= 0 && touchesOtherLiquid(sim, kind, x, y, z)) {
+    harden(sim, kind, x, y, z, state === kind.levels[0], out);
+    return;
+  }
   if (state !== kind.levels[0]) {
     const next = flowFrom(sim, kind, x, y, z);
     if (next !== state) {
@@ -136,8 +150,44 @@ function flowFrom(sim: Simulation, kind: LiquidKind, x: number, y: number, z: nu
     if ((registry.tables.flags[below]! & FLAG_SOLID) !== 0 || below === source) return source;
   }
   if (registry.tables.blockOf[world.getBlock(x, y + 1, z)] === kind.block) return kind.falling;
-  // One thinner than the best neighbour: amount best − 1, level 8 − (best − 1).
-  return best <= 1 ? registry.air : kind.levels[9 - best]!;
+  // One step thinner than the best neighbour: amount best − step, level 8 − (best − step).
+  return best <= kind.step ? registry.air : kind.levels[8 - best + kind.step]!;
+}
+
+/** Whether a liquid that hardens has another liquid beside, above or under it. */
+function touchesOtherLiquid(
+  sim: Simulation,
+  kind: LiquidKind,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  const tables = sim.registry.tables;
+  for (let i = 0; i < 18; i += 3) {
+    const there = sim.world.getBlock(x + AROUND[i]!, y + AROUND[i + 1]!, z + AROUND[i + 2]!);
+    if (tables.shape[there] === SHAPE_LIQUID && tables.blockOf[there] !== kind.block) return true;
+  }
+  return false;
+}
+
+/**
+ * The liquid turns to rock where another liquid touches it (lava meeting water): a source into
+ * its `hardens.source`, a flow into its `hardens.flow`, with a hiss (the pack's `hardens` sound).
+ */
+function harden(
+  sim: Simulation,
+  kind: LiquidKind,
+  x: number,
+  y: number,
+  z: number,
+  source: boolean,
+  out: SimEvent[],
+): void {
+  const state = source ? kind.hardenSource : kind.hardenFlow;
+  if (!editBlock(sim.world, sim.light, x, y, z, state, out)) return;
+  noteLiquids(sim, x, y, z);
+  const sfx = sim.registry.pack.sounds?.hardens;
+  if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
 }
 
 /**
@@ -193,7 +243,8 @@ function spread(
     pour(sim, kind, x, y - 1, z, kind.falling, out);
     if (!source || sourcesBeside(sim, kind, x, y, z) < 3) return;
   } else if (!source && passable(sim, kind, below)) return;
-  const amount = state === kind.falling ? 7 : liquidTables(sim.registry).amount[state]! - 1;
+  const held = state === kind.falling ? 8 : liquidTables(sim.registry).amount[state]!;
+  const amount = held - kind.step;
   if (amount <= 0) return;
   // The nearest drop counts every side the liquid passes, the ones it already fills too (the
   // reference game's rule: water beside a drop it already feeds goes nowhere else).
