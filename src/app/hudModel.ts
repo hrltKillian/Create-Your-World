@@ -1,5 +1,6 @@
 import type { Registry } from '../content/registry.ts';
 import { t } from '../i18n/i18n.ts';
+import { isRipeCrop } from '../sim/crops.ts';
 import { weakToolParams } from '../sim/mining.ts';
 import { hintText } from '../ui/hud/hudHint.ts';
 
@@ -10,8 +11,9 @@ import { hintText } from '../ui/hud/hudHint.ts';
 
 /**
  * The aimed block's line: its name, and the hint « Copper pickaxe needed » when the held item
- * (−1: an empty hand) cannot harvest it, or how to sleep on a bedroll (`useKey`: the secondary
- * button's label).
+ * (−1: an empty hand) cannot harvest it, how to sleep on a bedroll or to pick a ripe crop
+ * (`useKey`: the secondary button's label), or that a bare crop grows back or farmland is dry
+ * (plan v3 « M33 »).
  */
 export function targetText(
   registry: Registry,
@@ -25,7 +27,13 @@ export function targetText(
     ? hintText('hud.target.needs', weak)
     : block.blockEntity === 'bed'
       ? t('hud.target.sleep', { key: useKey })
-      : null;
+      : isRipeCrop(registry, state)
+        ? t('hud.target.pick', { key: useKey })
+        : block.crop
+          ? t('hud.target.growing')
+          : block.soil && registry.prop(state, 'moist') === '0'
+            ? t('hud.target.dry')
+            : null;
   return { name: t(block.nameKey), hint };
 }
 

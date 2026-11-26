@@ -306,8 +306,9 @@ describe('LogbookPanel', () => {
     // The craftable ones first, then the cord itself (materials) and the spear among the others.
     expect(rows().slice(0, 2)).toEqual(['recipe:flint_hatchet', 'recipe:flint_pickaxe']);
     expect(rows()).toEqual(expect.arrayContaining(['recipe:cord', 'recipe:flint_spear']));
+    // The tools that take cord: the hatchet, the pickaxe and the hoe of flint (plan v3 « M33 »).
     const badge = byAttr(root, 'data-tab', 'tools')[0]!.querySelector('.logbook-count');
-    expect(badge?.textContent).toBe('2');
+    expect(badge?.textContent).toBe('3');
     type('nothing like it');
     expect(rows()).toEqual([]);
     expect(fake(root).querySelector('.logbook-empty')?.textContent).toBe('No recipe matches.');
@@ -315,9 +316,14 @@ describe('LogbookPanel', () => {
     const filter = fake(root).findAction('craftable-only')!;
     filter.dispatch('click');
     expect(filter.getAttribute('aria-pressed')).toBe('true');
-    expect(rows()).toEqual(['recipe:flint_knife', 'recipe:flint_hatchet', 'recipe:flint_pickaxe']);
+    expect(rows()).toEqual([
+      'recipe:flint_knife',
+      'recipe:flint_hatchet',
+      'recipe:flint_pickaxe',
+      'recipe:flint_hoe',
+    ]);
     filter.dispatch('click');
-    expect(rows().length).toBeGreaterThan(3);
+    expect(rows().length).toBeGreaterThan(4);
   });
 
   it('lists undiscovered recipes greyed at the bottom, their unseen ingredients as « ? »', () => {

@@ -61,7 +61,8 @@ describe('what the bot tells apart', () => {
     const s = playerTestSim({ seed: 'senses' });
     const senses = botSenses(s.sim);
     const kind = (item: string) => kindOf(senses, { item, count: 1 });
-    expect(kind('item:berries')).toBe(FOOD);
+    // Berries are food that plants a bush (plan v3 « M33 »).
+    expect(kind('item:berries')).toBe(FOOD | BLOCK);
     expect(kind('item:flask_raw')).toBe(DRINK | TOXIC);
     expect(kind('item:raw_meat')).toBe(FOOD | TOXIC);
     expect(kind('item:palmthorn_fruit')).toBe(FOOD | DRINK);

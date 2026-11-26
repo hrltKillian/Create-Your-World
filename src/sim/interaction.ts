@@ -7,9 +7,12 @@ import { noteChanged } from './blockUpdates.ts';
 import { TICK_SECONDS } from './clock.ts';
 import { reject } from './commandRules.ts';
 import { holdUse, NO_USE } from './consume.ts';
+import { harvestCrop, isRipeCrop, scheduleRipening } from './crops.ts';
 import { recoverPack } from './death.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
+import { till } from './farmland.ts';
+import { holdRod } from './fishing.ts';
 import { spendUses, takeFromSlot } from './inventory.ts';
 import { meleeTarget, stepMelee } from './melee.ts';
 import {
@@ -34,6 +37,9 @@ import { sleepOn } from './sleep.ts';
 import { exhaust } from './survival.ts';
 import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
 
+/** HUD hint of a crop planted elsewhere than on farmland (engine i18n key). */
+export const SOIL_HINT = 'hint.needsFarmland';
+
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
 const BROKEN = 1 - 1e-9;
 
@@ -48,8 +54,9 @@ const placement: Placement = { x: 0, y: 0, z: 0, state: 0, upper: -1 };
  * stopping the blow (melee.ts), else mines the aimed block while held. Secondary acts on the aimed
  * block unless a creature in reach stands in front of it: it uses an interactive block on the
  * press (toggles a gate, opens a chest or station, sleeps on a bedroll, takes back an Abandoned
- * Pack), else eats, drinks or fills while held (consume.ts), else places the held block, again
- * every 6 ticks while held; crouching forces the placement.
+ * Pack, picks a ripe crop), else fishes, eats, drinks or fills while held (fishing.ts,
+ * consume.ts), else places the held block, again every 6 ticks while held; crouching forces the
+ * placement.
  */
 export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const creature = meleeTarget(sim, player, creatureAt);
@@ -140,7 +147,8 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
 
 /**
  * Secondary button: an aimed interactive block on the press; else a journal in hand read on the
- * press; else what the hand eats, drinks or fills while held; else a placement on the press, then
+ * press; else a food that plants (berries) planted on the press where it holds; else what the hand
+ * fishes, eats, drinks or fills while held; else a hoe's tilling or a placement on the press, then
  * every PLACE_REPEAT_TICKS while held.
  */
 function useButton(sim: Simulation, player: PlayerState, status: number, out: SimEvent[]): void {
@@ -163,12 +171,22 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
     st.useItem = NO_USE;
     return;
   }
-  if (holdUse(sim, player, pressed, out)) return;
+  if (pressed && status === AIM_HIT && plantsHere(sim, player)) {
+    // Food that plants (berries: the reference game's seeds) plants on the press where it holds,
+    // and is not eaten on this hold.
+    st.useItem = NO_USE;
+    st.useCooldown = PLACE_REPEAT_TICKS;
+    place(sim, player, out);
+    return;
+  }
+  if (holdRod(sim, player, pressed, out) || holdUse(sim, player, pressed, out)) return;
   st.useItem = NO_USE;
   if (!pressed && --st.useCooldown > 0) return;
   st.useCooldown = PLACE_REPEAT_TICKS;
   if (status === AIM_OUT_OF_REACH) reject(out, player.playerId, 'input', 'reach');
-  else if (status === AIM_HIT) place(sim, player, out);
+  // A hoe tills the aimed block (plan v3 « M33 »); anything else is placed.
+  else if (status === AIM_HIT && !till(sim, player, hit.x, hit.y, hit.z, out))
+    place(sim, player, out);
 }
 
 /**
@@ -184,25 +202,28 @@ function readsHeld(sim: Simulation, player: PlayerState, pressed: boolean, out: 
 
 /**
  * Whether secondary acts on the aimed block (a gate, a chest, a station, a bedroll, an Abandoned
- * Pack) instead of placing: crouching forces the placement.
+ * Pack, a ripe crop) instead of placing: crouching forces the placement.
  */
 export function usesAimedBlock(registry: Registry, state: number, crouch: boolean): boolean {
   if (crouch) return false;
   return (
-    registry.prop(state, 'open') !== undefined || registry.blockDef(state).blockEntity !== undefined
+    registry.prop(state, 'open') !== undefined ||
+    registry.blockDef(state).blockEntity !== undefined ||
+    isRipeCrop(registry, state)
   );
 }
 
 /**
- * Opens the screen of an aimed chest or station, sleeps on a bedroll, takes back a pack, or
- * toggles a gate.
+ * Opens the screen of an aimed chest or station, sleeps on a bedroll, takes back a pack, picks a
+ * ripe crop, or toggles a gate.
  */
 function useAimed(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const { x, y, z } = hit;
   const kind = sim.registry.blockDef(hit.state).blockEntity;
   let refusal: string | null = null;
   // The aim has confirmed the line of sight (a client target, or the simulation's own ray).
-  if (kind === 'container' || kind === 'station' || kind === 'workbench')
+  if (isRipeCrop(sim.registry, hit.state)) harvestCrop(sim, player.playerId, x, y, z, out);
+  else if (kind === 'container' || kind === 'station' || kind === 'workbench')
     refusal = openBlockEntity(sim, player, x, y, z, out, true);
   else if (kind === 'bed') sleepOn(sim, player, x, y, z, out);
   else if (kind === 'grave') refusal = recoverPack(sim, player, x, y, z, out);
@@ -243,6 +264,15 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
   if (other !== y) noteChanged(sim, x, other, z);
 }
 
+/** Whether the held item is a food that plants a block (berries) and it holds at the aimed face. */
+function plantsHere(sim: Simulation, player: PlayerState): boolean {
+  const itemId = heldItem(sim, player);
+  const state = itemId < 0 ? -1 : sim.registry.itemTables.places[itemId]!;
+  if (state < 0 || !sim.registry.items[itemId]?.consume) return false;
+  const { world, registry, entities } = sim;
+  return planPlacement(world, registry, entities, player, hit, state, placement) === null;
+}
+
 /** Places one of the held blocks against the aimed face. */
 function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const itemId = heldItem(sim, player);
@@ -259,6 +289,8 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   );
   if (refusal) {
     reject(out, player.playerId, 'input', refusal);
+    if (refusal === 'soil')
+      out.push({ type: 'hint', playerId: player.playerId, key: SOIL_HINT, params: {} });
     return;
   }
   const { x, y, z } = placement;
@@ -267,8 +299,10 @@ function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   if (placement.upper >= 0) editBlock(sim.world, sim.light, x, y + 1, z, placement.upper, out);
   // A block placed in or beside a liquid changes its flow.
   noteChanged(sim, x, y, z);
-  // A placed chest or station starts empty (only generated chests hold loot).
+  // A placed chest or station starts empty (only generated chests hold loot); a planted crop
+  // starts bare and ripens later.
   createBlockEntity(sim, x, y, z, false);
+  scheduleRipening(sim, x, y, z);
   takeFromSlot(player.inventory, player.input.slot, 1);
   out.push({ type: 'blockPlaced', playerId: player.playerId, x, y, z, state: placement.state });
   const sfx = sim.registry.blockSfx(placement.state, 'place');

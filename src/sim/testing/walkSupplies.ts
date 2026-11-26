@@ -55,8 +55,9 @@ export abstract class Supplies extends Gathering {
     const recipe = this.recipeFor(item);
     const process = recipe ? undefined : this.processFor(item);
     const creature = named && !recipe && !process ? this.creatureWith(item) : undefined;
+    const water = named && !recipe && !process && !creature ? this.fishingWater(item) : undefined;
     // What only a structure's chests keep (the colony's relics) comes from them.
-    const elsewhere = sources.length > 0 || recipe || process || this.creatureWith(item);
+    const elsewhere = sources.length > 0 || recipe || process || this.creatureWith(item) || water;
     const structure = elsewhere ? undefined : this.structureWith(item);
     const missing = need - this.count(ingredient);
     if (sources.length > 0) await this.harvest(item, need, sources);
@@ -67,6 +68,11 @@ export abstract class Supplies extends Gathering {
     else if (creature) {
       const weapon = await this.weapon(depth);
       await this.hunt(creature, weapon, () => this.count(ingredient) >= need, item);
+    } else if (water) {
+      const rod = this.registry.items.find((i) => i.rod);
+      if (!rod) throw new Error(`no rod to fish ${item}`);
+      await this.obtain(rod.key, 1, depth + 1);
+      await this.fish(item, need, water, this.toHotbar(rod.key));
     } else this.port.send({ type: 'debug.give', item, count: missing });
     if (this.count(ingredient) < need)
       throw new Error(

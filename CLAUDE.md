@@ -254,7 +254,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `blockAt`, `UNEXPLORED`), the HUD's minimap `ui/hud/minimap.ts` (`#hud-map`, the player's
     coordinates under it) and the big map screen `ui/screens/mapScreen.ts` (key M only,
     `ui.screen()` 'map', `#screen-map`, the client's alone: `InventoryUi.toggleMap`; dragged
-    (`centreFor`, `stale`), a click picks a place; `data-action` `map-centre`/`waypoint-name`/
+    (`centreFor`, `stale`), zoomed `MAP_ZOOMS` pixels a block (`MapCanvas.zoom`: the wheel about
+    the pointer, `map-zoom-in`/`map-zoom-out`), a click picks a place; the player's and the
+    pointer's coordinates on two lines of their own (`.map-coords`, `.map-pointer`); `data-action`
+    `map-centre`/`waypoint-name`/
     `waypoint-add`/`waypoint-show`/`waypoint-remove`, pickers `data-icon`/`data-colour`, rows
     `data-waypoint`); waypoints on the compass (`CompassTargets.waypoints`/`waypointColours`,
     `.compass-waypoint` with `--c`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
@@ -274,6 +277,23 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `inv.sort {open}`, `inv.stackNearby`, event `stackedNearby`); a workbench's crafts take from
     `craftSources` (the inventory, then the chests near it: craftQueue.ts), its Logbook counts
     them (UiBridge); buttons `data-action` `bag-sort`, `stack-nearby`, `chest-sort`;
+  - farming and fishing (plan v3 « M33 »): crops `sim/crops.ts` (`BlockDef.crop`: harvest,
+    seconds, light; the `ripe` state, ripe by default; `isRipeCrop`, `harvestCrop` (secondary: the
+    harvest popped out at its foot, the reference game's sweet berries), `stripCrop` (grazed bare),
+    planted from their harvest (`ItemDef.places`: a food that plants, on the press where it holds,
+    else eaten: `plantsHere` in interaction.ts) on farmland only (`sim/farmland.ts`: a hoe
+    `ItemDef.hoe` tills a block's `BlockDef.tills` (`till`, from the placement branch); farmland
+    `BlockDef.soil` with the `moist` state, checked on block update `UPDATE_SOIL` (`checkSoil`:
+    watered within `soil.irrigation`, else dry, dry and empty back to `soil.dries`), trampled by
+    a landing (`stepTrampling`), a dry one ripens crops twice as slowly (`soilFactor`); planting
+    elsewhere is refused `soil`, hint `hint.needsFarmland`), `scheduleRipening`/`ripenCrop` on block update
+    `UPDATE_GROW`; planted bare by `planPlacement`; broken ripe: `dropHarvest`, over `dropLoot` of
+    blockRemoval.ts); fishing `sim/fishing.ts` (`holdRod` before `holdUse`: `ItemDef.rod`,
+    `LiquidDef.fish`, `BiomeDef.fish`; `aimedLiquidCell`, `held` of consume.ts; event
+    `fishCaught`); a station runs the ready process asking for the most kinds of input
+    (`processFor`, stations.ts); quest counter `harvested` (event `cropHarvested`); the quests walk
+    picks crops (`pickCrops`), fishes at a dug pool (`fishingWater`, `fish`) and claims each quest,
+    its points spent on carrying;
   - feel and units of the fourth play test (plan v3 « M30 »): gauges counted in symbols
     (`ui/symbols.ts`: `ROW_ICONS`, `inSymbols`, `symbolCount`, `InfoLine`/`SymbolLine`,
     `lineElement`, `miniSymbol`; `.gauge-*` shapes shared by the HUD rows and `.mini-icon`;
@@ -514,6 +534,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Farming checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m33` (`selftest/m33.ts`): a
+  crop planted bare, ripened under the sky and picked by secondary; a rod's catch at a dug pool.
 - Inventory checks of plan v3: `?worldType=arena&fixedStep=1&selftest=m0,m32` (`selftest/m32.ts`):
   the Bag's « Sort » and « Stack into chests nearby » with the workshop's chest, the workbench
   crafting with that chest's ingredients.

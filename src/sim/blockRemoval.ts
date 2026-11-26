@@ -1,7 +1,9 @@
 import { blockItemKey } from '../content/items.ts';
+import type { LootKey } from '../content/schema.ts';
 import { hash32 } from '../core/hash.ts';
 import { blockEntityAt, removeBlockEntity } from './blockEntities.ts';
 import { noteRemoved } from './blockUpdates.ts';
+import { dropHarvest, isRipeCrop } from './crops.ts';
 import { forgetGrave } from './death.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
@@ -76,12 +78,19 @@ export function removeBlock(
   const sfx = registry.blockSfx(state, 'break');
   if (sfx) out.push({ type: 'sound', sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
   if (!harvest) return;
-  const drops = registry.blockDef(state).drops;
+  const def = registry.blockDef(state);
+  if (def.drops === 'self')
+    spawnDrop(sim, { item: blockItemKey(def.key), count: 1 }, x + 0.5, y + 0.5, z + 0.5);
+  else if (def.drops !== 'none') dropLoot(sim, def.drops, x, y, z);
+  // A ripe crop gives its harvest too (plan v3 « M33 »).
+  if (def.crop && isRipeCrop(registry, state)) dropHarvest(sim, def.crop, x, y, z);
+}
+
+/** A loot table rolled at a cell (from the seed, the cell, the tick and `salt`), dropped there. */
+export function dropLoot(sim: Simulation, key: LootKey, x: number, y: number, z: number, salt = 0) {
+  const table = sim.registry.loot(key);
+  if (!table) return;
   const give = (item: string, count: number) =>
     spawnDrop(sim, { item, count }, x + 0.5, y + 0.5, z + 0.5);
-  if (drops === 'self') give(blockItemKey(registry.blockDef(state).key), 1);
-  else if (drops !== 'none') {
-    const table = registry.loot(drops);
-    if (table) rollLoot(table, hash32(hash32(sim.ctx.seedHash, x, y, z), sim.tick), give);
-  }
+  rollLoot(table, hash32(hash32(sim.ctx.seedHash, x, y, z), sim.tick, salt), give);
 }

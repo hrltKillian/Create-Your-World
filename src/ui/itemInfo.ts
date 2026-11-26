@@ -85,7 +85,15 @@ export function itemLines(registry: Registry, key: string): InfoLine[] {
   }
   if (item.container) lines.push(t('info.charges', { n: item.container.charges }));
   if (item.fuel) lines.push(t('info.fuel', { seconds: item.fuel.seconds }));
-  const uses = item.tool?.durability ?? weapon?.durability ?? wear?.durability;
+  const rod = item.rod;
+  if (rod) lines.push(t('info.rod', { min: rod.seconds[0], max: rod.seconds[1] }));
+  if (item.hoe) lines.push(t('info.hoe'));
+  const uses =
+    item.tool?.durability ??
+    weapon?.durability ??
+    wear?.durability ??
+    rod?.durability ??
+    item.hoe?.durability;
   if (uses) lines.push(t('info.durability', { n: uses }));
   return lines;
 }

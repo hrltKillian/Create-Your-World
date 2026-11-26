@@ -72,6 +72,34 @@ describe('MapScreen', () => {
     expect(sent[1]).toEqual({ type: 'waypoint.add', name: '', icon: 'cave', colour: 3 });
   });
 
+  it('zooms about the pointer, picks places a zoomed block at a time and drags by blocks', () => {
+    const { screen, canvas, find, view } = setup();
+    const label = () => fake(screen.element).querySelector('.map-zoom')!.textContent;
+    expect(label()).toBe('×1');
+    // The wheel up over the block (15, 17): it stays under the pointer, 2 pixels a block.
+    const wheel = { clientX: 256 + 5, clientY: 256 - 3, deltaY: -100, preventDefault: () => {} };
+    canvas.dispatch('wheel', wheel);
+    expect(label()).toBe('×2');
+    const centre = screen.centreFor(10.5, 20.5);
+    expect(centre).toEqual({ x: 13, z: 19 });
+    screen.update({ ...view, centreX: centre.x, centreZ: centre.z });
+    canvas.dispatch('pointerdown', { clientX: 256 + 5, clientY: 256 - 3 });
+    canvas.dispatch('pointerup', { clientX: 256 + 5, clientY: 256 - 3 });
+    expect(fake(screen.element).querySelector('.map-where')!.textContent).toContain('X 15 · Z 17');
+    // Up to 8 pixels a block with « + », never past it.
+    for (let i = 0; i < 4; i++) find('data-action', 'map-zoom-in').dispatch('click');
+    expect(label()).toBe('×8');
+    // A drag of 80 pixels moves 10 blocks.
+    const before = screen.centreFor(10.5, 20.5);
+    canvas.dispatch('pointerdown', { clientX: 100, clientY: 100 });
+    canvas.dispatch('pointermove', { clientX: 180, clientY: 100 });
+    canvas.dispatch('pointerup', { clientX: 180, clientY: 100 });
+    expect(screen.centreFor(10.5, 20.5)).toEqual({ x: before.x - 10, z: before.z });
+    // Back out to a pixel a block with « − ».
+    for (let i = 0; i < 4; i++) find('data-action', 'map-zoom-out').dispatch('click');
+    expect(label()).toBe('×1');
+  });
+
   it('centres on a waypoint with « Show », and back on the player', () => {
     const { screen, find } = setup();
     find('data-action', 'waypoint-show').dispatch('click');

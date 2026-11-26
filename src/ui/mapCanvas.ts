@@ -15,12 +15,15 @@ export interface MapStyle {
 }
 
 /**
- * A map on a canvas of `side` × `side` pixels, one a block, north up, centred on the view's centre
- * (plan v3 « M27 », detailed at « M31 »): the explored land, the rest dark, the waypoints with
- * their symbol and colour (and names), the player as an arrow along their facing.
+ * A map on a canvas of `side` × `side` pixels, `zoom` a block (1, or more on the big map), north
+ * up, centred on the view's centre (plan v3 « M27 », detailed at « M31 »): the explored land, the
+ * rest dark, the waypoints with their symbol and colour (and names), the player as an arrow along
+ * their facing.
  */
 export class MapCanvas {
   readonly element: HTMLCanvasElement;
+  /** Pixels a block side (a whole number). */
+  zoom = 1;
   private readonly side: number;
   private readonly style: MapStyle;
   private image: ImageData | null = null;
@@ -37,7 +40,10 @@ export class MapCanvas {
   /** The block under a canvas pixel (its column x, z) for a view. */
   blockAt(view: MapView, px: number, py: number): { x: number; z: number } {
     const half = this.side / 2;
-    return { x: Math.floor(view.centreX - half + px), z: Math.floor(view.centreZ - half + py) };
+    return {
+      x: Math.floor(view.centreX + (px - half) / this.zoom),
+      z: Math.floor(view.centreZ + (py - half) / this.zoom),
+    };
   }
 
   /** Draws the view (no canvas context: nothing, as in tests). */
@@ -48,17 +54,21 @@ export class MapCanvas {
     this.image ??= g.createImageData(side, side);
     const data = this.image.data;
     for (let p = 0; p < data.length; p += 4) setPixel(data, p, UNEXPLORED);
-    // The block at the canvas's top-left corner.
-    const left = view.centreX - side / 2;
-    const top = view.centreZ - side / 2;
+    const k = this.zoom;
+    // The block at the canvas's top-left corner (fractional when zoomed in).
+    const left = view.centreX - side / 2 / k;
+    const top = view.centreZ - side / 2 / k;
     for (const column of view.columns) {
-      const x0 = column.cx * MAP_CELLS - left;
-      const z0 = column.cz * MAP_CELLS - top;
-      if (x0 >= side || z0 >= side || x0 + MAP_CELLS <= 0 || z0 + MAP_CELLS <= 0) continue;
-      for (let j = Math.max(0, -z0); j < MAP_CELLS && z0 + j < side; j++) {
-        const row = (z0 + j) * side;
-        for (let i = Math.max(0, -x0); i < MAP_CELLS && x0 + i < side; i++)
-          setPixel(data, (row + x0 + i) * 4, column.colours[i + j * MAP_CELLS]!);
+      // The column's top-left corner, in pixels.
+      const x0 = Math.round((column.cx * MAP_CELLS - left) * k);
+      const z0 = Math.round((column.cz * MAP_CELLS - top) * k);
+      const span = MAP_CELLS * k;
+      if (x0 >= side || z0 >= side || x0 + span <= 0 || z0 + span <= 0) continue;
+      for (let py = Math.max(0, z0); py < Math.min(side, z0 + span); py++) {
+        const row = py * side;
+        const j = Math.floor((py - z0) / k) * MAP_CELLS;
+        for (let px = Math.max(0, x0); px < Math.min(side, x0 + span); px++)
+          setPixel(data, (row + px) * 4, column.colours[j + Math.floor((px - x0) / k)]!);
       }
     }
     g.putImageData(this.image, 0, 0);
@@ -68,8 +78,8 @@ export class MapCanvas {
     g.font = '600 11px system-ui, sans-serif';
     g.textBaseline = 'middle';
     for (const w of view.waypoints) {
-      let x = w.x + 0.5 - left;
-      let y = w.z + 0.5 - top;
+      let x = (w.x + 0.5 - left) * k;
+      let y = (w.z + 0.5 - top) * k;
       const inside = x >= 0 && y >= 0 && x < side && y < side;
       if (!inside && !style.clampToEdge) continue;
       x = edge(x);
@@ -86,7 +96,7 @@ export class MapCanvas {
     }
     // The player: an arrow along their facing (yaw 0 looks north, −z), kept on the edge.
     g.save();
-    g.translate(edge(view.player.x - left), edge(view.player.z - top));
+    g.translate(edge((view.player.x - left) * k), edge((view.player.z - top) * k));
     g.rotate(-view.player.yaw);
     g.fillStyle = '#ffd27a';
     g.strokeStyle = 'rgba(10, 10, 10, 0.85)';

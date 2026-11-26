@@ -1,6 +1,7 @@
 import { lookVector, type Vec3 } from '../../core/angles.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { solidCell } from '../collision.ts';
+import { isRipeCrop } from '../crops.ts';
 import type { Inventory, ItemStack } from '../inventory.ts';
 import type { Body } from '../physics.ts';
 import type { BotWorld } from './bots.ts';
@@ -29,7 +30,7 @@ const SCAN_UP = 2;
 export interface BotSenses extends BotWorld {
   /** Item kinds by item id. */
   readonly items: Uint8Array;
-  /** Source kinds by block id. */
+  /** Source kinds by block state. */
   readonly sources: Uint8Array;
 }
 
@@ -51,15 +52,17 @@ export function botSenses({ registry, world }: BotWorld): BotSenses {
       (registry.itemTables.places[id]! >= 0 ? BLOCK : 0) |
       (def.tool ? TOOL : 0);
   });
-  const sources = new Uint8Array(registry.blocks.length);
-  registry.blocks.forEach((def, id) => {
+  const sources = new Uint8Array(registry.tables.blockOf.length);
+  for (let state = 0; state < sources.length; state++) {
+    const def = registry.blockDef(state);
     const liquid = def.liquid;
-    const loot =
-      def.drops === 'self' || def.drops === 'none' ? undefined : registry.loot(def.drops);
-    if (liquid?.drinkable && liquid.thirstPerSip > liquid.toxicityPerSip) sources[id] = WATER;
+    // A crop gives food while ripe (its harvest), whatever it drops itself.
+    const drops = def.crop ? (isRipeCrop(registry, state) ? def.crop.harvest : 'none') : def.drops;
+    const loot = drops === 'self' || drops === 'none' ? undefined : registry.loot(drops);
+    if (liquid?.drinkable && liquid.thirstPerSip > liquid.toxicityPerSip) sources[state] = WATER;
     else if (loot?.entries.some((e) => (items[registry.itemId(e.item)]! & FOOD) !== 0))
-      sources[id] = BUSH;
-  });
+      sources[state] = BUSH;
+  }
   return { registry, world, items, sources };
 }
 
@@ -109,8 +112,7 @@ export function handSlot(senses: BotSenses, inventory: Inventory, current: numbe
 
 /** Source kind of the block at a cell (0: none). */
 export function sourceAt(senses: BotSenses, x: number, y: number, z: number): number {
-  const state = senses.world.getBlock(x, y, z);
-  return senses.sources[senses.registry.tables.blockOf[state]!]!;
+  return senses.sources[senses.world.getBlock(x, y, z)]!;
 }
 
 /**

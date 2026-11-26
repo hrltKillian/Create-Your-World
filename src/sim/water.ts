@@ -34,6 +34,11 @@ export function aimedLiquid(sim: Simulation, player: PlayerState): number {
   return ray.hit && (tables.flags[ray.state]! & FLAG_LIQUID) !== 0 ? ray.state : -1;
 }
 
+/** The cell of the liquid `aimedLiquid` found last (read at once: the next call moves it). */
+export function aimedLiquidCell(): Readonly<{ x: number; y: number; z: number }> {
+  return ray;
+}
+
 /** One sip of a liquid (fresh water: thirst +8, toxicity +2; foul water: toxicity +10). */
 export function sip(sim: Simulation, player: PlayerState, liquid: number, out: SimEvent[]): void {
   const def = sim.registry.blockDef(liquid);

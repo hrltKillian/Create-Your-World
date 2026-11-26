@@ -59,6 +59,25 @@ const HATCHET = [
   '...33...........',
   '................',
 ];
+/** A hoe (plan v3 « M33 »): a flat blade across the top of the handle. */
+const HOE = [
+  '................',
+  '................',
+  '..000000........',
+  '.01222210000....',
+  '.011111105543...',
+  '..0000000343....',
+  '.........343....',
+  '........343.....',
+  '.......343......',
+  '......343.......',
+  '.....343........',
+  '....343.........',
+  '...343..........',
+  '..343...........',
+  '..33............',
+  '................',
+];
 const PICKAXE = [
   '................',
   '.....0000.......',
@@ -115,11 +134,39 @@ const BLADE = [
 ];
 
 /** Tool and weapon icons: the flint set, then a hatchet, a pickaxe and a blade per metal. */
+const ROD = [
+  '................',
+  '..............2.',
+  '.............213',
+  '............21.3',
+  '...........21..3',
+  '..........21...3',
+  '.........21....3',
+  '........21.....3',
+  '.......21......3',
+  '......21.......3',
+  '.....21.......44',
+  '....55........44',
+  '...55...........',
+  '..55............',
+  '.55.............',
+  '................',
+];
+
 export const toolIcons = [
   icon('tex:icon_flint_knife', 101, FLINT_TOOL, KNIFE),
   icon('tex:icon_flint_hatchet', 103, FLINT_TOOL, HATCHET),
   icon('tex:icon_flint_pickaxe', 107, FLINT_TOOL, PICKAXE),
   icon('tex:icon_flint_spear', 109, FLINT_TOOL, SPEAR),
+  icon('tex:icon_flint_hoe', 120, FLINT_TOOL, HOE),
+  icon('tex:icon_copper_hoe', 121, COPPER_TOOL, HOE),
+  // Plan v3 « M33 »: pole shade, pole, line, float, grip.
+  icon(
+    'tex:icon_fishing_rod',
+    119,
+    ['#2a1a10', '#5a3c22', '#9a7048', '#d8d2c4', '#c0392b', '#3a2a1a'],
+    ROD,
+  ),
   icon('tex:icon_copper_hatchet', 301, COPPER_TOOL, HATCHET),
   icon('tex:icon_copper_pickaxe', 302, COPPER_TOOL, PICKAXE),
   icon('tex:icon_copper_blade', 303, COPPER_TOOL, BLADE),

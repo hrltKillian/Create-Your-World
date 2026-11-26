@@ -3,6 +3,7 @@ import type { QuestDef } from '../../content/schema.ts';
 import { findBiome } from '../../world/gen/find.ts';
 import { TICKS_PER_SECOND, ticksOf } from '../clock.ts';
 import type { PlayerState } from '../player.ts';
+import { pointsLeft } from '../progression.ts';
 import type { QuestState } from '../quests.ts';
 import { DAY_TICKS } from '../time.ts';
 import { type Cell, cellText, type WalkOptions, type WalkPort } from './walkPort.ts';
@@ -17,13 +18,14 @@ export type { Cell, HoldAction, Point, WalkOptions, WalkPort } from './walkPort.
  * walkHands.ts: blocks broken by holding primary with the right tool and their drops walked
  * onto, crafts queued as the Logbook does, stations placed and fed, a sip, journeys to biomes not
  * walked yet and to the biomes of the deposits, creatures struck down with a spear in a pit, a
- * cabin built block by block with secondary and a night held out in it), and the walk waits for
- * the quest to be done. Everything is read from the pack (engine code never names content). The
+ * cabin built block by block with secondary and a night held out in it, ripe crops picked, fish
+ * caught with a rod), and the walk waits for the quest to be done, claims it and spends its
+ * levels' points on carrying (the chain's items fill a bag of 32). Everything is read from the pack (engine code never names content). The
  * browser runs it through `__game`'s automation (selftest/questsWalk.ts), tests on inline
  * simulations of several seeds.
  * Debug commands stage what is not a quest's (« Retenu à l'intégration » of M11): the home pad
- * and the hunting pit are levelled and the drinking pool poured by `debug.fill`, a source block is
- * staged beside the player when none lies within the search, the materials no quest names are
+ * and the hunting pit are levelled and the drinking and fishing pools poured by `debug.fill`, a
+ * source block or a crop is staged beside the player when none lies within the search, the materials no quest names are
  * given (`debug.give`), the hunted creatures are placed (`debug.spawn`) at night (`debug.setTime`),
  * stations open without aiming (`debug.open`) and the walk teleports between its stands.
  */
@@ -98,7 +100,20 @@ class QuestWalk extends Supplies {
       this.awaitQuest(quest, (state) => state?.done === true, 'done');
       await this.goHome();
       await this.options.onDone?.(quest, i);
+      // Claimed once its checks are over (a claimed quest is no longer pinned).
+      this.claim(quest);
     }
+  }
+
+  /**
+   * Claims a quest done (its rewards and XP) and spends the points of the levels reached on
+   * carrying, as a player whose bag fills: the items of the whole chain fit in it.
+   */
+  private claim(quest: QuestDef): void {
+    this.port.send({ type: 'quest.claim', quest: quest.key });
+    const p = this.registry.pack.balance.progression;
+    while (pointsLeft(this.me(), p) > 0 && this.me().skills.carrying < p.maxSkill)
+      this.port.send({ type: 'skill.spend', skill: 'carrying' });
   }
 
   /** Does what a quest asks for: its condition part by part, or its counter's deeds. */
@@ -122,7 +137,7 @@ class QuestWalk extends Supplies {
       const prey = creatures.find((def) => def.key === (counter.target ?? def.key));
       if (!prey) throw new Error(`no ${counter.target} to hunt`);
       await this.hunt(prey, await this.weapon(0), done);
-    }
+    } else if (counter?.event === 'harvested') await this.pickCrops(counter.target, done);
   }
 
   /**

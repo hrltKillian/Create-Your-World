@@ -41,6 +41,16 @@ describe('item descriptions', () => {
     // A food in ration pods.
     expect(itemLines(registry, 'item:berries')).toEqual([{ text: 'Food +1', symbol: 'hunger' }]);
     expect(itemLines(registry, 'item:stick')).toContain('Burns 5 s');
+    const hoe = registry.item('item:flint_hoe')!.hoe!;
+    expect(itemLines(registry, 'item:flint_hoe')).toEqual([
+      'Tills grass and dirt into farmland',
+      `${hoe.durability} uses`,
+    ]);
+    const rod = registry.item('item:fishing_rod')!.rod!;
+    expect(itemLines(registry, 'item:fishing_rod')).toEqual([
+      `A bite every ${rod.seconds[0]}–${rod.seconds[1]} s on fresh water`,
+      `${rod.durability} uses`,
+    ]);
     expect(itemLines(registry, 'tag:log')).toEqual([]);
   });
 

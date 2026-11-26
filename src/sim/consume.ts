@@ -32,7 +32,12 @@ export function consuming(player: Readonly<PlayerState>): boolean {
 }
 
 /** Counts the ticks of the held action; true each time it is done (it then starts over). */
-function held(player: PlayerState, pressed: boolean, action: number, ticks: number): boolean {
+export function held(
+  player: PlayerState,
+  pressed: boolean,
+  action: number,
+  ticks: number,
+): boolean {
   const st = player.interaction;
   if (pressed) {
     st.useItem = action;

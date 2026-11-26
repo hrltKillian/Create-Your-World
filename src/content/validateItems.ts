@@ -63,6 +63,21 @@ export function validateItems(
     // Liquids, unbreakable blocks and the bindings have no item to drop.
     if (block.drops === 'self' && !itemKeys.has(blockItemKey(block.key)))
       add(`blocks[${i}].drops`, 'only a placeable block can drop itself');
+    const fish = block.liquid?.fish;
+    if (fish && !loot.has(fish)) add(`blocks[${i}].liquid.fish`, `unknown loot table "${fish}"`);
+    const crop = block.crop;
+    if (!crop) return;
+    const path = `blocks[${i}].crop`;
+    if (!loot.has(crop.harvest)) add(`${path}.harvest`, `unknown loot table "${crop.harvest}"`);
+    if (!positive(crop.seconds[0]) || !(crop.seconds[1]! >= crop.seconds[0]))
+      add(`${path}.seconds`, 'must be a range of seconds > 0');
+    if (!Number.isInteger(crop.light) || crop.light < 0 || crop.light > 15)
+      add(`${path}.light`, 'must be an integer 0–15');
+    if (!block.states?.includes('ripe')) add(path, 'a crop needs the "ripe" state');
+  });
+  (pack.biomes ?? []).forEach((biome, i) => {
+    if (biome.fish && !loot.has(biome.fish))
+      add(`biomes[${i}].fish`, `unknown loot table "${biome.fish}"`);
   });
   const tags = new Set<string>([...items.values()].flatMap((item) => item.tags ?? []));
   return { items, tags, loot };
@@ -100,10 +115,20 @@ function checkItems(
       if (!positive(tool.speed)) add(`${path}.tool.speed`, 'must be > 0');
       checkDurability(tool.durability, `${path}.tool.durability`, add);
     }
-    // Tools, weapons, gear and water containers keep their own wear or charges, so they never
-    // stack (stackLimit): a pack may not say otherwise.
-    if ((tool || item.weapon || item.wear || item.container) && max !== undefined && max !== 1)
-      add(`${path}.maxStack`, 'a tool, a weapon, a wearable or a container must have maxStack 1');
+    // Tools, weapons, gear, rods and water containers keep their own wear or charges, so they
+    // never stack (stackLimit): a pack may not say otherwise.
+    const wears = tool || item.weapon || item.wear || item.container || item.rod || item.hoe;
+    if (wears && max !== undefined && max !== 1)
+      add(`${path}.maxStack`, 'an item that wears or holds charges must have maxStack 1');
+    if (item.hoe) checkDurability(item.hoe.durability, `${path}.hoe.durability`, add);
+    const rod = item.rod;
+    if (rod) {
+      checkDurability(rod.durability, `${path}.rod.durability`, add);
+      if (!positive(rod.seconds[0]) || !(rod.seconds[1]! >= rod.seconds[0]))
+        add(`${path}.rod.seconds`, 'must be a range of seconds > 0');
+    }
+    if (item.places !== undefined && !blockKeys.has(item.places))
+      add(`${path}.places`, `unknown block "${item.places}"`);
     if (item.lore !== undefined && pack.strings[item.lore] === undefined)
       add(`${path}.lore`, `no string for "${item.lore}"`);
     (item.blueprint ?? []).forEach((key, b) => {

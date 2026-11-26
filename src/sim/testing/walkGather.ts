@@ -11,6 +11,7 @@ import type {
 import { findBiome } from '../../world/gen/find.ts';
 import { pointInfo } from '../../world/gen/sample.ts';
 import { findStructure } from '../../world/gen/sites.ts';
+import { ticksOf } from '../clock.ts';
 import { OPEN_SLOTS_BASE } from '../commands.ts';
 import { isGone } from '../creatures.ts';
 import { bodyInCell } from '../placement.ts';
@@ -52,6 +53,9 @@ const STAGE_BELOW = 1;
 const STAGE_ABOVE = 1;
 /** How far over the feet the floor of a staging pod's stand lies (the body stays below it). */
 const POD_RISE = 3;
+/** Most bites waited for one item's catch, and ticks to stand still before casting. */
+const MAX_CASTS = 40;
+const REST_FOR_FISHING = 60;
 
 /** The walk's sources in the world; the walk itself picks the hunting pit. */
 export abstract class Gathering extends Hands {
@@ -88,15 +92,85 @@ export abstract class Gathering extends Hands {
     );
   }
 
-  /** How often a block broken with the right tool drops an item: its own item, or a loot share. */
+  /**
+   * How often a block broken with the right tool drops an item: its own item, or a loot share (a
+   * crop's harvest too: generated ripe).
+   */
   private dropChance(block: BlockDef, item: string): number {
-    if (block.drops === 'self') return blockItemKey(block.key) === item ? 1 : 0;
-    const table = block.drops === 'none' ? undefined : this.registry.loot(block.drops);
+    const harvest = block.crop ? this.lootShare(block.crop.harvest, item) : 0;
+    if (block.drops === 'self') return blockItemKey(block.key) === item ? 1 : harvest;
+    return Math.max(harvest, block.drops === 'none' ? 0 : this.lootShare(block.drops, item));
+  }
+
+  /** The share of a loot table's rolls that give an item. */
+  private lootShare(key: string, item: string): number {
+    const table = this.registry.loot(key);
     if (!table) return 0;
     const share = (sum: number, e: { readonly item: string; readonly weight: number }) =>
       sum + (e.item === item ? e.weight : 0);
     const total = table.entries.reduce((sum, e) => sum + e.weight, table.empty ?? 0);
     return table.entries.reduce(share, 0) / total;
+  }
+
+  /**
+   * The liquid a rod fishes an item out of (its own fish, or a biome's where it is that biome's
+   * liquid); undefined when no water gives it.
+   */
+  protected fishingWater(item: string): BlockDef | undefined {
+    const gives = (key: string | undefined) => key !== undefined && this.lootShare(key, item) > 0;
+    const biomes = this.registry.pack.biomes ?? [];
+    return this.registry.blocks.find(
+      (b) =>
+        b.liquid?.fish !== undefined &&
+        (gives(b.liquid.fish) ||
+          biomes.some((biome) => biome.liquid === b.key && gives(biome.fish))),
+    );
+  }
+
+  /**
+   * Fishes until the inventory holds `need` of an item, with the rod of a hotbar slot: a one-cell
+   * pool of `water` dug two blocks ahead of the feet (walled in stone, the view to it cleared), the
+   * rod held on it.
+   */
+  protected async fish(item: string, need: number, water: BlockDef, rod: number): Promise<void> {
+    const ticks = ticksOf(this.registry.item(this.me().inventory[rod]!.item)!.rod!.seconds[1]);
+    this.stepUntil(() => this.me().body.onGround, REST_FOR_FISHING);
+    const f = this.feet();
+    const pool = { x: f.x, y: f.y - 1, z: f.z - 2 };
+    this.fill(pool.x - 1, pool.y - 1, pool.z - 1, pool.x + 1, pool.y, pool.z + 1, this.wallState());
+    this.fill(pool.x, pool.y + 1, pool.z, pool.x, pool.y + 2, pool.z + 1, this.registry.air);
+    this.fill(
+      pool.x,
+      pool.y,
+      pool.z,
+      pool.x,
+      pool.y,
+      pool.z,
+      this.registry.defaultState(water.key),
+    );
+    const at = { x: pool.x + 0.5, y: pool.y + 0.9, z: pool.z + 0.5 };
+    await this.port.hold('secondary', rod, at, ticks * MAX_CASTS, () => this.count(item) >= need);
+    if (this.count(item) < need)
+      throw new Error(`${MAX_CASTS} casts at ${cellText(pool)} left ${this.count(item)} × ${item}`);
+  }
+
+  /**
+   * Picks ripe crops (of `target`, else any) by secondary with an empty hand until `done`: each
+   * one staged beside the player, ripe as generated.
+   */
+  protected async pickCrops(target: string | undefined, done: () => boolean): Promise<void> {
+    const crop = this.registry.blocks.find((b) => b.crop && (target ?? b.key) === b.key);
+    if (!crop) throw new Error(`no crop ${target ?? ''} to pick`);
+    for (let n = 0; n < MAX_HARVESTS && !done(); n++) {
+      const cell = this.stageState(this.registry.defaultState(crop.key));
+      const ripe = this.blockAt(cell);
+      const at = await this.reach(cell, aimToBreak(this.view.world, this.registry, cell));
+      if (!at) throw new Error(`no stand sees the crop at ${cellText(cell)}`);
+      await this.port.hold('secondary', this.emptyHand(), at, 1, () => this.blockAt(cell) !== ripe);
+      if (this.blockAt(cell) === ripe) throw new Error(`the crop at ${cellText(cell)} stays ripe`);
+      // The next one goes where this one stood.
+      this.fill(cell.x, cell.y, cell.z, cell.x, cell.y, cell.z, this.registry.air);
+    }
   }
 
   /**
@@ -147,7 +221,11 @@ export abstract class Gathering extends Hands {
     const best = sources.reduce((a, b) =>
       this.dropChance(b, item) > this.dropChance(a, item) ? b : a,
     );
-    const state = this.registry.defaultState(best.key);
+    return this.stageState(this.registry.defaultState(best.key));
+  }
+
+  /** Stages a block state as `stage` does: beside the feet, else in a pod. */
+  private stageState(state: number): Cell {
     const world = this.view.world;
     const flags = this.registry.tables.flags;
     const f = this.feet();

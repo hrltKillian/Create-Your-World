@@ -655,11 +655,41 @@
   gap: 8px;
 }
 
+.map-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-zoom {
+  min-width: 2.2em;
+  color: var(--c-ink-muted);
+  font: 600 0.72rem var(--font-mono);
+  text-align: center;
+}
+
 .map-coords,
 .map-where {
   margin: 0;
   color: var(--c-ink-muted);
   font: 600 0.72rem var(--font-mono);
+}
+
+/* The player's and the pointer's coordinates: two lines of their own, the pointer's line reserved
+   while empty, so the bar never moves as the pointer comes and goes. */
+.map-where-now {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.map-where-now .map-coords {
+  overflow: hidden;
+  height: 1.3em;
+  line-height: 1.3em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .map-side {

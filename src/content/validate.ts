@@ -138,10 +138,31 @@ function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue)
   if (stateTotal > MAX_STATES) add('blocks', `${stateTotal} block states exceed ${MAX_STATES}`);
   pack.blocks.forEach((block, i) => {
     checkDecay(block, `blocks[${i}].decay`, blockKeys, add);
+    checkFarming(block, `blocks[${i}]`, blockKeys, add);
   });
   if (pack.blocks.filter((block) => block.blockEntity === 'grave').length > 1)
     add('blocks', 'at most one block may be a grave (the one a death leaves)');
   return blockKeys;
+}
+
+/**
+ * Farming (plan v3 « M33 »): what a block tills into is farmland; farmland has the `moist` state,
+ * an irrigation reach of 1–8 blocks and dries into a known block.
+ */
+function checkFarming(
+  block: BlockDef,
+  path: string,
+  blockKeys: ReadonlySet<string>,
+  add: AddIssue,
+): void {
+  if (block.tills !== undefined && !blockKeys.has(block.tills))
+    add(`${path}.tills`, `unknown block "${block.tills}"`);
+  const soil = block.soil;
+  if (!soil) return;
+  if (!blockKeys.has(soil.dries)) add(`${path}.soil.dries`, `unknown block "${soil.dries}"`);
+  if (!Number.isInteger(soil.irrigation) || soil.irrigation < 1 || soil.irrigation > 8)
+    add(`${path}.soil.irrigation`, 'must be an integer 1–8');
+  if (!block.states?.includes('moist')) add(`${path}.soil`, 'farmland needs the "moist" state');
 }
 
 /** A decaying block's anchors exist, its radius is 1–7 and its delay is in order. */

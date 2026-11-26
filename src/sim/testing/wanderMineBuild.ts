@@ -7,6 +7,8 @@ import {
   type BotSenses,
   BUSH,
   botSenses,
+  DRINK,
+  FOOD,
   handSlot,
   headroom,
   slotWith,
@@ -119,7 +121,7 @@ function unstick(
   tick: number,
 ): void {
   const b = player.body;
-  const slot = slotWith(senses, player.inventory, BLOCK, 0);
+  const slot = slotWith(senses, player.inventory, BLOCK, FOOD | DRINK);
   if (slot >= 0 && headroom(senses, b) && (walledIn(senses, b) || rng.chance(CLIMB_CHANCE))) {
     s.climb = rng.intRange(20, 45);
     s.slot = slot;
@@ -200,7 +202,7 @@ function startBuild(
   player: Readonly<PlayerState>,
   tick: number,
 ): boolean {
-  const slot = slotWith(senses, player.inventory, BLOCK, 0);
+  const slot = slotWith(senses, player.inventory, BLOCK, FOOD | DRINK);
   if (slot < 0 || walledIn(senses, player.body)) return false;
   begin(s, 'build', tick, rng.intRange(20, 90));
   s.slot = slot;

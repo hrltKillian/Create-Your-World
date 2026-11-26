@@ -126,6 +126,9 @@ export const recipes: readonly RecipeDef[] = [
   recipe('flint_pickaxe', 'tools', 2.5, { flint: 2, stick: 2, cord: 1 }, START),
   recipe('flint_spear', 'tools', 2, { flint: 1, stick: 3, cord: 1 }, START),
   recipe('torch', 'building', 1, { stick: 1, plant_fiber: 2 }, { count: 2, ...START }),
+  // Plan v3 « M33 »: tilling the soil, and fishing in fresh water.
+  recipe('flint_hoe', 'tools', 2, { flint: 1, stick: 2, cord: 1 }),
+  recipe('fishing_rod', 'tools', 2, { stick: 3, cord: 2 }),
   // Plan v3 « M27 »: down shafts and into caves.
   recipe('ladder', 'building', 2, { stick: 7 }, { count: 3, ...START }),
   recipe('campfire', 'building', 3, { 'tag:log': 2, stick: 4, flint: 1 }, START),
@@ -143,6 +146,7 @@ export const recipes: readonly RecipeDef[] = [
   bench('cut_stone', 'building', 1, { stone: 1 }),
   bench('glowbloom_lantern', 'building', 2, { glass: 1, glowbloom: 2, stick: 1 }),
   bench('kiln', 'building', 3, { clay_lump: 4, stone_shard: 6 }),
+  bench('copper_hoe', 'tools', 3, { copper_ingot: 2, stick: 2, leather: 1 }),
   bench('trapdoor', 'building', 2, { planks: 3 }),
   bench('bloomery', 'building', 4, { fire_bricks: 8, bronze_ingot: 2, stone_shard: 4 }),
   bench('leather', 'materials', 3, { raw_hide: 2, resin: 1 }),
@@ -222,6 +226,9 @@ const process = (
 /** Processes (docs « Stations de transformation »). */
 export const processes: readonly ProcessDef[] = [
   process('grilled_meat', CAMPFIRE, 8, { raw_meat: 1 }),
+  // Plan v3 « M33 »: dishes that feed better.
+  process('grilled_fish', CAMPFIRE, 6, { raw_fish: 1 }),
+  process('hearty_stew', CAMPFIRE, 12, { raw_meat: 1, berries: 2 }),
   // Firing the clay flask; boiling raw water.
   process('flask_empty', CAMPFIRE, 10, { unfired_flask: 1 }),
   process('flask_boiled', CAMPFIRE, 6, { flask_raw: 1 }),

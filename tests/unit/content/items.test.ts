@@ -50,7 +50,9 @@ describe('items', () => {
   it('gives every plant a harvest: none is broken for nothing (plan v3 « M30 »)', () => {
     const plants = basePack.blocks.filter((block) => block.shape === 'cross');
     expect(plants.length).toBeGreaterThan(5);
-    for (const plant of plants) expect(plant.drops, plant.key).not.toBe('none');
+    // A crop gives its harvest (plan v3 « M33 »: ripe; it is planted from it).
+    for (const plant of plants)
+      expect(plant.crop?.harvest ?? plant.drops, plant.key).not.toBe('none');
   });
 
   it('defines the flint tools, which place nothing and never stack', () => {
@@ -157,7 +159,7 @@ describe('stack sizes', () => {
   it('stacks every block and item to 64 unless it says otherwise, and never a tool or gear', () => {
     expect(DEFAULT_STACK).toBe(64);
     for (const def of registry.items) {
-      const one = def.tool || def.weapon || def.wear || def.container;
+      const one = def.tool || def.weapon || def.wear || def.container || def.rod || def.hoe;
       expect(items.maxStack[id(def.key)], def.key).toBe(one ? 1 : (def.maxStack ?? 64));
     }
     expect(stackLimit({ key: 'item:x', nameKey: 'x', icon: 'tex:x', maxStack: 16 })).toBe(16);

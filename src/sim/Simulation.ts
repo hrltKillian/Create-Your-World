@@ -23,6 +23,7 @@ import { EditStore } from './editStore.ts';
 import { stepLight } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { applyWaypointCommand, stepExploration } from './exploration.ts';
+import { stepTrampling } from './farmland.ts';
 import { stepInteraction } from './interaction.ts';
 import { applyInventoryCommand } from './inventoryCommands.ts';
 import { type ItemDropState, stepItemDrops } from './itemDrops.ts';
@@ -234,6 +235,7 @@ export class Simulation implements ColumnSink {
       this.track(player);
       stepInteraction(this, player, out);
     }
+    stepTrampling(this, out, first);
     stepCreatures(this, out);
     stepCombat(this, out);
     stepScanners(this, out);

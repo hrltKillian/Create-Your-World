@@ -60,6 +60,7 @@ export type StateProp =
   | 'lit'
   | 'half'
   | 'ripe'
+  | 'moist'
   | 'attach'
   | 'placed'
   | 'level'
@@ -72,7 +73,10 @@ export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
   open: ['0', '1'],
   lit: ['0', '1'],
   half: ['lower', 'upper'],
-  ripe: ['0', '1'],
+  /** A crop bears its harvest (plan v3 « M33 »): generated ones ripe, planted ones bare. */
+  ripe: ['1', '0'],
+  /** Farmland watered (plan v3 « M33 »: sim/farmland.ts). */
+  moist: ['0', '1'],
   /** Where a block hangs (torches): on the floor, or against the wall on that side of its cell. */
   attach: ['floor', 'n', 'e', 's', 'w'],
   /** Set by a player's placement: decaying blocks (leaves) placed by hand never decay. */
@@ -136,6 +140,31 @@ export interface LiquidDef {
    * water): its source block, its flowing block.
    */
   readonly hardens?: { readonly source: BlockKey; readonly flow: BlockKey };
+  /** What a rod fishes out of it (plan v3 « M33 »; a biome's `fish` replaces it there). */
+  readonly fish?: LootKey;
+}
+
+/**
+ * Farmland (plan v3 « M33 », the reference game's): `moist` while a liquid that does not burn lies
+ * within `irrigation` blocks of it (on its level or one above); dry with nothing planted on it, or
+ * under a solid block, it turns back into `dries`. A crop on dry farmland ripens twice as slowly;
+ * a player landing on it from a jump tramples it. The block has the `moist` state.
+ */
+export interface SoilDef {
+  readonly irrigation: number;
+  readonly dries: BlockKey;
+}
+
+/**
+ * A crop (plan v3 « M33 »): while `ripe` it bears `harvest`, picked by secondary (the plant stays,
+ * bare) or rolled with its drops when broken; a bare one ripens `seconds` later (a pseudo-random
+ * time in the range) where the sky or a lamp gives it `light` (0–15), else it waits. The block has
+ * the `ripe` state (generated ones ripe, planted ones bare: sim/crops.ts).
+ */
+export interface CropDef {
+  readonly harvest: LootKey;
+  readonly seconds: readonly [number, number];
+  readonly light: number;
 }
 
 export interface BlockDef {
@@ -170,7 +199,12 @@ export interface BlockDef {
   readonly minTier?: Tier;
   readonly drops: LootKey | 'self' | 'none';
   readonly states?: readonly StateProp[];
-  readonly whenState?: Partial<Record<'lit' | 'open' | 'ripe', BlockOverride>>;
+  readonly whenState?: Partial<Record<'lit' | 'open' | 'ripe' | 'moist', BlockOverride>>;
+  readonly crop?: CropDef;
+  /** What a hoe turns it into, with air above (grass and dirt: farmland; plan v3 « M33 »). */
+  readonly tills?: BlockKey;
+  /** Farmland: crops are planted on it only (sim/farmland.ts). */
+  readonly soil?: SoilDef;
   readonly heat?: { readonly celsius: number; readonly radius: number };
   /**
    * What secondary does on the block, with the state the simulation keeps for it: a chest's
@@ -638,6 +672,8 @@ export interface BiomeDef {
    * where it is high.
    */
   readonly groves?: { readonly scale: number; readonly contrast: number };
+  /** What a rod fishes out of its fishing waters, instead of the liquid's `fish` (plan v3 « M33 »). */
+  readonly fish?: LootKey;
 }
 
 /**

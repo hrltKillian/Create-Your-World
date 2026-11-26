@@ -115,6 +115,7 @@ export const blocks = [
     opaque: true,
     hardness: 0.5,
     drops: 'self',
+    tills: 'block:farmland',
     sound: 'soil',
   },
   {
@@ -129,6 +130,7 @@ export const blocks = [
     // Rooted turf is tougher than loose dirt, and gives dirt.
     hardness: 0.9,
     drops: 'loot:grass',
+    tills: 'block:farmland',
     sound: 'soil',
   },
   {
@@ -251,6 +253,7 @@ export const blocks = [
       thirstPerSip: 8,
       toxicityPerSip: 2,
       fills: { 'item:flask_empty': 'item:flask_raw', 'item:waterskin_empty': 'item:waterskin_raw' },
+      fish: 'loot:fish',
       // The reference game's water: a step every 0.25 s (5 ticks at 20 Hz), holes found 4 blocks
       // away, two sources make a third.
       flow: { seconds: 0.25, holeSearch: 4, infinite: true },

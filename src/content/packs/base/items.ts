@@ -94,6 +94,11 @@ const tools = [
   hatchet('flint', 4),
   pickaxe('flint'),
   item('flint_spear', { weapon: weapon(6, 0.8, 4, 'flint') }),
+  // Plan v3 « M33 »: hoes till grass and dirt into farmland, wearing like the tools of their metal.
+  item('flint_hoe', { hoe: { durability: TOOL_TIERS.flint.durability } }),
+  item('copper_hoe', { hoe: { durability: TOOL_TIERS.copper.durability } }),
+  // Plan v3 « M33 »: a bite every 5–12 s on water with fish.
+  item('fishing_rod', { rod: { seconds: [5, 12], durability: 48 } }),
   hatchet('copper', 5),
   pickaxe('copper'),
   blade('copper', 7),
@@ -128,8 +133,10 @@ const equipment = [
 /** Food and remedies (« Survie »: raw meat +10 toxicity, the antidote −40); effects in M9. */
 const consumables = [
   // Foods as the reference game's (×5): a snack, raw meat, a grilled steak, a fruit.
+  // The berry bush's seed, as the reference game's (plan v3 « M33 »).
   item('berries', {
     hintKey: 'where.berries',
+    places: 'block:berry_bush',
     consume: { seconds: 0.8, hunger: 10, saturation: 2 },
   }),
   item('raw_meat', {
@@ -137,8 +144,19 @@ const consumables = [
     consume: { seconds: 1.2, hunger: 15, saturation: 9, toxicity: 10 },
   }),
   item('grilled_meat', { consume: { seconds: 1.2, hunger: 40, saturation: 64 } }),
+  // Plan v3 « M33 »: fish from a rod, grilled at the campfire; a stew of meat and berries feeds
+  // the best (the reference game's cod, cooked cod and rabbit stew).
+  item('raw_fish', {
+    hintKey: 'where.raw_fish',
+    consume: { seconds: 1, hunger: 10, saturation: 2 },
+  }),
+  item('grilled_fish', { consume: { seconds: 1.2, hunger: 25, saturation: 30 } }),
+  item('hearty_stew', { maxStack: 16, consume: { seconds: 1.6, hunger: 50, saturation: 60 } }),
   // Melts in the mouth: water from the Rimefrost (plan v3 « M23 »).
-  found('ice_bulb', 'where.ice_bulb', { consume: { seconds: 0.8, thirst: 15 } }),
+  found('ice_bulb', 'where.ice_bulb', {
+    consume: { seconds: 0.8, thirst: 15 },
+    places: 'block:frost_bulb',
+  }),
   // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).
   item('pack_frame', { consume: { seconds: 1.5, bagSlots: 8 } }),
   item('palmthorn_fruit', {

@@ -27,7 +27,8 @@ export interface Placement {
 }
 
 /** Reasons a placement is refused (sent back in `rejected`). */
-export type PlaceRefusal = 'occupied' | 'support' | 'outside the world';
+/** Why a placement is refused; `soil`: a crop planted elsewhere than on farmland (M33). */
+export type PlaceRefusal = 'occupied' | 'support' | 'soil' | 'outside the world';
 
 const EPSILON = 1e-4;
 
@@ -72,7 +73,11 @@ export function planPlacement(
   }
   if (registry.prop(placed, 'placed') !== undefined)
     placed = registry.withState(placed, 'placed', '1');
+  // A planted crop starts bare, on farmland only (plan v3 « M33 », crops.ts, farmland.ts).
+  if (registry.prop(placed, 'ripe') !== undefined) placed = registry.withState(placed, 'ripe', '0');
   if (!supportHolds(world, registry, x, y, z, placed)) return 'support';
+  if (registry.blockDef(placed).crop && !registry.blockDef(world.getBlock(x, y - 1, z)).soil)
+    return 'soil';
   if (rules?.orient === 'axis')
     placed = registry.withState(placed, 'axis', hit.nx !== 0 ? 'x' : hit.nz !== 0 ? 'z' : 'y');
   else if (rules?.orient === 'facing')
