@@ -55,6 +55,8 @@ export class WeatherFeel {
     this.flashX = event.x;
     this.flashZ = event.z;
     this.struck = true;
+    // The bolt itself (plan v5 « M47 »), down to the column struck.
+    this.view.lightning.strike(event.x, event.y, event.z);
   }
 
   /** The world closes: the sky clears and nothing falls (the world view outlives it). */

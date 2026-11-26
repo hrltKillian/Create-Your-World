@@ -127,12 +127,19 @@ export function weatherView(app: App) {
     rain: feel.rain,
     snow: feel.snow,
     drops: feel.drops(),
+    /** A lightning bolt shows now (plan v5 « M47 »). */
+    bolt: app.view?.lightning.showing() ?? false,
   };
 }
 
 /** Holds a weather for `seconds` now (`debug.setWeather`; null: back to the seed's weather). */
 export function setWeather(app: App, weather: WeatherKind | null, seconds = 600): void {
   sendNow(app, { type: 'debug.setWeather', weather, seconds });
+}
+
+/** A lightning strike at the top of a column, now (`debug.strike`, plan v5 « M47 »). */
+export function strike(app: App, x: number, z: number): void {
+  sendNow(app, { type: 'debug.strike', x, z });
 }
 
 /** Stops or restarts the clock, now (`debug.freezeTime`). */

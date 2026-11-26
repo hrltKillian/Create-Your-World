@@ -15,6 +15,7 @@ import { Atmosphere, type WeatherLook } from './Atmosphere.ts';
 import { Bloom } from './Bloom.ts';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
+import { Lightning } from './Lightning.ts';
 import { Precipitation } from './Precipitation.ts';
 import type { Renderer } from './Renderer.ts';
 import { SunShadow } from './SunShadow.ts';
@@ -81,6 +82,8 @@ export class WorldView {
   private shadow: SunShadow | null = null;
   /** Rain and snow around the camera (filled by the client each frame). */
   readonly precipitation = new Precipitation();
+  /** The last lightning bolt (plan v5 « M47 »: the client strikes it on a `lightning` event). */
+  readonly lightning = new Lightning();
   private hand: HandView | null = null;
   private elapsed = 0;
   /** The field of view setting (degrees). */
@@ -101,7 +104,13 @@ export class WorldView {
     this.atmosphere = new Atmosphere(sky, this.materials.uniforms);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
     const skyMesh = this.atmosphere.sky.mesh;
-    this.scene.add(this.chunkRoot, skyMesh, this.precipitation.rain, this.precipitation.snow);
+    this.scene.add(
+      this.chunkRoot,
+      skyMesh,
+      this.precipitation.rain,
+      this.precipitation.snow,
+      this.lightning.mesh,
+    );
     this.scene.background = this.background;
     this.scene.fog = this.fog;
     this.setRenderDistance(renderDistance);
@@ -249,6 +258,7 @@ export class WorldView {
 
   frame(dt: number): void {
     this.elapsed += dt;
+    this.lightning.update(dt);
     const uniforms = this.materials.uniforms;
     uniforms.uTime.value = this.elapsed % 3600;
     uniforms.uFlicker.value = torchFlicker(this.elapsed);
@@ -330,6 +340,7 @@ export class WorldView {
     this.shadow?.dispose();
     this.bloom?.dispose();
     this.atmosphere.sky.dispose();
+    this.lightning.dispose();
     this.chunks.clear();
     this.materials.dispose();
   }

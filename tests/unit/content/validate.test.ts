@@ -57,6 +57,21 @@ describe('content validation', () => {
     ]);
   });
 
+  it('checks flammability odds and the fire block’s age (plan v5 « M47 »)', () => {
+    const pack = broken((p) => {
+      p.blocks.find((b) => b.key === 'block:planks')!.flammability = { catch: 0, burn: 120 };
+      p.blocks.find((b) => b.key === 'block:fire')!.states = [];
+    });
+    const planksAt = pack.blocks.findIndex((b) => b.key === 'block:planks');
+    expect(validatePack(pack).map((i) => i.path)).toEqual(
+      expect.arrayContaining([
+        `blocks[${planksAt}].flammability.catch`,
+        `blocks[${planksAt}].flammability.burn`,
+        'manifest.bindings.fire',
+      ]),
+    );
+  });
+
   it('checks hung blocks and decaying blocks: their states, wall shape, anchors and delays', () => {
     const pack = broken((p) => {
       const torch = p.blocks.find((b) => b.key === 'block:torch')!;

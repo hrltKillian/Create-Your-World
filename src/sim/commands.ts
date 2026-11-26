@@ -191,6 +191,8 @@ export type DebugCommand =
   | { readonly type: 'debug.setTime'; readonly hours: number }
   /** Stops or restarts the clock (the world keeps ticking). */
   | { readonly type: 'debug.freezeTime'; readonly frozen: boolean }
+  /** A lightning strike at the top of a column (plan v5 « M47 »). */
+  | { readonly type: 'debug.strike'; readonly x: number; readonly z: number }
   /** Holds a weather for `seconds` (plan v3 « M34 »); null: back to the seed's weather. */
   | {
       readonly type: 'debug.setWeather';

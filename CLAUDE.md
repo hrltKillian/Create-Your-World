@@ -494,6 +494,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`tables.liquidMove`/`drowns`, `Body.liquidMove`/`headDrowns`); camera modes `CAMERA_MODES`
     (`first`, `back`, `front`; V turns through them); the Logbook's `recipe` pane, placed under the
     screen's inventory, its craft buttons out of its scroll;
+  - lightning and fire (plan v5 « M47 », the reference game's rules): the fire block
+    (`bindings.fire`, state `age`) ticks on block update `UPDATE_FIRE` (`sim/fire.ts`: `FIRE`,
+    `lightFire`, `burnFire`, `isFire`; `BlockDef.flammability` `catch`/`burn`); a strike
+    `sim/lightning.ts` (`strike`: the top of a column, `weather.lightningDamage`/`lightningRadius`,
+    cause `lightning`; command `debug.strike`, hook `weather.strike(x, z)`, `weather.get().bolt`); the
+    bolt `render/Lightning.ts` (`WorldView.lightning`, `strokeAt`); a contact's `burnCause`;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -624,6 +630,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Lightning checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m47` (`selftest/m47.ts`):
+  a strike on logs shows its bolt and lights a fire the rain puts out.
 - Fixes of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m46` (`selftest/m46.ts`): the
   bubble beside the pointer and whole, the wall torch's own art, lava thick and breathless, V's
   three views, the craft buttons in view under the recipe.

@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M47 — Lightning and fire** (plan v5, `docs/conception.md` « M47 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **Storms** throw real lightning: a jagged bolt from the clouds strikes the top of a column, the
+  sky flashes, the thunder follows; anyone close is hurt and set on fire.
+- **Fire** catches where it strikes, burns logs, planks, leaves and grass, spreads through dry
+  wood and burns out; rain and water put it out.
+- **Try**: `__game.weather.strike(x, z)` in the console.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m47`.
+
+### Earlier milestones
+
 **M46 — The fifth play test's fixes** (plan v5, `docs/conception.md` « M46 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1`.
 
@@ -147,8 +159,6 @@ open `http://localhost:5173/?skipMenu=1`.
   gauge; an item's **bubble** sits by the pointer and shows whole, even by the panel's edge.
 - **The Logbook**: the selected recipe shows under the hotbar, its craft buttons always in view.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m46`.
-
-### Earlier milestones
 
 **M45 — Veyra's soundscape** (plan v4, `docs/conception.md` « M45 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.

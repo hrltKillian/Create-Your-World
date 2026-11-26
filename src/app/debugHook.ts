@@ -3,7 +3,16 @@ import type { CameraPose } from '../render/WorldView.ts';
 import type { WeatherKind } from '../sim/weather.ts';
 import type { App } from './App.ts';
 import { ambienceView, audioMark, heardSince } from './audioAutomation.ts';
-import { clock, freezeTime, look, press, setTime, setWeather, weatherView } from './automation.ts';
+import {
+  clock,
+  freezeTime,
+  look,
+  press,
+  setTime,
+  setWeather,
+  strike,
+  weatherView,
+} from './automation.ts';
 import { botHook, craftHooks, entitiesHook, playerHook, questsHook } from './hook/player.ts';
 import { perfHook, renderHook } from './hook/render.ts';
 import { onboardingHook, saveHook, settingsHook, uiHook } from './hook/screens.ts';
@@ -70,6 +79,11 @@ export function installDebugHook(app: App): void {
       /** Holds a weather for `seconds` now (null: the seed's again); returns the weather. */
       set: (weather: WeatherKind | null, seconds = 600) => {
         setWeather(app, weather, seconds);
+        return weatherView(app);
+      },
+      /** A lightning strike at the top of a column now (plan v5 « M47 »); returns the weather. */
+      strike: (x: number, z: number) => {
+        strike(app, x, z);
         return weatherView(app);
       },
     },

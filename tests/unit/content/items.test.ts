@@ -16,12 +16,13 @@ function broken(mutate: (pack: Record<string, Record<string, unknown>[]>) => voi
 
 describe('items', () => {
   it('gives every placeable block an implicit item that places it, whatever it drops', () => {
-    const { air, unknownBlock } = basePack.manifest.bindings;
+    const { air, unknownBlock, fire } = basePack.manifest.bindings;
     for (const block of basePack.blocks) {
       const item = id(`item:${block.key.slice('block:'.length)}`);
       const unplaceable =
         block.key === air ||
         block.key === unknownBlock ||
+        block.key === fire ||
         block.shape === 'liquid' ||
         block.hardness < 0;
       if (unplaceable) {
@@ -48,7 +49,9 @@ describe('items', () => {
   });
 
   it('gives every plant a harvest: none is broken for nothing (plan v3 « M30 »)', () => {
-    const plants = basePack.blocks.filter((block) => block.shape === 'cross');
+    // A fire (plan v5 « M47 ») is no plant: it burns away to nothing.
+    const fire = basePack.manifest.bindings.fire;
+    const plants = basePack.blocks.filter((block) => block.shape === 'cross' && block.key !== fire);
     expect(plants.length).toBeGreaterThan(5);
     // A crop gives its harvest (plan v3 « M33 »: ripe; it is planted from it).
     for (const plant of plants)

@@ -135,7 +135,13 @@ describe('equipment', () => {
   it('keeps foul water at the feet harmless with waterproof boots', () => {
     const s = playerTestSim({ seed: 'boots' });
     s.fill(0, 65, 0, 0, 65, 0, 'block:foul_water');
-    const contact: Contact = { toxicity: 0, damage: 0, ignites: false, douses: false };
+    const contact: Contact = {
+      toxicity: 0,
+      damage: 0,
+      ignites: false,
+      burnCause: 'fire',
+      douses: false,
+    };
     touch(registry, s.sim.world, s.player, contact);
     expect(contact.toxicity).toBeGreaterThan(0);
     s.give('item:waxed_boots');

@@ -148,6 +148,11 @@ function validateBlocks(pack: ContentPack, textures: TextureSets, add: AddIssue)
     stateTotal += checkStates(block, path, textures.keys, add);
     checkBlockRules(block, path, block, add);
     checkBoxes(block.shape, `${path}.shape`, add);
+    for (const odds of ['catch', 'burn'] as const) {
+      const n = block.flammability?.[odds];
+      if (n !== undefined && !(Number.isInteger(n) && n >= 1 && n <= 100))
+        add(`${path}.flammability.${odds}`, 'must be a whole number from 1 to 100');
+    }
     checkBoxes(block.collision, `${path}.collision`, add);
     checkOverrides(block, path, textures.emissive, add);
     if (block.tint && block.pass === 'opaque') {
@@ -281,6 +286,11 @@ function validateBindings(pack: ContentPack, blockKeys: ReadonlySet<string>, add
     if (!blockKeys.has(bindings[name]))
       add(`manifest.bindings.${name}`, `unknown block "${bindings[name]}"`);
   }
+  // The fire (plan v5 « M47 »): a block with its `age` state (sim/fire.ts).
+  const fire = bindings.fire && pack.blocks.find((b) => b.key === bindings.fire);
+  if (bindings.fire && !fire) add('manifest.bindings.fire', `unknown block "${bindings.fire}"`);
+  else if (fire && !fire.states?.includes('age'))
+    add('manifest.bindings.fire', `the fire "${fire.key}" needs the age state`);
   const biomeKeys = new Set((pack.biomes ?? []).map((b) => b.key as string));
   (bindings.spawnBiomes ?? []).forEach((key, i) => {
     if (!biomeKeys.has(key)) add(`manifest.bindings.spawnBiomes[${i}]`, `unknown biome "${key}"`);

@@ -1,5 +1,5 @@
 import type { BlockDef } from '../../schema.ts';
-import { LEAF_DECAY, LOG_ITEM, SAND_ITEM } from './blocks.ts';
+import { FLAMMABLE, LEAF_DECAY, LOG_ITEM, SAND_ITEM } from './blocks.ts';
 import type { PackI18nKey } from './i18n.en.ts';
 import { FUELS } from './recipes.ts';
 
@@ -46,6 +46,7 @@ const plant = (
   drops: 'none',
   placement: { support: 'below' },
   sound: 'leaves',
+  flammability: FLAMMABLE.plants,
   ...extra,
 });
 
@@ -94,6 +95,7 @@ const log = (
   placement: { orient: 'axis' },
   sound: 'wood',
   item: LOG_ITEM,
+  flammability: FLAMMABLE.logs,
 });
 
 /** A species' leaves, its own colour (no biome tint), falling once no log holds them. */
@@ -117,6 +119,7 @@ const leaves = (
   hardness: 0.2,
   drops,
   sound: 'leaves',
+  flammability: FLAMMABLE.leaves,
 });
 
 /** Palmthorn trunk: a spiny 12/16 column. */
@@ -238,6 +241,7 @@ export const natureBlocks = [
   }),
   {
     key: 'block:palmthorn',
+    flammability: FLAMMABLE.logs,
     nameKey: 'block.palmthorn',
     shape: { boxes: PALMTHORN },
     pass: 'opaque',

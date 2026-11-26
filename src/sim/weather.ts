@@ -2,6 +2,7 @@ import type { BiomeDef, WeatherBalance } from '../content/schema.ts';
 import { hash32 } from '../core/hash.ts';
 import { ticksOf } from './clock.ts';
 import type { SimEvent } from './events.ts';
+import { strike } from './lightning.ts';
 import type { Simulation } from './Simulation.ts';
 import { daylightAt, hourOf } from './time.ts';
 
@@ -13,7 +14,8 @@ import { daylightAt, hourOf } from './time.ts';
  * falls in wet weather is the biome's (`BiomeDef.precipitation`: rain, snow or nothing); it falls
  * on what has no block above it. Rain and snow chill and put a fire out (environment.ts,
  * survival.ts), clouds dim the sky's light (spawns, light-shy creatures, the shaders), a storm
- * spawns more hostiles and throws lightning near the players (events for the client).
+ * spawns more hostiles and throws lightning near the players (lightning.ts: it hurts and lights
+ * fires; events for the client).
  */
 
 export const WEATHER_KINDS = ['clear', 'rain', 'storm', 'fog'] as const;
@@ -101,7 +103,7 @@ export function stepWeather(sim: Simulation, out: SimEvent[]): void {
     const span = 2 * STRIKE_REACH + 1;
     const x = Math.floor(player.body.x) - STRIKE_REACH + (hash32(h, 1) % span);
     const z = Math.floor(player.body.z) - STRIKE_REACH + (hash32(h, 2) % span);
-    out.push({ type: 'lightning', x, z });
+    strike(sim, x, z, out);
   }
 }
 

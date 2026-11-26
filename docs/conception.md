@@ -3356,7 +3356,7 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
 
 ### Partie B — Éclairs et feu
 
-#### M47 — Éclairs et feu de Minecraft
+#### M47 — Éclairs et feu de Minecraft (fait)
 
 - **Feu** (`sim/fire.ts`) :
   - un bloc de feu avec un âge ;
@@ -3372,6 +3372,13 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
 - **Rendu** (`render/Lightning.ts`) : un éclair ramifié du ciel au sol, émissif, qui scintille environ 0,4 s. Le flash existant (`WeatherFeel`) et le tonnerre retardé par la distance (`AudioBridge`) suivent.
 
 **Tests** : unitaires (propagation, extinction, dégâts, déterminisme du bot headless) et selftest `m47` (un éclair forcé allume une bûche, la pluie éteint le feu).
+
+**Retenu à la réalisation** :
+
+- règles du jeu de référence dans `sim/fire.ts` (`FIRE`) : un tick toutes les 1,5–2 s, l'âge 0–15 (+1 un tick sur trois), extinction sans appui, à la pluie (20 % + 3 % par âge), après l'âge 3 sans rien d'inflammable à côté, ou à 15 sur un bloc qui ne brûle pas ; les voisins brûlent sur 300 (côtés) ou 250 (dessus, dessous) ; la propagation dans 3×6×3 avec les cotes `(prise + 40 + 14) / (âge + 30)` ;
+- `BlockDef.flammability` (`catch`, `burn`) reprend les valeurs du jeu de référence : bûches 5/5, planches 5/20, feuilles 30/60, plantes 60/100, tissu 30/60 ;
+- la pluie se teste au-dessus du feu : il compte dans la carte des hauteurs de sa colonne ;
+- l'éclair (`sim/lightning.ts`) : 25 de vie et 8 s de feu dans un rayon de 3 blocs, cause `lightning` ; `debug.strike` et `__game.weather.strike(x, z)` pour les tests.
 
 ### Partie C — Identité visuelle
 

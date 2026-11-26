@@ -50,7 +50,8 @@ export type SimEvent =
       readonly state: number;
     }
   /** Lightning struck the ground at a column in a storm (plan v3 « M34 »): flash and thunder. */
-  | { readonly type: 'lightning'; readonly x: number; readonly z: number }
+  /** A strike at the top of a column (plan v5 « M47 »: the cell above its highest block). */
+  | { readonly type: 'lightning'; readonly x: number; readonly y: number; readonly z: number }
   /** A player's rod landed a catch (plan v3 « M33 »). */
   | { readonly type: 'fishCaught'; readonly playerId: number; readonly item: string }
   /** Crack stage (0–7) of the block a player mines; −1 when mining stops. */

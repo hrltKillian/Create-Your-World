@@ -3,6 +3,7 @@ import { BY_WORLD, removeWhole } from './blockRemoval.ts';
 import { ripenCrop } from './crops.ts';
 import type { SimEvent } from './events.ts';
 import { checkSoil } from './farmland.ts';
+import { burnFire } from './fire.ts';
 import { checkDecay, decayDelay, decayTables } from './leafDecay.ts';
 import { noteLiquids, updateLiquid } from './liquids.ts';
 import { otherHalfY, supportHolds } from './placement.ts';
@@ -21,7 +22,9 @@ import { simulated } from './stations.ts';
  *   beside a changed cell, after the liquid's delay;
  * - GROW: a bare crop ripens (crops.ts); scheduled when it is planted or picked;
  * - SOIL: a farmland waters, dries or turns back into dirt (farmland.ts); scheduled when it is
- *   tilled, then again after each check.
+ *   tilled, then again after each check;
+ * - FIRE: a fire goes out, ages, burns and spreads (fire.ts, plan v5 « M47 »); scheduled when it
+ *   is lit, then again after each tick.
  * An update runs only where the world is simulated (its column lit and near a player); elsewhere
  * it waits with its column and comes back when a player does. The queue is saved with the world.
  */
@@ -31,7 +34,8 @@ export const UPDATE_DECAY = 1;
 export const UPDATE_LIQUID = 2;
 export const UPDATE_GROW = 3;
 export const UPDATE_SOIL = 4;
-export const UPDATE_KINDS = 5;
+export const UPDATE_FIRE = 5;
+export const UPDATE_KINDS = 6;
 
 export const BLOCK_UPDATES = {
   /** Updates run per tick at most (docs: « au plus 256 »). */
@@ -297,6 +301,7 @@ export function stepBlockUpdates(sim: Simulation, out: SimEvent[]): void {
     else if (kind === UPDATE_LIQUID) updateLiquid(sim, x, y, z, out);
     else if (kind === UPDATE_GROW) ripenCrop(sim, x, y, z, out);
     else if (kind === UPDATE_SOIL) checkSoil(sim, x, y, z, out);
+    else if (kind === UPDATE_FIRE) burnFire(sim, x, y, z, out);
     else if (checkDecay(sim, x, y, z)) removeWhole(sim, BY_WORLD, x, y, z, true, out);
   }
 }

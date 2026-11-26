@@ -1,4 +1,5 @@
 import type { BlockDef, Box16 } from '../../schema.ts';
+import { FLAMMABLE } from './blocks.ts';
 import { cube } from './blocksNature.ts';
 import type { PackI18nKey } from './i18n.en.ts';
 
@@ -164,6 +165,7 @@ export const stationBlocks = [
   },
   {
     key: 'block:bedroll',
+    flammability: FLAMMABLE.cloth,
     nameKey: 'block.bedroll',
     shape: { boxes: BEDROLL },
     pass: 'opaque',
