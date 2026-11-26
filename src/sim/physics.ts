@@ -68,6 +68,11 @@ export interface Body {
   headDrowns: boolean;
   /** Share of water's swimming speeds in the liquid the body is in (1 out of liquids). */
   liquidMove: number;
+  /**
+   * The liquid the body is in lets it swim (water): sprinting swims along the view, wading is
+   * faster. In lava (the reference game's) the body only drags along, sinks and rises slowly.
+   */
+  swims: boolean;
   /** Feet or middle in a ladder: forward or jump climbs, crouch holds, nothing slides down. */
   onLadder: boolean;
   /** Direction (−1, 0, 1) of horizontal moves blocked last tick, per axis (climbing out of water). */
@@ -125,6 +130,7 @@ export function createBody(x: number, y: number, z: number): Body {
     headInWater: false,
     headDrowns: false,
     liquidMove: 1,
+    swims: false,
     wallX: 0,
     wallZ: 0,
     crouching: false,
@@ -216,9 +222,9 @@ export function stepBody(
   body.headInWater = isLiquid(world, tables, body.x, body.y + eyeHeight(body), body.z);
   const cellX = Math.floor(body.x);
   const cellZ = Math.floor(body.z);
-  body.liquidMove = body.inWater
-    ? tables.liquidMove[world.getBlock(cellX, Math.floor(body.y + 0.4), cellZ)]! / 100
-    : 1;
+  const medium = world.getBlock(cellX, Math.floor(body.y + 0.4), cellZ);
+  body.liquidMove = body.inWater ? tables.liquidMove[medium]! / 100 : 1;
+  body.swims = body.inWater && tables.swims[medium] === 1;
   body.headDrowns =
     body.headInWater &&
     tables.drowns[world.getBlock(cellX, Math.floor(body.y + eyeHeight(body)), cellZ)] === 1;
@@ -226,7 +232,9 @@ export function stepBody(
     !body.inWater &&
     (climbableAt(world, tables, body.x, body.y + 0.05, body.z) ||
       climbableAt(world, tables, body.x, body.y + 0.9, body.z));
-  const sprinting = input.sprint && !body.crouching && input.forward > 0;
+  // No sprint in a liquid that cannot be swum (lava): the body only drags along.
+  const sprinting =
+    input.sprint && !body.crouching && input.forward > 0 && (body.swims || !body.inWater);
   out.sprinting = sprinting;
   accelerate(body, input, world, tables, sprinting, dt);
   const dy = jumpAndGravity(body, input, world, tables, dt, out);
@@ -265,7 +273,7 @@ function accelerate(
   sprinting: boolean,
   dt: number,
 ): void {
-  const wading = body.onGround && !body.headInWater;
+  const wading = body.onGround && !body.headInWater && body.swims;
   const mode = body.inWater
     ? wading
       ? sprinting

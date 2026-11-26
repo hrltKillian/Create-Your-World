@@ -28,7 +28,7 @@ export function runTitleSky(
     undefined,
   );
   view.setAir(cold?.fog ?? null, cold?.aurora ?? 0);
-  view.setUnderwater(false);
+  view.setUnderwater(null);
   let seconds = 0;
   runLoop((dt) => {
     seconds += dt;

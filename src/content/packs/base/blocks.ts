@@ -323,7 +323,7 @@ export const blocks = [
     opaque: false,
     replaceable: true,
     light: { emit: 15 },
-    heat: { celsius: 25, radius: 2 },
+    // No heat around it: as in the reference game, it hurts only what is in it (or on it).
     contact: { damagePerSec: 4, ignites: true },
     hardness: 0,
     drops: 'none',
