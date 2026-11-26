@@ -43,8 +43,10 @@ const iconCase: SelftestCase = {
     const fruit = app.registry!.pack.items?.find((item) => item.places && item.consume);
     assert(fruit, 'the pack has no food that plants');
     const inventory = session.player.inventory;
-    const slot = inventory.findIndex((stack) => stack === null);
     give(app, fruit.key, 1);
+    // Where the gift went: an empty slot, or a stack of it an earlier case left.
+    const slot = inventory.findIndex((stack) => stack?.item === fruit.key);
+    assert(slot >= 0, 'the gift is not in the inventory');
     try {
       openBag(app, 'inventory');
       const img = () =>
@@ -62,7 +64,9 @@ const iconCase: SelftestCase = {
       assert(n > palette * 3, `${n} colours for a palette of ${palette}`);
     } finally {
       app.inventory!.closeScreen();
-      inventory[slot] = null;
+      const stack = inventory[slot];
+      if (stack && stack.count > 1) stack.count--;
+      else inventory[slot] = null;
     }
   },
 };
