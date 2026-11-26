@@ -143,6 +143,7 @@ export class App {
         maxPixelRatio: QUALITY_PRESETS[this.params.quality ?? DEFAULT_QUALITY].pixelRatio,
         // The bench build always renders at a fixed size so fill cost does not depend on the pane.
         fixedBuffer: __BENCH__ || this.params.bench ? BENCH_BUFFER : undefined,
+        scale: this.params.renderScale,
       });
       document.addEventListener('visibilitychange', () => {
         this.lastFrame = -1;
