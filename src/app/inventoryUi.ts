@@ -116,7 +116,7 @@ export class InventoryUi {
     const deps: ScreenDeps = {
       art,
       actions,
-      slotCount: session.player.inventory.length,
+      inventorySize: () => session.player.inventory.length,
       openBase: OPEN_SLOTS_BASE,
       closeKey: () => input.keyLabel('inventory'),
       tooltip,
