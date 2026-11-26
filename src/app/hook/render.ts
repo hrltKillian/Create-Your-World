@@ -42,6 +42,8 @@ export function renderHook(app: App) {
             geometries: info.memory.geometries,
             textures: info.memory.textures,
             programs: info.programs?.length ?? 0,
+            // The sun's last shadow pass (plan v4 « M37 »), counted apart from the frame's.
+            shadowDraws: app.view?.shadowDraws() ?? 0,
           }
         : null;
     },

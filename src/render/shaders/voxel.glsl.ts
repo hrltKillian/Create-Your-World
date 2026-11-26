@@ -1,3 +1,5 @@
+import { LIGHTING, MIST } from './lighting.glsl.ts';
+
 /**
  * Chunk shader. Vertices are two packed uint words (see world/mesh/vertexFormat.ts); UVs are
  * derived from the position and the face, so merged quads repeat the texture per block.
@@ -17,10 +19,67 @@ float lightCurve(float level) {
 }
 `;
 
-export const voxelVertex = /* glsl */ `
+/**
+ * A packed chunk vertex (world/mesh/vertexFormat.ts), shared by the chunk shader and the sun's
+ * shadow pass: its position, the plants' sway and its texture coordinates.
+ */
+export const VOXEL_DECODE = /* glsl */ `
 in uvec2 aPacked;
-uniform vec3 uTintColors[32];
 uniform float uTime;
+
+uint voxelFace() {
+  return (aPacked.y >> 9u) & 7u;
+}
+
+uint voxelFlags() {
+  return (aPacked.y >> 29u) & 7u;
+}
+
+uint voxelAo() {
+  return (aPacked.x >> 30u) & 3u;
+}
+
+float voxelLayer() {
+  return float(aPacked.y & 511u);
+}
+
+/** The position in the mesh (blocks from its origin), before any sway. */
+vec3 voxelBase() {
+  uint w0 = aPacked.x;
+  return vec3(float(w0 & 1023u), float((w0 >> 10u) & 1023u), float((w0 >> 20u) & 1023u)) / 16.0;
+}
+
+/** UVs from the position and the face (cross quads: their corner), turned by flag 4. */
+vec2 voxelUv(vec3 pos) {
+  uint face = voxelFace();
+  uint ao = voxelAo();
+  vec2 uv;
+  if (face == 0u) uv = vec2(-pos.z, pos.y);
+  else if (face == 1u) uv = vec2(pos.z, pos.y);
+  else if (face == 2u) uv = vec2(pos.x, pos.z);
+  else if (face == 3u) uv = vec2(pos.x, -pos.z);
+  else if (face == 4u) uv = vec2(pos.x, pos.y);
+  else if (face == 5u) uv = vec2(-pos.x, pos.y);
+  else uv = vec2((ao == 1u || ao == 2u) ? 1.0 : 0.0, ao >= 2u ? 1.0 : 0.0);
+  if ((voxelFlags() & 4u) != 0u) uv = vec2(uv.y, -uv.x);
+  return uv;
+}
+
+/** Plants sway: only the top vertices of cross quads move. */
+vec3 voxelSway(vec3 pos) {
+  if ((voxelFlags() & 1u) != 0u && voxelFace() > 5u && voxelAo() >= 2u) {
+    vec3 origin = mod(modelMatrix[3].xyz, 256.0);
+    float phase = uTime * 1.7 + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
+    pos.x += 0.05 * sin(phase);
+    pos.z += 0.05 * cos(phase * 0.8);
+  }
+  return pos;
+}
+`;
+
+export const voxelVertex = /* glsl */ `
+${VOXEL_DECODE}
+uniform vec3 uTintColors[32];
 out vec2 vUv;
 flat out float vLayer;
 out float vAo;
@@ -30,47 +89,28 @@ flat out uint vFlags;
 flat out uint vFace;
 out vec3 vTint;
 out vec2 vQuadUv;
+out vec3 vWorld;
 #include <fog_pars_vertex>
 
 const float AO_LEVELS[4] = float[4](0.45, 0.65, 0.83, 1.0);
 
 void main() {
-  uint w0 = aPacked.x;
   uint w1 = aPacked.y;
-  vec3 pos = vec3(float(w0 & 1023u), float((w0 >> 10u) & 1023u), float((w0 >> 20u) & 1023u)) / 16.0;
-  uint ao = (w0 >> 30u) & 3u;
-  uint face = (w1 >> 9u) & 7u;
-  uint flags = (w1 >> 29u) & 7u;
-
-  vec2 uv;
-  if (face == 0u) uv = vec2(-pos.z, pos.y);
-  else if (face == 1u) uv = vec2(pos.z, pos.y);
-  else if (face == 2u) uv = vec2(pos.x, pos.z);
-  else if (face == 3u) uv = vec2(pos.x, -pos.z);
-  else if (face == 4u) uv = vec2(pos.x, pos.y);
-  else if (face == 5u) uv = vec2(-pos.x, pos.y);
-  else uv = vec2((ao == 1u || ao == 2u) ? 1.0 : 0.0, ao >= 2u ? 1.0 : 0.0);
-  if ((flags & 4u) != 0u) uv = vec2(uv.y, -uv.x);
-
-  // Plants sway: only the top vertices of cross quads move.
-  if ((flags & 1u) != 0u && face > 5u && ao >= 2u) {
-    vec3 origin = mod(modelMatrix[3].xyz, 256.0);
-    float phase = uTime * 1.7 + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
-    pos.x += 0.05 * sin(phase);
-    pos.z += 0.05 * cos(phase * 0.8);
-  }
-
-  vUv = uv;
-  vLayer = float(w1 & 511u);
-  vAo = face > 5u ? 1.0 : AO_LEVELS[ao];
+  uint face = voxelFace();
+  vec3 base = voxelBase();
+  vec3 pos = voxelSway(base);
+  vUv = voxelUv(base);
+  vLayer = voxelLayer();
+  vAo = face > 5u ? 1.0 : AO_LEVELS[voxelAo()];
   vSky = float((w1 >> 12u) & 63u) / 60.0;
   vBlock = float((w1 >> 18u) & 63u) / 60.0;
-  vFlags = flags;
+  vFlags = voxelFlags();
   vFace = face;
   vTint = uTintColors[(w1 >> 24u) & 31u];
   int corner = gl_VertexID & 3;
   vQuadUv = vec2((corner == 1 || corner == 2) ? 1.0 : 0.0, corner >= 2 ? 1.0 : 0.0);
 
+  vWorld = (modelMatrix * vec4(pos, 1.0)).xyz;
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #ifdef USE_FOG
@@ -87,12 +127,12 @@ precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
 uniform sampler2DArray uMaterials;
 uniform float uDaylight;
-uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
 uniform float uMinLight;
 uniform float uGamma;
 uniform float uOpacity;
+uniform float uWetness;
 uniform int uDebugView;
 in vec2 vUv;
 flat in float vLayer;
@@ -103,6 +143,7 @@ flat in uint vFlags;
 flat in uint vFace;
 in vec3 vTint;
 in vec2 vQuadUv;
+in vec3 vWorld;
 #include <fog_pars_fragment>
 
 const float FACE_SHADE[8] = float[8](0.8, 0.8, 1.0, 0.55, 0.68, 0.68, 0.9, 0.9);
@@ -114,24 +155,28 @@ const vec3 FACE_T[6] = vec3[6](
   vec3(0, 0, -1), vec3(0, 0, 1), vec3(1, 0, 0), vec3(1, 0, 0), vec3(1, 0, 0), vec3(-1, 0, 0));
 const vec3 FACE_B[6] = vec3[6](
   vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, -1), vec3(0, 1, 0), vec3(0, 1, 0));
-
-// Relief (plan v4 « M36 »): a texel's normal, tilted from its face's, shades it towards or away from
-// a key light high on the north-west; a flat texel keeps its face's shade exactly.
-const vec3 KEY_LIGHT = vec3(-0.45, 0.8, 0.4);
-const float RELIEF_LIGHT = 0.9;
+/** Rain wets surfaces under the open sky: this smooth, this much darker. */
+const float WET_ROUGHNESS = 0.12;
+const float WET_DARKEN = 0.25;
 
 ${LIGHT_CURVE}
+${LIGHTING}
+${MIST}
 
-/** A cube face texel's shade from its material: the face shade, its relief and its cavity. */
-float reliefShade(vec4 material) {
+/** A cube face texel's normal: its face's, tilted by the material's relief (plan v4 « M36 »). */
+vec3 reliefNormal(vec4 material) {
   vec3 t = FACE_T[vFace];
   vec3 b = FACE_B[vFace];
   // Turned faces (flag 4) map uv to (v, −u): u now runs along b and v against t.
   if ((vFlags & 4u) != 0u) { vec3 u = b; b = -t; t = u; }
   vec2 tilt = material.xy * 2.0 - 1.0;
-  vec3 n = t * tilt.x + b * tilt.y + FACE_N[vFace] * sqrt(max(0.0, 1.0 - dot(tilt, tilt)));
-  float relief = 1.0 + RELIEF_LIGHT * dot(n - FACE_N[vFace], normalize(KEY_LIGHT));
-  return FACE_SHADE[vFace] * relief * material.a;
+  return t * tilt.x + b * tilt.y + FACE_N[vFace] * sqrt(max(0.0, 1.0 - dot(tilt, tilt)));
+}
+
+/** The face shades of old, smoothly over any normal: a torch lights faces without a direction. */
+float torchShade(vec3 n) {
+  vec3 n2 = n * n;
+  return n2.x * 0.8 + n2.z * 0.68 + n2.y * (n.y > 0.0 ? 1.0 : 0.55);
 }
 
 void main() {
@@ -150,14 +195,24 @@ void main() {
   base *= mix(vec3(1.0), vTint, mask);
   #endif
 
-  // Effective light: max(sky × daylight, block), each through the curve with its tint.
+  // Plants (cross quads) take the light of the ground they grow from.
+  bool cube = vFace <= 5u;
+  vec4 material = cube ? texture(uMaterials, vec3(vUv, vLayer)) : vec4(0.5, 0.5, 0.85, 1.0);
+  vec3 n = cube ? reliefNormal(material) : vec3(0.0, 1.0, 0.0);
+  // The sun reaches only cells open to the sky, and not those in a shadow.
+  float open = smoothstep(0.8, 1.0, vSky);
+  float lit = open * sunShadow(vWorld, n);
+  float wet = uWetness * open * (0.4 + 0.6 * max(n.y, 0.0));
+  base *= 1.0 - WET_DARKEN * wet;
+  float occlusion = vAo * material.a;
   vec3 light = max(
-    lightCurve(vSky * uDaylight) * uSkyTint,
-    lightCurve(vBlock) * uTorchTint * uFlicker
+    skyShade(lightCurve(vSky * uDaylight), n, lit, occlusion),
+    lightCurve(vBlock) * uTorchTint * uFlicker * torchShade(n) * occlusion
   );
   light = max(light, vec3(uMinLight));
-  float shade = vFace > 5u ? FACE_SHADE[vFace] : reliefShade(texture(uMaterials, vec3(vUv, vLayer)));
-  vec3 color = base * light * vAo * shade;
+  vec3 view = normalize(cameraPosition - vWorld);
+  float roughness = mix(material.b, WET_ROUGHNESS, wet);
+  vec3 color = base * light + sunGloss(n, view, roughness, lit) * lightCurve(vSky * uDaylight);
   if ((vFlags & 2u) != 0u) color = mix(color, base, mask);
 
   if (uDebugView == 1) {
@@ -180,6 +235,6 @@ void main() {
   #endif
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  #include <fog_fragment>
+  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld.y);
 }
 `;

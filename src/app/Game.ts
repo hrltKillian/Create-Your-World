@@ -368,6 +368,7 @@ export class Game {
     audio.setVolumes(settings.volumes);
     view.setFov(settings.fov);
     view.setGamma(settings.gamma);
+    view.setShadows(this.graphics().shadows);
     this.applyUiScale();
     if (this.open) this.applyWorldSettings(this.open);
   }
@@ -390,8 +391,12 @@ export class Game {
     open.session.rig.viewBob = this.settings.viewBob;
   }
 
-  /** Resolution and particles: `?quality=`'s preset in dev builds, else the settings. */
-  private graphics(): { readonly pixelRatio: number; readonly particles: boolean } {
+  /** Resolution, particles and shadows: `?quality=`'s preset in dev builds, else the settings. */
+  private graphics(): {
+    readonly pixelRatio: number;
+    readonly particles: boolean;
+    readonly shadows: number;
+  } {
     const quality = this.host.params.quality;
     return quality ? QUALITY_PRESETS[quality] : this.settings;
   }

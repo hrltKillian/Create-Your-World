@@ -12,6 +12,7 @@ import {
   SETTINGS_KEY,
   type Settings,
   type SettingsStore,
+  SHADOW_SIZES,
   saveSettings,
   withQuality,
   writeSettings,
@@ -43,6 +44,7 @@ const CUSTOM: Settings = {
   fov: 92,
   pixelRatio: 0.75,
   particles: false,
+  shadows: 2048,
   viewBob: false,
   gamma: 0.6,
   sensitivity: 1.35,
@@ -122,6 +124,8 @@ describe('settings', () => {
     expect(readSettings({ version: 1, uiScale: 0.1 }).uiScale).toBe(0.75);
     expect(readSettings({ version: 1, gamma: 4 }).gamma).toBe(1);
     expect(readSettings({ version: 1, gamma: 'bright' }).gamma).toBe(0);
+    expect(readSettings({ version: 1, shadows: 512 }).shadows).toBe(DEFAULT_SETTINGS.shadows);
+    expect(readSettings({ version: 1, shadows: 0 }).shadows).toBe(0);
   });
 
   it('starts on the Medium preset; each preset is a choice of the screen and found again', () => {
@@ -130,12 +134,16 @@ describe('settings', () => {
       const preset = QUALITY_PRESETS[quality];
       expect(RENDER_DISTANCES).toContain(preset.renderDistance);
       expect(PIXEL_RATIOS).toContain(preset.pixelRatio);
+      expect(SHADOW_SIZES).toContain(preset.shadows);
       const settings = withQuality(CUSTOM, quality);
       expect(settings).toEqual({ ...CUSTOM, ...preset });
       expect(qualityOf(settings)).toBe(quality);
     }
     // A render distance no preset has: none.
     expect(qualityOf({ ...withQuality(CUSTOM, 'high'), renderDistance: 10 })).toBeNull();
+    // Shadows off on the medium preset (plan v4 « M37 »): none either; the low preset has none.
+    expect(qualityOf({ ...withQuality(CUSTOM, 'medium'), shadows: 0 })).toBeNull();
+    expect(QUALITY_PRESETS.low.shadows).toBe(0);
   });
 
   it('patches settings like the debug hook: volumes and bindings by entry, each field checked', () => {

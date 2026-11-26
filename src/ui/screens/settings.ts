@@ -9,6 +9,7 @@ import {
   RENDER_DISTANCES,
   SENSITIVITY_RANGE,
   type Settings,
+  SHADOW_SIZES,
   UI_SCALE_RANGE,
   type Volumes,
   withQuality,
@@ -39,10 +40,10 @@ interface Control<T> {
 
 /**
  * The Settings screen (docs « Interface » → Settings): graphics (quality preset, render distance,
- * field of view, resolution, particles, view bob), controls (mouse sensitivity, inverted look,
+ * field of view, resolution, particles, shadows, view bob), controls (mouse sensitivity, inverted look,
  * crouch mode, and the Key bindings screen), the four volumes and the interface scale. Every
  * change is sent at once and the screen shows the result: a preset sets the render distance, the
- * resolution and the particles, and no preset is checked when they match none. Sliders show
+ * resolution, the particles and the shadows, and no preset is checked when they match none. Sliders show
  * percents; settings keep factors (0–1, or the sensitivity and scale factors).
  */
 export class SettingsScreen {
@@ -82,6 +83,12 @@ export class SettingsScreen {
       (pixelRatio) => patch({ pixelRatio }),
     );
     const particles = checkbox('particles', 'settings.particles', (on) => patch({ particles: on }));
+    const shadows = segmented(
+      'shadows',
+      SHADOW_SIZES,
+      (n) => t(`settings.shadows.${n}`),
+      (size) => patch({ shadows: size }),
+    );
     const viewBob = checkbox('viewBob', 'settings.viewBob', (on) => patch({ viewBob: on }));
     const gamma = percentSlider('gamma', 'settings.gamma', { min: 0, max: 1 }, (n) =>
       patch({ gamma: n }),
@@ -113,6 +120,7 @@ export class SettingsScreen {
       (s) => fov.set(s.fov),
       (s) => resolution.set(s.pixelRatio),
       (s) => particles.set(s.particles),
+      (s) => shadows.set(s.shadows),
       (s) => viewBob.set(s.viewBob),
       (s) => gamma.set(s.gamma),
       (s) => sensitivity.set(s.sensitivity),
@@ -135,6 +143,7 @@ export class SettingsScreen {
         fov.element,
         labelled('settings.pixelRatio', resolution.element),
         particles.element,
+        labelled('settings.shadows', shadows.element),
         viewBob.element,
         gamma.element,
       ),

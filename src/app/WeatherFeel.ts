@@ -28,7 +28,7 @@ export class WeatherFeel {
   /** Rain and snow falling around the camera, eased (0–1). */
   rain = 0;
   snow = 0;
-  private readonly look: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1 };
+  private readonly look: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1, wet: 0 };
   private readonly view: WorldView;
   private readonly sim: SimView;
   private flashX = 0;
@@ -63,7 +63,7 @@ export class WeatherFeel {
   /** The world closes: the sky clears and nothing falls (the world view outlives it). */
   dispose(): void {
     const look = this.look;
-    look.cloud = look.fog = look.flash = 0;
+    look.cloud = look.fog = look.flash = look.wet = 0;
     look.dim = 1;
     this.rain = this.snow = 0;
     this.view.setWeather(look);
@@ -87,6 +87,7 @@ export class WeatherFeel {
     look.cloud = ease(look.cloud, CLOUD[kind], step);
     look.fog = ease(look.fog, FOG[kind], step);
     look.dim = ease(look.dim, dimOf(kind, registry.pack.balance.weather), step);
+    look.wet = this.rain;
     if (this.struck && Math.hypot(this.flashX - pose.x, this.flashZ - pose.z) <= FLASH_REACH)
       look.flash = 1;
     this.struck = false;

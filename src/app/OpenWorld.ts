@@ -93,6 +93,8 @@ export class OpenWorld {
       input,
     );
     this.session = session;
+    // The low ground's mist lies under the sea level (plan v4 « M37 »).
+    deps.view.setMistLine(host.view.gen.def.seaLevel);
     // `?time=` and `?freezeTime=1` set the clock through its debug commands (dev builds only).
     if (params.time !== null) host.send({ type: 'debug.setTime', hours: params.time });
     if (params.freezeTime) host.send({ type: 'debug.freezeTime', frozen: true });

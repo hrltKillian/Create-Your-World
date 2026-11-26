@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M37 — Sunlight and shadows** (plan v4, `docs/conception.md` « M37 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **The sun lights the world from where it stands**: faces turned to it are bright, the others
+  take the sky's softer light; the moon does the same at night, fainter.
+- **Shadows**: trees, cliffs and your buildings cast soft shadows that follow the sun through the
+  day. Settings → Shadows: Off, Medium, High (the quality presets set them too).
+- **Rain** wets the open ground (darker, with the sun's glint); **dawn mist** lies in the valleys.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m36,m37`.
+
+### Earlier milestones
+
 **M36 — Detailed textures with relief** (plan v4, `docs/conception.md` « M36 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 

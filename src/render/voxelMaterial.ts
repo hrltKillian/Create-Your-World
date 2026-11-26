@@ -1,12 +1,15 @@
 import {
   Color,
   type DataArrayTexture,
+  type DepthTexture,
   DoubleSide,
   FrontSide,
   type IUniform,
+  Matrix4,
   ShaderMaterial,
   UniformsLib,
   UniformsUtils,
+  Vector3,
 } from 'three';
 import { voxelFragment, voxelVertex } from './shaders/voxel.glsl.ts';
 
@@ -31,7 +34,21 @@ export interface VoxelUniforms {
   readonly uTintColors: IUniform<Color[]>;
   readonly uTime: IUniform<number>;
   readonly uDaylight: IUniform<number>;
-  readonly uSkyTint: IUniform<Color>;
+  /** The sky's light (plan v4 « M37 », `sunLight.ts`): direction, direct, sky and ground light. */
+  readonly uSunDir: IUniform<Vector3>;
+  readonly uSunLight: IUniform<Color>;
+  readonly uSkyLight: IUniform<Color>;
+  readonly uGroundLight: IUniform<Color>;
+  /** The sun's shadow map (`SunShadow`): none (null) when shadows are off, strength 0. */
+  readonly uShadowMap: IUniform<DepthTexture | null>;
+  readonly uShadowMatrix: IUniform<Matrix4>;
+  readonly uShadowTexel: IUniform<number>;
+  readonly uShadowStrength: IUniform<number>;
+  /** Rain on the open ground, 0–1: darker and glossy. */
+  readonly uWetness: IUniform<number>;
+  /** The low ground's mist (`MIST`): strength 0–1 and the height it lies under. */
+  readonly uMist: IUniform<number>;
+  readonly uMistLine: IUniform<number>;
   readonly uTorchTint: IUniform<Color>;
   /** Torch flicker factor on block light (`torchFlicker`). */
   readonly uFlicker: IUniform<number>;
@@ -76,7 +93,17 @@ export function createVoxelMaterials(
     uTintColors: { value: tints },
     uTime: { value: 0 },
     uDaylight: { value: 1 },
-    uSkyTint: { value: new Color(1, 1, 1) },
+    uSunDir: { value: new Vector3(0, 1, 0) },
+    uSunLight: { value: new Color(0.6, 0.6, 0.6) },
+    uSkyLight: { value: new Color(0.62, 0.62, 0.62) },
+    uGroundLight: { value: new Color(0.4, 0.4, 0.4) },
+    uShadowMap: { value: null },
+    uShadowMatrix: { value: new Matrix4() },
+    uShadowTexel: { value: 0 },
+    uShadowStrength: { value: 0 },
+    uWetness: { value: 0 },
+    uMist: { value: 0 },
+    uMistLine: { value: 0 },
     uTorchTint: { value: new Color(1, 0.78, 0.55) },
     uFlicker: { value: 1 },
     uMinLight: { value: 0.025 },
