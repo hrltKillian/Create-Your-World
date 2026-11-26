@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M45 — Veyra's soundscape** (plan v4, `docs/conception.md` « M45 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **Creatures call in their own voices**: the Trotter bleats, the Shagback bellows, the Prowler
+  warbles a raspy growl, the Reedwader honks, the Swarmling chitters, the Shellback's shell knocks,
+  the Glimmerback chimes like struck crystal.
+- **Nights** fill with an alien chorus of clicks and the odd wavering song; **rain** patters drop
+  by drop, **thunder** rolls away in waves; meals crunch, sips bubble, fires crackle.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m45`.
+
+### Earlier milestones
+
 **M44 — A truer sound engine** (plan v4, `docs/conception.md` « M44 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 

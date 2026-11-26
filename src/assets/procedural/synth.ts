@@ -62,20 +62,27 @@ function source(samples: Float32Array, layer: SfxLayer, seed: number, rate: numb
     for (let i = 0; i < samples.length; i++) samples[i] = hashUnit(seed, i) * 2 - 1;
   } else if (kind === 'modal') modes(samples, layer.modes ?? [], seed, rate);
   else if (kind === 'grains') grains(samples, layer, seed, rate);
-  else tone(samples, kind, layer.freq ?? [440, 440], rate);
+  else tone(samples, kind, layer.freq ?? [440, 440], rate, layer.vibrato);
 }
 
-/** A tone gliding exponentially from one pitch to the other; band-limited edges (polyBLEP). */
+/**
+ * A tone gliding exponentially from one pitch to the other, wavering by `vibrato` (rate in Hz,
+ * depth in semitones); band-limited edges (polyBLEP).
+ */
 function tone(
   samples: Float32Array,
   wave: 'sine' | 'triangle' | 'square' | 'sawtooth',
   [from, to]: readonly [number, number],
   rate: number,
+  vibrato?: { readonly rate: number; readonly depth: number },
 ): void {
   let phase = 0;
   let tri = 0;
+  const waver = vibrato ? vibrato.depth / 12 : 0;
+  const speed = vibrato ? (TAU * vibrato.rate) / rate : 0;
   for (let i = 0; i < samples.length; i++) {
-    const f = from * (to / from) ** (i / samples.length);
+    const glide = from * (to / from) ** (i / samples.length);
+    const f = waver === 0 ? glide : glide * 2 ** (waver * Math.sin(speed * i));
     const dt = f / rate;
     let v: number;
     if (wave === 'sine') v = Math.sin(phase * TAU);

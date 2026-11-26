@@ -93,6 +93,8 @@ export interface SfxLayer {
   readonly source: SfxSource;
   /** Tones only: frequency (Hz) at the start and at the end (exponential glide). */
   readonly freq?: readonly [number, number];
+  /** Tones only (plan v4 « M45 »): the pitch wavers `depth` semitones, `rate` times a second. */
+  readonly vibrato?: { readonly rate: number; readonly depth: number };
   /** `modal` only: the struck modes, each its frequency (Hz), ring time to −60 dB (s) and gain. */
   readonly modes?: readonly (readonly [number, number, number])[];
   /**
