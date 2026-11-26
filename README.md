@@ -138,6 +138,19 @@ of them:
 
 ## Try this milestone
 
+**M52 — The creatures redrawn** (plan v5, `docs/conception.md` « M52 »). `npm run dev`, then
+open `http://localhost:5173/?skipMenu=1&spawns=1`.
+
+- **Seven species redrawn** with jointed models: two-segment legs, necks, jaws, ears, horns,
+  crests, segmented tails, each with a silhouette of its own.
+- **Pixel-art skins** in the palette, unfolded on each box the reference game's way, with relief;
+  the Prowler's amber eyes and the Glimmerback's spores, antlers and tail glow in the dark.
+- **Life at rest**: they breathe, glance about, turn to look at you, graze and chew, flick their
+  ears and wag their tails; knees and hocks fold as they walk.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m52`.
+
+### Earlier milestones
+
 **M51 — The crash survivor** (plan v5, `docs/conception.md` « M51 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -148,8 +161,6 @@ of them:
 - **Press V** for the view from behind and from in front; the first-person arm wears the sleeve and
   glove; the Bag (E) shows the survivor by the worn items.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m51`.
-
-### Earlier milestones
 
 **M50 — Block icons drawn by hand** (plan v5, `docs/conception.md` « M50 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1` and press E.

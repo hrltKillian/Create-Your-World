@@ -1,5 +1,5 @@
 /**
- * JS size budget (docs « Mesure de performance »: JS gzip ≤ 480 Ko): the gzip size of every
+ * JS size budget (docs « Mesure de performance »: JS gzip ≤ 500 Ko): the gzip size of every
  * script of a build (the page, its chunks and the workers), summed. Run after the production
  * build by `npm run verify`:
  *   node tools/gzipBudget.ts [dist]
@@ -11,10 +11,12 @@ import { pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 /**
- * 480 kB, in Vite's units (1 kB = 1 000 bytes, as its build report prints them): 460 until the
- * 144 hand-drawn icons of plan v5 « M49 »–« M50 », pixel grids that weigh about 45 kB.
+ * 500 kB, in Vite's units (1 kB = 1 000 bytes, as its build report prints them): 460 until the
+ * 144 hand-drawn icons of plan v5 « M49 »–« M50 », pixel grids that weigh about 45 kB; 480 until
+ * the creatures' painters of « M52 » (about 6 kB, in the page and in the world worker, which
+ * builds its registry from the whole pack).
  */
-export const JS_GZIP_BUDGET = 480_000;
+export const JS_GZIP_BUDGET = 500_000;
 
 export interface ScriptSize {
   readonly file: string;

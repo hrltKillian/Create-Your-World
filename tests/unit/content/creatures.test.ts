@@ -5,6 +5,11 @@ import {
   type CreatureDef,
   GAIT_LEGS,
   HOSTILE_MAX_LIGHT,
+  MASK_INDEX,
+  type ModelPart,
+  SKIN_TEXELS,
+  type SkinDef,
+  skinFaces,
 } from '../../../src/content/schema.ts';
 import { validatePack } from '../../../src/content/validate.ts';
 import { hash32 } from '../../../src/core/hash.ts';
@@ -12,6 +17,30 @@ import { rollLoot } from '../../../src/sim/loot.ts';
 import { registry } from '../../helpers/registry.ts';
 
 const creature = (key: string): CreatureDef => registry.creature(key)!;
+
+/** A model's skin atlas. */
+function skinOf(modelKey: string): SkinDef {
+  const key = registry.model(modelKey)!.skin;
+  return basePack.skins!.find((s) => s.key === key)!;
+}
+
+/** The palette indices of the texels of a part's face in its skin (skinFaces). */
+function faceTexels(skin: SkinDef, part: ModelPart, face: 'front' | 'top'): number[] {
+  const size = (a: number) => Math.round((part.to[a]! - part.from[a]!) * SKIN_TEXELS);
+  const [fu, fv, w, h] = skinFaces(size(0), size(1), size(2))[face];
+  const [u, v] = part.uv!;
+  const out: number[] = [];
+  for (let y = 0; y < h!; y++)
+    for (let x = 0; x < w!; x++)
+      out.push(MASK_INDEX.indexOf(skin.mask[v + fv! + y]![u + fu! + x]!));
+  return out;
+}
+
+/** Orange: red over green over blue. */
+function amber(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+  return r! > g! && g! > b!;
+}
 const creatures = basePack.creatures!;
 
 /** Smallest and largest count of each item of a creature's loot over many deaths. */
@@ -136,10 +165,11 @@ describe('creatures of the base pack', () => {
     for (const model of basePack.models!) {
       const legs = model.parts.filter((p) => p.name.startsWith('leg')).map((p) => p.name);
       expect(legs.sort(), model.key).toEqual(Object.keys(GAIT_LEGS[model.gait]).sort());
-      // Legs stand on the ground and swing about their top.
+      // Legs swing about their top, their lower segment (if any) standing on the ground.
       for (const leg of model.parts.filter((p) => p.name.startsWith('leg'))) {
-        expect(leg.from[1], `${model.key} ${leg.name}`).toBe(0);
         expect(leg.pivot[1], `${model.key} ${leg.name}`).toBe(leg.to[1]);
+        const chain = model.parts.filter((p) => p === leg || p.parent === leg.name);
+        expect(Math.min(...chain.map((p) => p.from[1])), `${model.key} ${leg.name}`).toBe(0);
       }
     }
   });
@@ -154,18 +184,20 @@ describe('creatures of the base pack', () => {
     expect(length).toBeGreaterThan(2 * top);
     const eyes = parts.filter((p) => p.emissive);
     expect(eyes.map((p) => p.name)).toEqual(['eyeL', 'eyeR']);
-    // Amber: every colour of the eyes is orange (red over green over blue).
-    for (const eye of eyes) {
-      const skin = basePack.textures.find((t) => t.key === eye.texture)!;
-      for (const hex of skin.palette) {
-        const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
-        expect(r! > g! && g! > b!, hex).toBe(true);
+    // Amber and glowing: every texel of the eyes' fronts is orange (red over green over blue).
+    const skin = skinOf(prowler.model);
+    for (const eye of eyes)
+      for (const index of faceTexels(skin, eye, 'front')) {
+        expect(skin.glow).toContain(index);
+        expect(amber(skin.palette[index]!), skin.palette[index]).toBe(true);
       }
-    }
-    // No other creature has glowing amber eyes (the Glimmerback's spots glow teal).
-    for (const model of basePack.models!.filter((m) => m.key !== prowler.model))
+    // No other creature has glowing amber eyes (the Glimmerback's spores glow teal).
+    for (const model of basePack.models!.filter((m) => m.key !== prowler.model)) {
       for (const part of model.parts.filter((p) => p.emissive))
         expect(part.name.startsWith('eye'), `${model.key} ${part.name}`).toBe(false);
+      const other = model.skin && basePack.skins!.find((s) => s.key === model.skin);
+      for (const index of other?.glow ?? []) expect(amber(other!.palette[index]!)).toBe(false);
+    }
   });
 
   it('have their voices, an attack voice only when they attack', () => {
@@ -231,7 +263,13 @@ describe('creature validation', () => {
     const model = (key: string) => pack.models.findIndex((m: { key: string }) => m.key === key);
     const models = pack.models;
     const prowlerModel = models[model('model:prowler')];
-    prowlerModel.parts = prowlerModel.parts.filter((p: { name: string }) => p.name !== 'legBR');
+    prowlerModel.parts = prowlerModel.parts.filter(
+      (p: { name: string }) => p.name !== 'legBR' && p.name !== 'shinBR',
+    );
+    // A part whose faces fall outside its skin's painted texels, a glow of no colour.
+    const glimmer = model('model:glimmerback');
+    models[glimmer].parts[0].uv = [250, 250];
+    pack.skins[0].glow = [99];
     const shagbackTail = models[model('model:shagback')].parts.length - 1;
     models[model('model:shagback')].parts[shagbackTail].name = 'legTail';
     models[model('model:swarmling')].parts[7].parent = 'nope';
@@ -261,6 +299,8 @@ describe('creature validation', () => {
         `models[${model('model:swarmling')}].parts[7].parent`,
         `models[${model('model:shellback')}].stride`,
         `models[${model('model:trotter')}].gait`,
+        `models[${glimmer}].parts[0].uv`,
+        'skins[0].glow',
         `loot[${meat}].rolls`,
       ].sort(),
     );

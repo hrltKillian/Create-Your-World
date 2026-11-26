@@ -8,6 +8,7 @@ import {
   GAIT_LEGS,
   HOSTILE_MAX_LIGHT,
 } from './schema.ts';
+import { validateSkinnedParts, validateSkins } from './validateSkins.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -136,6 +137,7 @@ function validateModels(
   add: AddIssue,
 ): Set<string> {
   const keys = new Set<string>();
+  const skins = validateSkins(pack, add);
   (pack.models ?? []).forEach((model, i) => {
     const path = `models[${i}]`;
     if (!model.key.startsWith('model:'))
@@ -151,7 +153,7 @@ function validateModels(
       if (names.has(part.name)) add(`${ppath}.name`, `duplicate part "${part.name}"`);
       if (legs && part.name.startsWith('leg') && legs[part.name] === undefined)
         add(`${ppath}.name`, `a ${model.gait} has no leg "${part.name}"`);
-      if (!textureKeys.has(part.texture))
+      if (!model.skin && !(part.texture && textureKeys.has(part.texture)))
         add(`${ppath}.texture`, `unknown texture "${part.texture}"`);
       for (const [face, key] of Object.entries(part.faces ?? {}))
         if (key && !textureKeys.has(key)) add(`${ppath}.faces.${face}`, `unknown texture "${key}"`);
@@ -163,6 +165,11 @@ function validateModels(
     });
     for (const leg of Object.keys(legs ?? {}))
       if (!names.has(leg)) add(`${path}.parts`, `a ${model.gait} needs the leg "${leg}"`);
+    if (model.skin !== undefined) {
+      const skin = skins.get(model.skin);
+      if (skin) validateSkinnedParts(model, skin, path, add);
+      else add(`${path}.skin`, `unknown skin "${model.skin}"`);
+    }
   });
   const avatar = pack.manifest.bindings.avatarModel;
   if (avatar && !keys.has(avatar))

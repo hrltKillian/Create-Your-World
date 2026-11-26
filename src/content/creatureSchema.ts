@@ -11,6 +11,7 @@ import type {
   LootKey,
   ModelKey,
   SfxKey,
+  SkinKey,
   TexKey,
 } from './schema.ts';
 
@@ -154,8 +155,13 @@ export interface ModelPart {
   readonly to: readonly [number, number, number];
   /** Rotation pivot (same units). */
   readonly pivot: readonly [number, number, number];
-  /** Its sides' texture, and every face's without a texture of its own in `faces`. */
-  readonly texture: TexKey;
+  /**
+   * Its rest rotation about the pivot (plan v5 « M52 »), degrees about x, then y, then z: a neck
+   * leaning forward, horns swept back, legs splayed. The animation turns it from there.
+   */
+  readonly rotation?: readonly [number, number, number];
+  /** Its sides' texture, and every face's without a texture of its own in `faces` (no `skin`). */
+  readonly texture?: TexKey;
   /**
    * The faces with a texture of their own (plan v5 « M51 »): the front (−z, where the model looks),
    * the back, the top and the bottom.
@@ -166,10 +172,52 @@ export interface ModelPart {
     readonly top?: TexKey;
     readonly bottom?: TexKey;
   };
+  /**
+   * Where its unfolded box starts in the model's skin (texels from the top left; plan v5 « M52 »,
+   * the reference game's layout, `skinFaces`).
+   */
+  readonly uv?: readonly [number, number];
   /** The part follows its parent's rotation; a parent comes before its children. */
   readonly parent?: string;
   /** Drawn at full brightness whatever the light (glowing eyes). */
   readonly emissive?: boolean;
+}
+
+/** Texels of a skin atlas a side (plan v5 « M52 »). */
+export const SKIN_SIZE = 256;
+
+/**
+ * A model's skin atlas (plan v5 « M52 »): `mask` rows of `MASK_INDEX` letters into `palette` from
+ * the top ('.' is empty), at most SKIN_SIZE each way, two texels a model unit. Every part of its
+ * model unfolds its box from its `uv` the reference game's way (`skinFaces`). Texels of the
+ * `glow` palette entries shine whatever the light (eyes, spores).
+ */
+export interface SkinDef {
+  readonly key: SkinKey;
+  readonly palette: readonly string[];
+  readonly mask: readonly string[];
+  readonly glow?: readonly number[];
+}
+
+/**
+ * Texels a model unit in a skin, and where each face of a box w × h × d texels lies from its `uv`
+ * (the reference game's layout): the top and bottom above, then the right side (+x), the front
+ * (−z), the left side (−x) and the back in a row. Rectangles: [u, v, width, height].
+ */
+export const SKIN_TEXELS = 2;
+export function skinFaces(
+  w: number,
+  h: number,
+  d: number,
+): Readonly<Record<'top' | 'bottom' | 'right' | 'front' | 'left' | 'back', readonly number[]>> {
+  return {
+    top: [d, 0, w, d],
+    bottom: [d + w, 0, w, d],
+    right: [0, d, d, h],
+    front: [d, d, w, h],
+    left: [d + w, d, d, h],
+    back: [2 * d + w, d, w, h],
+  };
 }
 
 /** A box model; it faces −z (north) at yaw 0. */
@@ -185,4 +233,6 @@ export interface ModelDef {
    * stretches its whole texture.
    */
   readonly pixels?: boolean;
+  /** Its skin atlas (plan v5 « M52 »): every part takes its faces from its `uv` there. */
+  readonly skin?: SkinKey;
 }

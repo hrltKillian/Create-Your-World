@@ -1,7 +1,7 @@
 import type { Camera, Material, Mesh, Object3D } from 'three';
 import { liquidLayerMask } from '../../src/render/liquidLayers.ts';
 import type { Renderer } from '../../src/render/Renderer.ts';
-import { createTextureArray } from '../../src/render/textureArray.ts';
+import { createTextureArray, skinTextures } from '../../src/render/textureArray.ts';
 import { WorldView } from '../../src/render/WorldView.ts';
 import { layers, materialLayers, TEXTURE_SIZE } from './packPixels.ts';
 import { registry } from './registry.ts';
@@ -37,9 +37,16 @@ export function createTestWorldView(renderDistance = 2) {
   };
   const textures = createTextureArray(layers, TEXTURE_SIZE);
   const materials = createTextureArray(materialLayers, TEXTURE_SIZE, false);
+  const skins = skinTextures(registry.pack);
   const view = new WorldView(
     renderer as unknown as Renderer,
-    { textures, materials, liquids: liquidLayerMask(registry.tables) },
+    {
+      textures,
+      materials,
+      skins: skins.colours,
+      skinMaterials: skins.materials,
+      liquids: liquidLayerMask(registry.tables),
+    },
     [],
     renderDistance,
     registry.pack.sky,

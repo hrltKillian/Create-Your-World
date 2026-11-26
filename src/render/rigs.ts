@@ -1,6 +1,6 @@
-import { Matrix4, Vector3 } from 'three';
+import { Euler, MathUtils, Matrix4, Vector3 } from 'three';
 import type { Registry } from '../content/registry.ts';
-import type { ModelDef, ModelPart, TexKey } from '../content/schema.ts';
+import { type ModelDef, type ModelPart, SKIN_TEXELS, type TexKey } from '../content/schema.ts';
 import { type BoxSkin, fullSkin } from './BoxBatch.ts';
 
 /** Texture space a model unit covers at the world's density: 2 texels at size 32 (1/16 block). */
@@ -10,8 +10,24 @@ const UNIT = 1 / 16;
  * A model part's skin (plan v5 « M51 »): its sides' layer and its faces' own (`ModelPart.faces`).
  * A model at the world's density (`ModelDef.pixels`) shows on each face its own corner of the
  * texture, two texels a unit (the reference game's skins); else each face stretches the whole.
+ * A model with a skin atlas (plan v5 « M52 ») unfolds each part's box from its `uv` there.
  */
 export function partSkin(registry: Registry, model: ModelDef, part: ModelPart): BoxSkin {
+  if (model.skin) {
+    const texels = (axis: number) => Math.round((part.to[axis]! - part.from[axis]!) * SKIN_TEXELS);
+    return {
+      ...fullSkin(0),
+      skin: Math.max(
+        0,
+        (registry.pack.skins ?? []).findIndex((s) => s.key === model.skin),
+      ),
+      ox: part.uv?.[0] ?? 0,
+      oy: part.uv?.[1] ?? 0,
+      sx: texels(0),
+      sy: texels(1),
+      sz: texels(2),
+    };
+  }
   const layer = (key: TexKey | undefined, fallback: number) =>
     key ? Math.max(0, registry.textureKeys.indexOf(key)) : fallback;
   const side = layer(part.texture, 0);
@@ -132,6 +148,8 @@ export interface PreparedModel {
   readonly head: number;
   /** Index of the part named "armR", which holds items (−1 if none). */
   readonly hand: number;
+  /** Each part's rest rotation (`ModelPart.rotation`), null for none. */
+  readonly rests: readonly (Matrix4 | null)[];
 }
 
 /** Legs follow the gait convention: part names starting with "leg" stay on the ground. */
@@ -147,22 +165,41 @@ export function prepareModel(model: ModelDef): PreparedModel {
     drops[i] = parent < 0 && !part.name.startsWith('leg') ? 1 : 0;
     index.set(part.name, i);
   });
-  return { model, parents, drops, head: index.get('head') ?? -1, hand: index.get('armR') ?? -1 };
+  const rests = model.parts.map((part) => {
+    const r = part.rotation;
+    if (!r) return null;
+    const rad = MathUtils.degToRad;
+    return new Matrix4().makeRotationFromEuler(new Euler(rad(r[0]), rad(r[1]), rad(r[2])));
+  });
+  return {
+    model,
+    parents,
+    drops,
+    head: index.get('head') ?? -1,
+    hand: index.get('armR') ?? -1,
+    rests,
+  };
 }
 
 const pivotIn = new Matrix4();
 const pivotOut = new Matrix4();
 const rotation = new Matrix4();
+const turn = new Matrix4();
 const local = new Matrix4();
 const size = new Matrix4();
 const point = new Vector3();
 
-/** What posing reads from a rig (the avatar's or a creature's): angles by part name. */
-export type PosedRig = Pick<RigState, 'angles' | 'headPivotY'>;
+/**
+ * What posing reads from a rig (the avatar's or a creature's): angles by part name, and turns about
+ * the vertical (`yaws`, radians, positive to the left; plan v5 « M52 »: a tail's wag, a glance).
+ */
+export type PosedRig = Pick<RigState, 'angles' | 'headPivotY'> & {
+  readonly yaws?: Readonly<Record<string, number>>;
+};
 
 /**
  * World matrix of every part of a model: root (feet position, yaw), then each part's rotation
- * about its pivot, chained through parents; root upper-body parts are lowered by `crouchDrop`
+ * about its pivot (its rest rotation, its yaw, then its angle), chained through parents; root upper-body parts are lowered by `crouchDrop`
  * (their children follow). `visit` receives the matrix of the unit box. No allocation.
  */
 export function poseModel(
@@ -183,6 +220,10 @@ export function poseModel(
     pivotIn.makeTranslation(px / 16, py / 16 - (prepared.drops[i] ? crouchDrop : 0), pz / 16);
     pivotOut.makeTranslation(-px / 16, -py / 16, -pz / 16);
     rotation.makeRotationX(-angle);
+    const yaw = rig.yaws?.[part.name];
+    if (yaw) rotation.premultiply(turn.makeRotationY(yaw));
+    const rest = prepared.rests[i];
+    if (rest) rotation.premultiply(rest);
     local.multiplyMatrices(pivotIn, rotation).multiply(pivotOut);
     if (!scratch[i]) scratch[i] = new Matrix4();
     const world = scratch[i]!;

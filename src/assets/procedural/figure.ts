@@ -36,7 +36,8 @@ export function figurePixels(
   const pixels = new Uint8ClampedArray(width * height * 4);
   const depth = new Float32Array(width * height).fill(Number.POSITIVE_INFINITY);
   for (const part of model.parts) {
-    const layer = layers[registry.textureKeys.indexOf(part.faces?.front ?? part.texture)];
+    const front = part.faces?.front ?? part.texture;
+    const layer = front && layers[registry.textureKeys.indexOf(front)];
     if (!layer) continue;
     const w = Math.round((part.to[0] - part.from[0]) * k);
     const h = Math.round((part.to[1] - part.from[1]) * k);

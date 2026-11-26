@@ -4,7 +4,7 @@
  */
 
 import type { BalanceDef } from './balanceSchema.ts';
-import type { CreatureDef, ModelDef } from './creatureSchema.ts';
+import type { CreatureDef, ModelDef, SkinDef } from './creatureSchema.ts';
 import type {
   ImplicitItemTraits,
   ItemDef,
@@ -37,6 +37,7 @@ export type StationKey = `station:${string}`;
 export type BiomeKey = `biome:${string}`;
 export type CreatureKey = `creature:${string}`;
 export type ModelKey = `model:${string}`;
+export type SkinKey = `skin:${string}`;
 export type RecipeKey = `recipe:${string}`;
 export type ProcessKey = `process:${string}`;
 
@@ -473,4 +474,6 @@ export interface ContentPack {
   readonly ores?: readonly OreDef[];
   readonly structures?: readonly StructureDef[];
   readonly models?: readonly ModelDef[];
+  /** The models' skin atlases (plan v5 « M52 »), in their own texture array. */
+  readonly skins?: readonly SkinDef[];
 }

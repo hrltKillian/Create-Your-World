@@ -1895,7 +1895,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   | `voxelBytes` (médiane de 3 trajets de 2 km)                        | ≤ 140 Mo          |
   | Chargement, rayon 3 / RD 6                                         | < 3 s / < 5 s     |
   | Édition → maillage visible                                         | ≤ 50 ms p95       |
-  | JS gzip                                                            | ≤ 480 Ko          |
+  | JS gzip                                                            | ≤ 500 Ko          |
 
 - **Approximations d'un M1** :
   - GPU : RD 8 à DPR 2 sur le M4 garde moins de 5 % d'intervalles supérieurs à 20 ms ;
@@ -3477,7 +3477,7 @@ Comme dans Minecraft :
 - le survivant (`model:survivor`) : jambes, torse, bras, tête, cheveux, masque, sac et couchage roulé ; combinaison sarcelle (rampe `suit`) aux épaules ocre, harnais de cuir à boucles de fer, l'insigne de la colonie, un accroc et une brûlure, genouillères, bottes lacées, gants, un pansement au front, cheveux bruns en bataille ; 24 textures dessinées à la main (`survivorSkins.ts` : `body`, `sides`, `caps` par partie, bras et jambes partagés) ;
 - la figure du Bag est le survivant vu de face, tiré de ses propres textures (`figurePixels`, assets/procedural/figure.ts), à côté des cinq emplacements d'équipement.
 
-#### M52 — Créatures redessinées
+#### M52 — Créatures redessinées (fait)
 
 Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, Prowler, Swarmling, Shellback, Glimmerback et Reedwader.
 
@@ -3497,6 +3497,17 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - `MAX` de boîtes dans le budget ;
 - bench `mobs` sous son seuil ;
 - selftest `m52` : chaque espèce posée est dessinée et animée.
+
+**Retenu à la réalisation** :
+
+- chaque créature a un atlas de peau (`ModelDef.skin`, `ContentPack.skins`, `SkinDef`) : chaque partie déplie sa boîte depuis son `uv` comme dans le jeu de référence (`skinFaces` : dessus et dessous en haut, puis côté droit, devant, côté gauche et derrière sur une rangée), deux texels par unité comme les blocs ; les atlas (256 × 256, `SKIN_SIZE`) ont leur propre tableau de textures, sans mipmaps, lu par le shader des boîtes (`skinUv`, mode 2 de `aTexOrigin.w`), hors de la limite de 256 couches du pack ;
+- les peaux sont peintes texel par texel dans les lettres de la palette par de petites règles de pixel art (`beasts/paint.ts` : ton de base éclairé en haut et ombré en bas, grain de fourrure, de mèches, d'écailles, de plumes, bandes au bord irrégulier, écailles de carapace à anneaux de croissance, détails posés à la main : yeux, narines, crocs, griffes), au chargement du pack : dessinées en lettres, sept atlas auraient coûté environ 38 kB gzip ;
+- le relief de M41 vient de la luminosité de chaque texel (`skinMaterial`) ; les texels d'un matériau `glow` brillent dans le noir (alpha `GLOW_ALPHA`) : les spores, les bois et le bout de la queue du Glimmerback ; les yeux ambre du Prowler restent des parties émissives ;
+- une partie peut avoir une rotation de repos (`ModelPart.rotation`, degrés : cou penché, oreilles écartées, cornes, nageoires) et un lacet animé (`yaws` du rig : queue, regard) ; les pattes ont deux segments, `leg…` puis `shin…` jusqu'au sol (`legPair`) ;
+- vie au repos (`creatureRig.ts`) : genoux qui se plient quand la patte avance (les jarrets à l'envers), respiration et balancement du pas, tête qui se tourne vers la cible (`turn`) ou regarde alentour, cou baissé pour brouter avec la mâchoire qui mâche, oreilles qui frémissent, se dressent sur une menace et se couchent dans la fuite, queue en vague le long de ses segments, ailes et crête qui se lèvent sur une menace, antennes ; chaque créature a sa phase (`seed` : son id), un troupeau ne bouge pas d'un bloc ;
+- les espèces : le Trotter (cou haut et crinière, bande sombre au flanc, ventre et croupe pâles, chaussettes et sabots), le Shagback (six pattes sous de longues mèches, bosse grise, barbe, frange sur les yeux, cornes en trois segments), le Prowler (bas et long, crête de piquants, épaules larges, tête en coin à crocs, nageoires couchées, queue fouet en trois segments, cuir gris crépuscule barré de rouille), le Swarmling (carapace verte luisante, sac à venin veiné et bombé, grappe d'yeux rouges, mandibules qui s'écartent, antennes, pattes coudées), le Shellback (carapace d'écailles en deux étages, crête d'os, front cuirassé, bec crochu, queue à massue), le Glimmerback (pelage de mousse, nodules et spores lumineux, crinière, oreilles tombantes, bois à andouillers lumineux) et le Reedwader (échassier, cou en S, aigrette sarcelle, œil rouge, ailes repliées aux rémiges sombres, long bec qui s'ouvre) ;
+- inchangés : hitboxes, comportements, combat ; les tests d'originalité lisent les yeux ambre dans l'atlas du Prowler ;
+- le budget gzip passe de 480 à 500 kB : le code des peintres et des sept espèces (environ 6 kB compressés) est dans la page et dans le worker du monde, qui construit son registre à partir du pack entier.
 
 ### Partie D — Sons réalistes
 
@@ -3571,7 +3582,7 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - Toute l'interface passe par `t()` ; aucun nom de contenu dans le moteur.
 - `GEN_VERSION` reste inchangé.
 - `SAVE_VERSION` n'est relevé que si le format change (l'âge du feu, si on le sauvegarde).
-- Budget gzip 460 kB, en comptant la police (480 kB depuis M50 : les 144 icônes dessinées à la main pèsent environ 45 kB).
+- Budget gzip 460 kB, en comptant la police (480 kB depuis M50 : les 144 icônes dessinées à la main pèsent environ 45 kB ; 500 kB depuis M52 : les peintres des créatures, comptés dans la page et dans le worker du monde).
 - KISS, DRY, SRP.
 
 ## Vérification v5 (chaque jalon)

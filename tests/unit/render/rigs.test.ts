@@ -1,6 +1,7 @@
 import { Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { models } from '../../../src/content/packs/base/models.ts';
+import type { ModelDef } from '../../../src/content/schema.ts';
 import {
   animate,
   createRig,
@@ -117,5 +118,50 @@ describe('avatar rig', () => {
       parts: [{ ...models[0]!.parts[5]!, parent: 'torso' }, ...models[0]!.parts],
     };
     expect(() => prepareModel(broken)).toThrow(/before its parent/);
+  });
+});
+
+describe('rest rotations and yaws (plan v5 « M52 »)', () => {
+  const tail = {
+    key: 'model:test',
+    gait: 'biped',
+    stride: 1,
+    parts: [
+      { name: 'legL', from: [-2, 0, -1], to: [-1, 4, 1], pivot: [-1.5, 4, 0], texture: 'tex:x' },
+      { name: 'legR', from: [1, 0, -1], to: [2, 4, 1], pivot: [1.5, 4, 0], texture: 'tex:x' },
+      {
+        name: 'tail',
+        from: [0, 0, 0],
+        to: [1, 1, 16],
+        pivot: [0, 0, 0],
+        rotation: [0, 90, 0],
+        texture: 'tex:x',
+      },
+    ],
+  } as const satisfies ModelDef;
+
+  function centreOf(yaw: number): Vector3 {
+    const centre = new Vector3();
+    poseModel(
+      prepareModel(tail),
+      { angles: {}, yaws: { tail: yaw }, headPivotY: 0 },
+      new Matrix4(),
+      0,
+      (i, box) => {
+        if (i === 2) centre.set(0.5, 0.5, 0.5).applyMatrix4(box);
+      },
+      [],
+    );
+    return centre.multiplyScalar(16);
+  }
+
+  it('turns a part by its rest rotation about its pivot, then by its yaw', () => {
+    // A tail along +z turned a quarter about y lies along +x; a quarter more, along −z.
+    const rest = centreOf(0);
+    expect([rest.x, rest.y, rest.z].map((v) => Math.round(v * 100) / 100)).toEqual([8, 0.5, -0.5]);
+    const turned = centreOf(Math.PI / 2);
+    expect([turned.x, turned.y, turned.z].map((v) => Math.round(v * 100) / 100)).toEqual([
+      -0.5, 0.5, -8,
+    ]);
   });
 });

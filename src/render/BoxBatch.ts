@@ -41,6 +41,11 @@ export interface BoxSkin {
   readonly sy: number;
   readonly sz: number;
   readonly sprite: boolean;
+  /**
+   * A skinned box's layer in the skin atlases (plan v5 « M52 »): its faces unfold from (`ox`,
+   * `oy`) there, `sx` × `sy` × `sz` texels (box.glsl.ts `skinUv`).
+   */
+  readonly skin?: number;
 }
 
 /** The front's layer is packed as front × LAYER_PACK + back (box.glsl.ts unpacks it). */
@@ -127,6 +132,8 @@ export class BoxBatch {
         ...UniformsUtils.clone(UniformsLib.fog),
         uTextures: shared.uTextures,
         uMaterials: shared.uMaterials,
+        uSkins: shared.uSkins,
+        uSkinMaterials: shared.uSkinMaterials,
         uDaylight: shared.uDaylight,
         uSunDir: shared.uSunDir,
         uSunLight: shared.uSunLight,
@@ -195,13 +202,19 @@ export class BoxBatch {
     // The front's and back's layers share one float (exact: both below LAYER_PACK).
     this.layers.setXYZW(
       i,
-      skin.side,
+      skin.skin ?? skin.side,
       skin.top,
       skin.bottom,
       (skin.front ?? skin.side) * LAYER_PACK + (skin.back ?? skin.side),
     );
     this.lights.setXY(i, sky, block);
-    this.texOrigins.setXYZW(i, skin.ox, skin.oy, skin.oz, skin.sprite ? 1 : 0);
+    this.texOrigins.setXYZW(
+      i,
+      skin.ox,
+      skin.oy,
+      skin.oz,
+      skin.skin !== undefined ? 2 : skin.sprite ? 1 : 0,
+    );
     this.texSizes.setXYZ(i, skin.sx, skin.sy, skin.sz);
     this.tints.setXYZW(i, skin.sideTint, skin.topTint, skin.bottomTint, skin.cutout ? 1 : 0);
     this.effects.setXY(i, glow, flash);
