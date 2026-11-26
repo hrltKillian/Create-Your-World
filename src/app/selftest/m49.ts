@@ -11,30 +11,33 @@ import {
 } from './support.ts';
 
 /*
- * M42 modelled item icons (plan v4 « M42 »), on the flat world with fixed steps
+ * M49 hand-drawn item icons (plan v5 « M49 »), on the flat world with fixed steps
  * (?worldType=flat&fixedStep=1): the Bag shows a food that plants (the pack's berries) with its
- * 32 × 32 icon, shaded into many more colours than its palette.
+ * 32 × 32 pixel art, every pixel one of its palette's colours (no shading added on top).
  */
 
 /** Frames the page gets to draw its icons and the Bag to show them. */
 const ICON_FRAMES = 600;
 
-/** The distinct colours of an image's opaque pixels. */
-function colours(img: HTMLImageElement): number {
+/** The distinct colours of an image's opaque pixels, as `#rrggbb`. */
+function colours(img: HTMLImageElement): Set<string> {
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   for (let i = 0; i < data.length; i += 4)
-    if (data[i + 3] === 255) seen.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
-  return seen.size;
+    if (data[i + 3] === 255)
+      seen.add(
+        `#${(((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!) + 0x1000000).toString(16).slice(1)}`,
+      );
+  return seen;
 }
 
 const iconCase: SelftestCase = {
-  name: 'the Bag shows a modelled 32 × 32 icon, shaded beyond its palette',
+  name: 'the Bag shows a hand-drawn 32 × 32 icon, every pixel a colour of its palette',
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
   timeoutMs: 60_000,
@@ -59,9 +62,10 @@ const iconCase: SelftestCase = {
       const icon = img()!;
       assert(icon.naturalWidth === 32, `the icon is ${icon.naturalWidth} pixels wide`);
       const def = app.registry!.pack.textures.find((t) => t.key === fruit.icon);
-      const palette = def?.palette.length ?? 0;
-      const n = colours(icon);
-      assert(n > palette * 3, `${n} colours for a palette of ${palette}`);
+      assert(def?.mask, 'the icon is not drawn from a grid');
+      const palette = new Set(def.palette);
+      const stray = [...colours(icon)].filter((c) => !palette.has(c));
+      assert(stray.length === 0, `colours off its palette: ${stray.slice(0, 4).join(', ')}`);
     } finally {
       app.inventory!.closeScreen();
       const stack = inventory[slot];
@@ -71,7 +75,7 @@ const iconCase: SelftestCase = {
   },
 };
 
-export const M42_SUITE: readonly SelftestCase[] = [
+export const M49_SUITE: readonly SelftestCase[] = [
   iconCase,
-  noErrorsCase('no errors after the m42 checks'),
+  noErrorsCase('no errors after the m49 checks'),
 ];

@@ -77,6 +77,7 @@ describe('craft queue', () => {
     // A tool stacks to 1: one craft per entry, so 5 knives fill the queue.
     s.give('item:flint', 6);
     s.give('item:stick', 6);
+    s.give('item:cord', 6);
     for (let i = 0; i < CRAFT_QUEUE; i++) expect(rejections(s.enqueue('flint_knife'))).toEqual([]);
     expect(s.player.craft).toHaveLength(CRAFT_QUEUE);
     expect(rejections(s.enqueue('flint_knife'))).toEqual(['queue full']);

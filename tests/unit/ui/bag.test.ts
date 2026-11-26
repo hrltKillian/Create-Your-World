@@ -330,11 +330,12 @@ describe('LogbookPanel', () => {
     // By an ingredient's name, across the tabs; the tab's badge counts what the search keeps.
     type('cord');
     // The craftable ones first, then the cord itself (materials) and the spear among the others.
-    expect(rows().slice(0, 2)).toEqual(['recipe:flint_hatchet', 'recipe:flint_pickaxe']);
+    expect(rows().slice(0, 2)).toEqual(['recipe:flint_knife', 'recipe:flint_hatchet']);
     expect(rows()).toEqual(expect.arrayContaining(['recipe:cord', 'recipe:flint_spear']));
-    // The tools that take cord: the hatchet, the pickaxe and the hoe of flint (plan v3 « M33 »).
+    // The tools that take cord: the knife (its flint lashed on: plan v5 « M49 »), the hatchet, the
+    // pickaxe and the hoe of flint (plan v3 « M33 »).
     const badge = byAttr(root, 'data-tab', 'tools')[0]!.querySelector('.logbook-count');
-    expect(badge?.textContent).toBe('3');
+    expect(badge?.textContent).toBe('4');
     type('nothing like it');
     expect(rows()).toEqual([]);
     expect(fake(root).querySelector('.logbook-empty')?.textContent).toBe('No recipe matches.');

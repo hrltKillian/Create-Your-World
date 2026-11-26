@@ -12,10 +12,11 @@ import {
 import { BOX_NO_TINT, type BoxBatch, type BoxSkin, boxTint } from './BoxBatch.ts';
 
 /**
- * Boxes an item extruded from its icon may use (docs/conception.md « BoxBatch »): 40 since the
- * 32 × 32 icons of plan v4 « M42 » (the berries take 37).
+ * Boxes an item extruded from its icon may use (docs/conception.md « BoxBatch »): 48 since the
+ * hand-drawn icons of plan v5 « M49 » (the palmthorn fruit and its thorns take 46). The hand's
+ * batch (HAND_BOXES, 64) holds the arm and one item; 64 detailed drops stay far within the world's.
  */
-export const MAX_ITEM_BOXES = 40;
+export const MAX_ITEM_BOXES = 48;
 
 /** One box of an item model: its unit-box transform in item space, and its skin. */
 export interface ItemPart {

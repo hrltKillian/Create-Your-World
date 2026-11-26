@@ -470,10 +470,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - things on the ground (plan v4 « M41 »): box relief (box.glsl.ts: `vTangent`/`vBitangent`,
     `uMaterials` in BoxBatch), the `fur` pattern, contact shadows `render/ContactShadows.ts`
     (`begin`/`add`/`end`, fed by CreatureView, DropView and EntityView; `PlayView.shadows`);
-  - icons (plan v4 « M42 »): `assets/procedural/iconShade.ts` (`shadeIcon`: regions rounded and lit
-    from the top left, called by `renderPackTexture` for the `icon` pattern); 32 × 32 masks for the
-    berries, fruit, pickaxe and hatchet (tool palettes end with a crystal colour, index 6);
-    `MAX_ITEM_BOXES` 40;
+  - item icons (plan v5 « M49 », replacing plan v4's shaded masks): pixel art drawn by hand, 32 rows
+    of 32 letters a texture (`art(key, mats, grid)` in content/packs/base/palette.ts: `#` the ink
+    `INK`, `W`/`V` white and grey glints, five letters a material: deep shadow, shadow, base, light,
+    highlight), the colours from the one palette `RAMPS` (six hue-shifted tones a material,
+    `PALETTE`; tests/unit/content/palette.test.ts); the `icon` pattern's mask characters
+    `MASK_INDEX` (content/schema.ts, 62 colours), no shading added; modules by theme
+    `iconsTools.ts`, `iconsMetalTools.ts`, `iconsNature.ts`, `iconsMaterials.ts`, `iconsGear.ts`,
+    `iconsWear.ts`, `iconsFood.ts`, `iconsContainers.ts`; `MAX_ITEM_BOXES` 48;
   - interface (plan v4 « M43 »): the colony theme's CSS tokens (main.css: `--glass`,
     `--glass-edge`, `--glass-blur`, `--metal`, `--slot-bg`, `--slot-edge`, `--c-sheen`; colours and
     shadows only, never sizes), `rise-in` for screens and menus, the title sky `app/titleSky.ts`
@@ -652,8 +656,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   room outdoors, then indoors under a roof. Hook: `audio.ambience().reverb`.
 - Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):
   the Bag and hotbar as riveted plates (plan v5's look), unblurred, slots pressed in.
-- Icon checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m42` (`selftest/m42.ts`): the
-  Bag shows a planting food's 32 × 32 shaded icon.
+- Icon checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m49` (`selftest/m49.ts`): the
+  Bag shows a planting food's hand-drawn 32 × 32 icon, every pixel a colour of its palette.
 - Creature checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m41` (`selftest/m41.ts`): a
   placed creature's contact shadow.
 - Night checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m40` (`selftest/m40.ts`): a
