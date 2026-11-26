@@ -59,7 +59,7 @@ describe('frame statistics', () => {
 });
 
 describe('benchmark frame sampler', () => {
-  it('reports work p95, intervals over 20 ms, the busiest frame’s draws and span p95', () => {
+  it('reports work p95, intervals over 20 ms, the busiest frame’s and the mean draws, span p95', () => {
     const sampler = new FrameSampler(1);
     const spans: Record<string, number> = Object.fromEntries(SPANS.map((s) => [s, 0]));
     for (let i = 1; i <= 40; i++) {
@@ -79,6 +79,7 @@ describe('benchmark frame sampler', () => {
     expect(result.longFrames).toBeCloseTo(4 / 39);
     expect(result.maxInterval).toBe(34);
     expect(result.draws).toBe(106);
+    expect(result.meanDraws).toBe(103);
     expect(result.triangles).toBe(40_000);
     expect(result.spans.render).toBeCloseTo(3.8);
     expect(result.spans.sim).toBe(0);
