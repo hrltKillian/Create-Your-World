@@ -130,6 +130,9 @@ export class BoxBatch {
         uShadowTexel: shared.uShadowTexel,
         // The hand's boxes are not in the world: no shadow on them.
         uShadowStrength: fog ? shared.uShadowStrength : { value: 0 },
+        uZenith: shared.uZenith,
+        uHorizon: shared.uHorizon,
+        uHaze: shared.uHaze,
         uMist: shared.uMist,
         uMistLine: shared.uMistLine,
         uTorchTint: shared.uTorchTint,

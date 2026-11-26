@@ -1,16 +1,25 @@
 import { Color, OrthographicCamera, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
+import { basePack } from '../../../src/content/packs/base/index.ts';
+import { moonDirection, sunDirection } from '../../../src/render/Sky.ts';
 import { shadowExtent, shadowFocus } from '../../../src/render/SunShadow.ts';
-import { createSunLight, mistAt, sunLightAt } from '../../../src/render/sunLight.ts';
+import { createSunLight, sunLightAt as lightWith, mistAt } from '../../../src/render/sunLight.ts';
 
 const WHITE = new Color(1, 1, 1);
+const MOON = basePack.sky!.moons[0]!;
+
+/** The sky's light at an hour of day 0 (a full moon), as the sky places the sun and the moon. */
+function sunLightAt(hour: number, tint: Color, cloud: number, out = createSunLight()) {
+  const sun = sunDirection(hour, new Vector3());
+  return lightWith(sun, moonDirection(hour, 0, MOON, new Vector3()), tint, cloud, out);
+}
 
 describe('the sky light (plan v4 « M37 »)', () => {
   it('casts from the sun by day and the moon by night, weaker', () => {
-    const noon = sunLightAt(12, WHITE, 0, createSunLight());
+    const noon = sunLightAt(12, WHITE, 0);
     expect(noon.direction.y).toBeGreaterThan(0.9);
     const day = noon.direct.r;
-    const night = sunLightAt(0, WHITE, 0, createSunLight());
+    const night = sunLightAt(0, WHITE, 0);
     expect(night.direction.y).toBeGreaterThan(0.5);
     expect(night.direct.r).toBeGreaterThan(0);
     expect(night.direct.r).toBeLessThan(day);
@@ -19,9 +28,9 @@ describe('the sky light (plan v4 « M37 »)', () => {
   });
 
   it('fades the direct light out at the horizon, without a jump', () => {
-    let last = sunLightAt(4, WHITE, 0, createSunLight()).direct.r;
+    let last = sunLightAt(4, WHITE, 0).direct.r;
     for (let hour = 4; hour <= 8; hour += 0.05) {
-      const now = sunLightAt(hour, WHITE, 0, createSunLight()).direct.r;
+      const now = sunLightAt(hour, WHITE, 0).direct.r;
       expect(Math.abs(now - last)).toBeLessThan(0.05);
       last = now;
     }
@@ -29,12 +38,26 @@ describe('the sky light (plan v4 « M37 »)', () => {
 
   it('takes the palette tint, and clouds soften the direct light and its shadows', () => {
     const tint = new Color(1, 0.5, 0.25);
-    const clear = sunLightAt(12, tint, 0, createSunLight());
+    const clear = sunLightAt(12, tint, 0);
     expect(clear.direct.g / clear.direct.r).toBeCloseTo(0.5, 6);
-    const cloudy = sunLightAt(12, tint, 1, createSunLight());
+    const cloudy = sunLightAt(12, tint, 1);
     expect(cloudy.direct.r).toBeLessThan(clear.direct.r * 0.2);
     expect(cloudy.sky.r).toBeGreaterThan(clear.sky.r);
     expect(cloudy.shadow).toBe(0);
+  });
+
+  it('lights the night less under a thin moon, and hazes the horizon at dawn', () => {
+    const full = sunLightAt(0, WHITE, 0).direct.r;
+    const sun = sunDirection(0, new Vector3());
+    const thin = lightWith(
+      sun,
+      moonDirection(0, MOON.period / 2, MOON, new Vector3()),
+      WHITE,
+      0,
+      createSunLight(),
+    );
+    expect(thin.direct.r).toBeLessThan(full);
+    expect(sunLightAt(6, WHITE, 0).haze.r).toBeGreaterThan(sunLightAt(12, WHITE, 0).haze.r * 4);
   });
 
   it('lays the mist thickest around dawn', () => {

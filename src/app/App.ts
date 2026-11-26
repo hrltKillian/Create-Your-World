@@ -35,7 +35,7 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 38;
+export const MILESTONE = 39;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
@@ -250,6 +250,7 @@ export class App {
       { textures, materials, liquids: liquidLayerMask(registry.tables) },
       tints,
       DEFAULT_SETTINGS.renderDistance,
+      registry.pack.sky,
     );
     view.chunks.occlusion.setEnabled(this.params.occlusion);
     return view;

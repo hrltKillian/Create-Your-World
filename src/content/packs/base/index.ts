@@ -19,6 +19,7 @@ import { playerSfx } from './playerSfx.ts';
 import { quests } from './quests.ts';
 import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
+import { sky } from './sky.ts';
 import { sounds } from './sounds.ts';
 import { tasks } from './tasks.ts';
 import { crackTextures, textures } from './textures.ts';
@@ -91,6 +92,7 @@ export const basePack: ContentPack = {
   sounds,
   sfx: [...sfx, ...playerSfx, ...ambienceSfx, ...creatureSfx],
   worldgen,
+  sky,
   biomes,
   features,
   ores,

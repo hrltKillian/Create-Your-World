@@ -170,8 +170,8 @@ const float CAUSTICS = 1.4;
 
 ${LIGHT_CURVE}
 ${LIGHTING}
-${MIST}
 ${SKY_GRADIENT}
+${MIST}
 ${WATER}
 
 /** A cube face texel's normal: its face's, tilted by the material's relief (plan v4 « M36 »). */
@@ -277,6 +277,6 @@ void main() {
   #endif
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld.y);
+  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld);
 }
 `;

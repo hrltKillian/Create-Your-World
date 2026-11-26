@@ -15,6 +15,7 @@ import type {
   TierDef,
 } from './itemSchema.ts';
 import type { QuestDef, TaskDef } from './questSchema.ts';
+import type { SkyDef } from './skySchema.ts';
 import type { SfxDef, SoundBindings } from './soundSchema.ts';
 import type { BiomeDef, FeatureDef, OreDef, StructureDef, WorldgenDef } from './worldgenSchema.ts';
 
@@ -22,6 +23,7 @@ export * from './balanceSchema.ts';
 export * from './creatureSchema.ts';
 export * from './itemSchema.ts';
 export * from './questSchema.ts';
+export * from './skySchema.ts';
 export * from './soundSchema.ts';
 export * from './worldgenSchema.ts';
 
@@ -410,6 +412,8 @@ export interface ContentPack {
   /** Synthesis recipes of every sound effect the bindings name. */
   readonly sfx?: readonly SfxDef[];
   readonly worldgen?: WorldgenDef;
+  /** The sky: palette, sun, moons, giant, nebulae, auroras (plan v4 « M39 »). */
+  readonly sky?: SkyDef;
   readonly biomes?: readonly BiomeDef[];
   readonly features?: readonly FeatureDef[];
   readonly ores?: readonly OreDef[];

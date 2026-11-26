@@ -42,6 +42,7 @@ export function createTestWorldView(renderDistance = 2) {
     { textures, materials, liquids: liquidLayerMask(registry.tables) },
     [],
     renderDistance,
+    registry.pack.sky,
   );
   return { view, compiled };
 }

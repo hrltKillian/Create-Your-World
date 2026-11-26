@@ -215,7 +215,10 @@ export interface BiomeDef {
   /** Replaces the top liquid layer (frozen lakes). */
   readonly liquidCap?: BlockKey;
   readonly tints: Readonly<Record<'grass' | 'foliage' | 'water', string>>;
+  /** The air's colour there (plan v4 « M39 »): it tints the horizon, the fog and the sky a little. */
   readonly fog: string;
+  /** How strong the auroras are there at night, 0–1 (none by default; plan v4 « M39 »). */
+  readonly aurora?: number;
   /**
    * Decoration: features with their chance per 8×8 cell (one candidate per cell, the chances add
    * up), and plants with their chance per surface block.

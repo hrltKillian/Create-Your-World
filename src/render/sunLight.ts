@@ -1,5 +1,5 @@
 import { Color, Vector3 } from 'three';
-import { moonDirection, sunDirection } from './Sky.ts';
+import { moonLit } from './Sky.ts';
 
 /**
  * The light of the sky on the world (plan v4 « M37 »): the direction and colour of the direct
@@ -18,6 +18,8 @@ export interface SunLight {
   readonly ground: Color;
   /** How strong its shadows are, 0–1 (none with the light at the horizon or under clouds). */
   shadow: number;
+  /** The haze round the sun along the horizon (plan v4 « M39 »): strongest at dawn and dusk. */
+  readonly haze: Color;
 }
 
 /** Shares of the sky's light (a top face in full sun: AMBIENT_SKY + DIRECT_SUN). */
@@ -30,6 +32,9 @@ const RISE = 0.25;
 /** Under full cloud, the direct light keeps this share; the ambient gains a little. */
 const CLOUD_DIRECT = 0.15;
 const CLOUD_AMBIENT = 0.2;
+/** The haze's strength with the sun at the horizon; it is gone once the sun is this high. */
+const HAZE = 0.45;
+const HAZE_GONE = 0.45;
 
 export function createSunLight(): SunLight {
   return {
@@ -38,6 +43,7 @@ export function createSunLight(): SunLight {
     sky: new Color(),
     ground: new Color(),
     shadow: 0,
+    haze: new Color(),
   };
 }
 
@@ -47,23 +53,31 @@ function rise(y: number): number {
 }
 
 /**
- * The sky's light at an hour (0 ≤ hour < 24): `tint` is the sky palette's light colour, `cloud`
- * the weather's cover (0–1). No allocation.
+ * The sky's light with the sun towards `sun` and the first moon towards `moon` (null: none), unit
+ * vectors from the sky (Sky.ts): `tint` is the sky palette's light colour, `cloud` the weather's
+ * cover (0–1). A moon lights as much as the sun lights its face (its phase). No allocation.
  */
-export function sunLightAt(hour: number, tint: Color, cloud: number, out: SunLight): SunLight {
-  const sunY = sunDirection(hour, out.direction).y;
-  let strength = DIRECT_SUN * rise(sunY);
-  if (sunY <= 0) {
-    // Both discs ride high (Sky.ts lifts their circles): the moon is up as the sun sets, so its
-    // light waits for the dusk to deepen, and the light never jumps.
-    moonDirection(hour, out.direction);
-    strength = DIRECT_MOON * rise(out.direction.y) * rise(-sunY);
-  }
+export function sunLightAt(
+  sun: Vector3,
+  moon: Vector3 | null,
+  tint: Color,
+  cloud: number,
+  out: SunLight,
+): SunLight {
+  out.direction.copy(sun);
+  let strength = DIRECT_SUN * rise(sun.y);
+  if (sun.y <= 0 && moon) {
+    // The moon may be up as the sun sets: its light waits for the dusk to deepen, so it never jumps.
+    out.direction.copy(moon);
+    strength = DIRECT_MOON * rise(moon.y) * rise(-sun.y) * (0.25 + 0.75 * moonLit(sun, moon));
+  } else if (sun.y <= 0) strength = 0;
   const clear = 1 - (1 - CLOUD_DIRECT) * cloud;
   out.direct.copy(tint).multiplyScalar(strength * clear);
   out.sky.copy(tint).multiplyScalar(AMBIENT_SKY * (1 + CLOUD_AMBIENT * cloud));
   out.ground.copy(tint).multiplyScalar(AMBIENT_GROUND);
   out.shadow = (strength / DIRECT_SUN) * (1 - cloud);
+  const low = Math.max(0, 1 - Math.abs(sun.y) / HAZE_GONE);
+  out.haze.copy(tint).multiplyScalar(HAZE * low * low * (1 - cloud));
   return out;
 }
 

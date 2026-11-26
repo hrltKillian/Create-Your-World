@@ -9,14 +9,14 @@ import {
   SRGBColorSpace,
   WebGLRenderTarget,
 } from 'three';
+import type { SkyDef } from '../content/skySchema.ts';
 import { fnv1aBytes } from '../core/hash.ts';
+import { Atmosphere, type WeatherLook } from './Atmosphere.ts';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
 import { Precipitation } from './Precipitation.ts';
 import type { Renderer } from './Renderer.ts';
-import { Sky } from './Sky.ts';
 import { SunShadow } from './SunShadow.ts';
-import { createSunLight, mistAt, sunLightAt } from './sunLight.ts';
 import {
   createVoxelMaterials,
   type DebugView,
@@ -48,33 +48,6 @@ export interface CaptureStats {
   readonly hash: number;
 }
 
-/** What the weather looks like (plan v3 « M34 », the client's WeatherFeel): 0–1 each. */
-export interface WeatherLook {
-  cloud: number;
-  fog: number;
-  flash: number;
-  /** The share of the sky's light the clouds leave. */
-  dim: number;
-  /** Rain on the ground around the camera (plan v4 « M37 »): surfaces darker and glossy. */
-  wet: number;
-}
-
-/** How far clouds turn the sky grey, and how much darker that grey gets under full cloud. */
-const CLOUD_GREY = 0.8;
-const CLOUD_DARK = 0.5;
-/** A flash's light on the blocks and whitening of the sky. */
-const FLASH_LIGHT = 0.6;
-const FLASH_SKY = 0.5;
-/** Thick fog pulls the fog's start and end this much closer. */
-const FOG_NEAR = 0.85;
-const FOG_FAR = 0.65;
-const scratch = new Color();
-
-/** Underwater fog (docs « Ciel et brouillard »): Veyra's teal water (plan v4 « M38 »), 1 to 20 blocks. */
-const WATER_FOG = new Color('#2a7486');
-const WATER_FOG_NEAR = 1;
-const WATER_FOG_FAR = 20;
-
 /** Most anisotropic samples for the pack textures (decision 27: no shimmer far off, little cost). */
 const ANISOTROPY = 4;
 
@@ -86,7 +59,7 @@ export class WorldView {
   readonly materials: VoxelMaterials;
   private readonly renderer: Renderer;
   private readonly chunkRoot = new Group();
-  private readonly sky = new Sky();
+  private readonly atmosphere: Atmosphere;
   /** Clear colour: the fog colour, so the far edge of the world melts into it. */
   private readonly background = new Color();
   private readonly fog = new Fog(0, 0, 1);
@@ -100,17 +73,11 @@ export class WorldView {
   /** Fog range of the render distance (above water). */
   private fogNear = 0;
   private fogFar = 1;
-  /** Hour of the day shown: noon until a world clock sets it (`setTime`). */
-  private hour = 12;
-  private daylight = 1;
-  /** The weather shown (plan v3 « M34 »): clouds, fog and a lightning flash, 0–1; the sky's dim. */
-  private readonly weather: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1, wet: 0 };
-  /** The sky's light now (`sunLightAt`) and the sun's shadow map (null: shadows off). */
-  private readonly light = createSunLight();
+  private underwater = false;
+  /** The sun's shadow map (null: shadows off). */
   private shadow: SunShadow | null = null;
   /** Rain and snow around the camera (filled by the client each frame). */
   readonly precipitation = new Precipitation();
-  private underwater = false;
   private hand: HandView | null = null;
   private elapsed = 0;
   /** The field of view setting (degrees). */
@@ -121,18 +88,20 @@ export class WorldView {
     textures: PackTextures,
     tintColors: readonly string[],
     renderDistance: number,
+    sky?: SkyDef,
   ) {
     this.renderer = renderer;
     const anisotropy = Math.min(ANISOTROPY, renderer.webgl.capabilities.getMaxAnisotropy());
     textures.textures.anisotropy = anisotropy;
     textures.materials.anisotropy = anisotropy;
     this.materials = createVoxelMaterials(textures, tintColors);
+    this.atmosphere = new Atmosphere(sky, this.materials.uniforms);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
-    this.scene.add(this.chunkRoot, this.sky.mesh, this.precipitation.rain, this.precipitation.snow);
+    const skyMesh = this.atmosphere.sky.mesh;
+    this.scene.add(this.chunkRoot, skyMesh, this.precipitation.rain, this.precipitation.snow);
     this.scene.background = this.background;
     this.scene.fog = this.fog;
     this.setRenderDistance(renderDistance);
-    this.updateSky();
     this.camera.rotation.order = 'YXZ';
     renderer.setResizeHandler((width, height) => {
       this.camera.aspect = width / height;
@@ -233,13 +202,12 @@ export class WorldView {
   }
 
   /**
-   * Time of day: the sky palette, sun, moon and stars follow `hour` (0 ≤ hour < 24), and sky light
-   * is scaled by `daylight` in the shaders (the world is never re-lit).
+   * Time of day: the sky palette, sun, moons and stars follow `hour` (0 ≤ hour < 24), the moons'
+   * phases `days` into the world; sky light is scaled by `daylight` in the shaders (the world is
+   * never re-lit).
    */
-  setTime(hour: number, daylight: number): void {
-    this.hour = hour;
-    this.daylight = daylight;
-    this.materials.uniforms.uDaylight.value = this.litDaylight();
+  setTime(hour: number, daylight: number, days = 0): void {
+    this.atmosphere.setTime(hour, daylight, days);
   }
 
   /**
@@ -247,20 +215,21 @@ export class WorldView {
    * lightning flash lights everything for a moment; `dim` scales the sky's light on the blocks.
    */
   setWeather(look: Readonly<WeatherLook>): void {
-    Object.assign(this.weather, look);
-    this.materials.uniforms.uDaylight.value = this.litDaylight();
+    this.atmosphere.setWeather(look);
   }
 
-  /** The sky's light on the blocks: the hour's under the clouds, a flash on top. */
-  private litDaylight(): number {
-    const w = this.weather;
-    return Math.min(1, this.daylight * w.dim + FLASH_LIGHT * w.flash);
+  /**
+   * The biome around the camera (plan v4 « M39 »): its air's colour ('#rrggbb', null: none) tints
+   * the horizon and the fog, its auroras (0–1) show by night; both ease in.
+   */
+  setAir(tint: string | null, aurora: number): void {
+    this.atmosphere.setAir(tint, aurora);
   }
 
-  /** The camera is inside a liquid: short blue fog and no sky. */
+  /** The camera is inside a liquid: short teal fog, no sky, caustics. */
   setUnderwater(underwater: boolean): void {
     this.underwater = underwater;
-    this.materials.uniforms.uUnderwater.value = underwater ? 1 : 0;
+    this.atmosphere.setUnderwater(underwater);
   }
 
   frame(dt: number): void {
@@ -268,16 +237,26 @@ export class WorldView {
     const uniforms = this.materials.uniforms;
     uniforms.uTime.value = this.elapsed % 3600;
     uniforms.uFlicker.value = torchFlicker(this.elapsed);
-    this.updateSky();
+    const atmosphere = this.atmosphere;
+    atmosphere.update(
+      this.fog,
+      this.background,
+      this.fogNear,
+      this.fogFar,
+      dt,
+      this.elapsed % 3600,
+    );
+    const light = atmosphere.light;
+    uniforms.uShadowStrength.value = this.shadow ? light.shadow : 0;
     const { x, y, z } = this.camera.position;
-    this.sky.follow(x, y, z);
+    atmosphere.sky.follow(x, y, z);
     this.chunks.cull(x, y, z, this.renderDistance);
     const webgl = this.renderer.webgl;
     // The shadow pass before the frame's counters: its draws are counted apart (`shadowDraws`).
-    if (this.shadow && this.light.shadow > 0 && !this.underwater) {
+    if (this.shadow && light.shadow > 0 && !this.underwater) {
       const { opaque, cutout } = this.materials;
       const at = this.camera.position;
-      const dir = this.light.direction;
+      const dir = light.direction;
       this.shadow.update(webgl, this.chunkRoot, opaque, cutout, at, dir, this.chunks.revision);
     }
     webgl.info.reset();
@@ -288,52 +267,6 @@ export class WorldView {
       webgl.clearDepth();
       webgl.render(hand.scene, hand.camera);
       webgl.autoClear = true;
-    }
-  }
-
-  /** Sky, sky light tint, fog and clear colour for the hour, or the underwater fog. */
-  private updateSky(): void {
-    const sky = this.sky;
-    const uniforms = this.materials.uniforms;
-    sky.update(this.hour);
-    this.weatherSky();
-    uniforms.uZenith.value.copy(sky.colors.zenith);
-    uniforms.uHorizon.value.copy(sky.colors.horizon);
-    const weather = this.weather;
-    const light = sunLightAt(this.hour, sky.colors.light, weather.cloud, this.light);
-    uniforms.uSunDir.value.copy(light.direction);
-    uniforms.uSunLight.value.copy(light.direct);
-    uniforms.uSkyLight.value.copy(light.sky);
-    uniforms.uGroundLight.value.copy(light.ground);
-    uniforms.uShadowStrength.value = this.shadow ? light.shadow : 0;
-    uniforms.uWetness.value = weather.wet;
-    uniforms.uMist.value = this.underwater ? 0 : mistAt(this.hour) * (1 - weather.fog);
-    const fog = this.fog;
-    if (this.underwater) {
-      // Darker water at night, never black.
-      fog.color.copy(WATER_FOG).multiplyScalar(0.2 + 0.8 * uniforms.uDaylight.value);
-      fog.near = WATER_FOG_NEAR;
-      fog.far = WATER_FOG_FAR;
-    } else {
-      fog.color.copy(sky.colors.horizon);
-      // The weather's fog closes in (thick fog: a third of the render distance).
-      const thick = this.weather.fog;
-      fog.near = this.fogNear * (1 - FOG_NEAR * thick);
-      fog.far = this.fogFar * (1 - FOG_FAR * thick);
-    }
-    sky.mesh.visible = !this.underwater;
-    this.background.copy(fog.color);
-  }
-
-  /** Clouds grey and darken the sky's colours; a flash whitens them. No allocation. */
-  private weatherSky(): void {
-    const { cloud, flash } = this.weather;
-    if (cloud <= 0 && flash <= 0) return;
-    const c = this.sky.colors;
-    for (const colour of [c.zenith, c.horizon]) {
-      const grey = (colour.r * 0.3 + colour.g * 0.59 + colour.b * 0.11) * (1 - CLOUD_DARK * cloud);
-      colour.lerp(scratch.setRGB(grey, grey, grey), CLOUD_GREY * cloud);
-      colour.lerp(scratch.setRGB(1, 1, 1), FLASH_SKY * flash);
     }
   }
 
@@ -373,7 +306,7 @@ export class WorldView {
 
   dispose(): void {
     this.shadow?.dispose();
-    this.sky.dispose();
+    this.atmosphere.sky.dispose();
     this.chunks.clear();
     this.materials.dispose();
   }

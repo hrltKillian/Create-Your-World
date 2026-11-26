@@ -1,7 +1,7 @@
 import { STUDIED } from '../core/creatures.ts';
 import { t } from '../i18n/i18n.ts';
 import type { InputManager } from '../input/InputManager.ts';
-import { aboveHorizon, sunBearing } from '../render/Sky.ts';
+import { DEFAULT_SKY, moonBearing, sunAbove, sunBearing } from '../render/Sky.ts';
 import { scannerOf } from '../sim/bestiary.ts';
 import { ticksOf } from '../sim/clock.ts';
 import type { SimEvent } from '../sim/events.ts';
@@ -9,7 +9,7 @@ import { attackGauge } from '../sim/melee.ts';
 import { STAMINA } from '../sim/player.ts';
 import { staminaMax } from '../sim/progression.ts';
 import { thermalStatus } from '../sim/survival.ts';
-import { dayOf, hourOf } from '../sim/time.ts';
+import { DAY_TICKS, dayOf, hourOf } from '../sim/time.ts';
 import { creatureName } from '../ui/bestiary.ts';
 import { clockText } from '../ui/hud/clock.ts';
 import { damageBearing } from '../ui/hud/combatMarks.ts';
@@ -192,7 +192,7 @@ export class HudBridge {
     const pinned = player.pinned === null ? undefined : this.questOf(player.pinned);
     hud.quest.update(pinned ? questLine(pinned, player.quests[pinned.key]) : null);
     this.updateTarget();
-    this.updateTargets(hour);
+    this.updateTargets(hour, ticks / DAY_TICKS);
     this.updateBiome(dt);
     hud.map.update(this.inventory.maps.view(player, MINIMAP_RADIUS), this.input.keyLabel('map'));
     this.syncDeath();
@@ -259,12 +259,12 @@ export class HudBridge {
     return this.session.host.view.registry.pack.quests?.find((quest) => quest.key === key);
   }
 
-  /** Bearings of the sun or moon, the pinned quest's direction, the player's packs and waypoints. */
-  private updateTargets(hour: number): void {
+  /** Bearings of the sun and the first moon, the pinned quest's direction, the player's packs and waypoints. */
+  private updateTargets(hour: number, days: number): void {
     const targets = this.targets;
-    const sun = sunBearing(hour);
-    targets.sun = aboveHorizon(hour, false) ? sun : Number.NaN;
-    targets.moon = aboveHorizon(hour, true) ? sun + Math.PI : Number.NaN;
+    targets.sun = sunAbove(hour) ? sunBearing(hour) : Number.NaN;
+    const moon = this.session.host.view.registry.pack.sky?.moons[0] ?? DEFAULT_SKY.moons[0]!;
+    targets.moon = moonBearing(hour, days, moon);
     const pinned = this.session.player.pinned;
     const point = pinned === null ? undefined : this.questOf(pinned)?.compass;
     targets.quest = point ? POINT_BEARINGS[point] : Number.NaN;

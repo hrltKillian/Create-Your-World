@@ -145,6 +145,7 @@ export const biomes = [
     liquidCap: 'block:ice',
     tints: { grass: '#9fb59a', foliage: '#6f8a6b', water: '#4a7fb8' },
     fog: '#c7d6e2',
+    aurora: 1,
     // Snow falls on the Rimefrost (plan v3 « M34 »).
     precipitation: 'snow',
     features: [{ feature: 'feature:frostpine', chance: 0.08 }],
@@ -195,6 +196,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#7fa05e', foliage: '#5b8448', water: '#3d74b8' },
     fog: '#a9bfd0',
+    aurora: 0.4,
     features: [
       { feature: 'feature:twistpine', chance: 0.12 },
       { feature: 'feature:boulder', chance: 0.1 },
