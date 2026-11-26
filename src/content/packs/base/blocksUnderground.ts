@@ -63,7 +63,7 @@ export const undergroundBlocks = [
       moveFactor: 0.35,
       drowns: false,
       swim: false,
-      fog: { color: '#c2410f', near: 0.2, far: 1.4 },
+      fog: { color: '#f2611a', near: 0.2, far: 1.4 },
     },
   },
   deposit('block:magma', 'block.magma', 'tex:magma', 2, 1, {
