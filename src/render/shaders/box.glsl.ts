@@ -1,3 +1,4 @@
+import { LIGHTING, MIST } from './lighting.glsl.ts';
 import { CUTOUT_ALPHA, LIGHT_CURVE } from './voxel.glsl.ts';
 
 /**
@@ -25,6 +26,7 @@ flat out float vCutout;
 flat out vec2 vFx;
 out vec2 vLight;
 out vec3 vNormal;
+out vec3 vWorld;
 #include <fog_pars_vertex>
 
 // Exact: the divisions are by powers of two and the packed value is an integer below 2^24.
@@ -54,6 +56,7 @@ void main() {
   vFx = aFx;
   vLight = aLight;
   vNormal = normalize(mat3(modelMatrix * instanceMatrix) * normal);
+  vWorld = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;
   vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #ifdef USE_FOG
@@ -66,7 +69,6 @@ export const boxFragment = /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
 uniform float uDaylight;
-uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
 uniform float uMinLight;
@@ -78,9 +80,12 @@ flat in float vCutout;
 flat in vec2 vFx;
 in vec2 vLight;
 in vec3 vNormal;
+in vec3 vWorld;
 #include <fog_pars_fragment>
 
 ${LIGHT_CURVE}
+${LIGHTING}
+${MIST}
 
 void main() {
   vec4 texel = texture(uTextures, vec3(vUv, vLayer));
@@ -89,17 +94,18 @@ void main() {
   bool cutout = vCutout > 0.5;
   if (cutout && texel.a < ${CUTOUT_ALPHA}) discard;
   vec3 base = texel.rgb * mix(vec3(1.0), vTint, cutout ? 1.0 : texel.a);
+  // The sky's light as on the blocks (plan v4 « M37 »), the torch's from every side a little less
+  // below; glowing boxes ignore both.
+  float sun = smoothstep(0.8, 1.0, vLight.x) * sunShadow(vWorld, vNormal);
   vec3 light = max(
-    lightCurve(vLight.x * uDaylight) * uSkyTint,
-    lightCurve(vLight.y) * uTorchTint * uFlicker
+    skyShade(lightCurve(vLight.x * uDaylight), vNormal, sun, 1.0),
+    lightCurve(vLight.y) * uTorchTint * uFlicker * (0.8 + 0.2 * vNormal.y)
   );
   light = max(light, vec3(uMinLight));
-  // Simple directional shading so the boxes read as volumes; glowing boxes ignore both.
-  float shade = 0.72 + 0.28 * max(dot(vNormal, normalize(vec3(0.3, 1.0, 0.45))), 0.0);
-  vec3 lit = mix(base * light * shade, base, vFx.x);
+  vec3 lit = mix(base * light, base, vFx.x);
   gl_FragColor = vec4(mix(lit, vec3(0.85, 0.08, 0.05), vFx.y * 0.6), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  #include <fog_fragment>
+  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld.y);
 }
 `;

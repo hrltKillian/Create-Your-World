@@ -1,7 +1,10 @@
-import { NoToneMapping, SRGBColorSpace, setConsoleFunction, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, SRGBColorSpace, setConsoleFunction, WebGLRenderer } from 'three';
 import { createLogger } from '../core/log.ts';
 
 const log = createLogger('three');
+
+/** Exposure of the tone mapping: the world as bright as before it, sunlit tops a little brighter. */
+const EXPOSURE = 0.9;
 
 /** Routes three.js warnings and errors (shader compile/link failures…) into the app logger. */
 setConsoleFunction((type, message, ...params) => {
@@ -29,7 +32,10 @@ export class Renderer {
   constructor(container: HTMLElement, options: RendererOptions) {
     this.webgl = new WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.webgl.outputColorSpace = SRGBColorSpace;
-    this.webgl.toneMapping = NoToneMapping;
+    // Filmic tone mapping (plan v4 « M37 »): sunlit faces roll off instead of clipping. The sky's
+    // shader leaves it out (its palette is already what the screen shows).
+    this.webgl.toneMapping = ACESFilmicToneMapping;
+    this.webgl.toneMappingExposure = EXPOSURE;
     this.webgl.info.autoReset = false;
     this.container = container;
     this.maxPixelRatio = options.maxPixelRatio;

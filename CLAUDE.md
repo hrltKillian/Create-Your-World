@@ -438,6 +438,14 @@ They never override the rules above (determinism, zero allocations in hot loops,
     roughness, cavity); `TextureDef.relief`/`roughness`/`maskRoughness`/`accents`; the material
     array `uMaterials` (`PackTextures`, render/voxelMaterial.ts; `reliefShade` in the chunk
     shader); the review sheet `node tools/textureSheet.ts out.png [words]`;
+  - light (plan v4 « M37 »): the sky's light `render/sunLight.ts` (`sunLightAt`: direction, direct,
+    sky and ground light, shadow strength; `mistAt`), shared GLSL `shaders/lighting.glsl.ts`
+    (`LIGHTING`: `sunShadow`, `skyShade`, `sunGloss`; `MIST`: `fogged`), the packed vertex decode
+    `VOXEL_DECODE` (voxel.glsl.ts, shared with the shadow pass `shaders/shadow.glsl.ts`), the
+    shadow map `render/SunShadow.ts` (`shadowFocus`, `shadowExtent`; redrawn on
+    `ChunkMeshes.revision`), `WorldView.setShadows`/`setMistLine`/`shadowDraws`; the setting
+    `Settings.shadows` (`SHADOW_SIZES`, in `QUALITY_PRESETS`); ACES tone mapping (Renderer.ts);
+    `WeatherLook.wet`;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -567,6 +575,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Light checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m36,m37` (`selftest/m36.ts`,
+  `m37.ts`): the two texture arrays; a wall's shadow at noon with shadows on only, none on the
+  low preset; the draw budget. Hook: `render.info().shadowDraws`.
 - HUD checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m35` (`selftest/m35.ts`): the
   HUD's layout at the window's size, the hand eating; `e2e/hud.spec.ts` at 1024×768, 1280×720 and
   1920×1080.

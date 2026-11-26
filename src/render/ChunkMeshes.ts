@@ -80,6 +80,8 @@ export interface ChunkStats {
  */
 export class ChunkMeshes {
   readonly occlusion = new Occlusion();
+  /** Counts the changes of meshes (a section meshed or removed): the sun's shadow redraws on one. */
+  revision = 0;
   private readonly root: Group;
   private readonly materials: readonly ShaderMaterial[];
   private readonly index = createQuadIndex();
@@ -115,6 +117,7 @@ export class ChunkMeshes {
     };
     entry.quads = 0;
     entry.bytes = 0;
+    this.revision++;
     for (let p = 0; p < 3; p++)
       this.updatePass(entry, p, mesh.passes[p]!, originX, originY, originZ);
     if (entry.quads > 0) this.sections.set(key, entry);
@@ -126,6 +129,7 @@ export class ChunkMeshes {
   remove(key: number): void {
     const entry = this.sections.get(key);
     if (entry) {
+      this.revision++;
       for (const meshes of entry.passes) this.disposeAll(meshes);
       this.sections.delete(key);
     }

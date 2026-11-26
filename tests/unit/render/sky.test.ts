@@ -7,6 +7,7 @@ import {
   skyPalette,
   sunDirection,
 } from '../../../src/render/Sky.ts';
+import { createSunLight, sunLightAt } from '../../../src/render/sunLight.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
 
 const hex = (c: Color) => c.getHexString();
@@ -88,14 +89,16 @@ describe('WorldView sky, fog and daylight', () => {
   const skyMesh = (view: ReturnType<typeof createTestWorldView>['view']) =>
     view.scene.children.find((c) => (c as Mesh).renderOrder === -1) as Mesh;
 
-  it('takes the fog, clear colour and sky light tint from the palette, and daylight as given', () => {
+  it('takes the fog, clear colour and sky light from the palette, and daylight as given', () => {
     const { view } = createTestWorldView(6);
     view.setTime(0, 0.12);
     view.frame(0);
     const night = skyPalette(0, createSkyColors());
     expect(hex(fogOf(view).color)).toBe(hex(night.horizon));
     expect(hex(view.scene.background as Color)).toBe(hex(night.horizon));
-    expect(hex(view.materials.uniforms.uSkyTint.value)).toBe(hex(night.light));
+    const light = sunLightAt(0, night.light, 0, createSunLight());
+    expect(hex(view.materials.uniforms.uSkyLight.value)).toBe(hex(light.sky));
+    expect(hex(view.materials.uniforms.uSunLight.value)).toBe(hex(light.direct));
     expect(view.materials.uniforms.uDaylight.value).toBe(0.12);
     expect(fogOf(view).far).toBe(6 * 32 - 8);
   });

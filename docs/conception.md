@@ -3075,22 +3075,25 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 **Tests** : bruits tuilables, normales dans le disque unité, pente et creux, pas de couture, rugosités, accents, mémoire ; empreintes des textures mises à jour.
 
-#### M37 — Éclairage réaliste
+#### M37 — Éclairage réaliste (fait)
 
-Shaders voxel et boîtes (`voxel.glsl.ts`, `box.glsl.ts`, `voxelMaterial.ts`) :
+**La lumière du ciel** (`render/sunLight.ts`, `sunLightAt`) : la direction et la couleur de la lumière directe (le soleil le jour ; la lune la nuit, plus faible, qui ne monte qu'une fois le crépuscule avancé, pour qu'elle ne saute jamais), et un hémisphère de lumière ambiante, du ciel au-dessus et du sol en dessous. Tout prend la teinte de la palette du ciel. Les nuages coupent la lumière directe et ses ombres et éclaircissent un peu l'ambiante.
 
-- **Soleil et lune** : la lumière vient de leur direction (`render/Sky.ts`). Un Lambert par pixel avec la normale de la carte de matière remplace `FACE_SHADE`, pondéré par la lumière du ciel (les grottes restent sombres).
-- **Ambiance** : ciel dessus, rebond du sol dessous.
-- **Reflets** : Blinn-Phong selon la rugosité (glace, métal, roche humide sous la pluie).
-- **Tone mapping** (AgX ou ACES) avec exposition, et un léger étalonnage de couleur.
-- **Ombres du soleil** : une carte d'ombre orthographique autour du joueur, rendue tous les N images (le soleil bouge lentement) : 1024² sur 48 m en moyen, 2048² sur 96 m en haut, rien en bas.
-- **Brouillard** : en hauteur, teinté par le ciel (perspective aérienne).
+**Les shaders** (`shaders/lighting.glsl.ts`, partagé par les chunks et les boîtes) :
 
-**Tests** :
+- `skyShade` remplace l'ombrage fixe par face : un Lambert par pixel avec la normale du relief (M36), multiplié par le niveau de lumière du ciel de la cellule (la courbe de lumière). Les grottes restent noires et la nuit reste la nuit ; la lumière directe n'atteint que les cellules ouvertes sur le ciel.
+- L'occlusion ambiante des sommets et la cavité des textures n'assombrissent que l'ambiante (et la moitié de la directe).
+- Les torches gardent les ombrages de face d'avant, lissés sur la normale (`torchShade`).
+- `sunGloss` : le reflet du soleil (Blinn-Phong) selon la rugosité ; la pluie mouille le sol à ciel ouvert (plus sombre, plus lisse : `uWetness`, `WeatherLook.wet`).
+- Tone mapping filmique (ACES, exposition 0,9) ; le ciel n'en a pas.
 
-- shaders compilés (m0) ;
-- `render.capture()` : luminance jour et nuit, ombre présente au palier moyen ;
-- bench `walk`, `cave` et `mobs` sous les seuils.
+**Les ombres du soleil** (`render/SunShadow.ts`) : une carte de profondeur orthographique autour de la caméra, alignée sur la lumière et déplacée par texels entiers (`shadowFocus`, les ombres ne rampent pas). Les faces arrière projettent (pas d'acné) ; les feuilles et les plantes découpent leurs trous. La carte est redessinée toutes les 12 images, quand la caméra s'éloigne de son centre, ou 4 images après un changement de meshes (`ChunkMeshes.revision`). Ses draws sont comptés à part (`render.info().shadowDraws`). Comparaison matérielle à 4 prises filtrées : des bords doux d'un texel.
+
+**Réglage « Ombres »** : arrêt, moyen (1024², 48 blocs), haut (2048², 96 blocs) ; les préréglages bas, moyen et haut les mettent à arrêt, moyen et haut.
+
+**La brume** (`MIST`) : le brouillard de distance s'épaissit dans les creux, sous le niveau de la mer, surtout à l'aube (`mistAt`).
+
+**Tests** : lumière de jour et de nuit sans saut, nuages, brume, cadrage de la carte par texels entiers, réglage ; selftest `m37` (`?worldType=flat&fixedStep=1&selftest=m0,m37`) : l'ombre d'un mur assombrit le sol à midi avec les ombres, pas sans, et le préréglage bas ne dessine pas de passe d'ombre ; selftest `m36` : les deux tableaux de textures.
 
 #### M38 — Eau et lave
 

@@ -1,10 +1,10 @@
 import { DEFAULT_BINDINGS, type KeyBindings, readBindings } from '../input/bindings.ts';
-import { QUALITIES, QUALITY_PRESETS, type Quality } from '../render/quality.ts';
+import { QUALITIES, QUALITY_PRESETS, type Quality, SHADOW_SIZES } from '../render/quality.ts';
 
 /**
  * Player settings (docs « Settings »): graphics (render distance, field of view, resolution,
- * particles, view bob; a quality preset sets the render distance, the resolution and the
- * particles at once), the controls (mouse, crouch mode, key bindings), the audio buses and the
+ * particles, shadows, view bob; a quality preset sets the render distance, the resolution, the
+ * particles and the shadows at once), the controls (mouse, crouch mode, key bindings), the audio buses and the
  * interface scale. Kept in `localStorage` under SETTINGS_KEY as versioned JSON; a missing, blocked
  * or unreadable store gives the defaults, and every field is checked on its own: a bad or missing
  * value (a field an older version did not store) falls back to its default.
@@ -40,7 +40,7 @@ export function uiScaleFor(setting: number, height: number): number {
 export const CROUCH_MODES = ['hold', 'toggle'] as const;
 export type CrouchMode = (typeof CROUCH_MODES)[number];
 /** The quality presets, lowest first (the Settings screen lists them). */
-export { QUALITIES, type Quality };
+export { QUALITIES, type Quality, SHADOW_SIZES };
 
 /** Linear gains (0–1) of the four audio buses. */
 export interface Volumes {
@@ -58,6 +58,8 @@ export interface Settings {
   /** Resolution: the pixel-ratio cap, one of PIXEL_RATIOS. */
   readonly pixelRatio: number;
   readonly particles: boolean;
+  /** The sun's shadow map: texels a side, 0 for none (one of SHADOW_SIZES). */
+  readonly shadows: number;
   readonly viewBob: boolean;
   /** Brightness of the dark (plan v3 « M28 »): 0 the plain light curve, 1 the brightest. */
   readonly gamma: number;
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fov: 75,
   pixelRatio: MEDIUM.pixelRatio,
   particles: MEDIUM.particles,
+  shadows: MEDIUM.shadows,
   viewBob: true,
   gamma: 0,
   sensitivity: 1,
@@ -122,6 +125,7 @@ export function readSettings(data: unknown): Settings {
     fov: Math.round(clamped(d.fov, FOV_RANGE.min, FOV_RANGE.max, def.fov)),
     pixelRatio: oneOf(PIXEL_RATIOS, d.pixelRatio, def.pixelRatio),
     particles: flag(d.particles, def.particles),
+    shadows: oneOf(SHADOW_SIZES, d.shadows, def.shadows),
     viewBob: flag(d.viewBob, def.viewBob),
     gamma: clamped(d.gamma, 0, 1, def.gamma),
     sensitivity: clamped(
@@ -154,7 +158,7 @@ export function patchSettings(settings: Settings, patch: SettingsPatch): Setting
   });
 }
 
-/** The quality preset the settings match (render distance, resolution, particles), else null. */
+/** The quality preset the settings match (render distance, resolution, particles, shadows), else null. */
 export function qualityOf(settings: Settings): Quality | null {
   return (
     QUALITIES.find((quality) => {
@@ -162,16 +166,17 @@ export function qualityOf(settings: Settings): Quality | null {
       return (
         preset.renderDistance === settings.renderDistance &&
         preset.pixelRatio === settings.pixelRatio &&
-        preset.particles === settings.particles
+        preset.particles === settings.particles &&
+        preset.shadows === settings.shadows
       );
     }) ?? null
   );
 }
 
-/** The settings with a quality preset's render distance, resolution and particles. */
+/** The settings with a quality preset's render distance, resolution, particles and shadows. */
 export function withQuality(settings: Settings, quality: Quality): Settings {
-  const { renderDistance, pixelRatio, particles } = QUALITY_PRESETS[quality];
-  return { ...settings, renderDistance, pixelRatio, particles };
+  const { renderDistance, pixelRatio, particles, shadows } = QUALITY_PRESETS[quality];
+  return { ...settings, renderDistance, pixelRatio, particles, shadows };
 }
 
 /** The stored text of the settings (with the schema version). */

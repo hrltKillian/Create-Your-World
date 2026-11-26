@@ -100,7 +100,10 @@ export class BoxBatch {
   private originY = 0;
   private originZ = 0;
 
-  /** `fog`: false for the hand view, whose scene has none (a separate material and program). */
+  /**
+   * `fog`: false for the hand view, whose scene has none (a separate material and program) and
+   * whose boxes are not in the world (no sun shadow).
+   */
   constructor(shared: VoxelUniforms, capacity: number, fog: boolean) {
     this.capacity = capacity;
     const geometry = new BoxGeometry(1, 1, 1);
@@ -118,7 +121,17 @@ export class BoxBatch {
         ...UniformsUtils.clone(UniformsLib.fog),
         uTextures: shared.uTextures,
         uDaylight: shared.uDaylight,
-        uSkyTint: shared.uSkyTint,
+        uSunDir: shared.uSunDir,
+        uSunLight: shared.uSunLight,
+        uSkyLight: shared.uSkyLight,
+        uGroundLight: shared.uGroundLight,
+        uShadowMap: shared.uShadowMap,
+        uShadowMatrix: shared.uShadowMatrix,
+        uShadowTexel: shared.uShadowTexel,
+        // The hand's boxes are not in the world: no shadow on them.
+        uShadowStrength: fog ? shared.uShadowStrength : { value: 0 },
+        uMist: shared.uMist,
+        uMistLine: shared.uMistLine,
         uTorchTint: shared.uTorchTint,
         uFlicker: shared.uFlicker,
         uMinLight: shared.uMinLight,

@@ -14,6 +14,8 @@ import type { HandView } from './HandView.ts';
 import { Precipitation } from './Precipitation.ts';
 import type { Renderer } from './Renderer.ts';
 import { Sky } from './Sky.ts';
+import { SunShadow } from './SunShadow.ts';
+import { createSunLight, mistAt, sunLightAt } from './sunLight.ts';
 import {
   createVoxelMaterials,
   type DebugView,
@@ -50,6 +52,8 @@ export interface WeatherLook {
   flash: number;
   /** The share of the sky's light the clouds leave. */
   dim: number;
+  /** Rain on the ground around the camera (plan v4 « M37 »): surfaces darker and glossy. */
+  wet: number;
 }
 
 /** How far clouds turn the sky grey, and how much darker that grey gets under full cloud. */
@@ -97,7 +101,10 @@ export class WorldView {
   private hour = 12;
   private daylight = 1;
   /** The weather shown (plan v3 « M34 »): clouds, fog and a lightning flash, 0–1; the sky's dim. */
-  private readonly weather: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1 };
+  private readonly weather: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1, wet: 0 };
+  /** The sky's light now (`sunLightAt`) and the sun's shadow map (null: shadows off). */
+  private readonly light = createSunLight();
+  private shadow: SunShadow | null = null;
   /** Rain and snow around the camera (filled by the client each frame). */
   readonly precipitation = new Precipitation();
   private underwater = false;
@@ -146,6 +153,27 @@ export class WorldView {
   /** The player's gamma (Settings, 0–1): lifts the dark end of the light curve. */
   setGamma(gamma: number): void {
     this.materials.uniforms.uGamma.value = gamma;
+  }
+
+  /** The sun's shadow map: `size` texels a side (decision 28: 1024 or 2048), 0 for none. */
+  setShadows(size: number): void {
+    if (size === (this.shadow?.size ?? 0)) return;
+    const uniforms = this.materials.uniforms;
+    this.shadow?.dispose();
+    this.shadow = size > 0 ? new SunShadow(size, uniforms.uTextures.value) : null;
+    uniforms.uShadowMap.value = this.shadow?.texture ?? null;
+    uniforms.uShadowTexel.value = this.shadow?.texel ?? 0;
+    uniforms.uShadowMatrix.value = this.shadow?.matrix ?? uniforms.uShadowMatrix.value;
+  }
+
+  /** Draw calls of the last shadow pass (0 without shadows). */
+  shadowDraws(): number {
+    return this.shadow?.draws ?? 0;
+  }
+
+  /** The height the low ground's mist lies under (the world's sea level). */
+  setMistLine(y: number): void {
+    this.materials.uniforms.uMistLine.value = y;
   }
 
   setFov(degrees: number): void {
@@ -241,6 +269,13 @@ export class WorldView {
     this.sky.follow(x, y, z);
     this.chunks.cull(x, y, z, this.renderDistance);
     const webgl = this.renderer.webgl;
+    // The shadow pass before the frame's counters: its draws are counted apart (`shadowDraws`).
+    if (this.shadow && this.light.shadow > 0 && !this.underwater) {
+      const { opaque, cutout } = this.materials;
+      const at = this.camera.position;
+      const dir = this.light.direction;
+      this.shadow.update(webgl, this.chunkRoot, opaque, cutout, at, dir, this.chunks.revision);
+    }
     webgl.info.reset();
     webgl.render(this.scene, this.camera);
     const hand = this.hand;
@@ -258,7 +293,15 @@ export class WorldView {
     const uniforms = this.materials.uniforms;
     sky.update(this.hour);
     this.weatherSky();
-    uniforms.uSkyTint.value.copy(sky.colors.light);
+    const weather = this.weather;
+    const light = sunLightAt(this.hour, sky.colors.light, weather.cloud, this.light);
+    uniforms.uSunDir.value.copy(light.direction);
+    uniforms.uSunLight.value.copy(light.direct);
+    uniforms.uSkyLight.value.copy(light.sky);
+    uniforms.uGroundLight.value.copy(light.ground);
+    uniforms.uShadowStrength.value = this.shadow ? light.shadow : 0;
+    uniforms.uWetness.value = weather.wet;
+    uniforms.uMist.value = this.underwater ? 0 : mistAt(this.hour) * (1 - weather.fog);
     const fog = this.fog;
     if (this.underwater) {
       // Darker water at night, never black.
@@ -317,6 +360,7 @@ export class WorldView {
   }
 
   dispose(): void {
+    this.shadow?.dispose();
     this.sky.dispose();
     this.chunks.clear();
     this.materials.dispose();
