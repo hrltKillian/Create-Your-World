@@ -161,6 +161,8 @@ export const strings = {
   'creature.prowler': 'Prowler',
   'creature.swarmling': 'Swarmling',
   'creature.shellback': 'Shellback',
+  'creature.glimmerback': 'Glimmerback',
+  'creature.reedwader': 'Reedwader',
   'tier.hand': 'Hand',
   'tier.flint': 'Flint',
   'tier.copper': 'Copper',

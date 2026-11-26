@@ -120,6 +120,29 @@ const VOICES = {
       tone('sawtooth', [120, 40], 0.3, [0.02, 1], 0, 400),
     ],
   },
+  // Soft chimes for the Glimmerback; croaks and a sharp rattle for the Reedwader (plan v3 « M25 »).
+  glimmerback: {
+    idle: [
+      tone('sine', [880, 990], 0.16, [0.03, 0.3]),
+      tone('sine', [1320, 1180], 0.1, [0.03, 0.3], 0.12),
+    ],
+    alert: [tone('triangle', [1100, 1500], 0.25, [0.005, 0.14])],
+    hurt: [tone('triangle', [1200, 600], 0.3, [0.005, 0.25], 0, 3000)],
+    death: [
+      tone('sine', [990, 330], 0.3, [0.02, 0.8]),
+      tone('sine', [1485, 495], 0.12, [0.02, 0.8]),
+    ],
+  },
+  reedwader: {
+    idle: [tone('square', [220, 180], 0.14, [0.01, 0.18], 0, 900)],
+    alert: [
+      tone('square', [300, 420], 0.2, [0.005, 0.12], 0, 1600),
+      tone('square', [300, 420], 0.2, [0.005, 0.12], 0.16, 1600),
+    ],
+    hurt: [tone('sawtooth', [520, 260], 0.3, [0.005, 0.2], 0, 2000)],
+    attack: [hiss('bandpass', 2400, 0.4, [0.002, 0.06], 0, 3)],
+    death: [tone('square', [260, 90], 0.3, [0.01, 0.7], 0, 900)],
+  },
 } as const satisfies Readonly<Record<string, Partial<Record<CreatureSound, readonly SfxLayer[]>>>>;
 
 export type VoicedCreature = keyof typeof VOICES;

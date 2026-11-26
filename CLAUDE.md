@@ -461,6 +461,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Fauna checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m25` (`selftest/m25.ts`): the
+  creatures of the new biomes placed, drawn, alive.
 - Underground checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m24` (`selftest/m24.ts`): a
   cave entrance within 96 blocks of the spawn, both common ores around it. Common ores (every
   biome, not `caveWall`) lie in the stone from `deepStoneBelowY` (16) up (`validateWorld`); the
@@ -570,7 +572,8 @@ sun and moon; our own palette, grass and crack styles; human-proportioned avatar
 low and four-legged with amber eyes; debug overlay styled as our own panel; no block, item or
 creature names from the reference games; synthesized sounds.
 
-Creatures (reviewed at M10): five of our own, Trotter, Shagback, Prowler, Swarmling, Shellback,
+Creatures (reviewed at M10, two more at plan v3's M25): seven of our own, Trotter, Shagback,
+Prowler, Swarmling, Shellback, the Glimmerback (glowing spores) and the biped Reedwader,
 with original behaviours (a grazer that bolts, a six-legged herd that defends itself, a light-shy
 stalker slowed by the player's gaze, zigzagging toxic packs, an armoured rammer); box models with
 our own skins on the block patterns and procedural gaits (four or six legs); the Prowler low

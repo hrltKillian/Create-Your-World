@@ -2801,6 +2801,12 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - Deux ou trois espèces : Capwood, Mirror Basin, Ashen Steppe si gardé.
 - Modèles en boîtes, comportements avec les cerveaux existants, entrées du bestiaire.
 
+**Retenu à la réalisation** :
+
+- Deux espèces (l'Ashen Steppe n'ayant pas été retenue) : le **Glimmerback** du Capwood, brouteur paisible (cerveau `grazer`) aux taches de spores et aux bois luisants (parties `emissive` sarcelle), qui broute pousses de chapeau et fleurs luisantes ; le **Reedwader** du Mirror Basin, échassier bipède (premier modèle `biped` d'une créature) qui arpente les rives en groupe et se défend à coups de bec (`defender`).
+- Voix synthétisées (carillons doux ; croassements et cliquetis), butins à nous (viande, peau ; viande, fibres), fiches du bestiaire écrites depuis les données.
+- Tests : leurs troupeaux apparaissent dans leur biome à la génération ; selftest `m25` (`?worldType=flat&fixedStep=1&selftest=m0,m25`).
+
 ### M26 — Structures de la colonie perdue et quêtes d'histoire (ancien M18)
 
 - Site du crash, avant-poste, relais du nord, station du marais, ruines.
