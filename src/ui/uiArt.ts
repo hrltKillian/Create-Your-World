@@ -35,8 +35,8 @@ export function applyUiArt(root: HTMLElement): void {
   set('--art-vine', vine());
   set('--art-hazard', hazard());
   set('--art-socket', socket('metal'));
-  set('--art-socket-hover', socket('teal'));
-  set('--art-socket-lit', socket('amber'));
+  set('--art-socket-hover', socket('violet'));
+  set('--art-socket-lit', socket('teal'));
   for (const kind of GAUGE_SYMBOLS) {
     set(`--icon-${kind}`, gaugeFull(kind));
     set(`--icon-${kind}-empty`, gaugeEmpty(kind));

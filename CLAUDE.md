@@ -507,7 +507,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     Semi Condensed from `@fontsource`); panels get a vine (`::before`) and moss (`::after`); a gauge
     symbol is its empty art under its full art clipped by `--fill`; the temperature dial's needle
     (`.thermo-bulb::after`); slots are sockets (`socket`, `--art-socket`/`-hover`/`-lit` as a
-    9-slice `border-image`); states and text tokens `--c-hover` (teal), `--c-active` (amber),
+    9-slice `border-image`); states and text tokens `--c-hover` (violet), `--c-active` (teal; no yellow: decision 34, play test 5 bis),
     `--c-label` (moss), `--c-ink-dim`, `--c-field`, `--c-row`, `--c-line`, `--c-outline`;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
