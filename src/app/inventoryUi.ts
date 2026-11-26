@@ -27,7 +27,7 @@ import { UiBridge } from './UiBridge.ts';
 const log = createLogger('ui');
 
 /**
- * The item icons of a registry (blob URLs, by item id), drawn once for the page: a registry and its
+ * The item icons of a registry (data URLs, by item id), drawn once for the page: a registry and its
  * texture layers live as long as it, so every world opened again shares the same URLs (kept for
  * the page, never drawn twice).
  */

@@ -160,8 +160,10 @@ function drawCube(
 }
 
 /**
- * Blob URLs of every item's icon, by numeric item id (browser only). Shown with
- * `image-rendering: pixelated`, so the 32 px art stays crisp at any slot size.
+ * Data URLs of every item's icon, by numeric item id (browser only). Shown with
+ * `image-rendering: pixelated`, so the 32 px art stays crisp at any slot size. Encoded at once
+ * (`toDataURL`, a few milliseconds for them all): a page in the background would hold back
+ * asynchronous encodes one by one.
  */
 export async function createItemIcons(
   registry: Registry,
@@ -178,8 +180,7 @@ export async function createItemIcons(
     const pixels = itemIconPixels(registry, id, layers, size);
     ctx.clearRect(0, 0, ICON_SIZE, ICON_SIZE);
     ctx.putImageData(new ImageData(pixels, ICON_SIZE, ICON_SIZE), 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
-    urls.push(blob ? URL.createObjectURL(blob) : '');
+    urls.push(canvas.toDataURL());
   }
   return urls;
 }
