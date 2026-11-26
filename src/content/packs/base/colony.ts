@@ -31,6 +31,7 @@ export const colonyTextures = [
     pattern: 'cutStone',
     palette: ['#4b5560', '#5a6570', '#6a7580', '#7b8690'],
     seed: 441,
+    roughness: 0.45,
   },
   {
     key: 'tex:colony_brick',

@@ -1,7 +1,6 @@
 import {
   BufferGeometry,
   Color,
-  type DataArrayTexture,
   Fog,
   Group,
   Mesh,
@@ -18,6 +17,7 @@ import { Sky } from './Sky.ts';
 import {
   createVoxelMaterials,
   type DebugView,
+  type PackTextures,
   torchFlicker,
   type VoxelMaterials,
 } from './voxelMaterial.ts';
@@ -68,6 +68,9 @@ const WATER_FOG = new Color('#1f4f78');
 const WATER_FOG_NEAR = 1;
 const WATER_FOG_FAR = 20;
 
+/** Most anisotropic samples for the pack textures (decision 27: no shimmer far off, little cost). */
+const ANISOTROPY = 4;
+
 /** Scene, camera and chunk meshes of the voxel world. */
 export class WorldView {
   readonly scene = new Scene();
@@ -105,11 +108,14 @@ export class WorldView {
 
   constructor(
     renderer: Renderer,
-    textures: DataArrayTexture,
+    textures: PackTextures,
     tintColors: readonly string[],
     renderDistance: number,
   ) {
     this.renderer = renderer;
+    const anisotropy = Math.min(ANISOTROPY, renderer.webgl.capabilities.getMaxAnisotropy());
+    textures.textures.anisotropy = anisotropy;
+    textures.materials.anisotropy = anisotropy;
     this.materials = createVoxelMaterials(textures, tintColors);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
     this.scene.add(this.chunkRoot, this.sky.mesh, this.precipitation.rain, this.precipitation.snow);

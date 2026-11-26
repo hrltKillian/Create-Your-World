@@ -17,9 +17,17 @@ import { voxelFragment, voxelVertex } from './shaders/voxel.glsl.ts';
 export const DEBUG_VIEWS = ['none', 'quads', 'ao', 'light', 'xray'] as const;
 export type DebugView = (typeof DEBUG_VIEWS)[number];
 
+/** The pack's texture arrays: colours (sRGB) and materials (linear: normal, roughness, cavity). */
+export interface PackTextures {
+  readonly textures: DataArrayTexture;
+  readonly materials: DataArrayTexture;
+}
+
 /** Uniforms shared by reference between the three chunk materials (never cloned). */
 export interface VoxelUniforms {
   readonly uTextures: IUniform<DataArrayTexture>;
+  /** The material layers (plan v4 « M36 »): relief normal, roughness, cavity. */
+  readonly uMaterials: IUniform<DataArrayTexture>;
   readonly uTintColors: IUniform<Color[]>;
   readonly uTime: IUniform<number>;
   readonly uDaylight: IUniform<number>;
@@ -58,12 +66,13 @@ export function torchFlicker(seconds: number): number {
 
 /** `tintColors[i]` is the colour of tint index i (0 = no tint, white). sRGB hex strings. */
 export function createVoxelMaterials(
-  textures: DataArrayTexture,
+  textures: PackTextures,
   tintColors: readonly string[],
 ): VoxelMaterials {
   const tints = Array.from({ length: 32 }, (_, i) => new Color(tintColors[i] ?? '#ffffff'));
   const uniforms: VoxelUniforms = {
-    uTextures: { value: textures },
+    uTextures: { value: textures.textures },
+    uMaterials: { value: textures.materials },
     uTintColors: { value: tints },
     uTime: { value: 0 },
     uDaylight: { value: 1 },

@@ -72,7 +72,7 @@ view bob), the four volumes and the interface scale.
 | `npm run bench`                                                    | minified build with the hook on :4174, for performance measurements               |
 | `npm run e2e`                                                      | Playwright: boot, selftest, save and input specs (Chrome locally, Chromium in CI) |
 | `npm run e2e:perf`                                                 | the perf spec on the bench build (walk as is and with the CPU ×1.7; local only)   |
-| `npm run size`                                                     | the gzip size of every script of `dist` against 400 kB                            |
+| `npm run size`                                                     | the gzip size of every script of `dist` against 460 kB                            |
 
 `--bot` takes `wander` (walks and jumps) or `wanderMineBuild` (wanders, mines, picks up, builds,
 climbs out of pits, drinks and eats); `--world=flat|arena`, `--rd=2` and `--serialize` (commands and
@@ -137,6 +137,18 @@ of them:
 | arena, fixed steps     | `worldType=arena&fixedStep=1` (IndexedDB)                  | m8 items and stations, M11 audio, m13 bag, cursor, Logbook and workbench, m15 water                                                                       |
 
 ## Try this milestone
+
+**M36 — Detailed textures with relief** (plan v4, `docs/conception.md` « M36 »). `npm run dev`,
+then open `http://localhost:5173/?skipMenu=1`.
+
+- **Blocks are drawn at 32 × 32**: rock with hairline cracks, rounded gravel, rippled sand, soil
+  with pebbles, furrowed bark, overlapping leaves with berries, chipped bricks, bevelled stone.
+- **Relief**: each texture has a normal map; bricks, stones and bark catch the light on their
+  edges and darken in their hollows. Far off, textures blend smoothly instead of shimmering.
+- **Review sheet**: `node tools/textureSheet.ts sheet.png stone,bark` writes the colours and
+  normals of the matching textures.
+
+### Earlier milestones
 
 **M35 — HUD readability and layout** (plan v3, `docs/conception.md` « M35 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
@@ -254,7 +266,7 @@ then open `http://localhost:5173/?skipMenu=1`.
   | `cave` draws, culling on / `occlusion=0` | 179 / 182 (M24) | ≤ 200, −1 % |
   | `dig` edit → mesh on screen, p95         | 18 ms           | ≤ 50 ms     |
   | `load` navigation → playable             | 0.69 s          | ≤ 3 s       |
-  | JS gzip (`npm run size`)                 | 333 kB          | ≤ 400 kB    |
+  | JS gzip (`npm run size`)                 | 333 kB          | ≤ 460 kB    |
 
   With `npm run bench` and the pane visible, open
   `http://localhost:4174/?seed=42&storage=memory&mute=1&quality=medium&bench=walk` (or `cave`,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MapModel } from '../../../src/app/mapModel.ts';
-import { generatePackTexture } from '../../../src/assets/procedural/patterns.ts';
+import { generatePackTexture } from '../../../src/assets/procedural/packTexture.ts';
 import { COLLISION_BOXES, COLLISION_NONE } from '../../../src/content/registry.ts';
 import { TICKS_PER_SECOND } from '../../../src/sim/clock.ts';
 import {

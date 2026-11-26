@@ -29,7 +29,7 @@ describe('JS gzip budget', () => {
     expect(index.gzip).toBe(gzipSync(readFileSync(join(dir, 'assets', 'index.js'))).length);
   });
 
-  it('is the documented 400 kB', () => {
-    expect(JS_GZIP_BUDGET).toBe(400_000);
+  it('is the documented 460 kB (plan v4, decision 31)', () => {
+    expect(JS_GZIP_BUDGET).toBe(460_000);
   });
 });

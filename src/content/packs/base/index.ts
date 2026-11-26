@@ -32,7 +32,7 @@ export const basePack: ContentPack = {
     id: 'base',
     version: 1,
     locale: 'en',
-    textureSize: 16,
+    textureSize: 32,
     bindings: {
       air: 'block:air',
       unknownBlock: 'block:unknown',

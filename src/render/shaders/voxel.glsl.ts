@@ -85,6 +85,7 @@ export const CUTOUT_ALPHA = '0.35';
 export const voxelFragment = /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
+uniform sampler2DArray uMaterials;
 uniform float uDaylight;
 uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
@@ -106,7 +107,32 @@ in vec2 vQuadUv;
 
 const float FACE_SHADE[8] = float[8](0.8, 0.8, 1.0, 0.55, 0.68, 0.68, 0.9, 0.9);
 
+// Each cube face's normal and the world directions of its texture's u and v (the UVs above).
+const vec3 FACE_N[6] = vec3[6](
+  vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0), vec3(0, 0, 1), vec3(0, 0, -1));
+const vec3 FACE_T[6] = vec3[6](
+  vec3(0, 0, -1), vec3(0, 0, 1), vec3(1, 0, 0), vec3(1, 0, 0), vec3(1, 0, 0), vec3(-1, 0, 0));
+const vec3 FACE_B[6] = vec3[6](
+  vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, -1), vec3(0, 1, 0), vec3(0, 1, 0));
+
+// Relief (plan v4 « M36 »): a texel's normal, tilted from its face's, shades it towards or away from
+// a key light high on the north-west; a flat texel keeps its face's shade exactly.
+const vec3 KEY_LIGHT = vec3(-0.45, 0.8, 0.4);
+const float RELIEF_LIGHT = 0.9;
+
 ${LIGHT_CURVE}
+
+/** A cube face texel's shade from its material: the face shade, its relief and its cavity. */
+float reliefShade(vec4 material) {
+  vec3 t = FACE_T[vFace];
+  vec3 b = FACE_B[vFace];
+  // Turned faces (flag 4) map uv to (v, −u): u now runs along b and v against t.
+  if ((vFlags & 4u) != 0u) { vec3 u = b; b = -t; t = u; }
+  vec2 tilt = material.xy * 2.0 - 1.0;
+  vec3 n = t * tilt.x + b * tilt.y + FACE_N[vFace] * sqrt(max(0.0, 1.0 - dot(tilt, tilt)));
+  float relief = 1.0 + RELIEF_LIGHT * dot(n - FACE_N[vFace], normalize(KEY_LIGHT));
+  return FACE_SHADE[vFace] * relief * material.a;
+}
 
 void main() {
   vec4 texel = texture(uTextures, vec3(vUv, vLayer));
@@ -130,7 +156,8 @@ void main() {
     lightCurve(vBlock) * uTorchTint * uFlicker
   );
   light = max(light, vec3(uMinLight));
-  vec3 color = base * light * vAo * FACE_SHADE[vFace];
+  float shade = vFace > 5u ? FACE_SHADE[vFace] : reliefShade(texture(uMaterials, vec3(vUv, vLayer)));
+  vec3 color = base * light * vAo * shade;
   if ((vFlags & 2u) != 0u) color = mix(color, base, mask);
 
   if (uDebugView == 1) {
