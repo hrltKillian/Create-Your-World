@@ -4,7 +4,7 @@ import { valueNoise } from './texNoise.ts';
 
 /*
  * The interface's pixel art (plan v5 « M48 », the « collapsed colony »): painted metal plates
- * chipped down to rust, rivets, moss creeping along an edge, a vine over a corner, worn amber
+ * chipped down to rust, rivets, moss creeping along an edge, a vine over a corner, worn ochre
  * hazard stripes, and the HUD's gauge symbols (a medical capsule, a ration tin, a canteen, a spore
  * cloud, an air bubble, a dial). Pure: the same sprite always gives the same pixels (RGBA, rows
  * from the top); the page turns them into data URLs (ui/uiArt.ts). Every colour is one of UI.
@@ -20,13 +20,15 @@ export const UI = {
   metal: '#6b6e66',
   rust: '#7d4423',
   rustLight: '#a85a2b',
-  amber: '#e2a43a',
-  amberDark: '#8c6224',
+  ochre: '#b8763c',
+  ochreDark: '#6a4020',
   moss: '#3f5a24',
   mossLight: '#6f9136',
   mossBright: '#9bbf4e',
-  teal: '#5af0cf',
+  teal: '#57e3c6',
+  tealLight: '#b8fff0',
   violet: '#b98bff',
+  violetLight: '#e2d0ff',
   bone: '#ece6d3',
   boneShade: '#b9b29c',
   red: '#c8402f',
@@ -156,21 +158,21 @@ export function vine(size = 32, seed = 31): Sprite {
   return s;
 }
 
-/** Worn amber hazard stripes (tileable, `size` square). */
+/** Worn ochre hazard stripes, rusted (tileable, `size` square). */
 export function hazard(size = 16, seed = 41): Sprite {
   const s = sprite(size, size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const stripe = Math.floor((x + y) / (size / 4)) % 2 === 0;
       const worn = hashUnit(seed, x, y) < 0.12;
-      put(s, x, y, stripe ? (worn ? 'amberDark' : 'amber') : 'plateDark');
+      put(s, x, y, stripe ? (worn ? 'ochreDark' : 'ochre') : 'plateDark');
     }
   }
   return s;
 }
 
-/** A socket's corner colour: bare metal, hovered teal, the slot in hand amber. */
-export type SocketLight = 'metal' | 'teal' | 'amber';
+/** A socket's corner colour: bare metal, hovered violet, the slot in hand teal (no yellow). */
+export type SocketLight = 'metal' | 'violet' | 'teal';
 
 /**
  * A slot's socket (9 × 9, drawn as a 9-slice of 3 × 3 corners): a recessed dark floor, a thin dark
@@ -179,7 +181,7 @@ export type SocketLight = 'metal' | 'teal' | 'amber';
 export function socket(light: SocketLight = 'metal'): Sprite {
   const s = sprite(9, 9);
   const bracket: UiColour = light === 'metal' ? 'metal' : light;
-  const lit: UiColour = light === 'metal' ? 'chip' : light === 'teal' ? 'waterLight' : 'tinLight';
+  const lit: UiColour = light === 'metal' ? 'chip' : light === 'teal' ? 'tealLight' : 'violetLight';
   // A near-black floor, a little lighter under the top rim.
   for (let y = 0; y < 9; y++)
     for (let x = 0; x < 9; x++) put(s, x, y, y === 1 ? 'plateDark' : 'outline');
@@ -245,7 +247,7 @@ export function gaugeFull(kind: GaugeArt): Sprite {
     // A medical capsule, red and bone, across the cell.
     capsule(s, 3.5, 11.5, 11.5, 3.5, 2.9);
   } else if (kind === 'hunger') {
-    // A ration tin: its rim, its amber body, a dark label band.
+    // A ration tin: its rim, its ochre body, a dark label band.
     box(s, 3, 5, 12, 13, 'tin');
     box(s, 3, 5, 5, 13, 'tinLight');
     box(s, 3, 8, 12, 10, 'plateDark');

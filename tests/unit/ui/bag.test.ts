@@ -212,13 +212,14 @@ describe('BagScreen', () => {
     const bubble = fake(screen.tooltip.element);
     expect(fake(bag.element).querySelector('.tooltip-anchor')).toBeNull();
     expect(bubble.hidden).toBe(true);
-    // Over the slot before any move there: the bubble shows at the pointer, not where it was.
+    // Over the slot before any move there: the bubble shows by the pointer, not where it was: to
+    // its right, clear of the cursor's arrow, a little above it.
     fake(bag.element).dispatch('pointermove', { clientX: 10, clientY: 10 });
     fake(bag.element).dispatch('pointerover', { target: slot(3), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(false);
     expect(bubble.textContent).toContain('Flint Pickaxe');
     expect(bubble.textContent).toContain('Stone:');
-    expect(bubble.style.transform).toBe('translate(114px, 74px)');
+    expect(bubble.style.transform).toBe('translate(124px, 54px)');
     fake(bag.element).dispatch('pointerover', { target: slot(4), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(true);
   });

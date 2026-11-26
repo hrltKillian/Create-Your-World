@@ -6,10 +6,10 @@
    */
   --c-bg: #0c110d;
   --c-panel: rgba(26, 32, 25, 0.94);
-  --c-ink: #ece6d3;
-  --c-ink-muted: #a3aa8e;
-  --c-accent: #e2a43a;
-  --c-accent-dark: #8c6224;
+  --c-ink: #dde6d3;
+  --c-ink-muted: #98a691;
+  --c-accent: #4fd6b8;
+  --c-accent-dark: #2a7766;
   --c-danger: #e0523c;
   --c-moss: #6f9136;
   --c-violet: #b98bff;
@@ -20,14 +20,14 @@
    * Text and states (plan v5 « M48 »): bone ink, lichen for what is secondary, moss for section
    * labels; a hovered thing glows teal, a chosen one is amber.
    */
-  --c-ink-dim: #6b7360;
-  --c-label: #9bbf4e;
-  --c-good: #9bbf4e;
+  --c-ink-dim: #637060;
+  --c-label: #86c46f;
+  --c-good: #86c46f;
   --c-cold: #8fdcf0;
-  --c-hover: #5af0cf;
-  --c-hover-soft: rgba(90, 240, 207, 0.1);
-  --c-active: #e2a43a;
-  --c-active-soft: rgba(226, 164, 58, 0.15);
+  --c-hover: #b98bff;
+  --c-hover-soft: rgba(185, 139, 255, 0.14);
+  --c-active: #57e3c6;
+  --c-active-soft: rgba(87, 227, 198, 0.16);
   /* Lines, recessed fields and the rows of lists on a plate. */
   --c-line: #3d473a;
   --c-outline: #0c0f0b;
