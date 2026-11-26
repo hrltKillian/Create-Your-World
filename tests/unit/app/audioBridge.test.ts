@@ -117,7 +117,7 @@ describe('rooms (plan v5 « M53 »)', () => {
     frames(20);
     expect(audio.reverb()).toBe('dry');
     // A canopy of leaves overhead and a roof of stone: still no room.
-    s.fill(-3, 69, -3, 3, 69, 3, 'block:forest_leaves');
+    s.fill(-3, 69, -3, 3, 69, 3, 'block:foliage');
     frames(20);
     expect(audio.reverb()).toBe('dry');
     s.fill(-3, 69, -3, 3, 69, 3, 'block:stone');
