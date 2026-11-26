@@ -38,13 +38,13 @@ import { M38_SUITE } from './m38.ts';
 import { M39_SUITE } from './m39.ts';
 import { M40_SUITE } from './m40.ts';
 import { M41_SUITE } from './m41.ts';
-import { M42_SUITE } from './m42.ts';
 import { M43_SUITE } from './m43.ts';
 import { M44_SUITE } from './m44.ts';
 import { M45_SUITE } from './m45.ts';
 import { M46_SUITE } from './m46.ts';
 import { M47_SUITE } from './m47.ts';
 import { M48_SUITE } from './m48.ts';
+import { M49_SUITE } from './m49.ts';
 import {
   assert,
   assertTiming,
@@ -417,11 +417,11 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m39: M39_SUITE,
   m40: M40_SUITE,
   m41: M41_SUITE,
-  m42: M42_SUITE,
   m43: M43_SUITE,
   m44: M44_SUITE,
   m45: M45_SUITE,
   m46: M46_SUITE,
   m47: M47_SUITE,
   m48: M48_SUITE,
+  m49: M49_SUITE,
 };

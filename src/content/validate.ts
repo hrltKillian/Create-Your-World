@@ -2,6 +2,7 @@ import {
   type BlockDef,
   type ContentPack,
   CRACK_STAGES,
+  MASK_INDEX,
   STATE_VALUES,
   type TextureAlpha,
   type TextureDef,
@@ -331,7 +332,7 @@ function validateArena(pack: ContentPack, blockKeys: ReadonlySet<string>, add: A
   for (const [path, key] of refs) if (!blockKeys.has(key)) add(path, `unknown block "${key}"`);
 }
 
-/** Icon masks: rows of equal length, `.` or a digit naming a palette colour. */
+/** Icon masks: rows of equal length, `.` or a character naming a palette colour (MASK_INDEX). */
 function checkMask(
   mask: readonly string[] | undefined,
   colors: number,
@@ -343,7 +344,8 @@ function checkMask(
   mask.forEach((row, r) => {
     if (row.length !== mask[0]!.length) add(`${path}[${r}]`, 'rows must have the same length');
     for (const ch of row) {
-      if (ch !== '.' && !(ch >= '0' && ch <= '9' && Number(ch) < colors))
+      const index = MASK_INDEX.indexOf(ch);
+      if (ch !== '.' && !(index >= 0 && index < colors))
         add(`${path}[${r}]`, `"${ch}" is neither "." nor a palette index`);
     }
   });

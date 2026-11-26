@@ -138,6 +138,19 @@ of them:
 
 ## Try this milestone
 
+**M49 — Item icons drawn by hand** (plan v5, `docs/conception.md` « M49 »). `npm run dev`, then
+open `http://localhost:5173/?skipMenu=1` and press E.
+
+- **Every item** of its own (75) is pixel art drawn pixel by pixel on a 32 × 32 grid, from one
+  palette of hue-shifted ramps: ink outlines, flat clusters of light and shade, white glints.
+- **Tools** show what their recipes take: knapped flint lashed with cord on sticks, metal heads on
+  wooden hafts with a leather grip, a sinew binding for bronze.
+- **Veyra's touch**: the colony's stamp on the ingots, lantern berries with a glowing seed, the dawn
+  crystal, a fish fillet with glowing spots; heat over boiled water, spores over foul water.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m49`.
+
+### Earlier milestones
+
 **M48 — The collapsed colony's interface** (plan v5, `docs/conception.md` « M48 »). `npm run
 dev`, then open `http://localhost:5173/`.
 
@@ -147,8 +160,6 @@ dev`, then open `http://localhost:5173/`.
   air bubbles, and a dial whose needle swings with the cold and the heat.
 - **A typeface of its own** (Barlow Semi Condensed, SIL Open Font License).
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m48`.
-
-### Earlier milestones
 
 **M47 — Lightning and fire** (plan v5, `docs/conception.md` « M47 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.

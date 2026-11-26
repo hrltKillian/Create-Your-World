@@ -56,11 +56,12 @@ describe('item icons', () => {
     expect(left).toBeGreaterThan(right);
   });
 
-  it('draws an item from its 16x16 mask, scaled to the icon', () => {
+  it('draws an item from its hand-drawn 32 × 32 grid, one pixel a pixel (plan v5 « M49 »)', () => {
     const knife = icon('item:flint_knife');
-    // Mask row 1 is '.............0..': only column 13 is painted.
-    expect(alphaAt(knife, 26, 2)).toBe(255);
-    expect(alphaAt(knife, 24, 2)).toBe(0);
-    expect(alphaAt(knife, 0, 0)).toBe(0);
+    const mask = registry.pack.textures.find((t) => t.key === 'tex:icon_flint_knife')!.mask!;
+    expect(mask.length).toBe(ICON_SIZE);
+    for (let y = 0; y < ICON_SIZE; y++)
+      for (let x = 0; x < ICON_SIZE; x++)
+        expect(alphaAt(knife, x, y), `${x}, ${y}`).toBe(mask[y]![x] === '.' ? 0 : 255);
   });
 });

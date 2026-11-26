@@ -1,6 +1,10 @@
-import type { TextureAlpha, TextureDef, TexturePattern } from '../../content/schema.ts';
+import {
+  MASK_INDEX,
+  type TextureAlpha,
+  type TextureDef,
+  type TexturePattern,
+} from '../../content/schema.ts';
 import { CRACK_CORE, CRACK_RIM, crackAt, fractureCells } from './fracture.ts';
-import { shadeIcon } from './iconShade.ts';
 import { materialLayer } from './materialMap.ts';
 import { parseHex, writeTone } from './palette.ts';
 import * as craft from './patternsCraft.ts';
@@ -94,7 +98,7 @@ export const DEFAULT_ROUGHNESS = 0.85;
 function maskPixel(mask: readonly string[], x: number, y: number, size: number): Pixel {
   const row = mask[Math.floor(((size - 1 - y) * mask.length) / size)] ?? '';
   const ch = row[Math.floor((x * row.length) / size)] ?? '.';
-  return ch === '.' ? set(0, HOLE, 0.5) : set(Number(ch), 0, 0.5);
+  return ch === '.' ? set(0, HOLE, 0.5) : set(MASK_INDEX.indexOf(ch), 0, 0.5);
 }
 
 /** Pixel of a crack overlay: colour 0 for the crack, 1 for its rim, else a hole. */
@@ -129,8 +133,6 @@ export function renderPackTexture(def: TextureRecipe, size: number): PackLayer {
   const rough = def.roughness ?? DEFAULT_ROUGHNESS;
   const maskRough = def.maskRoughness ?? rough;
   const top = Math.max(1, colors.length - 1);
-  // Icons: each texel's palette region (−1 for a hole), shaded as volumes after (plan v4 « M42 »).
-  const regions = pattern === 'icon' ? new Int16Array(size * size) : null;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const p =
@@ -144,10 +146,8 @@ export function renderPackTexture(def: TextureRecipe, size: number): PackLayer {
       color[i * 4 + 3] = alphaOf(alpha, p.kind);
       heights[i] = Number.isNaN(p.height) ? p.tone / top : p.height;
       roughness[i] = p.kind === SPECIAL ? maskRough : rough;
-      if (regions) regions[i] = p.kind === HOLE ? -1 : p.tone;
     }
   }
-  if (regions) shadeIcon(color, regions, size);
   return {
     color,
     material: materialLayer(heights, roughness, size, def.relief ?? RELIEF[pattern]),

@@ -10,8 +10,14 @@ import { creatureModels, creatureSkins } from './creatureModels.ts';
 import { creatureSfx } from './creatureSfx.ts';
 import { creatures } from './creatures.ts';
 import { strings } from './i18n.en.ts';
-import { consumableIcons, containerIcons, equipmentIcons } from './iconsGear.ts';
-import { materialIcons, toolIcons } from './iconsTools.ts';
+import { containerIcons } from './iconsContainers.ts';
+import { consumableIcons } from './iconsFood.ts';
+import { equipmentIcons } from './iconsGear.ts';
+import { materialIcons } from './iconsMaterials.ts';
+import { metalToolIcons } from './iconsMetalTools.ts';
+import { natureIcons } from './iconsNature.ts';
+import { toolIcons } from './iconsTools.ts';
+import { wearIcons } from './iconsWear.ts';
 import { items } from './items.ts';
 import { loot } from './loot.ts';
 import { models } from './models.ts';
@@ -50,8 +56,11 @@ export const basePack: ContentPack = {
     ...floraTextures,
     ...colonyTextures,
     ...toolIcons,
+    ...metalToolIcons,
+    ...natureIcons,
     ...materialIcons,
     ...equipmentIcons,
+    ...wearIcons,
     ...consumableIcons,
     ...containerIcons,
     ...crackTextures,

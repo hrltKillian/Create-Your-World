@@ -3425,7 +3425,7 @@ Comme dans Minecraft :
 - les tailles du HUD ne changent pas (sa disposition est testée) : le cadran garde les 16 pixels de son art ;
 - le selftest `m43` vérifie désormais les plaques rivetées et les douilles.
 
-#### M49 — Icônes d'objets redessinées
+#### M49 — Icônes d'objets redessinées (fait)
 
 - **Pipeline** : palette maîtresse (`content/packs/base/palette.ts`), validation (couleurs dans la palette), suppression de `shadeIcon`.
 - **Objets** redessinés en 32 × 32 :
@@ -3436,6 +3436,15 @@ Comme dans Minecraft :
 - La main et les objets au sol reprennent ces icônes.
 
 **Tests** : couleurs dans la palette ; silhouettes non vides ; selftest `m49` (le Bag montre les icônes).
+
+**Retenu à la réalisation** (après deux tours de revue du joueur, sur ses références de pixel art) :
+
+- les icônes sont dessinées à la main pixel par pixel, sans moteur de formes ni ombrage généré : 32 lignes de 32 lettres par icône (`art(clé, matières, grille)`, `content/packs/base/palette.ts`) : `#` l'encre du contour, `W`/`V` les reflets blancs et gris, cinq lettres par matière (ombre profonde, ombre, base, lumière, éclat) ;
+- la palette maîtresse `RAMPS` : six tons par matière, décalés en teinte (ombres vers le violet, lumières vers le jaune chaud, calculées en OKLCH), une encre commune `INK` ; plus large que les 64 couleurs prévues (environ 40 matières), mais finie et vérifiée (`palette.test.ts`) ;
+- le rendu des références : contour encre de 1 px partout (et entre les pièces de matières différentes), 3 à 4 tons en grandes zones, reflet blanc sur ce qui brille, formes pleines ; puis une petite touche du thème : le sceau de la colonie sur les lingots (vert-de-gris du cuivre, rainures du bronze, martelage du fer), une spore dans la résine, les baies-lanternes de Veyra (graine luminescente), le cristal d'aube rose-pêche du monde, la peau bleue à points luminescents du filet de poisson ;
+- les recettes font foi : le couteau de silex prend une cordelette (silex, bâton, cordelette), comme les autres outils de silex ; aucun élément absent de la recette ;
+- un contenant plein montre une goutte de ce qu'il tient ; des vagues de chaleur au-dessus de l'eau bouillie, les spores de la jauge de toxicité au-dessus de l'eau croupie ;
+- le motif `icon` lit des index de palette sur 62 caractères (`MASK_INDEX`) ; `shadeIcon` et le moteur de formes sont supprimés ; `MAX_ITEM_BOXES` passe à 48 (le fruit de palmépine et ses épines en prennent 46).
 
 #### M50 — Icônes des blocs et objets posés
 
