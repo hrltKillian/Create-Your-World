@@ -11,6 +11,7 @@ import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
 import { TICK_SECONDS } from '../sim/clock.ts';
 import { isLiquid } from '../sim/collision.ts';
 import { NEUTRAL_INPUT } from '../sim/commands.ts';
+import { consuming } from '../sim/consume.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import type { PlayerState } from '../sim/player.ts';
@@ -41,6 +42,16 @@ export interface SessionOptions {
  * One open world as the client plays it: the simulation host (whose local player it drives),
  * player control, streaming, meshing and the fixed-step loop.
  */
+/**
+ * Whether the player eats or drinks (plan v3 « M35 »: the hand's animation): a held meal or drink
+ * under way, or a sip with the empty hand (a rod's cast is no meal).
+ */
+export function eating(player: Readonly<PlayerState>, registry: Registry): boolean {
+  if (!consuming(player)) return false;
+  const stack = player.inventory[player.input.slot];
+  return !stack || registry.item(stack.item)?.consume !== undefined;
+}
+
 export class GameSession {
   readonly seed: string;
   readonly host: SimHost;
@@ -131,6 +142,7 @@ export class GameSession {
       eye: this.rig.eye,
       firstPerson: true,
       avatarVisible: false,
+      eating: false,
       targets: this.aim,
     };
     const spawn = this.host.view.spawn;
@@ -316,6 +328,7 @@ export class GameSession {
     frame.firstPerson = rig.mode === 'first';
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
     frame.avatarVisible = rig.mode === 'third' && rig.distance >= AVATAR_MIN_DISTANCE;
+    frame.eating = eating(this.player, this.registry);
     this.play.draw(frame);
     return pose;
   }

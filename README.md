@@ -138,6 +138,16 @@ of them:
 
 ## Try this milestone
 
+**M35 — HUD readability and layout** (plan v3, `docs/conception.md` « M35 »). `npm run dev`,
+then open `http://localhost:5173/?skipMenu=1`.
+
+- **Eat or drink**: the hand brings the meal to the mouth and nibbles, then goes back.
+- **The HUD** keeps every message in its own place (no overlap at 1024×768, 1280×720 or
+  1920×1080) and grows with a tall window (×1.35 at 1080 pixels high).
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m35`; `npx playwright test e2e/hud.spec.ts`.
+
+### Earlier milestones
+
 **M34 — Weather and ambience** (plan v3, `docs/conception.md` « M34 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 

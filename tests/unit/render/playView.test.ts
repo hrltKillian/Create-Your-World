@@ -209,6 +209,30 @@ describe('hand view inertia', () => {
     expect(fist().x).toBeCloseTo(rest.x, 6);
   });
 
+  it('brings the meal up to the mouth while eating, bobbing, then back (plan v3 « M35 »)', () => {
+    const hand = new HandView(shared, registry, items);
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    player.inventory[0] = { item: 'item:berries', count: 3 };
+    const fist = () => {
+      const m = hand.batch.mesh.instanceMatrix.array;
+      return { x: m[12]!, y: m[13]! };
+    };
+    hand.draw(player, FRAME, true, 1, 0);
+    const rest = fist();
+    const ys: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      hand.draw(player, FRAME, true, 1, 0, true);
+      ys.push(fist().y);
+    }
+    expect(fist().x).toBeLessThan(rest.x - 0.2);
+    expect(Math.min(...ys.slice(15))).toBeGreaterThan(rest.y + 0.1);
+    // It bobs while eating.
+    expect(Math.max(...ys.slice(15)) - Math.min(...ys.slice(15))).toBeGreaterThan(0.02);
+    for (let i = 0; i < 20; i++) hand.draw(player, FRAME, true, 1, 0, false);
+    expect(fist().x).toBeCloseTo(rest.x, 6);
+    expect(fist().y).toBeCloseTo(rest.y, 6);
+  });
+
   it('lags behind a turn of the view and eases back to rest', () => {
     const hand = new HandView(shared, registry, items);
     const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
@@ -303,6 +327,7 @@ describe('play feel', () => {
         eye,
         firstPerson: true,
         avatarVisible: false,
+        eating: false,
         targets: { hit: createRayHit(), ghost: { x: 0, y: 0, z: 0, state: -1, upper: -1 } },
       });
     const settle = () => rig.update(player, 1, sim.world, registry.tables, 1 / 60);

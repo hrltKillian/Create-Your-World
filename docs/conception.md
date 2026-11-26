@@ -2979,6 +2979,14 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 - Animation pour manger et boire.
 - Disposition du HUD testée en 1024×768, 1280×720 et 1920×1080.
 
+**Retenu à la réalisation** :
+
+- Manger ou boire (`eating`, `app/GameSession.ts` : un repas ou une gorgée en cours, jamais le lancer d'une canne) : la main monte vers la bouche en 0,15 s, vers le milieu de l'écran, et sautille quatre fois par seconde, comme dans le jeu de référence ; elle revient au repos ensuite (`HandView`, `PlayFrame.eating`).
+- Les messages du haut de l'écran ont chacun leur place fixe, sous la boussole, la quête épinglée, l'horloge et une cible de deux lignes : l'indice à 128 px, les messages de quête à 164 px (trois lignes au plus), le nom du biome à 238 px, les bandeaux du jour à 276 px, tous au-dessus du réticule même à 720 px de haut ; le conseil de prise en main passe au-dessus des rangées de jauges.
+- L'interface grandit avec la hauteur de la fenêtre (`uiScaleFor` : ×1 jusqu'à 800 px, ×1,35 à 1080 px, au plus ×2), multipliée par le réglage « Taille de l'interface ».
+- Vérification (`app/hudLayout.ts`, crochet `ui.hudLayout()`) : tous les éléments du HUD affichés en même temps, avec des textes longs, tiennent dans la fenêtre sans se chevaucher ; l'e2e `e2e/hud.spec.ts` la passe en 1024×768, 1280×720 et 1920×1080, le selftest `m35` à la taille de la fenêtre.
+- Selftest `m35` (`?worldType=flat&fixedStep=1&selftest=m0,m35`).
+
 **Ensuite** : la boucle d'amélioration reprend.
 
 ## Fichiers critiques

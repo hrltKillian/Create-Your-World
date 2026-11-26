@@ -302,11 +302,16 @@ body {
   display: none;
 }
 
-/* Transient HUD hint (top centre, under the compass, clock and target): a dark tag with an amber edge, fading in. */
+/*
+ * Transient HUD hint (top centre, under the compass, clock and a two-line target): a dark tag with
+ * an amber edge, fading in. The top centre's messages stack in fixed slots (plan v3 « M35 »): the
+ * hint at 128px, the quest messages at 164px (three lines at most), the biome's name at 238px,
+ * the day's banners at 276px, all above the crosshair even at 720 pixels high.
+ */
 .hud-hint {
   position: absolute;
   left: 50%;
-  top: 112px;
+  top: 128px;
   max-width: calc(100% - 32px);
   margin: 0;
   padding: 5px 14px 5px 11px;

@@ -597,7 +597,7 @@
 }
 
 .hud-banner {
-  top: 26%;
+  top: 276px;
 }
 
 .hud-banner .flash-text {
@@ -632,7 +632,7 @@
 
 /* The biome's name on entering it: smaller and higher than the day's banners. */
 .hud-biome {
-  top: 17%;
+  top: 238px;
 }
 
 .hud-biome .flash-text {
@@ -715,7 +715,7 @@
 /* A tip: above the hotbar, over the open screens (the bag's tip shows with it), a longer read. */
 /* Quest messages: under the hint line, two lines at most, longer on screen. */
 #hud-quest-news {
-  top: 150px;
+  top: 164px;
   width: max-content;
   max-width: min(560px, calc(100% - 32px));
   border-left-color: #a7d46f;
@@ -724,9 +724,10 @@
   white-space: normal;
 }
 
+/* Above the vitals' rows and the hotbar (plan v3 « M35 »). */
 #hud-tip {
   top: auto;
-  bottom: 96px;
+  bottom: 140px;
   width: max-content;
   max-width: min(560px, calc(100% - 32px));
   padding: 8px 16px 8px 13px;

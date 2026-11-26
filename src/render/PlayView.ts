@@ -27,6 +27,8 @@ export interface PlayFrame {
   readonly firstPerson: boolean;
   /** The avatar is drawn (third person, camera not pressed against it). */
   readonly avatarVisible: boolean;
+  /** The player eats or drinks (plan v3 « M35 »): the hand brings it to the mouth. */
+  readonly eating: boolean;
   readonly targets: OverlayTargets;
 }
 
@@ -105,7 +107,8 @@ export class PlayView {
     const light = this.sim.world.getLight(Math.floor(eye.x), Math.floor(eye.y), Math.floor(eye.z));
     const hand = this.hand;
     hand.look(pose.yaw, pose.pitch);
-    hand.draw(frame.player, frame.dt, frame.firstPerson, skyOf(light) / 15, blockOf(light) / 15);
+    const sky = skyOf(light) / 15;
+    hand.draw(frame.player, frame.dt, frame.firstPerson, sky, blockOf(light) / 15, frame.eating);
     if (hand.released) this.particles.trail(eye.x, eye.y, eye.z, pose.yaw, pose.pitch);
     this.batch.begin(
       blockToColumn(pose.x) * SECTION_SIZE,

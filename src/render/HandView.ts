@@ -25,6 +25,16 @@ const STROKE_YAW = 0.32;
 const STROKE_PITCH = -0.55;
 const STROKE_PUSH = -0.1;
 /** Forearm box (m): it runs from the shoulder to the fist. */
+/**
+ * Eating or drinking (plan v3 « M35 »): the hand comes up in EAT_SECONDS, this far towards the
+ * middle, up and nearer, and bobs EAT_BOBS times a second by EAT_BOB.
+ */
+const EAT_SECONDS = 0.15;
+const EAT_IN = 0.3;
+const EAT_UP = 0.16;
+const EAT_NEAR = 0.12;
+const EAT_BOBS = 4;
+const EAT_BOB = 0.035;
 const ARM_WIDTH = 0.17;
 const ARM_LENGTH = 0.6;
 /** Held block edge and held sprite item height (m). */
@@ -74,6 +84,9 @@ export class HandView {
   swayY = 0;
   swayZ = 0;
   private stroking = false;
+  /** How far the hand has come up to the mouth (0–1), and the seconds spent eating. */
+  private eat = 0;
+  private eatTime = 0;
   /** The attack gauge's ticks left last frame: a rise is a new swing. */
   private lastCooldown = 0;
   /** The view's angles from `look`, and those of the last frame drawn (NaN before any). */
@@ -121,8 +134,12 @@ export class HandView {
     visible: boolean,
     sky: number,
     block: number,
+    eating = false,
   ): void {
     this.visible = visible;
+    // Eating (plan v3 « M35 »): the hand comes up to the mouth and bobs, and goes back after.
+    this.eat = Math.max(0, Math.min(1, this.eat + (eating ? dt : -dt) / EAT_SECONDS));
+    this.eatTime = eating ? this.eatTime + dt : 0;
     // A swing empties the gauge (melee.ts): its ticks left rise. A full gauge made it a strong one.
     const swung = player.attackCooldown > this.lastCooldown;
     this.released = swung && this.lastCooldown === 0;
@@ -174,11 +191,14 @@ export class HandView {
 
   private drawArm(player: Readonly<PlayerState>, sky: number, block: number): void {
     const s = Math.sin(Math.PI * this.swing);
+    // Eating: towards the middle and up, bobbing (the reference game's quick nibbles).
+    const e = this.eat;
+    const bob = Math.abs(Math.sin(this.eatTime * Math.PI * EAT_BOBS)) * EAT_BOB * e;
     // The arm turns about the shoulder; the fist is at its far end.
     const arm = this.fist.makeTranslation(
-      SHOULDER_X + this.swayX,
-      SHOULDER_Y + this.swayY,
-      SHOULDER_Z + STROKE_PUSH * s + this.swayZ,
+      SHOULDER_X + this.swayX - EAT_IN * e,
+      SHOULDER_Y + this.swayY + EAT_UP * e + bob,
+      SHOULDER_Z + STROKE_PUSH * s + this.swayZ + EAT_NEAR * e,
     );
     arm.multiply(this.step.makeRotationY(REST_YAW + STROKE_YAW * s));
     arm.multiply(this.step.makeRotationX(REST_PITCH + STROKE_PITCH * s));

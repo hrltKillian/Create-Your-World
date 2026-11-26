@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GameSession } from '../../../src/app/GameSession.ts';
+import { eating, GameSession } from '../../../src/app/GameSession.ts';
 import type { InputManager } from '../../../src/input/InputManager.ts';
 import type { LookTarget } from '../../../src/input/LookTarget.ts';
 import type { WorkerPool } from '../../../src/platform/WorkerPool.ts';
 import { type InputCommand, NEUTRAL_INPUT } from '../../../src/sim/commands.ts';
 import { createLocalServer } from '../../../src/sim/localServer.ts';
+import { createPlayer } from '../../../src/sim/player.ts';
 import type { ColumnSource } from '../../../src/sim/ports.ts';
 import { registry } from '../../helpers/registry.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
@@ -71,5 +72,26 @@ describe('GameSession', () => {
     expect(view.scene.children.length).toBeGreaterThan(before);
     session.dispose();
     expect(view.scene.children.length).toBe(before);
+  });
+});
+
+describe('eating', () => {
+  it('is a held meal or a sip under way, never a rod cast (plan v3 « M35 »)', () => {
+    const player = createPlayer(1, 0, 64, 0, 2, registry.pack.balance);
+    const holding = (item: string | null) => {
+      player.inventory[0] = item ? { item, count: 1 } : null;
+      player.input = { ...player.input, slot: 0, secondary: true };
+      player.interaction.useItem = item ? registry.itemId(item) : -1;
+    };
+    holding('item:berries');
+    expect(eating(player, registry)).toBe(true);
+    holding(null);
+    expect(eating(player, registry)).toBe(true);
+    holding('item:fishing_rod');
+    expect(eating(player, registry)).toBe(false);
+    player.input = { ...player.input, secondary: false };
+    holding('item:berries');
+    player.input = { ...player.input, secondary: false };
+    expect(eating(player, registry)).toBe(false);
   });
 });

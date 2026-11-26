@@ -75,6 +75,21 @@ export interface GameHost {
  * loading → world ⇄ paused → quitting → menu). `?skipMenu=1` (and selftests) start in a new world,
  * `?world=<id>` in a saved one.
  */
+/** Window height (px) the interface is drawn for at its own size, and its largest growth. */
+const UI_DESIGN_HEIGHT = 800;
+const UI_MAX_GROWTH = 2;
+
+/**
+ * The interface's scale (plan v3 « M35 »): the player's setting times the window's height over
+ * UI_DESIGN_HEIGHT (never below 1, at most UI_MAX_GROWTH: ×1.35 at 1080 pixels high), so the
+ * HUD and screens read the same on a large screen.
+ */
+export function uiScaleFor(setting: number, height: number): number {
+  // No window height (tests): the interface's own size.
+  const growth = height > 0 ? height / UI_DESIGN_HEIGHT : 1;
+  return setting * Math.min(UI_MAX_GROWTH, Math.max(1, growth));
+}
+
 export class Game {
   state: AppState = 'boot';
   settings: Settings;
@@ -119,6 +134,7 @@ export class Game {
     });
     host.root.append(this.menus.element);
     window.addEventListener('keydown', this.onPauseKey);
+    window.addEventListener('resize', this.applyUiScale);
   }
 
   /** The first screen: a new world (`?skipMenu=1`), a saved one (`?world=`) or the main menu. */
@@ -358,7 +374,7 @@ export class Game {
 
   private applySettings(settings: Settings): void {
     this.settings = settings;
-    const { input, audio, view, root } = this.host;
+    const { input, audio, view } = this.host;
     input.sensitivity = BASE_SENSITIVITY * settings.sensitivity;
     input.invertY = settings.invertY;
     input.crouchToggle = settings.crouch === 'toggle';
@@ -366,12 +382,21 @@ export class Game {
     audio.setVolumes(settings.volumes);
     view.setFov(settings.fov);
     view.setGamma(settings.gamma);
-    // main.css zooms the HUD, screens and menus; the cursor stack undoes it (it follows the
-    // pointer in viewport pixels).
-    root.style.setProperty('--ui-scale', String(settings.uiScale));
-    root.style.setProperty('--ui-unscale', String(1 / settings.uiScale));
+    this.applyUiScale();
     if (this.open) this.applyWorldSettings(this.open);
   }
+
+  /**
+   * main.css zooms the HUD, screens and menus by the interface's scale (`uiScaleFor`: the setting,
+   * larger on a tall window); the cursor stack undoes it (it follows the pointer in viewport
+   * pixels). Again on every resize.
+   */
+  private readonly applyUiScale = (): void => {
+    const scale = uiScaleFor(this.settings.uiScale, window.innerHeight);
+    const root = this.host.root;
+    root.style.setProperty('--ui-scale', String(scale));
+    root.style.setProperty('--ui-unscale', String(1 / scale));
+  };
 
   /** The settings a world's own objects hold (every world opens with particles and the bob on). */
   private applyWorldSettings(open: OpenWorld): void {
