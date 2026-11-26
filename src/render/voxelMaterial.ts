@@ -20,10 +20,14 @@ import { voxelFragment, voxelVertex } from './shaders/voxel.glsl.ts';
 export const DEBUG_VIEWS = ['none', 'quads', 'ao', 'light', 'xray'] as const;
 export type DebugView = (typeof DEBUG_VIEWS)[number];
 
-/** The pack's texture arrays: colours (sRGB) and materials (linear: normal, roughness, cavity). */
+/**
+ * The pack's texture arrays: colours (sRGB) and materials (linear: normal, roughness, cavity), and
+ * the layers of liquid faces (`liquidLayerMask`).
+ */
 export interface PackTextures {
   readonly textures: DataArrayTexture;
   readonly materials: DataArrayTexture;
+  readonly liquids: Int32Array;
 }
 
 /** Uniforms shared by reference between the three chunk materials (never cloned). */
@@ -46,6 +50,12 @@ export interface VoxelUniforms {
   readonly uShadowStrength: IUniform<number>;
   /** Rain on the open ground, 0–1: darker and glossy. */
   readonly uWetness: IUniform<number>;
+  /** Liquids (plan v4 « M38 »): their layers, and 1 while the camera is in one (caustics). */
+  readonly uLiquidLayers: IUniform<Int32Array>;
+  readonly uUnderwater: IUniform<number>;
+  /** The sky's gradient (`SKY_GRADIENT`), the water's reflection: copied from the sky each frame. */
+  readonly uZenith: IUniform<Color>;
+  readonly uHorizon: IUniform<Color>;
   /** The low ground's mist (`MIST`): strength 0–1 and the height it lies under. */
   readonly uMist: IUniform<number>;
   readonly uMistLine: IUniform<number>;
@@ -102,6 +112,10 @@ export function createVoxelMaterials(
     uShadowTexel: { value: 0 },
     uShadowStrength: { value: 0 },
     uWetness: { value: 0 },
+    uLiquidLayers: { value: textures.liquids },
+    uUnderwater: { value: 0 },
+    uZenith: { value: new Color() },
+    uHorizon: { value: new Color() },
     uMist: { value: 0 },
     uMistLine: { value: 0 },
     uTorchTint: { value: new Color(1, 0.78, 0.55) },

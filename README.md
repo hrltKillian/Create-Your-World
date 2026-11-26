@@ -138,6 +138,17 @@ of them:
 
 ## Try this milestone
 
+**M38 — Water and lava** (plan v4, `docs/conception.md` « M38 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **Water** ripples with travelling waves, mirrors the sky more as you look across it, glints in
+  the sun and rings under the rain.
+- **Lava**'s crust drifts and its glow pulses.
+- **Dive**: the sun's light wavers over the bottom, in Veyra's teal water.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m38`.
+
+### Earlier milestones
+
 **M37 — Sunlight and shadows** (plan v4, `docs/conception.md` « M37 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 

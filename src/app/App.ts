@@ -11,6 +11,7 @@ import { type CapabilityReport, detectCapabilities } from '../platform/capabilit
 import { openSaveBackend } from '../platform/IdbStorage.ts';
 import { DEFAULT_SETTINGS } from '../platform/settings.ts';
 import { WorkerPool, workerCount } from '../platform/WorkerPool.ts';
+import { liquidLayerMask } from '../render/liquidLayers.ts';
 import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../render/quality.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
@@ -34,7 +35,7 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 37;
+export const MILESTONE = 38;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
@@ -192,7 +193,7 @@ export class App {
     const pack = registry.pack;
     const rendered = packLayers(pack);
     const layers = rendered.map((layer) => layer.color);
-    const view = this.createWorldView(pack, rendered, biomeTints(pack));
+    const view = this.createWorldView(registry, rendered, biomeTints(pack));
     this.view = view;
     const input = this.createInput();
     input.enabled = false;
@@ -230,11 +231,11 @@ export class App {
 
   /** `layers`: the pack's textures (colours and materials, see `packLayers`). */
   private createWorldView(
-    pack: ContentPack,
+    registry: Registry,
     layers: readonly PackLayer[],
     tints: readonly string[],
   ): WorldView {
-    const size = pack.manifest.textureSize;
+    const size = registry.pack.manifest.textureSize;
     const textures = createTextureArray(
       layers.map((layer) => layer.color),
       size,
@@ -246,7 +247,7 @@ export class App {
     );
     const view = new WorldView(
       this.renderer!,
-      { textures, materials },
+      { textures, materials, liquids: liquidLayerMask(registry.tables) },
       tints,
       DEFAULT_SETTINGS.renderDistance,
     );
@@ -271,7 +272,7 @@ export class App {
   /** Developer test scene (M1): a fixed hand-built area, meshed once, seen from a free camera. */
   private startTestScene(registry: Registry): void {
     const pack = registry.pack;
-    const view = this.createWorldView(pack, packLayers(pack), packTints(pack));
+    const view = this.createWorldView(registry, packLayers(pack), packTints(pack));
     this.view = view;
     // A showcase seen whole (m1 counts one draw per mesh): no cave culling.
     view.chunks.occlusion.setEnabled(false);

@@ -1,4 +1,6 @@
 import { LIGHTING, MIST } from './lighting.glsl.ts';
+import { SKY_GRADIENT } from './sky.glsl.ts';
+import { WATER } from './water.glsl.ts';
 
 /**
  * Chunk shader. Vertices are two packed uint words (see world/mesh/vertexFormat.ts); UVs are
@@ -126,6 +128,7 @@ export const voxelFragment = /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
 uniform sampler2DArray uMaterials;
+uniform float uTime;
 uniform float uDaylight;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
@@ -158,10 +161,18 @@ const vec3 FACE_B[6] = vec3[6](
 /** Rain wets surfaces under the open sky: this smooth, this much darker. */
 const float WET_ROUGHNESS = 0.12;
 const float WET_DARKEN = 0.25;
+/** Lava (plan v4 « M38 »): its crust drifts this many textures a second, its glow pulses. */
+const vec2 LAVA_DRIFT = vec2(0.021, 0.013);
+const float LAVA_PULSE = 0.25;
+/** Water: the sun's glint on its surface; caustics' share of the sun's light under water. */
+const float WATER_ROUGHNESS = 0.03;
+const float CAUSTICS = 1.4;
 
 ${LIGHT_CURVE}
 ${LIGHTING}
 ${MIST}
+${SKY_GRADIENT}
+${WATER}
 
 /** A cube face texel's normal: its face's, tilted by the material's relief (plan v4 « M36 »). */
 vec3 reliefNormal(vec4 material) {
@@ -180,7 +191,13 @@ float torchShade(vec3 n) {
 }
 
 void main() {
-  vec4 texel = texture(uTextures, vec3(vUv, vLayer));
+  bool liquid = liquidLayer(vLayer);
+  vec2 uv = vUv;
+  #if !defined(TRANSLUCENT) && !defined(ALPHA_CUTOUT)
+  // An opaque liquid is lava: its crust drifts.
+  if (liquid) uv += uTime * LAVA_DRIFT;
+  #endif
+  vec4 texel = texture(uTextures, vec3(uv, vLayer));
   #ifdef ALPHA_CUTOUT
   if (texel.a < ${CUTOUT_ALPHA}) discard;
   #endif
@@ -197,8 +214,15 @@ void main() {
 
   // Plants (cross quads) take the light of the ground they grow from.
   bool cube = vFace <= 5u;
-  vec4 material = cube ? texture(uMaterials, vec3(vUv, vLayer)) : vec4(0.5, 0.5, 0.85, 1.0);
+  vec4 material = cube ? texture(uMaterials, vec3(uv, vLayer)) : vec4(0.5, 0.5, 0.85, 1.0);
   vec3 n = cube ? reliefNormal(material) : vec3(0.0, 1.0, 0.0);
+  #ifdef TRANSLUCENT
+  // A water surface: waves (and rain rings) tilt its top.
+  if (liquid && vFace == 2u) {
+    vec2 slope = waterSlope(vWorld.xz, uTime, uWetness);
+    n = normalize(vec3(-slope.x, 1.0, -slope.y));
+  }
+  #endif
   // The sun reaches only cells open to the sky, and not those in a shadow.
   float open = smoothstep(0.8, 1.0, vSky);
   float lit = open * sunShadow(vWorld, n);
@@ -209,11 +233,29 @@ void main() {
     skyShade(lightCurve(vSky * uDaylight), n, lit, occlusion),
     lightCurve(vBlock) * uTorchTint * uFlicker * torchShade(n) * occlusion
   );
+  float skyLevel = lightCurve(vSky * uDaylight);
+  #if !defined(TRANSLUCENT)
+  // Seen from under water, the sun's light wavers over every lit surface.
+  if (uUnderwater > 0.0) light += uSunLight * (caustic(vWorld.xz, uTime) * CAUSTICS * skyLevel);
+  #endif
   light = max(light, vec3(uMinLight));
   vec3 view = normalize(cameraPosition - vWorld);
-  float roughness = mix(material.b, WET_ROUGHNESS, wet);
-  vec3 color = base * light + sunGloss(n, view, roughness, lit) * lightCurve(vSky * uDaylight);
-  if ((vFlags & 2u) != 0u) color = mix(color, base, mask);
+  float roughness = liquid ? WATER_ROUGHNESS : mix(material.b, WET_ROUGHNESS, wet);
+  vec3 color = base * light + sunGloss(n, view, roughness, lit) * skyLevel;
+  if ((vFlags & 2u) != 0u) {
+    // Lava's glow pulses slowly, place by place.
+    float pulse = liquid ? 1.0 + LAVA_PULSE * sin(uTime * 1.3 + vWorld.x * 0.7 + vWorld.z * 0.5) : 1.0;
+    color = mix(color, base * pulse, mask);
+  }
+  float alpha = uOpacity;
+  #ifdef TRANSLUCENT
+  if (liquid) {
+    // Fresnel: water reflects the sky more as the view grazes it (and the sky's light dims it).
+    float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(n, view), 0.0), 5.0);
+    color = mix(color, skyGradient(reflect(-view, n)) * skyLevel, fresnel);
+    alpha = mix(uOpacity, 1.0, fresnel);
+  }
+  #endif
 
   if (uDebugView == 1) {
     vec2 edge = min(vQuadUv, 1.0 - vQuadUv);
@@ -229,7 +271,7 @@ void main() {
   }
 
   #ifdef TRANSLUCENT
-  gl_FragColor = vec4(color, uDebugView == 4 ? 0.12 : uOpacity);
+  gl_FragColor = vec4(color, uDebugView == 4 ? 0.12 : alpha);
   #else
   gl_FragColor = vec4(color, 1.0);
   #endif
