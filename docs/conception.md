@@ -3147,17 +3147,13 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 **Tests** : la nuit des lucioles, leur nombre, leur place dans le monde, jamais dans la pierre ; validation des lucioles ; selftest `m40` (`?worldType=flat&fixedStep=1&selftest=m0,m40`) : à minuit un mur d'un bloc lumineux du pack brille plus qu'un mur ordinaire, les lucioles du biome la nuit et pas le jour, le préréglage haut avec bloom.
 
-#### M41 — Créatures, avatar et objets posés
+#### M41 — Créatures, avatar et objets posés (fait)
 
-- Peaux 32 px avec relief pour les modèles en boîtes (`creatureModels.ts`), avatar et drops.
-- Ombre de contact douce sous les entités.
-- Animations plus souples : regard, respiration, transitions de pas.
-
-**Tests** :
-
-- `creatureView` ;
-- captures ;
-- bench `mobs`.
+- **Relief des peaux** : le shader des boîtes (créatures, avatar, objets posés, main) lit la carte de matière comme les blocs : chaque face a sa base tangente, la normale du texel et sa cavité prennent la lumière ; les sprites (objets tirés d'une icône) restent plats.
+- **Fourrures** : un motif `fur` (mèches fines en touffes douces) pour la toison du Shagback, la crête du Prowler et le plumage du Reedwader, qui ressemblaient à de l'écorce.
+- **Ombres de contact** (`render/ContactShadows.ts`) : un disque sombre et doux sur le sol sous chaque créature, objet posé et l'avatar, plus pâle et plus large à mesure qu'ils s'élèvent, rien sans sol à moins de 3 blocs ; un seul draw instancié, transparent, sans écriture de profondeur.
+- **Animation** : la tête hoche à chaque pas, autant que les pattes balancent (la respiration, le regard et l'allure étaient déjà lissés).
+- **Tests** : disques posés au sol, plus sombres près des pieds, aucun sans sol, plafond du nombre ; selftest `m41` (`?worldType=flat&fixedStep=1&selftest=m0,m41`) : une créature posée devant le joueur a son ombre.
 
 ### Partie B — Interfaces
 

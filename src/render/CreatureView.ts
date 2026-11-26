@@ -8,6 +8,7 @@ import type { Entity } from '../sim/Simulation.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type BoxBatch, type BoxSkin, fullSkin } from './BoxBatch.ts';
+import type { ContactShadows } from './ContactShadows.ts';
 import {
   animateCreature,
   type CreatureMotion,
@@ -56,6 +57,7 @@ function angleDelta(a: number, b: number): number {
  */
 export class CreatureView {
   private readonly batch: BoxBatch;
+  private readonly shadows: ContactShadows | null;
   private readonly world: VoxelWorld;
   private readonly kinds = new Map<string, CreatureKind>();
   private readonly rigs = new Map<number, Tracked>();
@@ -117,9 +119,16 @@ export class CreatureView {
     if (tracked.frame !== this.frame) this.rigs.delete(id);
   };
 
-  constructor(batch: BoxBatch, world: VoxelWorld, registry: Registry) {
+  /** `shadows`: the contact shadows each creature lays on the ground (plan v4 « M41 »). */
+  constructor(
+    batch: BoxBatch,
+    world: VoxelWorld,
+    registry: Registry,
+    shadows: ContactShadows | null = null,
+  ) {
     this.batch = batch;
     this.world = world;
+    this.shadows = shadows;
     for (const def of registry.pack.creatures ?? []) {
       const model = registry.model(def.model);
       if (!model) continue;
@@ -222,6 +231,7 @@ export class CreatureView {
     this.kind = kind;
     const yaw = c.prevYaw + angleDelta(c.prevYaw, c.yaw) * alpha;
     this.root.makeRotationY(yaw).setPosition(x, y, z);
+    this.shadows?.add(x, y, z, hitbox[0] * 0.6);
     if (c.mode === 'dying') this.fallOver(c, hitbox[0]);
     poseModel(kind.prepared, rig, this.root, 0, this.addBox, this.scratch);
   }

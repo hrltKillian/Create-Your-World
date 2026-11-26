@@ -138,6 +138,16 @@ of them:
 
 ## Try this milestone
 
+**M41 — Creatures with relief and shadows** (plan v4, `docs/conception.md` « M41 »). `npm run dev`,
+then open `http://localhost:5173/?skipMenu=1`.
+
+- **Creatures, your avatar and dropped items** catch the light on the relief of their skins; shaggy
+  coats and plumes are drawn as fur.
+- **Soft shadows** under them ground them; they fade as things rise.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m41`.
+
+### Earlier milestones
+
 **M40 — Veyra's glowing nights** (plan v4, `docs/conception.md` « M40 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 

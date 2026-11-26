@@ -4,7 +4,8 @@ import type { CreatureMode } from '../sim/creatures.ts';
 /*
  * Procedural animation of the creatures' box models (docs « Animation »): the legs of each gait
  * swing by the distance walked (the model's `stride` in radians per block, legs of a half-cycle
- * together: GAIT_LEGS), the body breathes, the head looks at the creature's target, the wind-up
+ * together: GAIT_LEGS), the body breathes, the head nods with the steps and looks at the
+ * creature's target, the wind-up
  * raises the head and opens the jaw, a charge lowers the head, a stunned creature droops; a hit
  * makes it flinch, flash red and freeze for 80 ms. Parts the renderer animates by name: the legs,
  * `body`, `head`, `tail` and the jaws (`OPENING`). Positive angles tilt a part's front down.
@@ -95,7 +96,8 @@ export function animateCreature(rig: CreatureRig, model: ModelDef, motion: Creat
   const w = rig.windup;
   // Breathing, leaning back on the wind-up, rearing at a hit.
   a.body = Math.sin(rig.time * 2) * 0.025 - 0.12 * w - 0.25 * rig.flash;
-  let head = rig.look - 0.45 * w;
+  // The head nods with each step (twice a gait cycle), as much as the legs swing.
+  let head = rig.look - 0.45 * w + Math.sin(rig.phase * 2) * 0.08 * rig.amplitude;
   if (motion.mode === 'charge') head += 0.35;
   else if (motion.mode === 'stunned') head += 0.5 + Math.sin(rig.time * 9) * 0.1;
   a.head = head;

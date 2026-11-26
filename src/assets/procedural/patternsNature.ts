@@ -23,6 +23,16 @@ export function speckle(c: PatternContext, x: number, y: number): Pixel {
   return set(ramp(v, 0, c.n));
 }
 
+/** Fur and plumes: fine strands running down the hide, in soft clumps, paler at the tips. */
+export function fur(c: PatternContext, x: number, y: number): Pixel {
+  const { seed, size } = c;
+  const strands = valueNoise(seed, x, y, size, 16, 3);
+  const clump = fbm(seed + 1, x, y, size, 4, 2);
+  const g = grain(seed, x, y);
+  const v = 0.2 + 0.45 * strands + 0.25 * clump + 0.15 * (g - 0.5);
+  return set(ramp(v, 0, c.n), SOLID, 0.3 + 0.5 * strands + 0.2 * clump);
+}
+
 /** Rock over `count` colours: broad mottling, fine grain, open hairline cracks and pits. */
 function rock(c: PatternContext, x: number, y: number, count: number): Pixel {
   const { seed, size } = c;

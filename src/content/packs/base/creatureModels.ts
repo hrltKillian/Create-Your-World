@@ -35,7 +35,7 @@ export const creatureSkins = [
   // Long vertical tufts.
   {
     key: 'tex:shagback_fur',
-    pattern: 'bark',
+    pattern: 'fur',
     palette: ['#4a3d33', '#5a4a3d', '#6b5847', '#7c6752'],
     seed: 307,
   },
@@ -60,7 +60,7 @@ export const creatureSkins = [
   // Its dorsal crest and jaw: rust streaks on black.
   {
     key: 'tex:prowler_crest',
-    pattern: 'bark',
+    pattern: 'fur',
     palette: ['#1a1820', '#3d2a2e', '#5a3530', '#6e3a2c'],
     seed: 315,
   },
@@ -125,7 +125,7 @@ export const creatureSkins = [
   // The Reedwader: silver-slate plumes, ochre legs, a dark beak.
   {
     key: 'tex:reedwader_plumes',
-    pattern: 'bark',
+    pattern: 'fur',
     palette: ['#5e6670', '#6f7882', '#828b95', '#98a1aa'],
     seed: 333,
   },

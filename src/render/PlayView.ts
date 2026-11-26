@@ -7,6 +7,7 @@ import { blockOf, skyOf } from '../world/light.ts';
 import { BlockOverlay, type OverlayTargets } from './BlockOverlay.ts';
 import { BoxBatch, colorTint, WORLD_BOXES } from './BoxBatch.ts';
 import type { CameraRig } from './CameraRig.ts';
+import { ContactShadows } from './ContactShadows.ts';
 import { CreatureView } from './CreatureView.ts';
 import { DropView } from './DropView.ts';
 import { EntityView } from './EntityView.ts';
@@ -48,6 +49,8 @@ export class PlayView {
   readonly creatures: CreatureView;
   readonly drops: DropView;
   readonly particles: Particles;
+  /** Soft shadows under the creatures, drops and avatar (plan v4 « M41 »). */
+  readonly shadows: ContactShadows;
   readonly motes: Motes;
   readonly overlay: BlockOverlay;
   readonly hand: HandView;
@@ -66,9 +69,11 @@ export class PlayView {
     const size = textures.image.width;
     const items = buildItemModels(registry, texels, size);
     this.batch = new BoxBatch(shared, WORLD_BOXES, true);
-    this.entities = new EntityView(this.batch, sim.world, registry, items);
-    this.creatures = new CreatureView(this.batch, sim.world, registry);
-    this.drops = new DropView(this.batch, sim.world, registry, items);
+    this.shadows = new ContactShadows(sim.world, registry.tables);
+    const shadows = this.shadows;
+    this.entities = new EntityView(this.batch, sim.world, registry, items, shadows);
+    this.creatures = new CreatureView(this.batch, sim.world, registry, shadows);
+    this.drops = new DropView(this.batch, sim.world, registry, items, shadows);
     // Chips and dust take the chunks' own tint colours.
     const tints = shared.uTintColors.value.map(colorTint);
     this.particles = new Particles(this.batch, sim.world, registry.tables, { tints, texels, size });
@@ -77,7 +82,7 @@ export class PlayView {
     this.motes = new Motes(this.batch, sim.world, registry.tables, texel);
     this.overlay = new BlockOverlay(shared, sim.world, registry.tables, registry.pack);
     this.hand = new HandView(shared, registry, items);
-    view.scene.add(this.batch.mesh, this.overlay.group);
+    view.scene.add(this.batch.mesh, this.shadows.mesh, this.overlay.group);
     view.attachHand(this.hand);
   }
 
@@ -123,6 +128,7 @@ export class PlayView {
       blockToColumn(pose.y) * SECTION_SIZE,
       blockToColumn(pose.z) * SECTION_SIZE,
     );
+    this.shadows.begin();
     this.entities.drawPlayer(frame.player, frame.alpha, frame.dt, frame.avatarVisible);
     this.drops.drawAll(this.sim.entities, pose.x, pose.y, pose.z, frame.alpha, frame.dt);
     this.particles.update(frame.dt);
@@ -131,12 +137,14 @@ export class PlayView {
     const reach = this.view.reach;
     this.creatures.drawAll(this.sim.entities, pose.x, pose.z, reach, frame.alpha, frame.dt);
     this.batch.end();
+    this.shadows.end();
     this.overlay.update(frame.targets);
   }
 
   /** Leaves the world view (which outlives a world) and frees the GPU objects. */
   dispose(): void {
-    this.view.scene.remove(this.batch.mesh, this.overlay.group);
+    this.view.scene.remove(this.batch.mesh, this.shadows.mesh, this.overlay.group);
+    this.shadows.dispose();
     this.view.attachHand(null);
     this.batch.dispose();
     this.overlay.dispose();

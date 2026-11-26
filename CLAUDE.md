@@ -464,6 +464,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `BiomeDef.motes`, `MAX_MOTES` in validateSky.ts; `PlayFrame.motes` from GameSession); bloom
     `render/Bloom.ts` (half-float MSAA frame, mip chain, ACES composite; `Settings.bloom`, the high
     preset; `WorldView.setBloom`/`blooms`);
+  - things on the ground (plan v4 « M41 »): box relief (box.glsl.ts: `vTangent`/`vBitangent`,
+    `uMaterials` in BoxBatch), the `fur` pattern, contact shadows `render/ContactShadows.ts`
+    (`begin`/`add`/`end`, fed by CreatureView, DropView and EntityView; `PlayView.shadows`);
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -594,6 +597,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Creature checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m41` (`selftest/m41.ts`): a
+  placed creature's contact shadow.
 - Night checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m40` (`selftest/m40.ts`): a
   glowing wall at midnight, the biome's motes by night only, bloom on the high preset.
 - Sky checks of plan v4: `?seed=7&rd=4&fixedStep=1&selftest=m0,m39` (the auroras' biome at
