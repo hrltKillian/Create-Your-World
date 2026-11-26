@@ -29,3 +29,37 @@ for (const size of SIZES) {
     expect(errors).toEqual([]);
   });
 }
+
+/**
+ * The hovered item's bubble (plan v5 « M46 », M48 fixes): to the right of the pointer, clear of
+ * the cursor, at every size, the interface's zoom included (1920×1080 zooms it by 1.35); flipped
+ * to its left by the window's right edge.
+ */
+for (const size of SIZES) {
+  test(`the item bubble sits right of the pointer at ${size.width}×${size.height}`, async ({
+    page,
+  }) => {
+    const errors = pageErrors(page);
+    await page.setViewportSize(size);
+    await page.goto(FLAT);
+    await gameReady(page);
+    await page.evaluate(() => {
+      const game = window.__game as Hook;
+      game.player.give('item:stick', 3);
+      game.ui.bag(true);
+    });
+    const slot = (await page.locator('#screen-bag [data-slot="0"]').boundingBox())!;
+    const x = slot.x + slot.width / 2;
+    const y = slot.y + slot.height / 2;
+    await page.mouse.move(x - 40, y - 40);
+    await page.mouse.move(x, y, { steps: 4 });
+    const bubble = page.locator('#ui-tooltip .tooltip');
+    await expect(bubble).toBeVisible();
+    const box = (await bubble.boundingBox())!;
+    // Right of the pointer by the cursor's width at least, its top about the pointer's height.
+    expect(box.x - x).toBeGreaterThanOrEqual(24);
+    expect(box.x - x).toBeLessThanOrEqual(40);
+    expect(Math.abs(box.y - y)).toBeLessThanOrEqual(16);
+    expect(errors).toEqual([]);
+  });
+}

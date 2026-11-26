@@ -23,8 +23,11 @@ export interface ScreenActions {
 export interface ScreenDeps {
   readonly art: ItemArt;
   readonly actions: ScreenActions;
-  /** Inventory slots (hotbar then bag). */
-  readonly slotCount: number;
+  /**
+   * Inventory slots (hotbar then bag), read live: carrying points and backpack frames add slots
+   * while the world is open.
+   */
+  readonly inventorySize: () => number;
   /**
    * First slot number of the open block entity's slots, or of the Bag's worn items (the
    * simulation's `OPEN_SLOTS_BASE`: past the largest inventory).
@@ -52,8 +55,11 @@ export class SlotBoard {
   readonly tooltip: Tooltip;
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
-  /** Inventory slots (hotbar then bag). */
-  private readonly slotCount: number;
+  /** Inventory slots (hotbar then bag), read live. */
+  private readonly inventorySize: () => number;
+  /** The bag's grid and how many inventory slots have a view in it. */
+  private bagGrid: HTMLElement | null = null;
+  private shownSlots = 0;
   private readonly closeHint: HTMLElement;
   private readonly closeKey: () => string;
   /** Views by slot number. */
@@ -69,7 +75,7 @@ export class SlotBoard {
   constructor(deps: ScreenDeps, id: string) {
     this.art = deps.art;
     this.actions = deps.actions;
-    this.slotCount = deps.slotCount;
+    this.inventorySize = deps.inventorySize;
     this.closeKey = deps.closeKey;
     this.tooltip = deps.tooltip;
     this.closeHint = h('p', { class: 'bag-close' });
@@ -114,11 +120,16 @@ export class SlotBoard {
     this.views.length = Math.min(this.views.length, from);
   }
 
-  /** The bag (6×4), then the hotbar, with their views; `titled`: under the bag's heading. */
+  /**
+   * The bag (6 a row), then the hotbar, with their views; `titled`: under the bag's heading. The
+   * bag grows a view for each slot the inventory gains (`update`).
+   */
   inventory(titled = false): HTMLElement[] {
+    this.shownSlots = this.inventorySize();
+    this.bagGrid = slotGrid(this.slotViews(HOTBAR_SLOTS, this.shownSlots), BAG_COLUMNS);
     return [
       ...(titled ? [h('p', { class: 'bag-section' }, t('bag.title'))] : []),
-      slotGrid(this.slotViews(HOTBAR_SLOTS, this.slotCount), BAG_COLUMNS),
+      this.bagGrid,
       h('p', { class: 'bag-section' }, t('bag.hotbar')),
       slotGrid(this.slotViews(0, HOTBAR_SLOTS), HOTBAR_SLOTS),
     ];
@@ -155,6 +166,7 @@ export class SlotBoard {
    * they change and regularly; unchanged slots cost nothing.
    */
   update(slots: Slots, cursor: Readonly<ItemStack> | null): void {
+    this.grow();
     this.slots = slots;
     for (let i = 0; i < this.views.length; i++) this.views[i]?.set(slots[i] ?? null);
     if (this.hovered >= 0) this.hover(this.hovered);
@@ -164,6 +176,14 @@ export class SlotBoard {
       view.hidden = cursor === null;
       this.placeCursor();
     }
+  }
+
+  /** The inventory grew (a carrying point, a backpack frame): views for its new slots. */
+  private grow(): void {
+    const size = this.inventorySize();
+    if (!this.bagGrid || size <= this.shownSlots) return;
+    this.bagGrid.append(...this.slotViews(this.shownSlots, size));
+    this.shownSlots = size;
   }
 
   /** A hotbar number key (slot 0–7) pressed while the screen is open, over the hovered slot. */

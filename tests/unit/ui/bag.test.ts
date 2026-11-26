@@ -26,12 +26,12 @@ const LIMITS = { queue: CRAFT_QUEUE, maxCount: MAX_CRAFT_COUNT };
 /** An empty Status page. */
 const STATUS = { level: 'Level 1', xp: '', pointsLeft: '', skills: [] };
 
-function deps(label = () => 'E') {
+function deps(label = () => 'E', size = { slots: BASE_INVENTORY_SLOTS }) {
   const sent: Command[] = [];
   const screen: ScreenDeps = {
     art: { registry, icons: [], figure: '' },
     actions: { send: (command) => sent.push(command), click: () => {} },
-    slotCount: BASE_INVENTORY_SLOTS,
+    inventorySize: () => size.slots,
     openBase: OPEN_SLOTS_BASE,
     closeKey: label,
     tooltip: new Tooltip(),
@@ -170,6 +170,36 @@ describe('BagScreen', () => {
     expect(bag.shown()).toBe('bestiary');
   });
 
+  it('grows a slot for each one the inventory gains (carrying points, backpack frames)', () => {
+    const size = { slots: BASE_INVENTORY_SLOTS };
+    const { screen, sent } = deps(() => 'E', size);
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
+    bag.open();
+    const inventorySlots = () => slotNumbers(bag.element).filter((n) => n < OPEN_SLOTS_BASE);
+    expect(inventorySlots()).toHaveLength(BASE_INVENTORY_SLOTS);
+    size.slots = BASE_INVENTORY_SLOTS + 4;
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
+    slots[BASE_INVENTORY_SLOTS + 3] = { item: 'item:flint', count: 2 };
+    const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], [], [], STATUS);
+    expect(inventorySlots()).toHaveLength(BASE_INVENTORY_SLOTS + 4);
+    // The new slot shows its stack and takes a click like any other.
+    const added = byAttr(bag.element, 'data-slot', String(BASE_INVENTORY_SLOTS + 3))[0]!;
+    expect(added.textContent).toContain('2');
+    fake(bag.element).dispatch('pointerdown', {
+      target: added,
+      button: 0,
+      preventDefault: () => {},
+    });
+    expect(sent.at(-1)).toMatchObject({ type: 'slot.click', slot: BASE_INVENTORY_SLOTS + 3 });
+    // Updated again, it grows no more.
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], [], [], STATUS);
+    expect(inventorySlots()).toHaveLength(BASE_INVENTORY_SLOTS + 4);
+  });
+
   it('draws the cursor stack under the pointer while it holds one', () => {
     const { screen } = deps();
     const bag = new BagScreen(
@@ -219,7 +249,7 @@ describe('BagScreen', () => {
     expect(bubble.hidden).toBe(false);
     expect(bubble.textContent).toContain('Flint Pickaxe');
     expect(bubble.textContent).toContain('Stone:');
-    expect(bubble.style.transform).toBe('translate(124px, 54px)');
+    expect(bubble.style.transform).toBe('translate(128px, 54px)');
     fake(bag.element).dispatch('pointerover', { target: slot(4), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(true);
   });

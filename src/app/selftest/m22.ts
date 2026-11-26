@@ -1,7 +1,8 @@
 import { t } from '../../i18n/i18n.ts';
 import type { PlayerState } from '../../sim/player.ts';
 import { xpToNext } from '../../sim/progression.ts';
-import { click, withinFrames } from '../automation.ts';
+import { click, give, withinFrames } from '../automation.ts';
+import { clickAt, closeScreen, openBag } from './screenSteps.ts';
 import {
   assert,
   needsFlatPlayer,
@@ -18,7 +19,8 @@ import {
  * M22 progression (plan v3 « M22 »), on the flat world with fixed steps
  * (?worldType=flat&fixedStep=1): U opens the Bag's Status page, where a level's point is spent
  * by its « + » (vitality: the largest health grows); the Quests page lists the tasks held, and a
- * task done is claimed for its XP. Numbers come from the pack's balance.
+ * task done is claimed for its XP; a carrying point adds slots the Bag shows, holds and gives back.
+ * Numbers come from the pack's balance.
  */
 
 const SPOT = { x: -60, z: 60 };
@@ -73,7 +75,61 @@ const statusCase: SelftestCase = {
   },
 };
 
+const carryingCase: SelftestCase = {
+  name: 'a carrying point adds slots the Bag shows in view, which hold a stack and give it back',
+  scenes: PLAY_SCENES,
+  skip: needsFlatPlayer,
+  run: async (app) => {
+    const session = await playerSession(app);
+    await standAt(app, SPOT);
+    const player = session.player as PlayerState;
+    const p = app.registry!.pack.balance.progression;
+    (player as PlayerState).xp += xpToNext(1, p) + xpToNext(2, p) + xpToNext(3, p);
+    session.step(31);
+    const before = player.inventory.length;
+    openBag(app, 'status');
+    const spend = '#screen-bag [data-action="skill-spend"][data-skill="carrying"]';
+    const enabled = () => document.querySelector<HTMLButtonElement>(spend)?.disabled === false;
+    assert(await withinFrames(UI_FRAMES, enabled), 'the carrying « + » is not enabled');
+    assert(click(spend), 'no carrying « + »');
+    session.step(1);
+    const last = before + p.skills.carrying - 1;
+    assert(
+      player.inventory.length === last + 1,
+      `the inventory has ${player.inventory.length} slots`,
+    );
+    openBag(app, 'inventory');
+    const view = () => document.querySelector<HTMLElement>(`#screen-bag [data-slot="${last}"]`);
+    assert(await withinFrames(UI_FRAMES, () => !!view()), `the Bag shows no slot ${last}`);
+    // In view once scrolled to, inside the panel.
+    view()!.scrollIntoView({ block: 'nearest' });
+    const box = view()!.getBoundingClientRect();
+    const panel = document.querySelector('#screen-bag .bag-panel')!.getBoundingClientRect();
+    assert(
+      box.width > 0 && box.top >= panel.top - 1 && box.bottom <= panel.bottom + 1,
+      `slot ${last} lies outside the panel`,
+    );
+    // A stack moved into it by clicks, then taken back.
+    const item = app.registry!.pack.items![0]!.key;
+    give(app, item, 1);
+    session.step(1);
+    const from = player.inventory.findIndex((s) => s?.item === item);
+    assert(from >= 0 && from < before, `the gift went to slot ${from}`);
+    clickAt(app, from);
+    clickAt(app, last);
+    assert(
+      player.inventory[last]?.item === item,
+      `slot ${last} holds ${player.inventory[last]?.item}`,
+    );
+    clickAt(app, last);
+    assert(player.cursor?.item === item, 'the stack did not come back out of the new slot');
+    clickAt(app, from);
+    closeScreen(app);
+  },
+};
+
 export const M22_SUITE: readonly SelftestCase[] = [
   statusCase,
+  carryingCase,
   noErrorsCase('no errors after the m22 checks'),
 ];

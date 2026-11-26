@@ -17,7 +17,10 @@ export interface Hook {
   errors(): string[];
   sim: { step(n: number): void };
   input: { look(yaw: number, pitch: number): void; keyLabel(action: string): string | null };
-  player: { get(): { x: number; y: number; z: number } | null };
+  player: {
+    get(): { x: number; y: number; z: number } | null;
+    give(item: string, count?: number): unknown;
+  };
   world: {
     block(x: number, y: number, z: number): string | null;
     waitForChunks(options?: { radius?: number; timeout?: number }): Promise<unknown>;
@@ -28,6 +31,7 @@ export interface Hook {
     hotbar(): { selected: number } | null;
     i18nMissing(): string[];
     hudLayout(): { outside: string[]; over: string[] };
+    bag(open?: boolean): unknown;
   };
   save: { now(): Promise<boolean> };
   bot: { run(kind: string, seconds: number): Promise<{ ticks: number; errors: string[] }> };
