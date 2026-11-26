@@ -219,7 +219,7 @@ describe('BagScreen', () => {
     expect(bubble.hidden).toBe(false);
     expect(bubble.textContent).toContain('Flint Pickaxe');
     expect(bubble.textContent).toContain('Stone:');
-    expect(bubble.style.transform).toBe('translate(124px, 54px)');
+    expect(bubble.style.transform).toBe('translate(128px, 54px)');
     fake(bag.element).dispatch('pointerover', { target: slot(4), clientX: 100, clientY: 60 });
     expect(bubble.hidden).toBe(true);
   });
