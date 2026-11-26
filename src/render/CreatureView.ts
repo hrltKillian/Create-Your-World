@@ -90,6 +90,7 @@ export class CreatureView {
     speed: 0,
     mode: 'idle',
     look: 0,
+    turn: 0,
     dt: 0,
   };
   private readonly addBox = (i: number, box: Matrix4): void => {
@@ -198,7 +199,7 @@ export class CreatureView {
     const b = c.body;
     let tracked = this.rigs.get(c.id);
     if (!tracked) {
-      tracked = { rig: createCreatureRig(), lastX: b.x, lastZ: b.z, frame: 0 };
+      tracked = { rig: createCreatureRig(c.id), lastX: b.x, lastZ: b.z, frame: 0 };
       this.rigs.set(c.id, tracked);
     }
     tracked.frame = this.frame;
@@ -213,6 +214,8 @@ export class CreatureView {
     motion.speed = Math.hypot(b.vx, b.vz);
     motion.mode = c.mode;
     motion.look = this.lookAt(c, kind.def);
+    const yaw = c.prevYaw + angleDelta(c.prevYaw, c.yaw) * alpha;
+    motion.turn = this.turnTo(c, yaw);
     motion.dt = this.dt;
     tracked.lastX = x;
     tracked.lastZ = z;
@@ -227,7 +230,6 @@ export class CreatureView {
     this.block = blockOf(light) / 15;
     this.flash = rig.flash;
     this.kind = kind;
-    const yaw = c.prevYaw + angleDelta(c.prevYaw, c.yaw) * alpha;
     this.root.makeRotationY(yaw).setPosition(x, y, z);
     this.shadows?.add(x, y, z, hitbox[0] * 0.6);
     if (c.mode === 'dying') this.fallOver(c, hitbox[0]);
@@ -248,17 +250,33 @@ export class CreatureView {
     this.root.multiply(this.turn.makeScale(size, size, size));
   }
 
+  /** The player a creature watches, chases or winds up at, if it looks at one. */
+  private targetOf(
+    c: Readonly<CreatureState>,
+  ): Readonly<Extract<Entity, { kind: 'player' }>> | null {
+    if (c.target < 0 || c.mode === 'flee' || c.mode === 'dying') return null;
+    const target = this.entities.get(c.target);
+    return target?.kind === 'player' ? target : null;
+  }
+
   /**
    * Head tilt towards the middle of the body of the player it watches, chases or winds up at (0:
    * none): it aims at the player, not at the player's eyes (plan v3 « M18 »).
    */
   private lookAt(c: Readonly<CreatureState>, def: CreatureDef): number {
-    if (c.target < 0 || c.mode === 'flee' || c.mode === 'dying') return 0;
-    const target = this.entities.get(c.target);
-    if (target?.kind !== 'player') return 0;
+    const target = this.targetOf(c);
+    if (!target) return 0;
     const t = target.body;
     const middle = (t.crouching ? CROUCH_BODY_HEIGHT : BODY_HEIGHT) / 2;
     const rise = t.y + middle - (c.body.y + def.hitbox[1] * CREATURE_EYE_SHARE);
     return -Math.atan2(rise, Math.hypot(t.x - c.body.x, t.z - c.body.z));
+  }
+
+  /** Turn of the head from the creature's facing (`yaw`) to that player (0: none; plan v5 « M52 »). */
+  private turnTo(c: Readonly<CreatureState>, yaw: number): number {
+    const target = this.targetOf(c);
+    if (!target) return 0;
+    // A model faces −z at yaw 0: the yaw facing a point is atan2(−dx, −dz).
+    return angleDelta(yaw, Math.atan2(c.body.x - target.body.x, c.body.z - target.body.z));
   }
 }

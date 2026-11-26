@@ -27,6 +27,9 @@ export type DebugView = (typeof DEBUG_VIEWS)[number];
 export interface PackTextures {
   readonly textures: DataArrayTexture;
   readonly materials: DataArrayTexture;
+  /** The models' skin atlases and their relief (plan v5 « M52 »; `skinTextures`), box shader only. */
+  readonly skins: DataArrayTexture;
+  readonly skinMaterials: DataArrayTexture;
   readonly liquids: Int32Array;
 }
 
@@ -35,6 +38,8 @@ export interface VoxelUniforms {
   readonly uTextures: IUniform<DataArrayTexture>;
   /** The material layers (plan v4 « M36 »): relief normal, roughness, cavity. */
   readonly uMaterials: IUniform<DataArrayTexture>;
+  readonly uSkins: IUniform<DataArrayTexture>;
+  readonly uSkinMaterials: IUniform<DataArrayTexture>;
   readonly uTintColors: IUniform<Color[]>;
   readonly uTime: IUniform<number>;
   /** Wind (plan v4 « M40 »): 1 calm, more in a storm; plants sway further. */
@@ -106,6 +111,8 @@ export function createVoxelMaterials(
   const uniforms: VoxelUniforms = {
     uTextures: { value: textures.textures },
     uMaterials: { value: textures.materials },
+    uSkins: { value: textures.skins },
+    uSkinMaterials: { value: textures.skinMaterials },
     uTintColors: { value: tints },
     uTime: { value: 0 },
     uWind: { value: 1 },

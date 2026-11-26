@@ -8,7 +8,7 @@ import { unit } from './texNoise.ts';
  */
 
 /** Normal tilt per height step between neighbour texels, for relief 1 on a 32-texel tile. */
-const NORMAL_SCALE = 4;
+export const NORMAL_SCALE = 4;
 /** Ambient light lost per height a texel lies under the mean of its 5 × 5 surroundings. */
 const CAVITY = 1.6;
 const CAVITY_MIN = 0.45;

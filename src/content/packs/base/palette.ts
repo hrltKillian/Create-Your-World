@@ -1,4 +1,11 @@
-import { type BlockKey, MASK_INDEX, type TexKey, type TextureDef } from '../../schema.ts';
+import {
+  type BlockKey,
+  MASK_INDEX,
+  type SkinDef,
+  type SkinKey,
+  type TexKey,
+  type TextureDef,
+} from '../../schema.ts';
 
 /*
  * Veyra's palette (plan v5 « M49 »): every item icon is drawn from these ramps only, six tones a
@@ -115,23 +122,27 @@ export const PALETTE: ReadonlySet<string> = new Set([INK, ...Object.values(RAMPS
  * letters a material (its deep shadow, shadow, base, light and highlight), for the materials in
  * the order given: `abcde`, `fghij`, `klmno`, `pqrst`, `uvwxy`; `.` is transparent.
  */
-const LETTERS = ['abcde', 'fghij', 'klmno', 'pqrst', 'uvwxy'] as const;
+export const LETTERS = ['abcde', 'fghij', 'klmno', 'pqrst', 'uvwxy'] as const;
+
+/** A letter's material (its index in `mats`, −1 for the ink and glints) and colour (see LETTERS). */
+function letterColour(key: string, mats: readonly Mat[], ch: string): [number, string] {
+  if (ch === '#') return [-1, INK];
+  if (ch === 'W') return [-1, RAMPS.shine[5]];
+  if (ch === 'V') return [-1, RAMPS.shine[3]];
+  const m = LETTERS.findIndex((group) => group.includes(ch));
+  const mat = mats[m];
+  if (!mat) throw new Error(`${key}: "${ch}" names no material`);
+  return [m, RAMPS[mat][LETTERS[m]!.indexOf(ch) + 1]!];
+}
 
 /**
- * An item icon drawn pixel by pixel (plan v5 « M49 »): 32 rows of 32 letters from the top, in
- * the materials named (see LETTERS). Its palette is the colours it uses, from the palette's ramps.
+ * Rows of letters as mask rows into a palette of the colours they use: a colour of a material in
+ * `glow` is an entry of its own, listed in `lit`.
  */
-export function art(key: TexKey, mats: readonly Mat[], grid: string): TextureDef {
-  const colourOf = (ch: string): string => {
-    if (ch === '#') return INK;
-    if (ch === 'W') return RAMPS.shine[5];
-    if (ch === 'V') return RAMPS.shine[3];
-    const m = LETTERS.findIndex((group) => group.includes(ch));
-    const mat = mats[m];
-    if (!mat) throw new Error(`${key}: "${ch}" names no material`);
-    return RAMPS[mat][LETTERS[m]!.indexOf(ch) + 1]!;
-  };
+function paint(key: string, mats: readonly Mat[], grid: string, glow: readonly number[] = []) {
   const palette: string[] = [];
+  const ids: string[] = [];
+  const lit: number[] = [];
   const mask = grid
     .trim()
     .split('\n')
@@ -139,13 +150,43 @@ export function art(key: TexKey, mats: readonly Mat[], grid: string): TextureDef
       [...row.trim()]
         .map((ch) => {
           if (ch === '.') return '.';
-          const colour = colourOf(ch);
-          if (!palette.includes(colour)) palette.push(colour);
-          return MASK_INDEX[palette.indexOf(colour)]!;
+          const [m, colour] = letterColour(key, mats, ch);
+          const shines = glow.includes(m);
+          const id = shines ? `${colour}*` : colour;
+          let index = ids.indexOf(id);
+          if (index < 0) {
+            index = ids.push(id) - 1;
+            palette.push(colour);
+            if (shines) lit.push(index);
+          }
+          return MASK_INDEX[index]!;
         })
         .join(''),
     );
+  return { palette, mask, lit };
+}
+
+/**
+ * An item icon drawn pixel by pixel (plan v5 « M49 »): 32 rows of 32 letters from the top, in
+ * the materials named (see LETTERS). Its palette is the colours it uses, from the palette's ramps.
+ */
+export function art(key: TexKey, mats: readonly Mat[], grid: string): TextureDef {
+  const { palette, mask } = paint(key, mats, grid);
   return { key, pattern: 'icon', palette, seed: 0, alpha: 'coverage', mask };
+}
+
+/**
+ * A model's skin atlas drawn pixel by pixel (plan v5 « M52 »): rows of letters from the top as for
+ * `art`, at most SKIN_SIZE each way; the materials at the `glow` indices of `mats` shine.
+ */
+export function skinArt(
+  key: SkinKey,
+  mats: readonly Mat[],
+  grid: string,
+  glow: readonly number[] = [],
+): SkinDef {
+  const { palette, mask, lit } = paint(key, mats, grid, glow);
+  return lit.length > 0 ? { key, palette, mask, glow: lit } : { key, palette, mask };
 }
 
 /** A block's drawn icon (plan v5 « M50 »): the block, and the art its item shows in slots. */

@@ -73,7 +73,7 @@ function creature(id: number, key: string, x: number, z: number, mode: CreatureM
 /** Horizontal reach of render distance 6 (blocks). */
 const REACH = 6 * 32;
 
-const still: CreatureMotion = { distance: 0, speed: 0, mode: 'idle', look: 0, dt: 1 / 60 };
+const still: CreatureMotion = { distance: 0, speed: 0, mode: 'idle', look: 0, turn: 0, dt: 1 / 60 };
 
 /** Draws one frame of `entities` and returns the batch and the view. */
 function drawn(entities: Map<number, Entity>, view?: CreatureView, batch?: BoxBatch) {
@@ -133,7 +133,79 @@ describe('creature animation', () => {
   });
 });
 
+describe('creature idle life (plan v5 « M52 »)', () => {
+  const walk = (model: ReturnType<typeof modelOf>, frames: number) => {
+    const rig = createCreatureRig(1);
+    const shins: Record<string, number[]> = { shinFL: [], shinBL: [] };
+    for (let i = 0; i < frames; i++) {
+      animateCreature(rig, model, { ...still, distance: 0.08, speed: 4.8 });
+      for (const name of ['shinFL', 'shinBL']) shins[name]!.push(rig.angles[name]!);
+    }
+    return shins;
+  };
+
+  it('folds the knees back and the hocks forward as the legs swing', () => {
+    const shins = walk(modelOf('creature:trotter'), 120);
+    expect(Math.min(...shins.shinFL!)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...shins.shinFL!)).toBeGreaterThan(0.3);
+    expect(Math.max(...shins.shinBL!)).toBeLessThanOrEqual(0);
+    expect(Math.min(...shins.shinBL!)).toBeLessThan(-0.3);
+  });
+
+  it('turns the head to its target within a limit, and glances about at rest', () => {
+    const model = modelOf('creature:trotter');
+    const rig = createCreatureRig(2);
+    for (let i = 0; i < 120; i++)
+      animateCreature(rig, model, { ...still, mode: 'watch', turn: 0.5 });
+    expect(rig.yaws.head).toBeCloseTo(0.5, 2);
+    for (let i = 0; i < 120; i++) animateCreature(rig, model, { ...still, mode: 'watch', turn: 2 });
+    expect(rig.yaws.head).toBeCloseTo(0.8, 2);
+    const glances = new Set<number>();
+    for (let i = 0; i < 600; i++) {
+      animateCreature(rig, model, still);
+      glances.add(Math.round(rig.yaws.head! * 20));
+    }
+    expect(glances.size).toBeGreaterThan(4);
+  });
+
+  it('wags the tail in a wave down its segments, flattens the ears in flight', () => {
+    const model = modelOf('creature:prowler');
+    const rig = createCreatureRig(3);
+    for (let i = 0; i < 30; i++) animateCreature(rig, model, still);
+    const y = rig.yaws;
+    expect(y.tail).not.toBeCloseTo(y.tail2!, 3);
+    expect(y.tail2).not.toBeCloseTo(y.tail3!, 3);
+    for (let i = 0; i < 30; i++) animateCreature(rig, model, { ...still, mode: 'flee' });
+    expect(rig.angles.earL).toBeLessThan(-0.5);
+  });
+
+  it('keeps a herd out of step: rigs of other seeds breathe and glance apart', () => {
+    const model = modelOf('creature:trotter');
+    const [a, b] = [createCreatureRig(4), createCreatureRig(5)];
+    for (let i = 0; i < 90; i++) {
+      animateCreature(a, model, still);
+      animateCreature(b, model, still);
+    }
+    expect(a.angles.body).not.toBeCloseTo(b.angles.body!, 4);
+  });
+});
+
 describe('creature view', () => {
+  it('draws the parts as skinned boxes of their model’s atlas', () => {
+    const entities = new Map<number, Entity>([[1, creature(1, 'creature:shellback', 0.5, 0.5)]]);
+    const { batch } = drawn(entities);
+    const origins = batch.mesh.geometry.getAttribute('aTexOrigin');
+    const layers = batch.mesh.geometry.getAttribute('aLayers');
+    const model = modelOf('creature:shellback');
+    const skin = registry.pack.skins!.findIndex((s) => s.key === model.skin);
+    expect(batch.size).toBe(model.parts.length);
+    for (let i = 0; i < batch.size; i++) {
+      expect(origins.getW(i)).toBe(2);
+      expect(layers.getX(i)).toBe(skin);
+      expect([origins.getX(i), origins.getY(i)]).toEqual([...model.parts[i]!.uv!]);
+    }
+  });
+
   it('draws every part of each model; only the Prowler eyes glow', () => {
     const prowler = modelOf('creature:prowler');
     const trotter = modelOf('creature:trotter');

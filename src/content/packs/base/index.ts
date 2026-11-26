@@ -94,7 +94,6 @@ export const basePack: ContentPack = {
     ...containerIcons,
     ...survivorSkins,
     ...crackTextures,
-    ...creatureSkins,
   ],
   icons: blockIcons.map((b) => b.texture),
   strings,
@@ -139,4 +138,5 @@ export const basePack: ContentPack = {
   ores,
   structures: colonyStructures,
   models: [...models, ...creatureModels],
+  skins: creatureSkins,
 };

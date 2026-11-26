@@ -15,7 +15,7 @@ import { liquidLayerMask } from '../render/liquidLayers.ts';
 import { DEFAULT_QUALITY, QUALITY_PRESETS } from '../render/quality.ts';
 import { Renderer } from '../render/Renderer.ts';
 import { TitleScene } from '../render/TitleScene.ts';
-import { createTextureArray } from '../render/textureArray.ts';
+import { createTextureArray, skinTextures } from '../render/textureArray.ts';
 import { DEBUG_VIEWS, type DebugView } from '../render/voxelMaterial.ts';
 import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
@@ -35,7 +35,7 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 51;
+export const MILESTONE = 52;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
@@ -246,9 +246,16 @@ export class App {
       size,
       false,
     );
+    const skins = skinTextures(registry.pack);
     const view = new WorldView(
       this.renderer!,
-      { textures, materials, liquids: liquidLayerMask(registry.tables) },
+      {
+        textures,
+        materials,
+        skins: skins.colours,
+        skinMaterials: skins.materials,
+        liquids: liquidLayerMask(registry.tables),
+      },
       tints,
       DEFAULT_SETTINGS.renderDistance,
       registry.pack.sky,
