@@ -23,8 +23,6 @@ export interface FrameResult {
   /** Most draws and triangles in one frame. */
   readonly draws: number;
   readonly triangles: number;
-  /** Draws a frame on average. */
-  readonly meanDraws: number;
   /** p95 of each subsystem's time (ms; docs « Budgets du thread principal par image »). */
   readonly spans: Readonly<Record<SpanName, number>>;
 }
@@ -89,7 +87,6 @@ export class FrameSampler {
       maxInterval: Math.max(0, ...intervals),
       draws: Math.max(0, ...this.draws.subarray(0, n)),
       triangles: Math.max(0, ...this.triangles.subarray(0, n)),
-      meanDraws: n ? this.draws.subarray(0, n).reduce((a, b) => a + b, 0) / n : 0,
       spans,
     };
   }
