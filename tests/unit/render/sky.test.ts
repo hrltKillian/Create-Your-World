@@ -1,6 +1,7 @@
 import { Color, type Fog, type Mesh, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { basePack } from '../../../src/content/packs/base/index.ts';
+import { WATER_VIEW } from '../../../src/render/Atmosphere.ts';
 import {
   createSkyColors,
   moonBearing,
@@ -10,7 +11,6 @@ import {
   skyPaletteOf,
   sunDirection,
 } from '../../../src/render/Sky.ts';
-import { WATER_VIEW } from '../../../src/render/Atmosphere.ts';
 import { createSunLight, sunLightAt } from '../../../src/render/sunLight.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
 
