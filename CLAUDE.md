@@ -471,6 +471,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     from the top left, called by `renderPackTexture` for the `icon` pattern); 32 × 32 masks for the
     berries, fruit, pickaxe and hatchet (tool palettes end with a crystal colour, index 6);
     `MAX_ITEM_BOXES` 40;
+  - interface (plan v4 « M43 »): the colony theme's CSS tokens (main.css: `--glass`,
+    `--glass-edge`, `--glass-blur`, `--metal`, `--slot-bg`, `--slot-edge`, `--c-sheen`; colours and
+    shadows only, never sizes), `rise-in` for screens and menus, the title sky `app/titleSky.ts`
+    (`runTitleSky`, run by `Game.showMenu`); item icons as data URLs (`createItemIcons`);
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -600,6 +604,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):
+  the Bag and hotbar in smoked glass with the teal rim, slots pressed in.
 - Icon checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m42` (`selftest/m42.ts`): the
   Bag shows a planting food's 32 × 32 shaded icon.
 - Creature checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m41` (`selftest/m41.ts`): a

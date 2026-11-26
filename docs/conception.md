@@ -3172,26 +3172,17 @@ Les objets tirés d'une icône peuvent prendre 40 boîtes (37 pour les baies).
 
 **Tests** : lumière du haut à gauche, trous intacts, lisibilité (le pourtour plus sombre que l'intérieur de chaque icône pleine) ; selftest `m42` (`?worldType=flat&fixedStep=1&selftest=m0,m42`) : le Sac montre l'icône 32 × 32 d'un fruit qui se plante, ombrée en bien plus de couleurs que sa palette.
 
-#### M43 — Système visuel des interfaces
+#### M43 — Système visuel des interfaces (fait)
 
-**Thème « colonie » cohérent** :
+**Le thème « colonie »** (jetons CSS de `ui/styles/main.css`) : panneaux de verre fumé (`--glass` : un reflet en haut, un fond sombre translucide) au liseré sarcelle de Veyra et au bord haut éclairé (`--glass-edge`), floutant ce qu'il y a derrière dans les écrans et menus (`--glass-blur`) ; boutons de métal brossé à reflet sarcelle au survol ; cases enfoncées dans le panneau (`--slot-bg`, `--slot-edge`) ; la case en main respire une lueur ambrée. Seules les couleurs, ombres et flous changent : aucune taille, la disposition du M35 tient aux trois tailles.
 
-- panneaux de métal et de verre fumé ;
-- liserés à reflet extraterrestre ;
-- typographie, cases à relief, survol et sélection animés.
+**Le HUD** : barre d'action, boussole et panneaux en verre (sans flou d'arrière-plan, qui coûterait à chaque image), anneau de la minicarte cerclé de sarcelle et creusé.
 
-**HUD redessiné**, en gardant le M35 :
+**Les menus** : l'écran titre montre le ciel nocturne de Veyra qui tourne (`app/titleSky.ts` : vue levée vers le nord depuis très haut, la géante annelée en haut à droite, les aurores de l'air le plus froid du pack qui montent), sous un voile plus sombre en bas ; les écrans et menus entrent en glissant (`rise-in`, coupé si l'utilisateur réduit les animations).
 
-- rangées de jauges, boussole, cadre de minicarte, barre d'action ;
-- `hudLayout` reste vert aux trois tailles.
+**Icônes** : encodées d'un coup en data URL (`toDataURL`) : une page en arrière-plan retenait les encodages asynchrones un à un.
 
-**Menus** : écran titre avec la planète animée (ciel du M39), transitions douces.
-
-**Tests** :
-
-- e2e de disposition ;
-- i18n ;
-- captures des écrans.
+**Tests** : le ciel du titre (nuit, vue levée de haut) ; selftest `m43` (`?worldType=flat&fixedStep=1&selftest=m0,m43`) : le Sac en verre fumé à liseré sarcelle, la barre d'action aussi, des cases enfoncées ; `m35` et `e2e/hud.spec.ts` restent verts.
 
 ### Partie C — Son
 

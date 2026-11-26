@@ -133,7 +133,8 @@ describe('save & quit', () => {
     expect(await s.game.saveAndQuit()).toBe(true);
     expect(s.game.state).toBe('menu');
     expect(s.game.open).toBeNull();
-    expect(s.running()).toBe(false);
+    // The world's loop is gone: the title sky turns behind the menu (plan v4 « M43 »).
+    expect(s.running()).toBe(true);
     expect(s.root.childNodes).toHaveLength(layers - 1);
     expect((await s.storage.listWorlds()).map((w) => w.id)).toEqual([id]);
     const lock = await lockWorld(id);

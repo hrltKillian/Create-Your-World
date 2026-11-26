@@ -24,6 +24,7 @@ import type { BootParams } from './bootParams.ts';
 import { Menus } from './Menus.ts';
 import { OpenWorld } from './OpenWorld.ts';
 import type { FrameStats } from './perf.ts';
+import { runTitleSky } from './titleSky.ts';
 import {
   createWorld,
   loadWorld,
@@ -228,7 +229,8 @@ export class Game {
   /** The main menu (at boot, after a failed opening or save & quit), with a notice key. */
   private async showMenu(notice: string | null = null): Promise<void> {
     if (!this.go('menu')) return;
-    this.host.stopLoop();
+    // Veyra's night sky turns behind the menu (plan v4 « M43 »).
+    runTitleSky(this.host.view, this.host.registry, this.host.runLoop);
     this.host.input.enabled = false;
     await this.menus.openMain(notice);
     this.host.shown();
