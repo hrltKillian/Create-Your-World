@@ -21,8 +21,8 @@ const SLOW_CPU = 1.7;
 const SLOW_WALK_P95_MS = 15;
 const MAX_CAVE_DRAWS = 200;
 // −10 % since M16 (connected caves); since plan v3's M24 (wide caves, seen far through) ≤ 200
-// draws and −1 %: frame work stays far under budget. Draws a frame on average over a whole turn
-// (the bench's pose turns once around). As in src/app/selftest/m11perf.ts.
+// draws and −1 %: frame work stays far under budget. The share saved is counted over a turn of the
+// pose (CAVE.headings). As in src/app/selftest/m11perf.ts.
 const MIN_CAVE_SAVED = 0.01;
 const EDIT_TO_MESH_P95_MS = 50;
 const PLAYABLE_MS = 3000;
