@@ -94,6 +94,11 @@ export const RAMPS = {
   lampLight: ['#2f1008', '#d99268', '#f4ac5f', '#fed27e', '#fff4df', '#fff4e0'],
   kilnClay: ['#271418', '#552a2d', '#764039', '#975e4a', '#b57e66', '#cea28b'],
   darkMetal: ['#08090b', '#1b1f24', '#30363d', '#4a5259', '#667075', '#858f91'],
+  // The crash survivor (plan v5 « M51 »).
+  skin: ['#291315', '#85514b', '#a86a55', '#c88b66', '#e7ad86', '#fed3b4'],
+  hair: ['#0d0304', '#240a09', '#401f15', '#5c3b26', '#795842', '#927865'],
+  suit: ['#121c21', '#1d373e', '#2f5257', '#497071', '#6a8f8a', '#91ada5'],
+  canvas: ['#101e17', '#31472f', '#51603a', '#7c7a4d', '#9c996d', '#bcb895'],
   shine: ['#24222b', '#a9adbb', '#c8cbd6', '#e1e3ea', '#f3f4f7', '#ffffff'],
 } as const satisfies Record<string, readonly [string, string, string, string, string, string]>;
 

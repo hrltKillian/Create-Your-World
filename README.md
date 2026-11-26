@@ -138,6 +138,19 @@ of them:
 
 ## Try this milestone
 
+**M51 — The crash survivor** (plan v5, `docs/conception.md` « M51 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **The avatar is a crash survivor**: a torn and scorched pilot's suit in the colony's colours, a
+  harness, the breathing mask hanging at the neck, a survival pack with its bedroll, gloves, laced
+  boots, messy hair and a plaster on the brow.
+- **Skins at the world's density**, two texels a unit like the blocks, every face with its own art.
+- **Press V** for the view from behind and from in front; the first-person arm wears the sleeve and
+  glove; the Bag (E) shows the survivor by the worn items.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m51`.
+
+### Earlier milestones
+
 **M50 — Block icons drawn by hand** (plan v5, `docs/conception.md` « M50 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1` and press E.
 
@@ -147,8 +160,6 @@ open `http://localhost:5173/?skipMenu=1` and press E.
 - **Placed things** are drawn as themselves (the torch, ladder, gate, trapdoor, barrel, bedroll,
   lantern, campfire), the chest and the stations as cubes like every block, the plants as plants.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m49,m50`.
-
-### Earlier milestones
 
 **M49 — Item icons drawn by hand** (plan v5, `docs/conception.md` « M49 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1` and press E.

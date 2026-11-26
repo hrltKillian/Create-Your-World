@@ -1,3 +1,4 @@
+import { createFigure } from '../assets/procedural/figure.ts';
 import { createItemIcons } from '../assets/procedural/iconGen.ts';
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import type { Registry } from '../content/registry.ts';
@@ -98,10 +99,11 @@ export class InventoryUi {
     this.session = session;
     this.input = input;
     this.gate = gate;
-    const art: ItemArt = { registry, icons: [] };
+    const art: ItemArt = { registry, icons: [], figure: '' };
     itemIcons(registry, layers)
       .then((urls) => {
         art.icons = urls;
+        art.figure = createFigure(registry, layers, registry.pack.manifest.textureSize);
       })
       .catch((error: unknown) => log.error('item icons failed', error));
     const click = registry.pack.sounds?.click;

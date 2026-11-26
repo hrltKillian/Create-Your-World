@@ -3,6 +3,7 @@ import type { Registry } from '../content/registry.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { BoxBatch, type BoxSkin, fullSkin, HAND_BOXES } from './BoxBatch.ts';
 import { drawItem, type ItemModel } from './itemModels.ts';
+import { partSkin } from './rigs.ts';
 import type { VoxelUniforms } from './voxelMaterial.ts';
 
 /** One stroke of the arm (s). */
@@ -109,7 +110,7 @@ export class HandView {
     const key = registry.pack.manifest.bindings.avatarModel;
     const model = (registry.pack.models ?? []).find((m) => m.key === key);
     const arm = model?.parts.find((p) => p.name === 'armR');
-    this.armSkin = fullSkin(arm ? Math.max(0, registry.textureKeys.indexOf(arm.texture)) : 0);
+    this.armSkin = model && arm ? partSkin(registry, model, arm) : fullSkin(0);
   }
 
   /** Starts one stroke unless one is under way (placing a block). */

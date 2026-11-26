@@ -515,6 +515,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sim/lightning.ts` (`strike`: the top of a column, `weather.lightningDamage`/`lightningRadius`,
     cause `lightning`; command `debug.strike`, hook `weather.strike(x, z)`, `weather.get().bolt`); the
     bolt `render/Lightning.ts` (`WorldView.lightning`, `strokeAt`); a contact's `burnCause`;
+  - the crash survivor (plan v5 « M51 »): `model:survivor` (content/packs/base/models.ts, skins
+    `survivorSkins.ts`: `body` back-left/front-right, `sides` left/right faces, `caps` top in the
+    bottom rows and bottom in the top rows); per-face textures `ModelPart.faces` (front −z, back,
+    top, bottom; `LAYER_PACK` packs front and back layers in BoxBatch's `aLayers.w`); skins at the
+    world's density `ModelDef.pixels` (two texels a unit) through `partSkin` (render/rigs.ts, used
+    by EntityView, CreatureView, HandView); the Bag's figure `figurePixels`/`createFigure`
+    (assets/procedural/figure.ts, `ItemArt.figure`, `.figure-art`);
   - the « collapsed colony » interface (plan v5 « M48 »): its pixel art drawn by code at boot
     (`assets/procedural/uiArt.ts`: `UI` colours, `plate`, `rivet`, `moss`, `vine`, `hazard`,
     `gaugeFull`/`gaugeEmpty` of `GAUGE_SYMBOLS`; `ui/uiArt.ts` `applyUiArt` sets `--art-*` and
@@ -667,6 +674,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   room outdoors, then indoors under a roof. Hook: `audio.ambience().reverb`.
 - Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):
   the Bag and hotbar as riveted plates (plan v5's look), unblurred, slots pressed in.
+- Avatar checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m51` (`selftest/m51.ts`): the
+  survivor seen from behind and in front differs, the Bag shows its figure.
 - Icon checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m49,m50` (`selftest/m49.ts`,
   `m50.ts`): the Bag shows a planting food's hand-drawn 32 × 32 icon and a chest's drawn art, every
   pixel a colour of its palette.

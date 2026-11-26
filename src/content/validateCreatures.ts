@@ -153,6 +153,8 @@ function validateModels(
         add(`${ppath}.name`, `a ${model.gait} has no leg "${part.name}"`);
       if (!textureKeys.has(part.texture))
         add(`${ppath}.texture`, `unknown texture "${part.texture}"`);
+      for (const [face, key] of Object.entries(part.faces ?? {}))
+        if (key && !textureKeys.has(key)) add(`${ppath}.faces.${face}`, `unknown texture "${key}"`);
       if (part.parent !== undefined && !names.has(part.parent))
         add(`${ppath}.parent`, `no part "${part.parent}" before this one`);
       if (part.from.some((v, a) => !(v < part.to[a]!)))

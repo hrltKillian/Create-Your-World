@@ -9,8 +9,8 @@ import {
   prepareModel,
 } from '../../../src/render/rigs.ts';
 
-const explorer = prepareModel(models[0]!);
-const names = explorer.model.parts.map((p) => p.name);
+const survivor = prepareModel(models[0]!);
+const names = survivor.model.parts.map((p) => p.name);
 
 const still: Motion = {
   distance: 0,
@@ -23,20 +23,25 @@ const still: Motion = {
   dt: 1 / 60,
 };
 
-/** World-space centre of every part's box for a pose. */
+/** World-space centre of every part's box for a pose, and the middle of the head's face. */
 function pose(motion: Partial<Motion>, crouchDrop = 0) {
   const rig = createRig();
   for (let i = 0; i < 60; i++) animate(rig, { ...still, ...motion });
   const centres = new Map<string, Vector3>();
+  const face = new Vector3();
   poseModel(
-    explorer,
+    survivor,
     rig,
     new Matrix4(),
     crouchDrop,
-    (i, box) => centres.set(names[i]!, new Vector3(0.5, 0.5, 0.5).applyMatrix4(box)),
+    (i, box) => {
+      centres.set(names[i]!, new Vector3(0.5, 0.5, 0.5).applyMatrix4(box));
+      // The front face (−z, where the model looks) of the head.
+      if (names[i] === 'head') face.set(0.5, 0.5, 0).applyMatrix4(box);
+    },
     [],
   );
-  return { rig, centres };
+  return { rig, centres, face };
 }
 
 describe('avatar rig', () => {
@@ -46,10 +51,12 @@ describe('avatar rig', () => {
     // Drop plus the torso's forward lean (0.42 rad about its pivot 9/16 below the head pivot).
     const lean = (9 / 16) * (1 - Math.cos(0.42));
     expect(stand.rig.headPivotY - crouch.rig.headPivotY).toBeCloseTo(0.25 + lean, 6);
-    // Hood and goggles stay on the head, the head stays on the torso.
+    // The hair stays on the head, the mask, pack and bedroll on the torso, the head on the torso.
     for (const [child, parent] of [
-      ['hood', 'head'],
-      ['goggles', 'head'],
+      ['hair', 'head'],
+      ['mask', 'torso'],
+      ['pack', 'torso'],
+      ['roll', 'torso'],
       ['head', 'torso'],
     ] as const) {
       const before = stand.centres.get(child)!.clone().sub(stand.centres.get(parent)!);
@@ -57,6 +64,9 @@ describe('avatar rig', () => {
       if (child === 'head') {
         // The torso leans while crouching, so compare the pivot drop instead.
         expect(crouch.centres.get('head')!.y).toBeLessThan(stand.centres.get('head')!.y);
+      } else if (parent === 'torso') {
+        // Carried by the leaning torso: turned with it, as far from it as ever.
+        expect(after.length()).toBeCloseTo(before.length(), 9);
       } else {
         expect(after.distanceTo(before)).toBeLessThan(1e-9);
       }
@@ -66,9 +76,9 @@ describe('avatar rig', () => {
   });
 
   it('raises the face when looking up and lowers it when looking down', () => {
-    const level = pose({}).centres.get('goggles')!.y;
-    expect(pose({ pitch: 0.8 }).centres.get('goggles')!.y).toBeGreaterThan(level);
-    expect(pose({ pitch: -0.8 }).centres.get('goggles')!.y).toBeLessThan(level);
+    const level = pose({}).face.y;
+    expect(pose({ pitch: 0.8 }).face.y).toBeGreaterThan(level);
+    expect(pose({ pitch: -0.8 }).face.y).toBeLessThan(level);
   });
 
   it('swings the limbs when walking and rests when idle', () => {
@@ -98,7 +108,7 @@ describe('avatar rig', () => {
   });
 
   it('finds the arm that holds items', () => {
-    expect(names[explorer.hand]).toBe('armR');
+    expect(names[survivor.hand]).toBe('armR');
   });
 
   it('rejects a part listed before its parent', () => {

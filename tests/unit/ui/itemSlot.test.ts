@@ -5,7 +5,7 @@ import { ingredientItem, ingredientName, stackName } from '../../../src/ui/itemS
 import { registry } from '../../helpers/registry.ts';
 
 addStrings(basePack.strings);
-const art = { registry, icons: [] };
+const art = { registry, icons: [], figure: '' };
 
 describe('item names and pictures', () => {
   it('names a tag ingredient and pictures it with the first item carrying the tag', () => {

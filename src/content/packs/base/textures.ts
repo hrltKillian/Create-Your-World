@@ -288,42 +288,6 @@ export const textures = [
     seed: 71,
     alpha: 'coverage',
   },
-  {
-    key: 'tex:avatar_skin',
-    pattern: 'speckle',
-    palette: ['#c08a6a', '#c9967a', '#d1a184'],
-    seed: 81,
-  },
-  {
-    key: 'tex:avatar_jacket',
-    pattern: 'speckle',
-    palette: ['#2f5a5c', '#356668', '#3c7274', '#447f80'],
-    seed: 83,
-  },
-  {
-    key: 'tex:avatar_pants',
-    pattern: 'speckle',
-    palette: ['#3b3a46', '#43424f', '#4b4a58'],
-    seed: 85,
-  },
-  {
-    key: 'tex:avatar_hood',
-    pattern: 'speckle',
-    palette: ['#8c5a2b', '#9a6532', '#a7703a'],
-    seed: 87,
-  },
-  {
-    key: 'tex:avatar_goggles',
-    pattern: 'speckle',
-    palette: ['#1d2a2f', '#244a57', '#7cc8e0'],
-    seed: 89,
-  },
-  {
-    key: 'tex:avatar_satchel',
-    pattern: 'planks',
-    palette: ['#4a3020', '#5c3c28', '#6e4930', '#7d5438'],
-    seed: 91,
-  },
   // M6: underground and decoration.
   {
     key: 'tex:berry_bush',

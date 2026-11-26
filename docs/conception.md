@@ -3461,7 +3461,7 @@ Comme dans Minecraft :
 - le budget gzip passe de 460 à 480 kB : les 144 grilles dessinées (M49 et M50) sont des données d'environ 45 kB compressés, que le découpage en morceaux ne réduirait pas ;
 - ces dessins ne servent qu'aux cases : ils sont les `icons` du pack, rendus par le processeur et jamais envoyés dans le tableau de textures de la carte graphique (sa limite de 256 couches) ; modules `iconsSoil`, `iconsRock`, `iconsTrees`, `iconsLeaves`, `iconsBuilding`, `iconsStations`, `iconsFixtures`, `iconsPlants`, `iconsShrubs`.
 
-#### M51 — Le survivant du crash
+#### M51 — Le survivant du crash (fait)
 
 - **Modèle** : combinaison de pilote abîmée aux couleurs de la colonie, harnais, sac de survie, masque respiratoire autour du cou, cheveux visibles, gants, bottes, proportions humaines.
 - **Peaux** 32 px avec relief.
@@ -3469,6 +3469,13 @@ Comme dans Minecraft :
 - Vu en 3e personne de dos et de face, et sur la figure d'équipement du Bag.
 
 **Tests** : `rigs`/`creatureView` ; selftest `m51` (les vues de dos et de face dessinent l'avatar).
+
+**Retenu à la réalisation** :
+
+- chaque face d'une boîte peut avoir sa texture (`ModelPart.faces` : devant, derrière, dessus, dessous ; les côtés prennent `texture`) : le shader des boîtes lit la couche de l'avant et de l'arrière dans un même nombre (`LAYER_PACK`) ;
+- un modèle à la densité du monde (`ModelDef.pixels`) montre sur chaque face son propre coin de texture, deux texels par unité comme les blocs (la peau du jeu de référence) ; `partSkin` (render/rigs.ts) fait la peau de chaque partie pour l'avatar, les créatures et le bras ;
+- le survivant (`model:survivor`) : jambes, torse, bras, tête, cheveux, masque, sac et couchage roulé ; combinaison sarcelle (rampe `suit`) aux épaules ocre, harnais de cuir à boucles de fer, l'insigne de la colonie, un accroc et une brûlure, genouillères, bottes lacées, gants, un pansement au front, cheveux bruns en bataille ; 24 textures dessinées à la main (`survivorSkins.ts` : `body`, `sides`, `caps` par partie, bras et jambes partagés) ;
+- la figure du Bag est le survivant vu de face, tiré de ses propres textures (`figurePixels`, assets/procedural/figure.ts), à côté des cinq emplacements d'équipement.
 
 #### M52 — Créatures redessinées
 

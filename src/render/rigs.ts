@@ -1,5 +1,37 @@
 import { Matrix4, Vector3 } from 'three';
-import type { ModelDef } from '../content/schema.ts';
+import type { Registry } from '../content/registry.ts';
+import type { ModelDef, ModelPart, TexKey } from '../content/schema.ts';
+import { type BoxSkin, fullSkin } from './BoxBatch.ts';
+
+/** Texture space a model unit covers at the world's density: 2 texels at size 32 (1/16 block). */
+const UNIT = 1 / 16;
+
+/**
+ * A model part's skin (plan v5 « M51 »): its sides' layer and its faces' own (`ModelPart.faces`).
+ * A model at the world's density (`ModelDef.pixels`) shows on each face its own corner of the
+ * texture, two texels a unit (the reference game's skins); else each face stretches the whole.
+ */
+export function partSkin(registry: Registry, model: ModelDef, part: ModelPart): BoxSkin {
+  const layer = (key: TexKey | undefined, fallback: number) =>
+    key ? Math.max(0, registry.textureKeys.indexOf(key)) : fallback;
+  const side = layer(part.texture, 0);
+  const faces = part.faces;
+  const whole = fullSkin(side);
+  return {
+    ...whole,
+    top: layer(faces?.top, side),
+    bottom: layer(faces?.bottom, side),
+    front: layer(faces?.front, side),
+    back: layer(faces?.back, side),
+    ...(model.pixels
+      ? {
+          sx: (part.to[0] - part.from[0]) * UNIT,
+          sy: (part.to[1] - part.from[1]) * UNIT,
+          sz: (part.to[2] - part.from[2]) * UNIT,
+        }
+      : {}),
+  };
+}
 
 /** Animation state of one model instance, kept on the render side. */
 export interface RigState {
