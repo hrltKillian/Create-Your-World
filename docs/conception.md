@@ -3131,26 +3131,21 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 **Tests** : palette, phases (pleine, nouvelle, deux lunes qui s'écartent), boussole, air qui s'installe et repart, validation ; selftest `m39` : à minuit le ciel au-dessus du biome aux aurores est plus clair qu'au-dessus du point d'apparition (`?seed=7&rd=4&fixedStep=1`), les nuages d'orage assombrissent le ciel de midi (`?worldType=flat&fixedStep=1`).
 
-#### M40 — La nuit de Veyra : bioluminescence et vie
+#### M40 — La nuit de Veyra : bioluminescence et vie (fait)
 
 **Bioluminescence** :
 
-- Les plantes, champignons, minerais et créatures marqués émissifs brillent plus fort quand il fait noir.
-- Masques dans les cartes de matière, données `emissive` des recettes.
+- ce qui luit (texels émissifs des blocs, parties lumineuses des créatures) brille un peu plus dans le noir (`glowGain` : jusqu'à ×1,3 sans lumière du ciel) ;
+- une plante qui émet de la lumière luit sur une bonne part d'elle-même (`rawTables` : drapeau émissif des faces d'une plante en croix qui émet, 50 % dans le shader) ;
+- les taches des chapeaux de champignons lumineux du pack passent à un sarcelle saturé (le blanc saturait).
 
-**Ambiance de nuit** :
+**La vie de la nuit** : des lucioles et des spores dérivent autour de la caméra la nuit selon le biome (`BiomeDef.motes` : couleur, nombre ≤ 64 ; `render/Motes.ts`) : chacune garde sa place dans le monde, erre, clignote, s'efface au bord de sa boîte de 24 blocs, jamais dans un bloc plein ; elles viennent avec la nuit (`nightShare`). Le pack en donne au Capwood (spores sarcelle), au marais, en forêt, en prairie et au bassin des lacs.
 
-- lucioles et spores luminescentes en particules légères dans certains biomes ;
-- feuillage rétro-éclairé par le soleil ;
-- vent plus fort par temps d'orage.
+**Le feuillage** s'éclaire à contre-jour quand le soleil est derrière lui ; le **vent** d'orage fait onduler les plantes plus loin et plus vite (`uWind`, jusqu'à ×2,5), leurs ombres aussi.
 
-**Bloom** léger au palier haut (seuil sur les émissifs et le soleil).
+**Bloom** (`render/Bloom.ts`, préréglage haut, réglage « Bloom ») : l'image est rendue dans une cible en demi-flottants multi-échantillonnée (MSAA ×4), ses parties brillantes descendent une chaîne de 5 niveaux puis remontent floutées, et s'ajoutent à l'image, qui est tone mappée et passée en sRGB vers l'écran.
 
-**Tests** :
-
-- capture de nuit au Capwood ;
-- particules dans le budget de draws ;
-- perf.
+**Tests** : la nuit des lucioles, leur nombre, leur place dans le monde, jamais dans la pierre ; validation des lucioles ; selftest `m40` (`?worldType=flat&fixedStep=1&selftest=m0,m40`) : à minuit un mur d'un bloc lumineux du pack brille plus qu'un mur ordinaire, les lucioles du biome la nuit et pas le jour, le préréglage haut avec bloom.
 
 #### M41 — Créatures, avatar et objets posés
 

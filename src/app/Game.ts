@@ -369,6 +369,7 @@ export class Game {
     view.setFov(settings.fov);
     view.setGamma(settings.gamma);
     view.setShadows(this.graphics().shadows);
+    view.setBloom(this.graphics().bloom);
     this.applyUiScale();
     if (this.open) this.applyWorldSettings(this.open);
   }
@@ -391,11 +392,12 @@ export class Game {
     open.session.rig.viewBob = this.settings.viewBob;
   }
 
-  /** Resolution, particles and shadows: `?quality=`'s preset in dev builds, else the settings. */
+  /** Resolution, particles, shadows, bloom: `?quality=`'s preset in dev builds, else the settings. */
   private graphics(): {
     readonly pixelRatio: number;
     readonly particles: boolean;
     readonly shadows: number;
+    readonly bloom: boolean;
   } {
     const quality = this.host.params.quality;
     return quality ? QUALITY_PRESETS[quality] : this.settings;

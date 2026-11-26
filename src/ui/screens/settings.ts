@@ -40,10 +40,10 @@ interface Control<T> {
 
 /**
  * The Settings screen (docs « Interface » → Settings): graphics (quality preset, render distance,
- * field of view, resolution, particles, shadows, view bob), controls (mouse sensitivity, inverted look,
+ * field of view, resolution, particles, shadows, bloom, view bob), controls (mouse sensitivity, inverted look,
  * crouch mode, and the Key bindings screen), the four volumes and the interface scale. Every
  * change is sent at once and the screen shows the result: a preset sets the render distance, the
- * resolution, the particles and the shadows, and no preset is checked when they match none. Sliders show
+ * resolution, the particles, the shadows and bloom, and no preset is checked when they match none. Sliders show
  * percents; settings keep factors (0–1, or the sensitivity and scale factors).
  */
 export class SettingsScreen {
@@ -89,6 +89,7 @@ export class SettingsScreen {
       (n) => t(`settings.shadows.${n}`),
       (size) => patch({ shadows: size }),
     );
+    const bloom = checkbox('bloom', 'settings.bloom', (on) => patch({ bloom: on }));
     const viewBob = checkbox('viewBob', 'settings.viewBob', (on) => patch({ viewBob: on }));
     const gamma = percentSlider('gamma', 'settings.gamma', { min: 0, max: 1 }, (n) =>
       patch({ gamma: n }),
@@ -121,6 +122,7 @@ export class SettingsScreen {
       (s) => resolution.set(s.pixelRatio),
       (s) => particles.set(s.particles),
       (s) => shadows.set(s.shadows),
+      (s) => bloom.set(s.bloom),
       (s) => viewBob.set(s.viewBob),
       (s) => gamma.set(s.gamma),
       (s) => sensitivity.set(s.sensitivity),
@@ -144,6 +146,7 @@ export class SettingsScreen {
         labelled('settings.pixelRatio', resolution.element),
         particles.element,
         labelled('settings.shadows', shadows.element),
+        bloom.element,
         viewBob.element,
         gamma.element,
       ),

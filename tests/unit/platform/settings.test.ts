@@ -45,6 +45,7 @@ const CUSTOM: Settings = {
   pixelRatio: 0.75,
   particles: false,
   shadows: 2048,
+  bloom: true,
   viewBob: false,
   gamma: 0.6,
   sensitivity: 1.35,

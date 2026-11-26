@@ -5,6 +5,7 @@ import type { WorkerPool } from '../platform/WorkerPool.ts';
 import { CameraRig } from '../render/CameraRig.ts';
 import type { EntityView } from '../render/EntityView.ts';
 import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
+import { nightShare } from '../render/Motes.ts';
 import { type PlayFrame, PlayView } from '../render/PlayView.ts';
 import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import { COLUMN_LIT, COLUMN_MESHABLE } from '../sim/ColumnPipeline.ts';
@@ -60,6 +61,8 @@ export class GameSession {
   readonly play: PlayView;
   /** The weather shown (plan v3 « M34 »). */
   readonly weather: WeatherFeel;
+  /** The motes of the biome around the camera (plan v4 « M40 »). */
+  private readonly motes = { color: '#ffffff', count: 0, night: 0 };
   readonly entities: EntityView;
   /** The creature or block under the crosshair and the placement ghost, from the client's eye. */
   readonly aim: ClientAim;
@@ -142,6 +145,7 @@ export class GameSession {
       firstPerson: true,
       avatarVisible: false,
       eating: false,
+      motes: null,
       targets: this.aim,
     };
     const spawn = this.host.view.spawn;
@@ -328,6 +332,7 @@ export class GameSession {
     // Hidden when the camera is pressed against the avatar (back to a wall): no view of the hood.
     frame.avatarVisible = rig.mode === 'third' && rig.distance >= AVATAR_MIN_DISTANCE;
     frame.eating = eating(this.player, this.registry);
+    frame.motes = this.motes.count > 0 && this.motes.night > 0 ? this.motes : null;
     this.play.draw(frame);
     return pose;
   }
@@ -345,6 +350,11 @@ export class GameSession {
     const biome = sim.world.biomeAt(Math.floor(pose.x), Math.floor(pose.z));
     const def = biome < 0 ? undefined : sim.gen.biomeDefs[biome];
     this.view.setAir(def?.fog ?? null, def?.aurora ?? 0);
+    // Its fireflies and spores by night (plan v4 « M40 »), drawn on the next frame.
+    const motes = this.motes;
+    motes.color = def?.motes?.color ?? motes.color;
+    motes.count = def?.motes?.count ?? 0;
+    motes.night = nightShare(daylightAt(hour));
     this.weather.frame(dt, pose);
     this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
   }

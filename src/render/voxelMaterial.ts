@@ -37,6 +37,8 @@ export interface VoxelUniforms {
   readonly uMaterials: IUniform<DataArrayTexture>;
   readonly uTintColors: IUniform<Color[]>;
   readonly uTime: IUniform<number>;
+  /** Wind (plan v4 « M40 »): 1 calm, more in a storm; plants sway further. */
+  readonly uWind: IUniform<number>;
   readonly uDaylight: IUniform<number>;
   /** The sky's light (plan v4 « M37 », `sunLight.ts`): direction, direct, sky and ground light. */
   readonly uSunDir: IUniform<Vector3>;
@@ -104,6 +106,7 @@ export function createVoxelMaterials(
     uMaterials: { value: textures.materials },
     uTintColors: { value: tints },
     uTime: { value: 0 },
+    uWind: { value: 1 },
     uDaylight: { value: 1 },
     uSunDir: { value: new Vector3(0, 1, 0) },
     uSunLight: { value: new Color(0.6, 0.6, 0.6) },

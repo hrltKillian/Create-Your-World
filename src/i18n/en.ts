@@ -398,6 +398,7 @@ export const en = {
   'settings.shadows.0': 'Off',
   'settings.shadows.1024': 'Medium',
   'settings.shadows.2048': 'High',
+  'settings.bloom': 'Bloom (glow round bright lights)',
   'settings.viewBob': 'View bob while walking',
   'settings.gamma': 'Gamma (brightness of the dark)',
   'settings.crouch': 'Crouch',

@@ -34,6 +34,8 @@ const AIR_HORIZON = 0.35;
 const AIR_ZENITH = 0.12;
 /** Seconds the air takes to change from one biome's to the next. */
 const AIR_FADE_SECONDS = 4;
+/** Full cloud blows this much more wind into the plants (plan v4 « M40 »). */
+const STORM_WIND = 1.5;
 const scratch = new Color();
 const air = new Color();
 
@@ -150,6 +152,7 @@ export class Atmosphere {
     uniforms.uGroundLight.value.copy(light.ground);
     uniforms.uHaze.value.copy(light.haze);
     uniforms.uWetness.value = weather.wet;
+    uniforms.uWind.value = 1 + STORM_WIND * weather.cloud;
     uniforms.uMist.value = this.underwater ? 0 : mistAt(this.hour) * (1 - weather.fog);
     this.cloudLight.copy(colors.light).multiplyScalar(0.12 + 0.78 * this.litDaylight());
     sky.look(
