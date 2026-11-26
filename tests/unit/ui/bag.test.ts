@@ -230,7 +230,7 @@ describe('LogbookPanel', () => {
     byAttr(root, 'data-tab', 'building')[0]!.dispatch('click');
     expect(byAttr(root, 'data-recipe', 'recipe:chest')).toEqual([]);
     expect(fake(root).querySelector('.logbook-footer')?.textContent).toBe(
-      '2 more at the Workbench',
+      '3 more at the Workbench',
     );
     byAttr(root, 'data-tab', 'survival')[0]!.dispatch('click');
     byAttr(root, 'data-recipe', 'recipe:unfired_flask')[0]!.dispatch('click');

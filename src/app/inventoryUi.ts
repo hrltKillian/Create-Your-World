@@ -14,10 +14,12 @@ import type { ItemArt } from '../ui/itemSlot.ts';
 import { BAG_PAGES, type BagPage, BagScreen } from '../ui/screens/bag.ts';
 import { ContainerScreen } from '../ui/screens/container.ts';
 import { LogbookPanel } from '../ui/screens/logbook.ts';
+import { MapScreen } from '../ui/screens/mapScreen.ts';
 import { StationScreen } from '../ui/screens/station.ts';
 import { WorkbenchScreen } from '../ui/screens/workbench.ts';
 import type { ScreenActions, ScreenDeps } from '../ui/slotBoard.ts';
 import type { GameSession } from './GameSession.ts';
+import { MapModel } from './mapModel.ts';
 import type { PlayGate } from './playGate.ts';
 import { UiBridge } from './UiBridge.ts';
 
@@ -42,7 +44,7 @@ function itemIcons(registry: Registry, layers: readonly Uint8Array[]): Promise<s
 }
 
 /** The screens over the world (the hook's `ui.screen()` names them). */
-export type InventoryScreen = 'bag' | 'container' | 'station' | 'workbench';
+export type InventoryScreen = 'bag' | 'container' | 'station' | 'workbench' | 'map';
 
 /** What the controller needs from each screen. */
 interface ScreenView {
@@ -55,8 +57,8 @@ interface ScreenView {
  * The hotbar, the hint line and the screens of a play session (Bag with its Logbook, Container,
  * Station, Workbench with its own Logbook): item icons, refresh, commands, sounds and keys. E or
  * Tab opens the bag on its Inventory, L on its Logbook, B on its Bestiary, J on its Quests, U on
- * its Status (`toggleBag`); one of
- * them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
+ * its Status (`toggleBag`); M the big map (`toggleMap`, the HUD's minimap shares its colours:
+ * `maps`); one of them closes any other screen (back to play: PlayGate.closeScreen), a hotbar key over
  * a slot swaps; keys typed in a text box (the Logbook's search) are its own. Esc is the pause
  * menu's alone (Game.onPauseKey): it never closes a screen. The Bag opens in the simulation too (`screen.open`),
  * whose slot clicks need it; chests, stations and workbenches open from the simulation (secondary
@@ -71,6 +73,9 @@ export class InventoryUi {
   readonly container: ContainerScreen;
   readonly station: StationScreen;
   readonly workbench: WorkbenchScreen;
+  readonly map: MapScreen;
+  /** The map colours of the world, for the big map and the HUD's minimap. */
+  readonly maps: MapModel;
   readonly bridge: UiBridge;
   private readonly session: GameSession;
   private readonly input: InputManager;
@@ -115,6 +120,8 @@ export class InventoryUi {
     this.container = new ContainerScreen(deps);
     this.station = new StationScreen(deps);
     this.workbench = new WorkbenchScreen(deps, new LogbookPanel(art, actions, limits));
+    this.map = new MapScreen(actions, () => input.keyLabel('map'));
+    this.maps = new MapModel(session.host.view.gen);
     // The bridge refreshes this object's views (hotbar, hint line and screens).
     this.bridge = new UiBridge(session.host.view, input, this);
     session.listeners.push((event) => {
@@ -128,6 +135,7 @@ export class InventoryUi {
       this.container.element,
       this.station.element,
       this.workbench.element,
+      this.map.element,
     );
     window.addEventListener('keydown', this.onKeyDown);
   }
@@ -142,7 +150,8 @@ export class InventoryUi {
     if (this.bag.isOpen()) return 'bag';
     if (this.container.isOpen()) return 'container';
     if (this.station.isOpen()) return 'station';
-    return this.workbench.isOpen() ? 'workbench' : null;
+    if (this.workbench.isOpen()) return 'workbench';
+    return this.map.isOpen() ? 'map' : null;
   }
 
   /**
@@ -162,6 +171,19 @@ export class InventoryUi {
     return true;
   }
 
+  /**
+   * The big map's key: opens it while playing, closes it when it shows, closes another screen.
+   * Returns whether it did any.
+   */
+  toggleMap(): boolean {
+    if (this.screen()) this.closeScreen();
+    else if (this.gate.canOpenScreen()) {
+      this.map.open();
+      this.gate.openScreen();
+    } else return false;
+    return true;
+  }
+
   /** Closes the open screen, back to play (the mouse captured again: PlayGate.closeScreen). */
   closeScreen(): void {
     if (!this.screen()) return;
@@ -174,7 +196,8 @@ export class InventoryUi {
     const open = this.openView();
     if (!open) return;
     open.close();
-    this.session.host.send({ type: 'screen.close' });
+    // The map is the client's alone: the simulation has no screen open for it.
+    if (open !== this.map) this.session.host.send({ type: 'screen.close' });
   }
 
   private openView(): ScreenView | null {
@@ -222,7 +245,7 @@ export class InventoryUi {
    */
   private blockClosed(): void {
     const open = this.openView();
-    if (!open || open === this.bag) return;
+    if (!open || open === this.bag || open === this.map) return;
     open.close();
     if (!this.session.player.survival.dead) this.gate.closeScreen();
   }
@@ -234,6 +257,8 @@ export class InventoryUi {
     if (BAG_PAGES.includes(action as BagPage)) {
       // Consumed: Tab on a button clicked in the screen must not move the focus out of the page.
       if (this.toggleBag(action as BagPage)) event.preventDefault();
+    } else if (action === 'map') {
+      if (this.toggleMap()) event.preventDefault();
     } else if (!this.screen()) return;
     else {
       const slot = HOTBAR_CODES.indexOf(event.code);

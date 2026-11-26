@@ -593,3 +593,79 @@
   font-size: 1rem;
   cursor: pointer;
 }
+
+/* The big map (M): a fixed panel, the land on the left, the waypoints on the right. */
+
+.screen-map {
+  background: rgba(8, 13, 16, 0.45);
+}
+
+.map-panel {
+  width: 760px;
+  height: 560px;
+  text-align: left;
+}
+
+.map {
+  display: flex;
+  flex: 1;
+  gap: 14px;
+  min-height: 0;
+}
+
+.map-canvas {
+  width: 480px;
+  height: 480px;
+  flex: none;
+  border: 1px solid rgba(232, 176, 74, 0.35);
+  border-radius: 6px;
+  image-rendering: pixelated;
+}
+
+.map-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.map-mark {
+  display: flex;
+  gap: 6px;
+}
+
+.map-name {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid rgba(232, 176, 74, 0.35);
+  border-radius: 999px;
+  background: rgba(20, 16, 10, 0.5);
+  color: var(--c-ink);
+  font-size: 0.72rem;
+}
+
+.map-waypoints {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.map-waypoints li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 2px 0;
+  color: var(--c-ink-muted);
+  font-size: 0.72rem;
+}
+
+.map-waypoints li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

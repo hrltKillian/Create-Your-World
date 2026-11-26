@@ -22,6 +22,7 @@ export type Command =
   | CraftCommand
   | QuestCommand
   | ProgressCommand
+  | WaypointCommand
   /** Comes back after a death (the death screen's Respawn button); refused while alive. */
   | { readonly type: 'player.respawn' }
   | DebugCommand;
@@ -143,6 +144,12 @@ export type ProgressCommand =
   | { readonly type: 'task.claim'; readonly index: number }
   /** Draws another task in place of one not done, once a game day. */
   | { readonly type: 'task.reroll'; readonly index: number };
+
+/** Waypoints (plan v3 « M27 », sim/exploration.ts). */
+export type WaypointCommand =
+  /** Marks the player's place (an empty name: its coordinates). */
+  | { readonly type: 'waypoint.add'; readonly name: string }
+  | { readonly type: 'waypoint.remove'; readonly index: number };
 
 /** Developer commands, refused unless the world rules allow debugging. */
 export type DebugCommand =

@@ -175,7 +175,8 @@ body {
 
 .debug-overlay {
   position: absolute;
-  top: 12px;
+  /* Under the HUD's minimap. */
+  top: 196px;
   right: 12px;
   min-width: 230px;
   padding: 10px 12px 8px;

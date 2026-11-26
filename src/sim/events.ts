@@ -201,6 +201,7 @@ export type SimEvent =
     }
   | { readonly type: 'levelUp'; readonly playerId: number; readonly level: number }
   | { readonly type: 'skillSpent'; readonly playerId: number; readonly skill: string }
+  | { readonly type: 'waypointsChanged'; readonly playerId: number }
   /** A player's swing (a blow, or in the air): `strong` when it struck with a full gauge. */
   | { readonly type: 'playerSwung'; readonly playerId: number; readonly strong: boolean }
   /** A creature entered a player's bestiary, or was studied (`level`: MET or STUDIED). */

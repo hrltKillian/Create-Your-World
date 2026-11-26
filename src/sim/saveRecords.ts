@@ -19,6 +19,7 @@ import {
   isHostile,
   PATH_MAX,
 } from './creatures.ts';
+import { MAX_WAYPOINT_NAME, MAX_WAYPOINTS, type Waypoint } from './exploration.ts';
 import {
   deserializeInventory,
   deserializeSlots,
@@ -149,6 +150,8 @@ export function playerRecord(worldId: string, player: Readonly<PlayerState>): Pl
     tasks: player.tasks.map((task) => ({ ...task })),
     taskDraws: player.taskDraws,
     rerollDay: player.rerollDay,
+    explored: Object.keys(player.explored).sort(),
+    waypoints: player.waypoints.map((w) => ({ ...w })),
     drank: player.drank,
     bestiary: { ...player.bestiary },
     fightTicks: player.fightTicks,
@@ -219,6 +222,19 @@ function readSkills(data: unknown, max: number): Skills {
   const saved = (data ?? {}) as Partial<Record<Skill, unknown>>;
   for (const skill of SKILLS) skills[skill] = wholeIn(saved[skill], 0, max, 0);
   return skills;
+}
+
+/** Saved waypoints: at most MAX_WAYPOINTS well-formed ones, inside the world's border. */
+function readWaypoints(data: unknown): Waypoint[] {
+  if (!Array.isArray(data)) return [];
+  const waypoints: Waypoint[] = [];
+  for (const saved of data.slice(0, MAX_WAYPOINTS) as Partial<Waypoint>[]) {
+    const { name, x, z } = saved ?? {};
+    if (typeof name !== 'string' || name.length > MAX_WAYPOINT_NAME) continue;
+    if (!isWhole(x, -Infinity) || !isWhole(z, -Infinity) || !insideBorder(x, z)) continue;
+    waypoints.push({ name, x, z });
+  }
+  return waypoints;
 }
 
 /** Saved tasks: at most `held` well-formed ones (keys of other packs are dropped when drawn). */
@@ -310,6 +326,8 @@ export function readPlayer(
   player.tasks = readTasks(saved.tasks, balance.progression.tasks);
   player.taskDraws = wholeIn(saved.taskDraws, 0, Number.MAX_SAFE_INTEGER, 0);
   player.rerollDay = wholeIn(saved.rerollDay, -1, Number.MAX_SAFE_INTEGER, -1);
+  player.explored = readSeen(saved.explored);
+  player.waypoints = readWaypoints(saved.waypoints);
   player.drank = saved.drank === true;
   player.bestiary = readBestiary(saved.bestiary, registry);
   // A fight in progress (no field before version 5: none).

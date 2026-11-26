@@ -146,6 +146,8 @@ export interface BlockDef {
   readonly replaceable?: boolean;
   readonly light?: BlockLight;
   readonly friction?: number;
+  /** A ladder (plan v3 « M27 »): a body inside it climbs instead of falling. */
+  readonly climbable?: boolean;
   readonly contact?: { readonly toxicityPerMin?: number; readonly damagePerSec?: number };
   readonly liquid?: LiquidDef;
   readonly hardness: number;
@@ -213,6 +215,8 @@ export type TexturePattern =
   | 'cross'
   | 'torch'
   | 'lattice'
+  /** Two rails and rungs over holes (a ladder). */
+  | 'ladder'
   | 'furnaceFront'
   /** Molten blobs (SPECIAL, last colours) under a dark crust (magma). */
   | 'sludge'

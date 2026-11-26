@@ -23,6 +23,11 @@ export const LEAF_DECAY = {
   radius: 6,
   seconds: [2, 12],
 } as const;
+/** A ladder against the north side of its cell (plan v3 « M27 »). */
+const LADDER: readonly Box16[] = [[1, 0, 0, 15, 16, 2]];
+/** A closed trapdoor lies at the top of its cell, flush with the floor around a shaft; open, it stands against the north side. */
+const TRAPDOOR_CLOSED: readonly Box16[] = [[0, 13, 0, 16, 16, 16]];
+const TRAPDOOR_OPEN: readonly Box16[] = [[0, 0, 0, 16, 16, 3]];
 /** Gate panel on the north side when facing north and closed. */
 const GATE_CLOSED: readonly Box16[] = [[0, 0, 0, 16, 16, 3]];
 /** Swung open against the west side. */
@@ -283,6 +288,44 @@ export const blocks = [
     hardness: 0,
     drops: 'self',
     placement: { support: 'attach' },
+    sound: 'wood',
+  },
+  {
+    // Climbed with forward or jump; hangs on a wall like a torch (plan v3 « M27 »).
+    key: 'block:ladder',
+    nameKey: 'block.ladder',
+    states: ['attach'],
+    shape: { boxes: LADDER },
+    wallShape: { boxes: LADDER },
+    pass: 'cutout',
+    textures: { all: 'tex:ladder' },
+    collision: 'none',
+    opaque: false,
+    climbable: true,
+    hardness: 0.5,
+    tool: 'axe',
+    drops: 'self',
+    placement: { support: 'attach' },
+    sound: 'wood',
+  },
+  {
+    // A hatch over a shaft: walked on closed, opened and closed by secondary (plan v3 « M27 »).
+    key: 'block:trapdoor',
+    nameKey: 'block.trapdoor',
+    shape: { boxes: TRAPDOOR_CLOSED },
+    pass: 'opaque',
+    textures: { all: 'tex:trapdoor' },
+    collision: { boxes: TRAPDOOR_CLOSED },
+    opaque: false,
+    light: { filter: 15 },
+    hardness: 2,
+    tool: 'axe',
+    drops: 'self',
+    states: ['facing4', 'open'],
+    whenState: {
+      open: { shape: { boxes: TRAPDOOR_OPEN }, collision: 'none', light: { filter: 0 } },
+    },
+    placement: { orient: 'facing' },
     sound: 'wood',
   },
   {

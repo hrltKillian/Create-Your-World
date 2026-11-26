@@ -4,6 +4,7 @@ import type { StoreCounts } from '../world/ioProtocol.ts';
 import type { BlockEntity } from './blockEntities.ts';
 import type { CraftEntry } from './craftQueue.ts';
 import type { CreatureState } from './creatures.ts';
+import type { Waypoint } from './exploration.ts';
 import type { Inventory, ItemStack } from './inventory.ts';
 import type { ItemDropState } from './itemDrops.ts';
 import type { Body } from './physics.ts';
@@ -95,6 +96,9 @@ export interface PlayerRecord {
   readonly tasks: readonly TaskState[];
   readonly taskDraws: number;
   readonly rerollDay: number;
+  /** Explored column keys, sorted, and the waypoints (save version 13). */
+  readonly explored: readonly string[];
+  readonly waypoints: readonly Waypoint[];
   /** Has drunk at least once (from save version 4). */
   readonly drank: boolean;
   /** Creature key → MET (1) or STUDIED (2) (version 9). */

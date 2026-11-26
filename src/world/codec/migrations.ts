@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -143,6 +143,12 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       taskDraws: 0,
       rerollDay: -1,
     }),
+    column: (record) => record,
+  },
+  // 12 → 13 (plan v3 « M27 »): nothing explored on the map yet, no waypoint.
+  {
+    world: (record) => record,
+    player: (record) => ({ ...record, explored: [], waypoints: [] }),
     column: (record) => record,
   },
 ];

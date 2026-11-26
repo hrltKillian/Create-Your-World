@@ -137,6 +137,17 @@ describe('InputManager', () => {
     expect(input.keyLabel('jump')).toBe('J');
   });
 
+  it('names the map key M on QWERTY and on AZERTY, where M is printed on another key', () => {
+    expect(input.keyLabel('map')).toBe('M');
+    input.dispose();
+    input = new InputManager(new FakeTarget() as unknown as HTMLElement, {
+      pointerLock: false,
+      language: 'fr-FR',
+    });
+    expect(input.keyLabel('map')).toBe('M');
+    expect(input.keyLabel('inventory')).toBe('E');
+  });
+
   it('crouches while held, or on and off with each press in toggle mode', () => {
     key('keydown', 'KeyC', 'c');
     expect(input.sample(look).crouch).toBe(true);

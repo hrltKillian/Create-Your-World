@@ -126,6 +126,8 @@ export const recipes: readonly RecipeDef[] = [
   recipe('flint_pickaxe', 'tools', 2.5, { flint: 2, stick: 2, cord: 1 }, START),
   recipe('flint_spear', 'tools', 2, { flint: 1, stick: 3, cord: 1 }, START),
   recipe('torch', 'building', 1, { stick: 1, plant_fiber: 2 }, { count: 2, ...START }),
+  // Plan v3 « M27 »: down shafts and into caves.
+  recipe('ladder', 'building', 2, { stick: 7 }, { count: 3, ...START }),
   recipe('campfire', 'building', 3, { 'tag:log': 2, stick: 4, flint: 1 }, START),
   recipe('workbench', 'building', 3, { planks: 8, plant_fiber: 4 }, START),
   recipe('unfired_flask', 'survival', 2, { clay_lump: 3 }, START),
@@ -141,6 +143,7 @@ export const recipes: readonly RecipeDef[] = [
   bench('cut_stone', 'building', 1, { stone: 1 }),
   bench('glowbloom_lantern', 'building', 2, { glass: 1, glowbloom: 2, stick: 1 }),
   bench('kiln', 'building', 3, { clay_lump: 4, stone_shard: 6 }),
+  bench('trapdoor', 'building', 2, { planks: 3 }),
   bench('bloomery', 'building', 4, { fire_bricks: 8, bronze_ingot: 2, stone_shard: 4 }),
   bench('leather', 'materials', 3, { raw_hide: 2, resin: 1 }),
   bench('waterskin_empty', 'survival', 3, { leather: 2, cord: 1 }),

@@ -172,6 +172,15 @@ const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon' | 'fracture'>, Pa
     const slat = (x + y) % 6 === 0 || (x - y + size) % 6 === 0;
     return set(slat ? Math.min(1, n - 1) : pick(hashUnit(seed, x, y), 1, n - 1));
   },
+  ladder: (seed, n, x, y, size) => {
+    // Two rails inside the ladder's box (1–15) and a rung across every half tile.
+    const q = size >> 3;
+    const rail = (x >= q && x < q * 2) || (x >= size - q * 2 && x < size - q);
+    const step = y % (size >> 1);
+    const rung = x >= q && x < size - q && step >= q && step < q * 2;
+    if (!rail && !rung) return set(0, HOLE);
+    return set(pick(hashUnit(seed, x, y), rail ? 0 : 1, n - 1));
+  },
   furnaceFront: (seed, n, x, y, size) => {
     const mouth = x >= size * 0.25 && x < size * 0.75 && y >= size * 0.15 && y < size * 0.5;
     if (mouth) {
