@@ -7,7 +7,7 @@ import type { CreatureState } from '../sim/creatures.ts';
 import type { Entity } from '../sim/Simulation.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
-import { type BoxBatch, type BoxSkin, fullSkin } from './BoxBatch.ts';
+import type { BoxBatch, BoxSkin } from './BoxBatch.ts';
 import type { ContactShadows } from './ContactShadows.ts';
 import {
   animateCreature,
@@ -17,7 +17,7 @@ import {
   hitCreatureRig,
 } from './creatureRig.ts';
 import { nthSmallest } from './nearest.ts';
-import { type PreparedModel, poseModel, prepareModel } from './rigs.ts';
+import { type PreparedModel, partSkin, poseModel, prepareModel } from './rigs.ts';
 
 /** A creature of the pack as drawn: its model, part skins and which parts glow. */
 interface CreatureKind {
@@ -135,9 +135,7 @@ export class CreatureView {
       this.kinds.set(def.key, {
         def,
         prepared: prepareModel(model),
-        skins: model.parts.map((p) =>
-          fullSkin(Math.max(0, registry.textureKeys.indexOf(p.texture))),
-        ),
+        skins: model.parts.map((p) => partSkin(registry, model, p)),
         glow: Uint8Array.from(model.parts, (part) => (part.emissive ? 1 : 0)),
       });
     }

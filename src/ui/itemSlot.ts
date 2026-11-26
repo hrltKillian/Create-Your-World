@@ -12,6 +12,8 @@ export type Slots = readonly (Readonly<ItemStack> | null)[];
 export interface ItemArt {
   readonly registry: Registry;
   icons: readonly string[];
+  /** The avatar seen from the front (plan v5 « M51 »: the Bag's figure); '' until drawn. */
+  figure: string;
 }
 
 /** Display name of a stack: an unknown item with its saved key, a worn tool with its uses left. */

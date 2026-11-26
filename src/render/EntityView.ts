@@ -3,7 +3,7 @@ import type { Registry } from '../content/registry.ts';
 import type { PlayerState } from '../sim/player.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
-import { type BoxBatch, type BoxSkin, fullSkin } from './BoxBatch.ts';
+import type { BoxBatch, BoxSkin } from './BoxBatch.ts';
 import type { ContactShadows } from './ContactShadows.ts';
 import { drawItem, type ItemModel } from './itemModels.ts';
 import {
@@ -11,6 +11,7 @@ import {
   createRig,
   type Motion,
   type PreparedModel,
+  partSkin,
   poseModel,
   prepareModel,
   type RigState,
@@ -80,9 +81,7 @@ export class EntityView {
     const key = registry.pack.manifest.bindings.avatarModel;
     const model = (registry.pack.models ?? []).find((m) => m.key === key);
     this.avatar = model ? prepareModel(model) : null;
-    this.skins = (model?.parts ?? []).map((p) =>
-      fullSkin(Math.max(0, registry.textureKeys.indexOf(p.texture))),
-    );
+    this.skins = model ? model.parts.map((p) => partSkin(registry, model, p)) : [];
   }
 
   /** Rig of a player (created on first use), for tests and the debug hook. */

@@ -29,7 +29,7 @@ const STATUS = { level: 'Level 1', xp: '', pointsLeft: '', skills: [] };
 function deps(label = () => 'E', size = { slots: BASE_INVENTORY_SLOTS }) {
   const sent: Command[] = [];
   const screen: ScreenDeps = {
-    art: { registry, icons: [] },
+    art: { registry, icons: [], figure: '' },
     actions: { send: (command) => sent.push(command), click: () => {} },
     inventorySize: () => size.slots,
     openBase: OPEN_SLOTS_BASE,

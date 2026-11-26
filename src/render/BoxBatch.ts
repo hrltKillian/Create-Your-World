@@ -21,6 +21,9 @@ export interface BoxSkin {
   readonly side: number;
   readonly top: number;
   readonly bottom: number;
+  /** Layers of the front (−z) and back (+z) faces when they differ from the sides (plan v5 « M51 »). */
+  readonly front?: number;
+  readonly back?: number;
   /** Tints of the sides, top and bottom (`boxTint`; BOX_NO_TINT for none). */
   readonly sideTint: number;
   readonly topTint: number;
@@ -39,6 +42,9 @@ export interface BoxSkin {
   readonly sz: number;
   readonly sprite: boolean;
 }
+
+/** The front's layer is packed as front × LAYER_PACK + back (box.glsl.ts unpacks it). */
+export const LAYER_PACK = 1024;
 
 /** `boxTint` of white: no tint. */
 export const BOX_NO_TINT = 0xffffff;
@@ -108,7 +114,7 @@ export class BoxBatch {
     this.capacity = capacity;
     const geometry = new BoxGeometry(1, 1, 1);
     geometry.translate(0.5, 0.5, 0.5);
-    this.layers = this.attribute(geometry, 'aLayers', 3);
+    this.layers = this.attribute(geometry, 'aLayers', 4);
     this.lights = this.attribute(geometry, 'aLight', 2);
     this.texOrigins = this.attribute(geometry, 'aTexOrigin', 4);
     this.texSizes = this.attribute(geometry, 'aTexSize', 3);
@@ -186,7 +192,14 @@ export class BoxBatch {
     m[o + 13] = e[13]! - this.originY;
     m[o + 14] = e[14]! - this.originZ;
     m[o + 15] = e[15]!;
-    this.layers.setXYZ(i, skin.side, skin.top, skin.bottom);
+    // The front's and back's layers share one float (exact: both below LAYER_PACK).
+    this.layers.setXYZW(
+      i,
+      skin.side,
+      skin.top,
+      skin.bottom,
+      (skin.front ?? skin.side) * LAYER_PACK + (skin.back ?? skin.side),
+    );
     this.lights.setXY(i, sky, block);
     this.texOrigins.setXYZW(i, skin.ox, skin.oy, skin.oz, skin.sprite ? 1 : 0);
     this.texSizes.setXYZ(i, skin.sx, skin.sy, skin.sz);

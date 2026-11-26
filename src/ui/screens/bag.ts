@@ -5,7 +5,7 @@ import type { Gear } from '../../sim/environment.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
 import type { BestiaryRow } from '../bestiary.ts';
 import { h } from '../h.ts';
-import type { Slots } from '../itemSlot.ts';
+import type { ItemArt, Slots } from '../itemSlot.ts';
 import type { QuestRow, TaskRow } from '../quests.ts';
 import { type ScreenActions, type ScreenDeps, SlotBoard } from '../slotBoard.ts';
 import type { StatusView } from '../status.ts';
@@ -35,6 +35,9 @@ export class BagScreen {
   private readonly board: SlotBoard;
   private readonly actions: ScreenActions;
   private readonly protection: HTMLElement;
+  private readonly art: ItemArt;
+  /** The survivor behind the worn items (plan v5 « M51 »), shown once drawn. */
+  private readonly figure: HTMLImageElement;
   private readonly tabs: HTMLElement;
   private readonly pages: Readonly<Record<BagPage, HTMLElement>>;
   private page: BagPage = 'inventory';
@@ -48,9 +51,12 @@ export class BagScreen {
     this.status = new StatusPanel(deps.actions);
     this.element = board.element;
     this.protection = h('p', { class: 'wear-stats' });
+    this.art = deps.art;
+    this.figure = h('img', { class: 'figure-art', attrs: { alt: '', draggable: 'false' } });
+    this.figure.hidden = true;
     const worn = board.slotViews(deps.openBase, deps.openBase + WEAR_SLOTS.length);
     this.pages = {
-      inventory: wearColumn(worn, this.protection),
+      inventory: wearColumn(worn, this.protection, this.figure),
       logbook: logbook.element,
       bestiary: this.bestiary.element,
       quests: this.quests.element,
@@ -141,6 +147,10 @@ export class BagScreen {
     status: StatusView,
   ): void {
     this.board.update(slots, cursor);
+    if (this.art.figure && this.figure.hidden) {
+      this.figure.src = this.art.figure;
+      this.figure.hidden = false;
+    }
     const text = t('wear.stats', { armor: gear.armor, warmth: gear.warmth, cooling: gear.cooling });
     if (this.protection.textContent !== text) this.protection.textContent = text;
     this.logbook.update(logbook);
@@ -178,8 +188,15 @@ export class BagScreen {
   }
 }
 
-/** The silhouette, head to feet, with the slot view of each equipment slot, then the protection. */
-function wearColumn(worn: readonly HTMLElement[], protection: HTMLElement): HTMLElement {
+/**
+ * The survivor (its figure, drawn from the avatar's own skins), head to feet, with the slot view
+ * of each equipment slot over it, then the protection.
+ */
+function wearColumn(
+  worn: readonly HTMLElement[],
+  protection: HTMLElement,
+  figure: HTMLImageElement,
+): HTMLElement {
   return h(
     'div',
     { class: 'wear' },
@@ -187,9 +204,7 @@ function wearColumn(worn: readonly HTMLElement[], protection: HTMLElement): HTML
     h(
       'div',
       { class: 'wear-figure' },
-      h('span', { class: 'figure-head' }),
-      h('span', { class: 'figure-torso' }),
-      h('span', { class: 'figure-legs' }),
+      figure,
       ...WEAR_SLOTS.map((slot, i) =>
         h(
           'div',

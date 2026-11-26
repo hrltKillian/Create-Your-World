@@ -36,6 +36,7 @@ import { processes, recipes, stations } from './recipes.ts';
 import { sfx } from './sfx.ts';
 import { sky } from './sky.ts';
 import { sounds } from './sounds.ts';
+import { survivorSkins } from './survivorSkins.ts';
 import { tasks } from './tasks.ts';
 import { crackTextures, textures } from './textures.ts';
 import { floraTextures } from './texturesFlora.ts';
@@ -71,7 +72,7 @@ export const basePack: ContentPack = {
       unknownBlock: 'block:unknown',
       unknownItem: 'item:unknown',
       spawnBiomes: ['biome:meadow', 'biome:forest'],
-      avatarModel: 'model:explorer',
+      avatarModel: 'model:survivor',
       fire: 'block:fire',
     },
   },
@@ -91,6 +92,7 @@ export const basePack: ContentPack = {
     ...wearIcons,
     ...consumableIcons,
     ...containerIcons,
+    ...survivorSkins,
     ...crackTextures,
     ...creatureSkins,
   ],

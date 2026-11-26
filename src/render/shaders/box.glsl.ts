@@ -14,7 +14,7 @@ import { CUTOUT_ALPHA, LIGHT_CURVE } from './voxel.glsl.ts';
  */
 
 export const boxVertex = /* glsl */ `
-in vec3 aLayers;
+in vec4 aLayers;
 in vec2 aLight;
 in vec4 aTexOrigin;
 in vec3 aTexSize;
@@ -68,10 +68,12 @@ void main() {
     tv = vec3(0.0, 0.0, -1.0);
   } else if (normal.z > 0.5) {
     vUv = vec2(t.x, t.y);
+    vLayer = mod(aLayers.w, 1024.0);
     tu = vec3(1.0, 0.0, 0.0);
     tv = vec3(0.0, 1.0, 0.0);
   } else {
     vUv = vec2(-t.x, t.y);
+    vLayer = floor(aLayers.w / 1024.0);
     tu = vec3(-1.0, 0.0, 0.0);
     tv = vec3(0.0, 1.0, 0.0);
   }

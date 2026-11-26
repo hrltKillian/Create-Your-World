@@ -154,7 +154,18 @@ export interface ModelPart {
   readonly to: readonly [number, number, number];
   /** Rotation pivot (same units). */
   readonly pivot: readonly [number, number, number];
+  /** Its sides' texture, and every face's without a texture of its own in `faces`. */
   readonly texture: TexKey;
+  /**
+   * The faces with a texture of their own (plan v5 « M51 »): the front (−z, where the model looks),
+   * the back, the top and the bottom.
+   */
+  readonly faces?: {
+    readonly front?: TexKey;
+    readonly back?: TexKey;
+    readonly top?: TexKey;
+    readonly bottom?: TexKey;
+  };
   /** The part follows its parent's rotation; a parent comes before its children. */
   readonly parent?: string;
   /** Drawn at full brightness whatever the light (glowing eyes). */
@@ -168,4 +179,10 @@ export interface ModelDef {
   readonly gait: Gait;
   /** Walk cycle advance in radians per block travelled (short legs step faster). */
   readonly stride: number;
+  /**
+   * Skins at the world's density (plan v5 « M51 », the reference game's): two texels a unit, each
+   * face showing its own corner of its texture (`partSkin`, render/rigs.ts); else every face
+   * stretches its whole texture.
+   */
+  readonly pixels?: boolean;
 }
