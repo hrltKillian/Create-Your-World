@@ -149,11 +149,15 @@ function holdSpear(app: App): WeaponDef {
   return spear.weapon;
 }
 
-/** Steps until the held weapon may strike again. */
+/**
+ * Steps until the held weapon may strike again and the player is out of a fight: a fight's noise
+ * (`noiseOf`, after a blow given or taken, as the Prowler's hunt ends) wakes a creature in a pit.
+ */
 function cooledDown(app: App): void {
-  const session = app.session!;
-  for (let t = 0; t < COOLDOWN_LIMIT && session.player.attackCooldown > 0; t++) session.step(1);
-  assert(session.player.attackCooldown === 0, `the weapon is still cooling down`);
+  const player = app.session!.player;
+  const busy = () => player.attackCooldown > 0 || player.fightTicks > 0;
+  for (let t = 0; t < COOLDOWN_LIMIT && busy(); t++) app.session!.step(1);
+  assert(!busy(), `the weapon is still cooling down, or the player still fighting`);
 }
 
 /**
