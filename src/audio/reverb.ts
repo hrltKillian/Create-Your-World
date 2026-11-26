@@ -3,9 +3,11 @@ import { hashUnit } from '../core/hash.ts';
 /**
  * The room a sound is heard in (plan v4 « M44 »): its reverberation, generated (no recorded
  * impulse response). Pure: an impulse response is the same for a place and a rate everywhere.
+ * Only a real room rings (plan v5 « M53 », decision 33): a cave or a closed interior; outdoors,
+ * forests and every biome included, the sound is dry.
  */
 
-export const REVERB_PLACES = ['open', 'forest', 'indoor', 'cave'] as const;
+export const REVERB_PLACES = ['dry', 'indoor', 'cave'] as const;
 export type ReverbPlace = (typeof REVERB_PLACES)[number];
 
 export interface ReverbDef {
@@ -20,11 +22,52 @@ export interface ReverbDef {
 }
 
 export const REVERBS: Readonly<Record<ReverbPlace, ReverbDef>> = {
-  open: { seconds: 0.45, wet: 0.06, darkness: 0.3, early: 2 },
-  forest: { seconds: 1, wet: 0.14, darkness: 0.5, early: 9 },
+  dry: { seconds: 0.1, wet: 0, darkness: 0, early: 0 },
   indoor: { seconds: 0.7, wet: 0.22, darkness: 0.4, early: 12 },
   cave: { seconds: 2.6, wet: 0.42, darkness: 0.65, early: 16 },
 };
+
+/**
+ * A closed room (plan v5 « M53 »): a ceiling within `reach` blocks over the ear and walls within
+ * `reach` along at least `walls` of the eight directions around it (a door or a window left open).
+ */
+export const ROOM_PROBE = { reach: 8, walls: 7 } as const;
+
+/** The eight directions around the ear, as (x, z) steps. */
+const AROUND = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+] as const;
+
+/**
+ * Whether the ear's cell (x, y, z) is inside a closed room: `closes` tells the blocks that make
+ * walls and ceilings (solid ones, not the leaves of a canopy).
+ */
+export function enclosed(
+  closes: (x: number, y: number, z: number) => boolean,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  let roof = false;
+  for (let d = 1; d <= ROOM_PROBE.reach && !roof; d++) roof = closes(x, y + d, z);
+  if (!roof) return false;
+  let walls = 0;
+  for (const [dx, dz] of AROUND) {
+    for (let d = 1; d <= ROOM_PROBE.reach; d++) {
+      if (!closes(x + dx * d, y, z + dz * d)) continue;
+      walls++;
+      break;
+    }
+  }
+  return walls >= ROOM_PROBE.walls;
+}
 
 const EARLY_SECONDS = 0.08;
 const RING = Math.log(1000);

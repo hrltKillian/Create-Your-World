@@ -18,6 +18,8 @@ export interface BootParams {
   readonly fixedStep: boolean;
   readonly selftest: string | null;
   readonly mute: boolean;
+  /** The sound board over the menu (plan v5 « M53 », dev only): every sound and its takes. */
+  readonly soundboard: boolean;
   /** Selftests enforce wall-clock thresholds (`?timing=0` turns them off on slow CI machines). */
   readonly timing: boolean;
   /** Debug render view: quads, ao or light. */
@@ -75,6 +77,7 @@ export const DEFAULT_BOOT_PARAMS: BootParams = {
   fixedStep: false,
   selftest: null,
   mute: false,
+  soundboard: false,
   timing: true,
   view: null,
   rd: null,
@@ -139,6 +142,7 @@ export function parseBootParams(search: string, allowDebug: boolean): BootParams
     fixedStep: flag(params, 'fixedStep'),
     selftest: params.get('selftest'),
     mute: flag(params, 'mute'),
+    soundboard: flag(params, 'soundboard'),
     timing: params.get('timing') !== '0',
     view: params.get('view'),
     rd: params.has('rd')

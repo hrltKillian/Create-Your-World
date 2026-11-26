@@ -219,8 +219,6 @@ export interface BiomeDef {
   readonly fog: string;
   /** How strong the auroras are there at night, 0–1 (none by default; plan v4 « M39 »). */
   readonly aurora?: number;
-  /** How sounds ring there (plan v4 « M44 »): in the open by default, or among trees. */
-  readonly acoustics?: 'open' | 'forest';
   /** Fireflies or glowing spores in the air there at night (plan v4 « M40 »): colour, how many. */
   readonly motes?: { readonly color: string; readonly count: number };
   /**

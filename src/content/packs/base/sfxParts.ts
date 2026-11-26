@@ -60,3 +60,42 @@ export const crunch = (
   decay: 0.03,
   delay,
 });
+
+/** What a surface sounds like underfoot (plan v5 « M53 »): its body's modes and its grains. */
+export interface Surface {
+  /** The body struck by the heel and the toe (empty: a soft ground, only its grains). */
+  readonly modes: Modes;
+  /** How long a foot's contact lasts on it (s): short on stone, long on moss. */
+  readonly contact: number;
+  /** Its grains crunching, a second, and their colour. */
+  readonly grains: number;
+  readonly filter: Filter;
+}
+
+/** Seconds from the heel to the toe of a step. */
+const TOE_DELAY = 0.085;
+
+/**
+ * A footstep (plan v5 « M53 »): the heel's blow on the surface, then the toe's a little after and
+ * lighter, each crunching the surface's grains for a moment.
+ */
+export const footstep = (surface: Surface, gain: number): SfxLayer[] => {
+  const blow = (g: number, delay: number): SfxLayer[] => [
+    ...(surface.modes.length > 0
+      ? [
+          {
+            source: 'impact' as const,
+            modes: surface.modes,
+            contact: surface.contact,
+            gain: g,
+            attack: 0.001,
+            hold: Math.max(...surface.modes.map(([, ring]) => ring)),
+            decay: 0.02,
+            delay,
+          },
+        ]
+      : []),
+    { ...crunch(surface.filter, surface.grains, g * 0.8, 0.05, delay), attack: surface.contact },
+  ];
+  return [...blow(gain, 0), ...blow(gain * 0.6, TOE_DELAY)];
+};

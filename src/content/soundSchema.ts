@@ -18,23 +18,40 @@ export interface OpenClose {
   readonly close: SfxKey;
 }
 
-/** The ambient loop of a place by day (day and dawn) and by night (dusk and night). */
-export interface DayNightLoops {
-  readonly day: SfxKey;
-  readonly night: SfxKey;
+/**
+ * The ambience of a place (plan v5 « M53 »): a long bed, looped, and sounds dropped into it at
+ * random times around the listener (gusts, rustles, lapping, far thunder), so that it never
+ * sounds like a loop. The bed names a `loop` recipe, the events one-shots.
+ */
+export interface AmbienceDef {
+  readonly bed: SfxKey;
+  readonly events?: readonly AmbientEvent[];
+}
+
+/** A sound of an ambience, every `every` seconds (min, max), `distance` blocks (min, max) away. */
+export interface AmbientEvent {
+  readonly sound: SfxKey;
+  readonly every: readonly [number, number];
+  readonly distance: readonly [number, number];
+}
+
+/** The ambience of a place by day (day and dawn) and by night (dusk and night). */
+export interface DayNightAmbience {
+  readonly day: AmbienceDef;
+  readonly night: AmbienceDef;
 }
 
 /**
- * Ambient loops (docs « Audio »: no music), crossfaded on the ambience bus: under water first,
- * then in a cave, else the biome's (a biome left out takes `fallback`). They name `loop` recipes.
+ * Ambiences (docs « Audio »: no music), crossfaded on the ambience bus: under water first, then
+ * in a cave, else the biome's (a biome left out takes `fallback`).
  */
 export interface AmbienceBindings {
-  readonly biomes: Readonly<Partial<Record<BiomeKey, DayNightLoops>>>;
-  readonly fallback: DayNightLoops;
-  readonly cave: SfxKey;
-  readonly underwater: SfxKey;
-  /** Rain on the leaves and the ground (plan v3 « M34 »), over the place's loop while it rains. */
-  readonly rain?: SfxKey;
+  readonly biomes: Readonly<Partial<Record<BiomeKey, DayNightAmbience>>>;
+  readonly fallback: DayNightAmbience;
+  readonly cave: AmbienceDef;
+  readonly underwater: AmbienceDef;
+  /** Rain on the leaves and the ground (plan v3 « M34 »), over the place's while it rains. */
+  readonly rain?: AmbienceDef;
 }
 
 /**
@@ -80,14 +97,34 @@ export interface SoundBindings {
 }
 
 /**
- * Noise, a tone, resonant modes struck at the start (`modal`: impacts on stone, wood, metal,
- * glass) or a stream of short grains (`grains`: crunch, rustle, patter); plan v4 « M44 ».
+ * The sources of a layer (plan v4 « M44 », plan v5 « M53 »): white, pink or brown noise; a tone;
+ * resonant modes struck at once (`modal`); a stream of short grains (`grains`); and the models of
+ * real sounds: a body struck through a contact of some hardness (`impact`), bubbles ringing at
+ * their Minnaert pitch (`bubbles`), the pops of a fire (`crackle`), turbulent air (`wind`) and a
+ * voice, glottal pulses through a vocal tract (`voice`).
  */
-export type SfxSource = 'noise' | 'sine' | 'triangle' | 'square' | 'sawtooth' | 'modal' | 'grains';
+export type SfxSource =
+  | 'noise'
+  | 'pink'
+  | 'brown'
+  | 'sine'
+  | 'triangle'
+  | 'square'
+  | 'sawtooth'
+  | 'modal'
+  | 'grains'
+  | 'impact'
+  | 'bubbles'
+  | 'crackle'
+  | 'wind'
+  | 'voice';
+
+/** A formant of a vocal tract: frequency (Hz, for an adult human's tract), bandwidth (Hz), gain. */
+export type Formant = readonly [number, number, number];
 
 /**
- * One layer of a synthesized sound: white noise or a tone, through an optional filter, shaped by
- * a linear attack and an exponential decay.
+ * One layer of a synthesized sound: a source, through an optional filter, shaped by a linear
+ * attack, a hold and an exponential decay.
  */
 export interface SfxLayer {
   readonly source: SfxSource;
@@ -95,8 +132,16 @@ export interface SfxLayer {
   readonly freq?: readonly [number, number];
   /** Tones only (plan v4 « M45 »): the pitch wavers `depth` semitones, `rate` times a second. */
   readonly vibrato?: { readonly rate: number; readonly depth: number };
-  /** `modal` only: the struck modes, each its frequency (Hz), ring time to −60 dB (s) and gain. */
+  /**
+   * `modal` and `impact`: the body's modes, each its frequency (Hz), ring time to −60 dB (s) and
+   * gain.
+   */
   readonly modes?: readonly (readonly [number, number, number])[];
+  /**
+   * `impact` only: how long the contact lasts (s): short for a hard blow (every mode rings, a
+   * bright click), long for a soft one (the high modes stay quiet, a dull thud).
+   */
+  readonly contact?: number;
   /**
    * `grains` only: `rate` grains a second on average, each `seconds` long (min, max); with `tone`
    * (min, max Hz) a falling pitch, else noise.
@@ -105,6 +150,34 @@ export interface SfxLayer {
     readonly rate: number;
     readonly seconds: readonly [number, number];
     readonly tone?: readonly [number, number];
+  };
+  /** `bubbles` only: `rate` bubbles a second, their radii (mm, min and max). */
+  readonly bubbles?: { readonly rate: number; readonly radius: readonly [number, number] };
+  /** `crackle` only: `rate` pops a second, each ringing at a pitch in `freq` (Hz, min and max). */
+  readonly crackle?: { readonly rate: number; readonly freq: readonly [number, number] };
+  /**
+   * `wind` only: `gusts` a second on average, rising the level by `depth` (0–1), the air's band
+   * wandering within `band` (Hz, min and max) as they blow.
+   */
+  readonly wind?: {
+    readonly gusts: number;
+    readonly depth: number;
+    readonly band: readonly [number, number];
+  };
+  /**
+   * `voice` only: the pitch (Hz) at the start and the end; `tract` the vocal tract's length to an
+   * adult human's (2: twice as long, every formant an octave lower); `formants` of the vowel;
+   * `breath` the share of breath noise; `jitter` and `shimmer` the shares of a period's pitch and
+   * level drawn at random each period; `rough` the share every other pulse loses (a growl).
+   */
+  readonly voice?: {
+    readonly pitch: readonly [number, number];
+    readonly tract: number;
+    readonly formants: readonly Formant[];
+    readonly breath: number;
+    readonly jitter: number;
+    readonly shimmer: number;
+    readonly rough?: number;
   };
   readonly filter?: {
     readonly type: 'lowpass' | 'highpass' | 'bandpass';
@@ -124,11 +197,35 @@ export interface SfxLayer {
 }
 
 /**
- * A synthesized sound effect: its layers are mixed together. One-shots are pre-rendered once at
- * startup; a `loop` (an ambience, longer) is rendered on first use and played looped.
+ * The loudness each class of sounds is rendered at (plan v5 « M53 »): the highest short-term RMS
+ * (50 ms) of a sound, in dB of full scale. The interface and the steps under the blows, voices
+ * and the weather over them, the ambience's beds and events quietest.
+ */
+export const SFX_LEVELS = {
+  ui: -24,
+  step: -27,
+  impact: -21,
+  player: -21,
+  voice: -19,
+  weather: -17,
+  event: -27,
+  bed: -33,
+} as const;
+export type SfxLevel = keyof typeof SFX_LEVELS;
+
+/** Fewest variants a one-shot is rendered in (plan v5 « M53 »: never the same sound twice). */
+export const MIN_VARIANTS = 4;
+
+/**
+ * A synthesized sound effect: its layers are mixed together and rendered at the loudness of its
+ * `level` class. One-shots are rendered in `variants` takes (MIN_VARIANTS by default), the first
+ * at startup, the others in spare time; a `loop` (an ambience's bed, longer) is rendered on first
+ * use and played looped.
  */
 export interface SfxDef {
   readonly key: SfxKey;
   readonly layers: readonly SfxLayer[];
   readonly loop?: boolean;
+  readonly level?: SfxLevel;
+  readonly variants?: number;
 }

@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AMBIENCE,
-  Ambience,
-  type AmbiencePlace,
-  ambienceKey,
-} from '../../../src/audio/Ambience.ts';
+import { AMBIENCE, Ambience, type AmbiencePlace, ambienceOf } from '../../../src/audio/Ambience.ts';
 import { seamless } from '../../../src/audio/loops.ts';
+import type { AmbienceDef, SfxKey } from '../../../src/content/schema.ts';
 import { FakePlayer } from '../../helpers/fakeAudio.ts';
 import { registry } from '../../helpers/registry.ts';
 
@@ -18,30 +14,36 @@ const place = (patch: Partial<AmbiencePlace> = {}): AmbiencePlace => ({
   ...patch,
 });
 
+/** One ambience per bed key, the same object each time (as the bindings hold them). */
+const defs = new Map<string, AmbienceDef>();
+const amb = (key: string | null): AmbienceDef | null => {
+  if (key === null) return null;
+  if (!defs.has(key)) defs.set(key, { bed: key as SfxKey });
+  return defs.get(key)!;
+};
+
 /** Runs the ambience for `seconds` in frames of 1/60 s (a fake clock). */
-function run(ambience: Ambience, key: string | null, seconds: number): void {
+function run(ambience: Ambience, key: string | null, seconds: number, def = amb(key)): void {
   const frames = Math.round(seconds * 60);
-  for (let i = 0; i < frames; i++) ambience.update(key, 1 / 60);
+  for (let i = 0; i < frames; i++) ambience.update(def, 1 / 60, 0, 64, 0);
 }
 
-describe('ambienceKey', () => {
-  it("picks the biome's loop by day and by night, water first, then caves", () => {
+describe('ambienceOf', () => {
+  it("picks the biome's ambience by day and by night, water first, then caves", () => {
     const tundra = bindings.biomes['biome:tundra']!;
     const desert = bindings.biomes['biome:ochre_desert']!;
-    expect(ambienceKey(bindings, place({ biome: 'biome:tundra' }))).toBe(tundra.day);
-    expect(ambienceKey(bindings, place({ biome: 'biome:ochre_desert', night: true }))).toBe(
+    expect(ambienceOf(bindings, place({ biome: 'biome:tundra' }))).toBe(tundra.day);
+    expect(ambienceOf(bindings, place({ biome: 'biome:ochre_desert', night: true }))).toBe(
       desert.night,
     );
-    expect(desert.day).not.toBe(desert.night);
-    expect(ambienceKey(bindings, place({ cave: true, night: true }))).toBe(bindings.cave);
-    expect(ambienceKey(bindings, place({ cave: true, underwater: true }))).toBe(
-      bindings.underwater,
-    );
+    expect(desert.day.bed).not.toBe(desert.night.bed);
+    expect(ambienceOf(bindings, place({ cave: true, night: true }))).toBe(bindings.cave);
+    expect(ambienceOf(bindings, place({ cave: true, underwater: true }))).toBe(bindings.underwater);
   });
 
-  it('falls back for a biome without loops and outside the loaded world', () => {
-    expect(ambienceKey(bindings, place({ biome: 'biome:elsewhere' }))).toBe(bindings.fallback.day);
-    expect(ambienceKey(bindings, place({ biome: undefined, night: true }))).toBe(
+  it('falls back for a biome without its own and outside the loaded world', () => {
+    expect(ambienceOf(bindings, place({ biome: 'biome:elsewhere' }))).toBe(bindings.fallback.day);
+    expect(ambienceOf(bindings, place({ biome: undefined, night: true }))).toBe(
       bindings.fallback.night,
     );
   });
@@ -75,7 +77,7 @@ describe('Ambience', () => {
     const ambience = new Ambience(player);
     run(ambience, 'sfx:day', AMBIENCE.fadeSeconds);
     run(ambience, 'sfx:night', 1.5);
-    ambience.update('sfx:day', 1 / 60);
+    ambience.update(amb('sfx:day'), 1 / 60, 0, 64, 0);
     expect(player.loops.get('sfx:day')).toBeCloseTo(0.5 + 1 / 180, 5);
     run(ambience, 'sfx:day', AMBIENCE.fadeSeconds);
     expect(player.sounding()).toEqual(['sfx:day']);
@@ -90,6 +92,39 @@ describe('Ambience', () => {
     expect(player.sounding()).toEqual([]);
     run(ambience, null, 1);
     expect(player.sounding()).toEqual([]);
+  });
+});
+
+describe('ambient events (plan v5 « M53 »)', () => {
+  const forest: AmbienceDef = {
+    bed: 'sfx:bed' as SfxKey,
+    events: [{ sound: 'sfx:rustle' as SfxKey, every: [2, 4], distance: [6, 10] }],
+  };
+
+  it('drops each event at random times within its range, around the ear at its distance', () => {
+    const player = new FakePlayer();
+    let n = 0;
+    const ambience = new Ambience(player, () => {
+      n = (n * 7 + 3) % 11;
+      return n / 11;
+    });
+    run(ambience, null, 60, forest);
+    const events = player.calls.filter((c) => c.at === 'ambient');
+    // Every 2 to 4 s over a minute, once the bed is up (its first second and a half).
+    expect(events.length).toBeGreaterThanOrEqual(14);
+    expect(events.length).toBeLessThanOrEqual(30);
+    for (const event of events) {
+      expect(event.key).toBe('sfx:rustle');
+      expect(Math.abs(event.x)).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('holds the events while the bed is faint, and plays the bed at the level given', () => {
+    const player = new FakePlayer();
+    const ambience = new Ambience(player, () => 0.5);
+    for (let i = 0; i < 600; i++) ambience.update(forest, 1 / 60, 0, 64, 0, 0.2);
+    expect(player.loops.get('sfx:bed')).toBeCloseTo(0.2, 5);
+    expect(player.calls).toEqual([]);
   });
 });
 

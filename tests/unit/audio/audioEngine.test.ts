@@ -6,7 +6,7 @@ import {
   pickVoice,
   type VoiceSlot,
 } from '../../../src/audio/AudioEngine.ts';
-import { WATER_FILTER } from '../../../src/audio/graph.ts';
+import { LIMITER, WATER_FILTER } from '../../../src/audio/graph.ts';
 
 const voice = (startedAt: number, endsAt: number, audibility: number): VoiceSlot => ({
   startedAt,
@@ -45,7 +45,19 @@ class FakeContext {
     FakeContext.made++;
     FakeContext.last = this;
   }
-  createDynamicsCompressor = () => new FakeNode();
+  /** The master limiter, its settings kept. */
+  compressor: Record<string, { value: number }> | null = null;
+  createDynamicsCompressor = () => {
+    const params = {
+      threshold: { value: 0 },
+      knee: { value: 0 },
+      ratio: { value: 0 },
+      attack: { value: 0 },
+      release: { value: 0 },
+    };
+    this.compressor = params;
+    return Object.assign(new FakeNode(), params);
+  };
   createGain = () => new FakeNode();
   createConvolver = () => new FakeNode();
   createBiquadFilter = () => {
@@ -162,6 +174,15 @@ describe('AudioEngine', () => {
     expect(water.frequency.value).toBe(WATER_FILTER.underwaterHz);
     engine.setUnderwater(false);
     expect(water.frequency.value).toBe(WATER_FILTER.openHz);
+  });
+
+  it('limits the mix hard and fast (plan v5 « M53 »)', () => {
+    installFakeAudio();
+    new AudioEngine([], { muted: false }).resume();
+    const limiter = FakeContext.last!.compressor!;
+    expect(limiter.threshold!.value).toBe(LIMITER.threshold);
+    expect(limiter.ratio!.value).toBeGreaterThanOrEqual(20);
+    expect(limiter.attack!.value).toBeLessThan(0.01);
   });
 
   it('attenuates linearly from 2 m to 32 m', () => {

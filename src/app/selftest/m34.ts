@@ -53,7 +53,7 @@ const rainCase: SelftestCase = {
     try {
       setWeather(app, 'rain');
       await waitWeather(app, (w) => w.rain > 0.9 && w.drops > 0 && w.dim < 1);
-      const rain = app.registry!.pack.sounds?.ambience.rain;
+      const rain = app.registry!.pack.sounds?.ambience.rain?.bed;
       const loop = app.audio?.ambience().find((l) => l.key === rain);
       assert(loop !== undefined && loop.gain > 0.5, `the rain loop plays at ${loop?.gain}`);
       const s = session.player.survival;

@@ -1,10 +1,10 @@
-import { Ambience, type AmbiencePlace, ambienceKey } from '../audio/Ambience.ts';
+import { Ambience, type AmbiencePlace, ambienceOf } from '../audio/Ambience.ts';
 import type { AudioEngine } from '../audio/AudioEngine.ts';
 import { type BodyFrame, BodySounds } from '../audio/bodySounds.ts';
 import { Crackles } from '../audio/crackles.ts';
 import { AudioCues, type CuePlayer } from '../audio/cues.ts';
-import { doppler } from '../audio/reverb.ts';
-import { COLLISION_NONE, type Registry } from '../content/registry.ts';
+import { doppler, enclosed } from '../audio/reverb.ts';
+import { COLLISION_FULL, COLLISION_NONE, type Registry } from '../content/registry.ts';
 import type { CameraPose } from '../render/WorldView.ts';
 import { TICK_SECONDS } from '../sim/clock.ts';
 import { isLiquid } from '../sim/collision.ts';
@@ -21,8 +21,10 @@ const LIT_SCAN_SECONDS = 0.5;
 /** Thunder (plan v3 « M34 »): heard this far (blocks), after the light at this speed (blocks/s). */
 const THUNDER_REACH = 400;
 const SOUND_SPEED = 340;
-/** The rain loop's gain under cover (a roof over the camera). */
+/** The rain's gain under cover (a roof over the camera). */
 const RAIN_COVERED = 0.35;
+/** How often the room around the ear is probed (s; plan v5 « M53 »). */
+const ROOM_SECONDS = 0.25;
 
 /** What the audio hears of the weather (the client's WeatherFeel). */
 export interface WeatherSound {
@@ -44,6 +46,14 @@ export class AudioBridge {
   private readonly view: SimView;
   private readonly cues: AudioCues;
   private readonly ambience: Ambience;
+  /** The rain's own ambience over the place's (its bed at the rain's strength, its drips). */
+  private readonly rain: Ambience;
+  /** Per block state: 1 for what closes a room (solid, not a canopy's leaves). */
+  private readonly walls: Uint8Array;
+  private readonly closes = (x: number, y: number, z: number): boolean =>
+    this.walls[this.view.world.getBlock(x, y, z)] === 1;
+  private roomWait = 0;
+  private indoors = false;
   private readonly body: BodySounds | null;
   private readonly crackles: Crackles;
   /** Per block state: index in `litKeys` of its lit station's sound, −1 for none. */
@@ -93,6 +103,8 @@ export class AudioBridge {
     };
     this.cues = new AudioCues(player, registry, view.playerId);
     this.ambience = new Ambience(audio);
+    this.rain = new Ambience(audio);
+    this.walls = roomWalls(registry);
     this.body = sounds
       ? new BodySounds(audio, sounds.player, registry.pack.balance.health.lowAt, PHYSICS.sprint * 2)
       : null;
@@ -136,8 +148,7 @@ export class AudioBridge {
   /** The world closes: the ambience stops at once and the low-pass opens. */
   dispose(): void {
     this.ambience.stop();
-    const rain = this.view.registry.pack.sounds?.ambience.rain;
-    if (rain) this.audio.setLoop(rain, 0);
+    this.rain.stop();
     this.thunders.length = 0;
     this.audio.setUnderwater(false);
   }
@@ -171,32 +182,27 @@ export class AudioBridge {
     place.night = phase === 'dusk' || phase === 'night';
     place.cave = inCave(world, x, y, z, registry.pack.balance.climate.caveDepth);
     place.underwater = underwater;
-    this.ambience.update(ambienceKey(bindings, place), dt);
-    // The room the effects ring in (plan v4 « M44 »).
+    this.ambience.update(ambienceOf(bindings, place), dt, pose.x, pose.y, pose.z);
     this.covered = world.heightAt(x, z) > y + 1;
-    const acoustics = biome < 0 ? undefined : gen.biomeDefs[biome]?.acoustics;
-    const room = place.cave
-      ? 'cave'
-      : this.covered
-        ? 'indoor'
-        : acoustics === 'forest'
-          ? 'forest'
-          : 'open';
-    this.audio.setReverb(room);
+    // The room the effects ring in (plan v5 « M53 »): only a cave or a closed room.
+    this.roomWait -= dt;
+    if (this.roomWait <= 0) {
+      this.roomWait = ROOM_SECONDS;
+      this.indoors = this.covered && enclosed(this.closes, x, y, z);
+    }
+    this.audio.setReverb(place.cave ? 'cave' : this.indoors ? 'indoor' : 'dry');
   }
 
   /**
-   * The rain loop over the place's (its gain the rain's, softer under a roof, none underwater or
-   * in a cave), and the thunders whose time has come.
+   * The rain's ambience over the place's (at the rain's strength, softer under a roof, none
+   * underwater or in a cave), and the thunders whose time has come.
    */
   private hearWeather(dt: number, rain: number): void {
     const sounds = this.view.registry.pack.sounds;
-    const loop = sounds?.ambience.rain;
-    if (loop) {
-      const place = this.place;
-      const gain = place.underwater || place.cave ? 0 : rain * (this.covered ? RAIN_COVERED : 1);
-      this.audio.setLoop(loop, gain);
-    }
+    const place = this.place;
+    const strength = place.underwater || place.cave ? 0 : rain * (this.covered ? RAIN_COVERED : 1);
+    const def = strength > 0 ? (sounds?.ambience.rain ?? null) : null;
+    this.rain.update(def, dt, this.earX, this.earY, this.earZ, strength);
     const thunders = this.thunders;
     for (let i = thunders.length - 1; i >= 0; i--) {
       thunders[i] = thunders[i]! - dt;
@@ -271,6 +277,20 @@ export class AudioBridge {
       }
     }
   }
+}
+
+/**
+ * Per block state, 1 for what closes a room around the ear (plan v5 « M53 »): a full solid block
+ * that is not a canopy's leaves (a decaying block) nor a liquid.
+ */
+export function roomWalls(registry: Registry): Uint8Array {
+  const table = new Uint8Array(registry.tables.stateCount);
+  for (let state = 0; state < table.length; state++)
+    table[state] =
+      registry.tables.collision[state] === COLLISION_FULL && !registry.blockDef(state).decay
+        ? 1
+        : 0;
+  return table;
 }
 
 /**

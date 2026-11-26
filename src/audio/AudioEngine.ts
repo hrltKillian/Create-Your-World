@@ -1,5 +1,5 @@
 import { renderSfx } from '../assets/procedural/sfxSynth.ts';
-import type { SfxDef } from '../content/schema.ts';
+import { MIN_VARIANTS, type SfxDef } from '../content/schema.ts';
 import { lookVector, type Vec3 } from '../core/angles.ts';
 import { DEFAULT_SETTINGS, type Volumes } from '../platform/settings.ts';
 import { createGraph, type Graph, type Voice, type VoiceSlot, WATER_FILTER } from './graph.ts';
@@ -28,6 +28,11 @@ const ROOM_GLIDE = 0.4;
 
 /** Milliseconds of synthesis between two yields to the page while prerendering. */
 const PRERENDER_SLICE_MS = 12;
+
+/** How many variants a one-shot is rendered in. */
+export function variantsOf(def: SfxDef): number {
+  return def.variants ?? MIN_VARIANTS;
+}
 
 /** A free voice if there is one, else the least audible, then the oldest. */
 export function pickVoice(voices: readonly VoiceSlot[], now: number): number {
@@ -66,7 +71,9 @@ export class AudioEngine {
   private readonly recipes: readonly SfxDef[];
   private readonly muted: boolean;
   private readonly now: () => number;
-  private readonly buffers = new Map<string, AudioBuffer>();
+  /** Each one-shot's rendered variants (plan v5 « M53 »), and the one played last. */
+  private readonly buffers = new Map<string, AudioBuffer[]>();
+  private readonly lastVariant = new Map<string, number>();
   private readonly loops: LoopBank;
   private readonly lastStart = new Map<string, number>();
   private readonly played: string[] = [];
@@ -89,19 +96,33 @@ export class AudioEngine {
   }
 
   /**
-   * Renders every one-shot into a buffer (`synthesize`); needs no user gesture. A few at a time,
-   * yielding to the page between them, so the loading screen keeps moving.
+   * Renders every one-shot (`synthesize`); needs no user gesture. The first variant of each, then
+   * the others (plan v5 « M53 »), a few at a time, yielding to the page between them so the
+   * loading screen keeps moving: a sound plays from its first variant until the rest are there.
    */
   async prerender(): Promise<void> {
     if (this.muted) return;
     let since = performance.now();
+    const pause = async () => {
+      if (performance.now() - since <= PRERENDER_SLICE_MS) return;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      since = performance.now();
+    };
     for (const def of this.recipes) {
-      this.buffers.set(def.key, renderSfx(def));
-      if (performance.now() - since > PRERENDER_SLICE_MS) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        since = performance.now();
+      this.buffers.set(def.key, [renderSfx(def)]);
+      await pause();
+    }
+    for (const def of this.recipes) {
+      for (let v = 1; v < variantsOf(def); v++) {
+        this.buffers.get(def.key)?.push(renderSfx(def, undefined, v));
+        await pause();
       }
     }
+  }
+
+  /** How many variants of a one-shot are rendered so far (the sound board). */
+  rendered(key: string): number {
+    return this.buffers.get(key)?.length ?? 0;
   }
 
   /**
@@ -183,12 +204,22 @@ export class AudioEngine {
     return this.place;
   }
 
-  /** Loads the place's impulse into the idle room and crossfades to it. */
+  /**
+   * Loads the place's impulse into the idle room and crossfades to it; a dry place (plan v5
+   * « M53 ») fades both rooms and the send out.
+   */
   private applyRoom(): void {
     const graph = this.graph;
     const place = this.place;
     if (!graph || !place) return;
     const ctx = graph.ctx;
+    const now = ctx.currentTime;
+    const rooms = graph.reverb.rooms;
+    graph.reverb.send.gain.setTargetAtTime(REVERBS[place].wet, now, ROOM_GLIDE);
+    if (REVERBS[place].wet === 0) {
+      for (const room of rooms) room.level.gain.setTargetAtTime(0, now, ROOM_GLIDE);
+      return;
+    }
     let impulse = this.impulses.get(place);
     if (!impulse) {
       const [left, right] = impulseResponse(place, ctx.sampleRate);
@@ -201,19 +232,48 @@ export class AudioEngine {
       impulse.copyToChannel(right, 1);
       this.impulses.set(place, impulse);
     }
-    const rooms = graph.reverb.rooms;
     const next = 1 - this.room;
-    const now = ctx.currentTime;
     const coming = rooms[next]!;
     coming.convolver.buffer = impulse;
     coming.level.gain.setTargetAtTime(1, now, ROOM_GLIDE);
     rooms[this.room]!.level.gain.setTargetAtTime(0, now, ROOM_GLIDE);
-    graph.reverb.send.gain.setTargetAtTime(REVERBS[place].wet, now, ROOM_GLIDE);
     this.room = next;
   }
 
   /** Plays a sound at a world position (sfx bus). False when it is too far or a duplicate. */
   play(key: string, x: number, y: number, z: number, pitch = 1): boolean {
+    return this.positioned(key, x, y, z, pitch, 'sfx');
+  }
+
+  /** Plays an ambience's event at a world position (ambience bus; plan v5 « M53 »). */
+  playAmbient(key: string, x: number, y: number, z: number): void {
+    this.positioned(key, x, y, z, 1, 'ambience');
+  }
+
+  /**
+   * Plays one variant of a one-shot on the interface bus, rendering it first if it is not yet (the
+   * sound board). False when there is no such recipe.
+   */
+  playVariant(key: string, variant: number): boolean {
+    const def = this.recipes.find((d) => d.key === key);
+    if (!def || this.muted) return false;
+    const list = this.buffers.get(key) ?? [];
+    this.buffers.set(key, list);
+    while (list.length <= variant) list.push(renderSfx(def, undefined, list.length));
+    this.record(key);
+    const voice = this.start(key, 1, 1, variant);
+    if (voice) voice.gain.connect(this.graph!.ui);
+    return true;
+  }
+
+  private positioned(
+    key: string,
+    x: number,
+    y: number,
+    z: number,
+    pitch: number,
+    bus: 'sfx' | 'ambience',
+  ): boolean {
     const dx = x - this.ear.x;
     const dy = y - this.ear.y;
     const dz = z - this.ear.z;
@@ -226,7 +286,7 @@ export class AudioEngine {
       p.positionY.value = y;
       p.positionZ.value = z;
       voice.gain.connect(p);
-      p.connect(this.graph!.sfx);
+      p.connect(this.graph![bus]);
     }
     return true;
   }
@@ -287,12 +347,18 @@ export class AudioEngine {
 
   /**
    * Starts a buffer on a voice (stealing one if all are busy) and returns it, unconnected, or
-   * null when nothing can sound yet (no gesture, muted, or the buffers are still rendering).
+   * null when nothing can sound yet (no gesture, muted, or the buffers are still rendering). The
+   * variant is `variant`, else one drawn among those rendered, never the one played last.
    */
-  private start(key: string, distanceGain: number, pitch: number): Voice | null {
+  private start(key: string, distanceGain: number, pitch: number, variant?: number): Voice | null {
     const graph = this.graph;
-    const buffer = this.buffers.get(key);
-    if (graph?.ctx.state !== 'running' || !buffer) return null;
+    const list = this.buffers.get(key);
+    if (graph?.ctx.state !== 'running' || !list || list.length === 0) return null;
+    let pick = variant ?? Math.floor(Math.random() * list.length);
+    if (variant === undefined && list.length > 1 && pick === this.lastVariant.get(key))
+      pick = (pick + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+    this.lastVariant.set(key, pick);
+    const buffer = list[Math.min(pick, list.length - 1)]!;
     const now = this.now();
     const voice = graph.voices[pickVoice(graph.voices, now)]!;
     voice.source?.stop();

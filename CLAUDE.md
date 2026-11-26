@@ -495,8 +495,19 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`synthesize`, `biquad`, `PEAK`; sources noise, tones with polyBLEP, `modal` modes, `grains`;
     `SfxLayer.modes`/`grains`; `renderSfx` wraps it in an AudioBuffer), recipe helpers `struck` and
     `crunch` (packs/base/sfxParts.ts); rooms `audio/reverb.ts` (`REVERBS`, `impulseResponse`,
-    `doppler`), `AudioEngine.setReverb`/`reverb()` (two convolvers crossfaded), HRTF panners,
-    `BiomeDef.acoustics`; AudioBridge picks the room and applies Doppler to creature sounds;
+    `doppler`), `AudioEngine.setReverb`/`reverb()` (two convolvers crossfaded), HRTF panners;
+    AudioBridge picks the room and applies Doppler to creature sounds;
+  - realistic sound engine (plan v5 « M53 »): models `assets/procedural/synthModels.ts` (sources
+    `pink`, `brown`, `impact` with `contact`, `bubbles`, `crackle`, `wind`, `voice`;
+    `contactSpectrum`), the footstep recipe `footstep` (sfxParts.ts: heel then toe); variants
+    (`synthesize(def, rate, variant)`, `MIN_VARIANTS`, `SfxDef.variants`, `AudioEngine` renders the
+    first take of each at load then the rest, never the last one twice); loudness classes
+    (`SfxDef.level`, `SFX_LEVELS`, `loudness`; the master `LIMITER`, audio/graph.ts); ambiences as
+    a bed and events (`AmbienceDef`, `AmbientEvent`, `ambienceOf`, `Ambience.update(def, dt, x, y,
+    z, level)`, `AudioEngine.playAmbient`; the rain's own `Ambience`); rooms only in a cave or a
+    closed interior (`REVERB_PLACES` `dry`/`indoor`/`cave`, `enclosed`, `ROOM_PROBE`; `roomWalls`
+    in AudioBridge: no leaves); the dev sound board `?soundboard=1` (`ui/screens/soundboard.ts`,
+    `AudioEngine.playVariant`);
   - soundscape (plan v4 « M45 »): `SfxLayer.vibrato`; creature calls through formants (`call`,
     `THROAT`, struck shells and crystals, `chitter` grains in creatureSfx.ts); grain beds and songs
     in the ambience loops (`grainBed`, `song`); the levels test `tests/unit/content/soundLevels.test.ts`;
@@ -584,7 +595,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - URL params (dev/bench only): `seed`, `storage=memory|idb`, `noLock`, `debug`, `forceNoWebGL`,
   `forceNoIdb`, `scene`, `freecam`, `fixedStep`, `selftest` (implies `noLock` and `skipMenu`),
   `timing=0` (selftests skip wall-clock thresholds and stretch waits; set by e2e on CI), `mute`
-  (sounds are still logged), `skipMenu` (a new world, no menu), `world=<id>` (opens a saved world),
+  (sounds are still logged), `soundboard` (the sound board over the menu), `skipMenu` (a new world, no menu), `world=<id>` (opens a saved world),
   `worldType=flat|arena`, `rd`, `view`, `kb`, `host=serialize`, `bench`, `time` (hour 0–24 of the
   world clock), `freezeTime`, `spawns=0|1` (natural creature spawns and herds; by default only in
   generated worlds, never in selftests unless given), `grace` (ticks without hostile spawns,
@@ -674,6 +685,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Sound engine checks of plan v5: `?seed=7&rd=4&fixedStep=1&selftest=m0,m53` (every biome dry, a
+  cave rings) and `?worldType=flat&fixedStep=1&selftest=m0,m53` (a closed hut rings).
 - Creature checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m52` (`selftest/m52.ts`):
   each species placed is drawn on screen from its skin atlas and moves at rest.
 - Interface checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m48` (`selftest/m48.ts`):

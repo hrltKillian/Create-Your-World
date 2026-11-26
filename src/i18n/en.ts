@@ -18,6 +18,18 @@ export const en = {
   'hint.freecam':
     'Free camera — click to look around, fly with the movement keys, Space and C to rise and sink, Shift to go faster.',
   'debug.title': 'Debug',
+  'soundboard.title': 'Sound board',
+  'soundboard.help':
+    'Click a number to hear that take of a sound; a bed plays until clicked again.',
+  'soundboard.bed': 'Bed',
+  'soundboard.level.ui': 'Interface',
+  'soundboard.level.step': 'Steps',
+  'soundboard.level.impact': 'Blows',
+  'soundboard.level.player': 'Player and things',
+  'soundboard.level.voice': 'Creatures',
+  'soundboard.level.weather': 'Weather',
+  'soundboard.level.event': 'Ambient events',
+  'soundboard.level.bed': 'Ambience beds',
   'debug.fps': 'FPS',
   'debug.frame': 'Frame work p95',
   'debug.draws': 'Draw calls',

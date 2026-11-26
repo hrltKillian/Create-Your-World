@@ -1,4 +1,4 @@
-import { ambienceKey } from '../../audio/Ambience.ts';
+import { ambienceOf } from '../../audio/Ambience.ts';
 import { AUDIO } from '../../audio/AudioEngine.ts';
 import { consumeSound } from '../../audio/cues.ts';
 import type { BlockDef, ItemDef, SoundBindings } from '../../content/schema.ts';
@@ -152,7 +152,7 @@ async function useDoor(app: App): Promise<string | undefined> {
 function placeLoop(app: App, night: boolean): string {
   const place = ambienceView(app)?.place;
   assert(place, 'the ambience heard no place');
-  return ambienceKey(soundsOf(app).ambience, { ...place, night });
+  return ambienceOf(soundsOf(app).ambience, { ...place, night }).bed;
 }
 
 /** Fails unless the ambience plays (or fades in) `key`. */
@@ -332,7 +332,7 @@ export const M11_AUDIO_CASES: readonly SelftestCase[] = [
         await stepFrames(app, 3, 2);
         assert(ambienceView(app)?.underwater, 'the camera in water did not close the low-pass');
         assertHeard(app, mark, [sounds.player.splash], 'going into water');
-        assertLoop(app, sounds.ambience.underwater, 'under water');
+        assertLoop(app, sounds.ambience.underwater.bed, 'under water');
       } finally {
         fill(app, x - 1, y0, z - 1, x + 1, y1, z + 1, air);
         await stepFrames(app, 2, 2);

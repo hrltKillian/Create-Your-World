@@ -91,16 +91,16 @@ describe('AudioBridge', () => {
 
   it('plays the rain over the place, softer under a roof; thunder after the light', () => {
     const { s, audio, bridge, frames, weather, heard } = setup();
-    const rain = sounds.ambience.rain!;
+    const rain = sounds.ambience.rain!.bed;
     const gain = () => audio.ambience().find((l) => l.key === rain)?.gain ?? 0;
     frames(10);
     expect(gain()).toBe(0);
     weather.rain = 1;
-    frames(1);
+    frames(200);
     expect(gain()).toBe(1);
     s.put(0, 70, 0, 'block:stone');
-    frames(1);
-    expect(gain()).toBeLessThan(1);
+    frames(200);
+    expect(gain()).toBeLessThan(0.5);
     expect(gain()).toBeGreaterThan(0);
     // A strike 170 blocks off: its thunder half a second after the light.
     bridge.onEvent({ type: 'lightning', x: 170, y: 70, z: 0 });
@@ -108,6 +108,29 @@ describe('AudioBridge', () => {
     expect(heard(sounds.thunder!)).toBe(false);
     frames(20);
     expect(heard(sounds.thunder!)).toBe(true);
+  });
+});
+
+describe('rooms (plan v5 « M53 »)', () => {
+  it('is dry outdoors, under leaves or a roof alone, and rings in a closed hut', () => {
+    const { s, audio, frames } = setup();
+    frames(20);
+    expect(audio.reverb()).toBe('dry');
+    // A canopy of leaves overhead and a roof of stone: still no room.
+    s.fill(-3, 69, -3, 3, 69, 3, 'block:forest_leaves');
+    frames(20);
+    expect(audio.reverb()).toBe('dry');
+    s.fill(-3, 69, -3, 3, 69, 3, 'block:stone');
+    frames(20);
+    expect(audio.reverb()).toBe('dry');
+    // Walls all around (a doorway left open): a room.
+    s.fill(-3, 65, -3, 3, 68, -3, 'block:stone');
+    s.fill(-3, 65, 3, 3, 68, 3, 'block:stone');
+    s.fill(-3, 65, -3, -3, 68, 3, 'block:stone');
+    s.fill(3, 65, -3, 3, 68, 3, 'block:stone');
+    s.fill(0, 65, -3, 0, 66, -3, 'block:air');
+    frames(20);
+    expect(audio.reverb()).toBe('indoor');
   });
 });
 

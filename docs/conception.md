@@ -3511,7 +3511,7 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 
 ### Partie D — Sons réalistes
 
-#### M53 — Moteur de sons réalistes
+#### M53 — Moteur de sons réalistes (fait)
 
 - **Synthèse** (`assets/procedural/synth.ts`). Bruits rose et brun, plus ces modèles :
   - **impact** : contact bref selon la dureté, puis modes amortis inharmoniques par matière ;
@@ -3535,6 +3535,16 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - budget de rendu au chargement ;
 - selftest `m53` : dehors en forêt et dans le Sporefen, aucune réverbération ; en grotte, oui.
 
+**Retenu à la réalisation** :
+
+- les modèles (`assets/procedural/synthModels.ts`) sont de nouvelles sources de couche : `pink` et `brown` (filtre de Kellet, somme qui fuit), `impact` (les modes du corps, chacun excité selon le spectre d'une force en cosinus surélevé de durée `contact`, sur le clic du contact lui-même), `bubbles` (rayon en mm → 3,26 kHz·mm, hauteur qui monte en se refermant, amortissement de van den Doel), `crackle` (claquements résonants de tailles en loi de puissance), `wind` (bruits rose et brun dans un passe-bande d'état variable dont le centre et le niveau suivent les rafales) et `voice` (impulsions de Rosenberg dont chaque période tire sa hauteur et son niveau — jitter, shimmer —, une période sur deux affaiblie dans un grognement, souffle dans la phase ouverte, formants de la voyelle divisés par la longueur du conduit, rayonnement par différence) ; le pas est une recette (`footstep`, sfxParts.ts : le talon puis la pointe, 85 ms après, plus légère, chacun avec les grains de la surface) ;
+- une variante autre que la première est une autre prise : un autre bruit, les hauteurs à ±5 % et les durées à ±10 % (`synthesize(def, rate, variant)`) ; 4 par son au moins (`MIN_VARIANTS`, `SfxDef.variants`) ; le moteur rend la première de chaque son au chargement, les autres ensuite par tranches, et tire une variante différente de la précédente (`AudioEngine.start`) ;
+- chaque recette a une classe de niveau (`SfxDef.level`, `SFX_LEVELS` : interface −24, pas −27, coups −21, joueur −21, voix −19, météo −17, événements −27, fonds −33 dB du plus fort RMS sur 50 ms) ; le rendu l'y amène sans dépasser `PEAK` ; un limiteur sur le maître (seuil −6 dB, rapport 20) ; le pack range ses recettes actuelles par classe (`levelOf`, en attendant M54) ;
+- une ambiance (`AmbienceDef`) est un fond (`bed`, une boucle jusqu'à 24 s) et des événements (`events` : un son toutes les `every` secondes, à `distance` blocs dans une direction au hasard, sur le bus d'ambiance, `playAmbient`) ; la pluie est une ambiance à part, à la force de la pluie ; les événements se taisent tant que leur fond est faible ;
+- salles (décision 33) : `dry` (aucune réverbération : dehors, forêts comprises), `indoor`, `cave` ; un intérieur est fermé quand un plafond est à 8 blocs au plus au-dessus de l'oreille et des murs à 8 blocs au plus dans 7 des 8 directions (`enclosed`, audio/reverb.ts), les feuilles ne comptant pas (`roomWalls`) ; sondé toutes les 0,25 s ; `BiomeDef.acoustics` est retiré ;
+- planche des sons (`?soundboard=1`, en dev) : chaque recette par classe, un bouton par variante, un interrupteur par fond (`ui/screens/soundboard.ts`, `AudioEngine.playVariant`) ;
+- selftest `m53` : chaque biome du monde généré est sec (forêts et Sporefen compris), une grotte résonne ; dans le monde plat, une cabane fermée résonne et le pré est sec.
+
 #### M54 — Tous les sons refaits
 
 - **Monde et joueur** :
@@ -3549,7 +3559,7 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
   - tonnerre réaliste : claquement en onde N, puis roulement fait d'impulsions retardées le long de l'éclair, plus sourd avec la distance.
 - **Créatures** : chaque espèce redessinée à M52 a ses sons tirés de son corps. Exemples : la grande gorge grave du Shagback, le cliquetis de carapace du Shellback, le bourdonnement d'ailes et les mandibules du Swarmling. Cris, alerte, attaque, douleur, mort et pas, avec des variantes.
 - **Ambiances** par biome, jour et nuit, sans aucun son de créature.
-- **Interface** : clics.
+- **Interface** : tous les sons, même ceux qui n'existent pas encore : clics des boutons, cases (prendre, poser, déplacer, jeter), ouverture et fermeture de chaque écran et menu (Bag et ses pages, coffre, station, établi, carte, livre, pause, réglages, menus), craft terminé, signaux du crépuscule et de l'aube. Aucune recette d'avant n'est gardée.
 
 **Tests** : selftest `m54` (chaque clé de son jouée une fois sans erreur ; le tonnerre arrive après le flash ; chaque espèce a ses sons) ; les tests de niveaux sont mis à jour.
 

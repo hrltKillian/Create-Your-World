@@ -21,6 +21,7 @@ import { WorldView } from '../render/WorldView.ts';
 import { DebugOverlay } from '../ui/debug/DebugOverlay.ts';
 import { fatalScreen } from '../ui/screens/fatal.ts';
 import { hintBar } from '../ui/screens/hint.ts';
+import { soundboard } from '../ui/screens/soundboard.ts';
 import { titleOverlay } from '../ui/screens/title.ts';
 import { unsupportedScreen } from '../ui/screens/unsupported.ts';
 import { buildTestScene, meshTestScene, TEST_SCENE_SURFACE } from '../world/gen/testScene.ts';
@@ -35,7 +36,7 @@ import type { HudBridge } from './HudBridge.ts';
 import type { InventoryUi } from './inventoryUi.ts';
 import { FrameStats } from './perf.ts';
 
-export const MILESTONE = 52;
+export const MILESTONE = 53;
 
 /** Errors kept for `__game.errors()`; later ones are only counted. */
 const MAX_ERRORS = 100;
@@ -270,6 +271,13 @@ export class App {
     this.audio = audio;
     audio.prerender().catch((error: unknown) => this.recordError(`[audio] ${String(error)}`));
     window.addEventListener('pointerdown', () => audio.resume());
+    if (this.params.soundboard && __DEBUG_HOOK__)
+      this.root.append(
+        soundboard(pack.sfx ?? [], {
+          play: (key, variant) => audio.playVariant(key, variant),
+          loop: (key, on) => audio.setLoop(key, on ? 1 : 0),
+        }),
+      );
     // « Onglet caché »: silent while hidden; shown again, a context made by a click resumes.
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) audio.suspend();
