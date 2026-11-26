@@ -337,6 +337,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `LiquidDef.hardens` where another liquid touches it, `sounds.hardens`; drops burn in it);
     fire `SurvivalState.burnTicks` (`contact.ignites` relights it for `balance.fire` seconds,
     `Contact.douses`: feet in a liquid that does not burn; causes `lava`, `fire`; `#hud-fire`);
+    contact as in the reference game (`touch`, sim/environment.ts): every block the body's box
+    overlaps, feet to head, none beside it, plus the block stood on unless crouching (magma); lava,
+    magma and fire give no heat around them;
   - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
     `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
     `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),

@@ -44,7 +44,7 @@ export const undergroundBlocks = [
     opaque: false,
     replaceable: true,
     light: { emit: 15, filter: 15 },
-    heat: { celsius: 60, radius: 4 },
+    // No heat around it: as in the reference game, it hurts only what is in it (or on it).
     contact: { damagePerSec: 20, ignites: true },
     hardness: 0,
     drops: 'none',
@@ -64,7 +64,7 @@ export const undergroundBlocks = [
   },
   deposit('block:magma', 'block.magma', 'tex:magma', 2, 1, {
     light: { emit: 15 },
-    heat: { celsius: 40, radius: 3 },
+    // No heat around it: as in the reference game, it hurts only what is in it (or on it).
     contact: { damagePerSec: 4 },
     drops: 'none',
   }),

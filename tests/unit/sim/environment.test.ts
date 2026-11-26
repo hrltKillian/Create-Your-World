@@ -78,7 +78,7 @@ describe('thermal model', () => {
     expect(heatAround(world, registry.tables, 20.5, 64.5, 20.5, 2)).toBe(0);
   });
 
-  it('looks a column up once per block column of the heat scan, and once for the feet', () => {
+  it('looks a column up once per block column of the heat scan', () => {
     const world = emptyWorld(1);
     world.setBlock(0, 64, 0, registry.stateId('block:campfire[lit=1]'));
     const lookups = vi.spyOn(world, 'getColumn');
@@ -89,9 +89,10 @@ describe('thermal model', () => {
     for (let s = 0; s < registry.tables.stateCount; s++)
       r = Math.max(r, registry.tables.heatRadius[s]! + 1);
     expect(lookups.mock.calls.length).toBe((2 * r + 1) ** 2);
-    lookups.mockClear();
-    const player = createPlayer(1, 0.5, 64, 0.5, 2, b);
-    player.body.onGround = true;
+  });
+
+  it('hurts only inside lava and fire, never beside them, and on magma unless crouching', () => {
+    const world = emptyWorld(1);
     const contact: Contact = {
       toxicity: 0,
       damage: 0,
@@ -99,8 +100,32 @@ describe('thermal model', () => {
       burnCause: 'fire',
       douses: false,
     };
-    touch(registry, world, player, contact);
-    expect(lookups.mock.calls.length).toBe(1);
+    const player = createPlayer(1, 0.5, 64, 0.5, 2, b);
+    player.body.onGround = true;
+    const touched = () => {
+      touch(registry, world, player, contact);
+      return [contact.damage > 0, contact.ignites];
+    };
+    // The reference game: lava and fire beside the body neither burn nor warm it.
+    world.setBlock(1, 64, 0, registry.defaultState('block:lava'));
+    world.setBlock(0, 65, 1, registry.defaultState('block:fire'));
+    expect(touched()).toEqual([false, false]);
+    expect(heatAround(world, registry.tables, 0.5, 64.5, 0.5, b.climate.heatSources)).toBe(0);
+    // The box (0.6 wide) reaching into the lava: it burns, as lava.
+    player.body.x = 0.75;
+    expect(touched()).toEqual([true, true]);
+    expect(contact.burnCause).toBe('lava');
+    // Fire at the head's height, the body reaching into it.
+    player.body.x = 0.5;
+    player.body.z = 0.75;
+    expect(touched()).toEqual([true, true]);
+    expect(contact.burnCause).toBe('fire');
+    // A magma block stood on hurts without setting alight, and not while crouching.
+    player.body.z = 0.5;
+    world.setBlock(0, 63, 0, registry.defaultState('block:magma'));
+    expect(touched()).toEqual([true, false]);
+    player.body.crouching = true;
+    expect(touched()).toEqual([false, false]);
   });
 
   it('finds caves: no sky at the head, deep enough under the surface', () => {

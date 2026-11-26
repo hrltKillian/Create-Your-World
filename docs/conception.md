@@ -3380,6 +3380,18 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
 - la pluie se teste au-dessus du feu : il compte dans la carte des hauteurs de sa colonne ;
 - l'éclair (`sim/lightning.ts`) : 25 de vie et 8 s de feu dans un rayon de 3 blocs, cause `lightning` ; `debug.strike` et `__game.weather.strike(x, z)` pour les tests.
 
+#### Correctif après le test de M48 : la lave brûle seulement dedans (fait)
+
+Bug relevé : debout sur le bloc voisin de la lave, on se brûlait. La lave rayonnait 60 °C sur 4 blocs (le magma 40 °C sur 3, le feu 25 °C sur 2) : la température ressentie montait jusqu'à la surchauffe. Le contact, lui, ne lisait que le bloc du centre des pieds.
+
+Comme dans Minecraft :
+
+- la lave, le magma et le bloc de feu ne chauffent plus l'air autour d'eux (plus de `heat`) ;
+- le contact (`touch`, `sim/environment.ts`) lit chaque bloc que la boîte du corps chevauche, des pieds à la tête (à 0,001 près, comme le jeu de référence), et aucun bloc à côté : la lave et le feu brûlent seulement qui est dedans ;
+- le bloc sous les pieds compte aussi (le magma blesse qui marche dessus), sauf accroupi.
+
+**Tests** : `environment.test.ts` (à côté : ni dégâts ni chaleur ; la boîte qui entre dans la lave ou dans le feu brûle ; le magma blesse debout, pas accroupi).
+
 ### Partie C — Identité visuelle
 
 #### M48 — Interfaces « colonie effondrée » (fait)
