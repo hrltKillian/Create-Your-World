@@ -50,9 +50,8 @@ export class ContainerScreen {
         board.header(this.title),
         this.chest,
         h('div', { class: 'container-actions' }, takeAll, storeAll, sort),
-        h('p', { class: 'bag-section' }, t('bag.title')),
-        ...board.inventory(),
-        h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
+        ...board.inventory(true),
+        board.help(),
       ),
     );
   }

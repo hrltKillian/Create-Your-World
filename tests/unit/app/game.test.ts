@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from '../../../src/app/App.ts';
 import { type BootParams, DEFAULT_BOOT_PARAMS } from '../../../src/app/bootParams.ts';
-import { Game, type GameHost, uiScaleFor } from '../../../src/app/Game.ts';
+import { Game, type GameHost } from '../../../src/app/Game.ts';
 import { applyQuality } from '../../../src/app/graphicsPreset.ts';
 import type { FrameStats } from '../../../src/app/perf.ts';
 import { AudioEngine } from '../../../src/audio/AudioEngine.ts';
@@ -11,6 +11,7 @@ import { KeyLabels } from '../../../src/input/keyLabels.ts';
 import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
+  uiScaleFor,
   withQuality,
   writeSettings,
 } from '../../../src/platform/settings.ts';

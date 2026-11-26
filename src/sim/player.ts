@@ -1,5 +1,5 @@
 import type { Registry } from '../content/registry.ts';
-import { type BalanceDef, WEAR_SLOTS } from '../content/schema.ts';
+import { type BalanceDef, type ItemDef, WEAR_SLOTS } from '../content/schema.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type InputCommand, NEUTRAL_INPUT } from './commands.ts';
 import { consuming, NO_USE } from './consume.ts';
@@ -227,6 +227,18 @@ export function createPlayer(
     scanTicks: 0,
     sleeping: null,
   };
+}
+
+/** The item id in the player's selected hotbar slot (−1: the bare hand). */
+export function heldItemId(registry: Registry, player: Readonly<PlayerState>): number {
+  const stack = player.inventory[player.input.slot];
+  return stack ? registry.itemId(stack.item) : -1;
+}
+
+/** The item in the player's hand (undefined: the bare hand, or an item the pack lacks). */
+export function heldItem(registry: Registry, player: Readonly<PlayerState>): ItemDef | undefined {
+  const id = heldItemId(registry, player);
+  return id < 0 ? undefined : registry.items[id];
 }
 
 /** Spends stamina; running dry locks sprinting until `recoverAt`. */

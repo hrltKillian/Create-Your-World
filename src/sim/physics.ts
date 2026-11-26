@@ -3,6 +3,12 @@ import { BODY_HEIGHT, CROUCH_BODY_HEIGHT, CROUCH_EYE_HEIGHT, EYE_HEIGHT } from '
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { aabb, isLiquid, moveAxis, overlapsSolid, solidCell, supported } from './collision.ts';
 
+/*
+ * A body's movement (docs « Joueur »): its constants, then one tick of it (`stepBody`: crouch,
+ * acceleration, jump and gravity, the moves along each axis). Kept in one file despite its length:
+ * it is the hot loop of every player each tick, its phases sharing the body's fields.
+ */
+
 /** Player movement constants (docs/conception.md « Joueur »). */
 export const PHYSICS = {
   width: 0.6,

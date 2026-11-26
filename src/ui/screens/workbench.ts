@@ -1,5 +1,4 @@
 import type { StationDef } from '../../content/schema.ts';
-import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
@@ -42,11 +41,10 @@ export class WorkbenchScreen {
             { class: 'bag-inventory' },
             h('p', { class: 'bag-section' }, t('workbench.outputs')),
             this.outputs,
-            h('p', { class: 'bag-section' }, t('bag.title')),
-            ...board.inventory(),
+            ...board.inventory(true),
           ),
         ),
-        h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
+        board.help(),
       ),
     );
   }

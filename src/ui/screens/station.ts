@@ -1,6 +1,5 @@
 import { fuelSlotOf, outputSlotOf, stationSlotCount } from '../../content/crafting.ts';
 import type { Ingredient, ItemCount, ProcessDef, StationDef } from '../../content/schema.ts';
-import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
 import { h } from '../h.ts';
@@ -79,14 +78,9 @@ export class StationScreen {
             h('p', { class: 'bag-section' }, t('station.processes')),
             this.processes,
           ),
-          h(
-            'div',
-            { class: 'bag-inventory' },
-            h('p', { class: 'bag-section' }, t('bag.title')),
-            ...board.inventory(),
-          ),
+          h('div', { class: 'bag-inventory' }, ...board.inventory(true)),
         ),
-        h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
+        board.help(),
       ),
     );
   }

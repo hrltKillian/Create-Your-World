@@ -1,4 +1,4 @@
-import type { ContentPack, FeatureKind, Spline, WorldgenDef } from './schema.ts';
+import type { ContentPack, FeatureKind, OreDef, Spline, WorldgenDef } from './schema.ts';
 
 type AddIssue = (path: string, message: string) => void;
 
@@ -24,48 +24,77 @@ export function highestTerrain(w: WorldgenDef): number {
   );
 }
 
+/** The shared checks of world generation data: a known block, an integer range. */
+interface Checks {
+  readonly add: AddIssue;
+  readonly block: (path: string, key: string | undefined) => void;
+  readonly range: (path: string, r: readonly [number, number]) => void;
+}
+
 /** World generation: worldgen blocks and splines, features, ores, biomes, spawn and structures. */
 export function validateWorld(
   pack: ContentPack,
   blockKeys: ReadonlySet<string>,
   add: AddIssue,
 ): void {
-  const block = (path: string, key: string | undefined) => {
-    if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
-  };
-  const range = (path: string, r: readonly [number, number]) => {
-    if (!(Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] <= r[1]))
-      add(path, 'must be two integers, min ≤ max');
+  const c: Checks = {
+    add,
+    block: (path, key) => {
+      if (key !== undefined && !blockKeys.has(key)) add(path, `unknown block "${key}"`);
+    },
+    range: (path, r) => {
+      if (!(Number.isInteger(r[0]) && Number.isInteger(r[1]) && r[0] <= r[1]))
+        add(path, 'must be two integers, min ≤ max');
+    },
   };
   const w = pack.worldgen;
-  if (w) {
-    block('worldgen.bedrock', w.bedrock);
-    block('worldgen.stone', w.stone);
-    block('worldgen.deepStone', w.deepStone);
-    if (
-      !Number.isInteger(w.deepStoneBlend) ||
-      w.deepStoneBlend < 0 ||
-      w.deepStoneBlend >= w.deepStoneBelowY
-    )
-      add('worldgen.deepStoneBlend', 'must be a whole number from 0 to under deepStoneBelowY');
-    block('worldgen.magma', w.magma);
-    w.banks.patches.forEach((patch, i) => {
-      block(`worldgen.banks.patches[${i}].block`, patch.block);
-    });
-    w.caves.caverns.bands.forEach((band, i) => {
-      range(`worldgen.caves.caverns.bands[${i}].y`, band.y);
-    });
-    if (w.caves.tunnels.length === 0) add('worldgen.caves.tunnels', 'needs at least one family');
-    for (const name of ['continentalSpline', 'erosionSpline'] as const) {
-      const spline = w[name];
-      if (spline.length < 2) add(`worldgen.${name}`, 'needs at least two points');
-      for (let i = 1; i < spline.length; i++) {
-        if (!(spline[i]![0] > spline[i - 1]![0]))
-          add(`worldgen.${name}[${i}]`, 'inputs must increase');
-      }
+  if (w) checkWorldgen(w, c);
+  const biomes = checkBiomes(pack, checkFeatures(pack, c), c);
+  checkOres(pack, biomes, c);
+  if (w && pack.ores) checkCommonOres(w, pack.ores, add);
+  const biome = (path: string, key: string) => {
+    if (!biomes.has(key)) add(path, `unknown biome "${key}"`);
+  };
+  w?.spawn?.near.forEach((key, i) => {
+    c.block(`worldgen.spawn.near[${i}]`, key);
+  });
+  w?.spawn?.far.forEach((key, i) => {
+    biome(`worldgen.spawn.far[${i}]`, key);
+  });
+  validateStructures(pack, blockKeys, biome, add);
+}
+
+/** The worldgen's rocks, banks, cave bands and families, and its splines. */
+function checkWorldgen(w: WorldgenDef, { add, block, range }: Checks): void {
+  block('worldgen.bedrock', w.bedrock);
+  block('worldgen.stone', w.stone);
+  block('worldgen.deepStone', w.deepStone);
+  if (
+    !Number.isInteger(w.deepStoneBlend) ||
+    w.deepStoneBlend < 0 ||
+    w.deepStoneBlend >= w.deepStoneBelowY
+  )
+    add('worldgen.deepStoneBlend', 'must be a whole number from 0 to under deepStoneBelowY');
+  block('worldgen.magma', w.magma);
+  w.banks.patches.forEach((patch, i) => {
+    block(`worldgen.banks.patches[${i}].block`, patch.block);
+  });
+  w.caves.caverns.bands.forEach((band, i) => {
+    range(`worldgen.caves.caverns.bands[${i}].y`, band.y);
+  });
+  if (w.caves.tunnels.length === 0) add('worldgen.caves.tunnels', 'needs at least one family');
+  for (const name of ['continentalSpline', 'erosionSpline'] as const) {
+    const spline = w[name];
+    if (spline.length < 2) add(`worldgen.${name}`, 'needs at least two points');
+    for (let i = 1; i < spline.length; i++) {
+      if (!(spline[i]![0] > spline[i - 1]![0]))
+        add(`worldgen.${name}[${i}]`, 'inputs must increase');
     }
   }
-  const featureKeys = new Set((pack.features ?? []).map((f) => f.key as string));
+}
+
+/** Features: their blocks, crowns, soils and sizes. Returns their keys. */
+function checkFeatures(pack: ContentPack, { add, block, range }: Checks): Set<string> {
   (pack.features ?? []).forEach((f, i) => {
     const path = `features[${i}]`;
     block(`${path}.block`, f.block);
@@ -82,6 +111,15 @@ export function validateWorld(
     if (f.trunk === 2 && f.kind !== 'broadleaf' && f.kind !== 'conifer')
       add(`${path}.trunk`, 'only broadleaf and conifer trees grow a 2×2 trunk');
   });
+  return new Set((pack.features ?? []).map((f) => f.key as string));
+}
+
+/** Biomes: unique, named, their blocks, features and plants. Returns their keys. */
+function checkBiomes(
+  pack: ContentPack,
+  featureKeys: ReadonlySet<string>,
+  { add, block }: Checks,
+): Set<string> {
   const seen = new Set<string>();
   (pack.biomes ?? []).forEach((b, i) => {
     const path = `biomes[${i}]`;
@@ -108,6 +146,12 @@ export function validateWorld(
   });
   if (pack.biomes && pack.biomes.length > 10)
     add('biomes', 'at most 10 biomes fit the 32 tint slots');
+  return seen;
+}
+
+/** Ores: their blocks, biomes and layers. */
+function checkOres(pack: ContentPack, biomes: ReadonlySet<string>, { add, block, range }: Checks) {
+  const w = pack.worldgen;
   (pack.ores ?? []).forEach((ore, i) => {
     const path = `ores[${i}]`;
     block(`${path}.block`, ore.block);
@@ -116,7 +160,7 @@ export function validateWorld(
     });
     if (ore.biomes !== '*') {
       ore.biomes.forEach((key, k) => {
-        if (!seen.has(key)) add(`${path}.biomes[${k}]`, `unknown biome "${key}"`);
+        if (!biomes.has(key)) add(`${path}.biomes[${k}]`, `unknown biome "${key}"`);
       });
     }
     if (ore.layers.length === 0) add(`${path}.layers`, 'needs at least one layer');
@@ -134,45 +178,32 @@ export function validateWorld(
     if (ore.underLiquid && w && ore.layers.every((layer) => layer.y[0] >= w.seaLevel))
       add(`${path}.underLiquid`, `needs a layer starting below the sea level (${w.seaLevel})`);
   });
-  // No layer without ore: common ores (every biome, cave walls aside) cover each height of the
-  // stone, from the dark stone up to the highest terrain, and never reach into the dark stone
-  // (plan v3 « M24 »: an early tool mines them).
-  if (w && pack.ores) {
-    const top = highestTerrain(w);
-    const covered = new Uint8Array(top + 1);
-    pack.ores.forEach((ore, i) => {
-      if (ore.biomes !== '*' || ore.caveWall) return;
-      if (ore.replaces.includes(w.deepStone))
-        add(`ores[${i}].replaces`, 'a common ore lies in the stone only, not the dark stone');
-      ore.layers.forEach((layer, l) => {
-        if (layer.y[0] < w.deepStoneBelowY)
-          add(
-            `ores[${i}].layers[${l}].y`,
-            `a common ore starts at y ${w.deepStoneBelowY} or above`,
-          );
-        for (let y = Math.max(1, layer.y[0]); y <= Math.min(top, layer.y[1]); y++) covered[y] = 1;
-      });
+}
+
+/**
+ * No layer without ore: common ores (every biome, cave walls aside) cover each height of the
+ * stone, from the dark stone up to the highest terrain, and never reach into the dark stone
+ * (plan v3 « M24 »: an early tool mines them).
+ */
+function checkCommonOres(w: WorldgenDef, ores: readonly OreDef[], add: AddIssue): void {
+  const top = highestTerrain(w);
+  const covered = new Uint8Array(top + 1);
+  ores.forEach((ore, i) => {
+    if (ore.biomes !== '*' || ore.caveWall) return;
+    if (ore.replaces.includes(w.deepStone))
+      add(`ores[${i}].replaces`, 'a common ore lies in the stone only, not the dark stone');
+    ore.layers.forEach((layer, l) => {
+      if (layer.y[0] < w.deepStoneBelowY)
+        add(`ores[${i}].layers[${l}].y`, `a common ore starts at y ${w.deepStoneBelowY} or above`);
+      for (let y = Math.max(1, layer.y[0]); y <= Math.min(top, layer.y[1]); y++) covered[y] = 1;
     });
-    const gap = covered.findIndex((c, y) => y >= w.deepStoneBelowY && c === 0);
-    if (gap >= 0)
-      add(
-        'ores',
-        `no common ore covers y ${gap} (every height ${w.deepStoneBelowY}–${top} needs one)`,
-      );
-  }
-  const biome = (path: string, key: string) => {
-    if (!seen.has(key)) add(path, `unknown biome "${key}"`);
-  };
-  const spawn = w?.spawn;
-  if (spawn) {
-    spawn.near.forEach((key, i) => {
-      block(`worldgen.spawn.near[${i}]`, key);
-    });
-    spawn.far.forEach((key, i) => {
-      biome(`worldgen.spawn.far[${i}]`, key);
-    });
-  }
-  validateStructures(pack, blockKeys, biome, add);
+  });
+  const gap = covered.findIndex((c, y) => y >= w.deepStoneBelowY && c === 0);
+  if (gap >= 0)
+    add(
+      'ores',
+      `no common ore covers y ${gap} (every height ${w.deepStoneBelowY}–${top} needs one)`,
+    );
 }
 
 /** Largest template of a structure: width (x), height (layers) and depth (z). */

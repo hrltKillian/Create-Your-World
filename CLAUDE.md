@@ -89,6 +89,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `input/sprintLatch.ts` (`SprintLatch`, `DOUBLE_TAP_MS`; `InputManager` sends `sprint: key ||
     latch` while forward is held); eating or drinking slows the player (`consuming` and `NO_USE`
     in `sim/consume.ts`: × `balance.consume.moveFactor`, no sprint; `MoveInput.speedFactor`);
+  - the held item: `heldItemId`/`heldItem` (`sim/player.ts`); the slot screens' help line and
+    titled inventory `SlotBoard.help()`/`inventory(true)`; content schema files by theme
+    (`content/schema.ts` re-exports `itemSchema`, `creatureSchema`, `questSchema`, `soundSchema`,
+    `worldgenSchema`), the raw tables `content/rawTables.ts` (codes, `RawTables`,
+    `buildRawTables`; re-exported by `registry.ts`);
   - coordinates: `world/coords.ts` (`blockToColumn`, `columnIndex`, `sectionKey`/`sectionKeyParts`,
     `insideBorder`); packed light and the light rule: `world/light.ts` (`skyOf`, `blockOf`,
     `FULL_SKY`, `passLight`); light propagation: `world/light/` (`columnLight`, `LightEngine`);
@@ -358,8 +363,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (compass every frame, the rest at 10 Hz) and hands the gate over to the death screen; what needs
     the sim's rules (`targetText`, `BiomeWatch`) is in `app/hudModel.ts`; the sun on the compass
     `sunBearing`/`aboveHorizon` (`render/Sky.ts`); styles `ui/styles/hud.css`;
-  - saves: records and snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`,
-    `restoreSim`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
+  - saves: snapshots `sim/persistence.ts` (`snapshotSim`, `compressBatch`; `restoreSim`
+    re-exported from `sim/restore.ts`), entity records `sim/saveRecords.ts` (drops, creatures,
+    block entities, the shared field readers) and `sim/playerRecords.ts` (`playerRecord`,
+    `readPlayer`), the `Storage` port `sim/storage.ts` (`MemoryStorage`); in the browser
     `platform/IdbStorage.ts` (`openSaveBackend`: io.worker, or memory as the fallback),
     `platform/SaveManager.ts` (autosave, `onEvent`, `watchPage`, `close`), `platform/worldLock.ts`,
     `platform/exportWorld.ts`; IndexedDB tests stub `indexedDB` with fake-indexeddb's `IDBFactory`;
@@ -403,7 +410,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     creature part (`placeCreature`, `killCreature`, `creatureList`, `census`, `spawnLog`, applied
     at once without a tick): `app/creatureAutomation.ts`; the benchmarks (`flyBenchmark`,
     `mobsBenchmark` and its scene `MOBS`, timed by `GameSession.tickMs`): `app/benchmarks.ts`;
-  - audio (docs « Audio »): bindings `content/schema.ts` (`SoundBindings`: blocks with `step`,
+  - audio (docs « Audio »): bindings `content/soundSchema.ts` (`SoundBindings`: blocks with `step`,
     `player`, `door`, `chest`, `lit` by station, `clock` dusk/dawn, `ambience` per biome day/night,
     cave and underwater); recipes in `content/packs/base/` (`sfx.ts` blocks, `playerSfx.ts`,
     `ambienceSfx.ts` loops, `sfxParts.ts`), all synthesized; validation `content/validateSounds.ts`
@@ -671,11 +678,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   run in one of them. A case belongs to a setup through `scenes` and `skip` (the `needs…` helpers
   of `selftest/support.ts`); m7 ends on the Worlds screen, so the play cases after it skip in that
   boot. The banner's `data-results` lists every case with `ok`, `skipped`, `detail` and `ms`.
-- `src/app/automation.ts` holds the waits (`nextFrame`, `frameOrFail`, `withinFrames`, `framesFor`,
-  `yieldTask`, `waitUntil`, `waitForChunks`, `scaledWait`), the debug commands (`teleport`, `fill`, `setBlock`,
+- `src/app/automation.ts` holds (and re-exports `app/waits.ts`'s waits: `nextFrame`, `frameOrFail`,
+  `withinFrames`, `framesFor`, `yieldTask`, `waitUntil`, `waitForChunks`, `scaledWait`) the debug commands (`teleport`, `fill`, `setBlock`,
   `give`, `setTime`, `freezeTime`), `press`, `look`, `blockKey`, `lightAt`, `clock`, `hotbarView`,
-  crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens (`click`,
-  `clickSlot`, `clickOutside`, `moveSlot`) and `saveNow`/`reloadWorld`/`freshWorld` (a new world of the same seed), shared by
+  crafting and block entities (`craft`, `craftQueue`, `blockEntityContents`), the screens
+  (`app/screenAutomation.ts`, re-exported: `click`, `clickSlot`, `clickOutside`, `moveSlot`) and `saveNow`/`reloadWorld`/`freshWorld` (a new world of the same seed), shared by
   `debugHook.ts` (its groups in `app/hook/`) and the selftests;
   `selftest/support.ts` has the case type, `playerSession`, `needsFlatPlayer`/`needsArenaPlayer`/
   `needsGeneratedPlayer`, `needsSpawningFlatPlayer`, `needsIdb` (the flat and arena player checks

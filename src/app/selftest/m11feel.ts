@@ -8,6 +8,7 @@ import { feelView, setViewBob } from '../feelAutomation.ts';
 import { setStat } from '../survivalAutomation.ts';
 import {
   assert,
+  assertTiming,
   needsFlatPlayer,
   PLAY_SCENES,
   playerSession,
@@ -166,7 +167,10 @@ const sprintCase: SelftestCase = {
         Math.abs(sprint.fov - base.fov - sprint.fovOffset) < 1e-9,
         `the camera's field of view is ${sprint.fov}°, not ${base.fov}° + ${sprint.fovOffset}°`,
       );
-      assert(bob > BOB / 2 && bob <= BOB + 1e-9, `the view bobs ${bob} m sprinting, not ${BOB}`);
+      assert(bob > 0 && bob <= BOB + 1e-9, `the view bobs ${bob} m sprinting, not up to ${BOB}`);
+      // Its whole amplitude needs real frame times: the rig reads the speed off the frames, and a
+      // loaded software renderer (?timing=0) makes a sprint look slow.
+      assertTiming(app, bob > BOB / 2, `the view bobs ${bob} m sprinting, not ${BOB}`);
       // Released: the player slows down and stops, the view narrows back and stops bobbing.
       let settled = false;
       for (let i = 0; i < REST_FRAMES && !settled; i++) {
