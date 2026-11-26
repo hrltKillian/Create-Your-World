@@ -7,9 +7,11 @@ import { sampleFrames } from './sampler.ts';
 import { staged, teleportAndWait } from './stage.ts';
 
 /**
- * The `cave` benchmark (docs M11 « Fait quand »): the view from a fixed pose deep underground,
- * with the cave culling on, then off at the same pose (« −30 % de draws sous terre par rapport à
- * `occlusion=0` », « `cave` : ≤ 150 draws »).
+ * The `cave` benchmark (docs M11 « Fait quand »): the view from a fixed place deep underground,
+ * turning once around, with the cave culling on, then off along the same turn (« −30 % de draws
+ * sous terre par rapport à `occlusion=0` », « `cave` : ≤ 150 draws »). A whole turn: what the
+ * culling saves in one heading depends on the seed (sections behind the camera are culled by
+ * the frustum anyway).
  */
 
 export const CAVE = {
@@ -17,7 +19,7 @@ export const CAVE = {
   /** The pose: the first cave pocket this close to the spawn, its floor this deep under the surface. */
   radius: 160,
   minDepth: 48,
-  /** Looking north along the horizon. */
+  /** Turning from north, along the horizon. */
   yaw: 0,
   pitch: 0,
   /** The camera, the culling and the frame counters settle this long before each half. */
@@ -40,7 +42,8 @@ export function cavePose(app: App): FoundCave {
 
 /**
  * Takes the player (or the free camera) to the cave pose, waits for the render distance around it
- * to be meshed, then samples `seconds / 2` with the cave culling on and as long with it off.
+ * to be meshed, then samples `seconds / 2` turning once around with the cave culling on, and the
+ * same turn with it off.
  * Draws and triangles of each half, the draws the culling saves, the sections it hides and its
  * walk's time. The pose, the culling switch, the clock and the player's immunity are put back.
  */
@@ -65,23 +68,26 @@ export async function caveBenchmark(app: App, seconds: number = CAVE.seconds) {
         label: `render distance ${session.renderDistance} around the cave not meshed`,
         pollMs: 50,
       });
+      const half = seconds / 2;
       const hold = () => look(app, CAVE.yaw, CAVE.pitch);
+      const turn = (t: number) => look(app, CAVE.yaw + (Math.PI * 2 * t) / half, CAVE.pitch);
       occlusion.setEnabled(true);
       await framesFor(CAVE.settleMs, hold);
-      const on = await sampleFrames(app, seconds / 2, hold);
+      const on = await sampleFrames(app, half, turn);
       const hidden = app.view!.chunks.stats().hidden;
       const walk = occlusion.stats();
       occlusion.setEnabled(false);
       await framesFor(CAVE.settleMs, hold);
-      const off = await sampleFrames(app, seconds / 2, hold);
+      const off = await sampleFrames(app, half, turn);
       return {
         kind: 'cave' as const,
         seconds,
         pose: { x, y: cave.y, z, yaw: CAVE.yaw, pitch: CAVE.pitch },
-        draws: on.draws,
-        drawsOff: off.draws,
-        /** Share of the draws the culling saves (« −30 % »). */
-        saved: off.draws > 0 ? 1 - on.draws / off.draws : 0,
+        /** Draws a frame on average over the turn, with the culling and without. */
+        draws: Math.round(on.meanDraws),
+        drawsOff: Math.round(off.meanDraws),
+        /** Share of the draws the culling saves over the turn (« −30 % »). */
+        saved: off.meanDraws > 0 ? 1 - on.meanDraws / off.meanDraws : 0,
         triangles: on.triangles,
         trianglesOff: off.triangles,
         hidden,
