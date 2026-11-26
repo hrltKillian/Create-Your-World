@@ -40,6 +40,7 @@ import { M40_SUITE } from './m40.ts';
 import { M41_SUITE } from './m41.ts';
 import { M42_SUITE } from './m42.ts';
 import { M43_SUITE } from './m43.ts';
+import { M44_SUITE } from './m44.ts';
 import {
   assert,
   assertTiming,
@@ -414,4 +415,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m41: M41_SUITE,
   m42: M42_SUITE,
   m43: M43_SUITE,
+  m44: M44_SUITE,
 };

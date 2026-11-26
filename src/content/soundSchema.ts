@@ -79,7 +79,11 @@ export interface SoundBindings {
   readonly ambience: AmbienceBindings;
 }
 
-export type SfxSource = 'noise' | 'sine' | 'triangle' | 'square' | 'sawtooth';
+/**
+ * Noise, a tone, resonant modes struck at the start (`modal`: impacts on stone, wood, metal,
+ * glass) or a stream of short grains (`grains`: crunch, rustle, patter); plan v4 « M44 ».
+ */
+export type SfxSource = 'noise' | 'sine' | 'triangle' | 'square' | 'sawtooth' | 'modal' | 'grains';
 
 /**
  * One layer of a synthesized sound: white noise or a tone, through an optional filter, shaped by
@@ -89,6 +93,17 @@ export interface SfxLayer {
   readonly source: SfxSource;
   /** Tones only: frequency (Hz) at the start and at the end (exponential glide). */
   readonly freq?: readonly [number, number];
+  /** `modal` only: the struck modes, each its frequency (Hz), ring time to −60 dB (s) and gain. */
+  readonly modes?: readonly (readonly [number, number, number])[];
+  /**
+   * `grains` only: `rate` grains a second on average, each `seconds` long (min, max); with `tone`
+   * (min, max Hz) a falling pitch, else noise.
+   */
+  readonly grains?: {
+    readonly rate: number;
+    readonly seconds: readonly [number, number];
+    readonly tone?: readonly [number, number];
+  };
   readonly filter?: {
     readonly type: 'lowpass' | 'highpass' | 'bandpass';
     readonly freq: number;

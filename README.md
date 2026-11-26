@@ -138,6 +138,17 @@ of them:
 
 ## Try this milestone
 
+**M44 — A truer sound engine** (plan v4, `docs/conception.md` « M44 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **Blocks** knock, thock, ring and clang with the modes of their material; gravel, sand and leaves
+  crunch grain by grain.
+- **Rooms**: sounds echo long in caves, warmly under a roof, softly among trees, barely outdoors;
+  voices sound from above, below and behind (HRTF); a running creature's cries shift a little.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m44`; `__game.audio.ambience().reverb`.
+
+### Earlier milestones
+
 **M43 — The colony's interface** (plan v4, `docs/conception.md` « M43 »). `npm run dev`, then open
 `http://localhost:5173/`.
 

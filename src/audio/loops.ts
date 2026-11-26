@@ -1,4 +1,4 @@
-import { renderSfx } from '../assets/procedural/sfxSynth.ts';
+import { SFX_SAMPLE_RATE, synthesize } from '../assets/procedural/synth.ts';
 import type { SfxDef } from '../content/schema.ts';
 
 /** Seconds of a loop's rendered end blended into its start (the loop plays that much shorter). */
@@ -94,19 +94,22 @@ export class LoopBank {
     loop.level = level;
   }
 
-  /** Renders a loop once, in the background (a failure reaches the page's error log). */
+  /**
+   * Renders a loop once, after the current frame (a few tens of milliseconds; a failure reaches
+   * the page's error log).
+   */
   private render(key: string): void {
     const def = this.defs.get(key);
     if (!def || this.rendering.has(key)) return;
     this.rendering.add(key);
-    void renderSfx(def).then((rendered) => {
-      const { sampleRate } = rendered;
-      const overlap = Math.min(Math.round(LOOP_OVERLAP * sampleRate), rendered.length >> 1);
-      const samples = seamless(rendered.getChannelData(0), overlap);
-      const buffer = new AudioBuffer({ length: samples.length, sampleRate });
+    setTimeout(() => {
+      const rendered = synthesize(def, SFX_SAMPLE_RATE);
+      const overlap = Math.min(Math.round(LOOP_OVERLAP * SFX_SAMPLE_RATE), rendered.length >> 1);
+      const samples = seamless(rendered, overlap);
+      const buffer = new AudioBuffer({ length: samples.length, sampleRate: SFX_SAMPLE_RATE });
       buffer.copyToChannel(samples, 0);
       this.buffers.set(key, buffer);
-    });
+    }, 0);
   }
 }
 

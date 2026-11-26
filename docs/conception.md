@@ -3186,28 +3186,23 @@ Les objets tirés d'une icône peuvent prendre 40 boîtes (37 pour les baies).
 
 ### Partie C — Son
 
-#### M44 — Moteur de synthèse réaliste
+#### M44 — Moteur de synthèse réaliste (fait)
 
-**Synthèse** (`sfxSynth.ts`, `audio/`) :
+**Synthèse pure** (`assets/procedural/synth.ts`, `synthesize`) : chaque son est calculé échantillon par échantillon en TypeScript (plus de graphe hors ligne du navigateur) : déterministe, identique sous Node et testé. Une couche = une source, un filtre biquad (formules RBJ), une enveloppe (montée linéaire, maintien, chute exponentielle à −60 dB) ; le mélange reste sous 0,95 de pleine échelle.
 
-- **Synthèse modale** pour les impacts : pierre, bois, métal, verre.
-- **Synthèse granulaire** pour les textures : pas sur gravier, sable, neige ; feuillage ; pluie.
-- Bruits filtrés à résonateurs, enveloppes multiples.
+- sources : bruit, sons (sinus, triangle, carré, dent de scie à bords anti-repliement polyBLEP) qui glissent d'une hauteur à l'autre ;
+- `modal` : des modes résonants frappés d'un coup (fréquence, temps de résonance, gain) : le choc de la pierre, le toc du bois, le tintement du verre, le fracas du métal ;
+- `grains` : un flot de grains brefs à temps aléatoires (crissement, froissement, crépitement), de bruit ou, avec `tone`, d'une note qui tombe (une goutte).
 
-**Espace** :
+Les sons des blocs prennent les modes de leur matière et un crissement de grains (gravier, sable, feuilles, verre). 96 sons en 36 ms au démarrage, entrecoupés de pauses ; les boucles d'ambiance au premier usage.
 
-- réverbération à convolution avec des réponses impulsionnelles générées par lieu : grotte, forêt, plein air, intérieur ;
+**L'espace** :
+
+- réverbération à convolution (`audio/reverb.ts`) : réponses impulsionnelles générées par lieu (plein air, forêt, intérieur, grotte : durée, part envoyée, assombrissement, premières réflexions), deux salles qui se fondent l'une dans l'autre au changement de lieu (`AudioEngine.setReverb`) ; le lieu vient de la grotte, d'un toit au-dessus de l'oreille, ou de `BiomeDef.acoustics` (les forêts du pack) ;
 - panoramique HRTF ;
-- léger effet Doppler sur les créatures rapides.
+- un léger effet Doppler sur les sons d'une créature qui bouge (±8 % au plus).
 
-**Données** : le schéma `SfxLayer` est étendu en restant rétrocompatible ; nouvelles sources `modal` et `grain`.
-
-**Tests** :
-
-- rendu déterministe ;
-- longueurs ;
-- crêtes et absence d'écrêtage ;
-- coût de rendu au démarrage (budget en ms).
+**Tests** : chaque recette du pack rendue deux fois à l'identique, à sa longueur, sans écrêtage, en temps borné ; modes qui résonnent et s'éteignent, grains épars, filtre ; salles (longueur, énergie unité, oreilles décorrélées, décroissance), Doppler ; validation des modes et grains ; selftest `m44` (`?worldType=flat&fixedStep=1&selftest=m0,m44`) : la salle suit le lieu, dehors puis sous un toit.
 
 #### M45 — Paysage sonore de Veyra
 
