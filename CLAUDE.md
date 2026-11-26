@@ -496,6 +496,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
   world clock), `freezeTime`, `spawns=0|1` (natural creature spawns and herds; by default only in
   generated worlds, never in selftests unless given), `grace` (ticks without hostile spawns,
   `grace=0`), `quality=low|medium|high` (pixel-ratio cap, and the render distance without `rd`),
+  `renderScale` (0.25–1: the share of the pixels drawn on each side; e2e on CI uses 0.5),
   `occlusion=0` (no cave culling), `bench=walk|fly|cave|mobs|dig|load` (runs it once the render
   distance is meshed and shows `#bench-result`; implies `skipMenu` and `noLock`, `fly` the free
   camera), `onboarding=0|1` (`1`: the card and tips as in a new browser; by default once per

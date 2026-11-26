@@ -169,7 +169,8 @@ const liveCase: SelftestCase = {
       for (const quality of QUALITIES) {
         settingsField(`input[name="quality"][value="${quality}"]`).click();
         const preset = QUALITY_PRESETS[quality];
-        const ratio = Math.min(window.devicePixelRatio || 1, preset.pixelRatio);
+        const cap = Math.min(window.devicePixelRatio || 1, preset.pixelRatio);
+        const ratio = cap * app.params.renderScale;
         assert(
           webgl.getPixelRatio() === ratio,
           `${quality}: pixel ratio ${webgl.getPixelRatio()}, not ${ratio}`,
