@@ -22,7 +22,7 @@ describe('item models', () => {
     expect(maskRects(opaque, 4, 2)).toHaveLength(2);
   });
 
-  it('extrudes every icon of the base pack into at most 32 boxes covering its pixels', () => {
+  it('extrudes every icon of the base pack into at most MAX_ITEM_BOXES boxes covering its pixels', () => {
     for (const [id, item] of registry.items.entries()) {
       if (typeof item.icon !== 'string') continue;
       const m = models[id]!;

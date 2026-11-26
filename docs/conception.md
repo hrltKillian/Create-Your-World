@@ -3157,22 +3157,20 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 ### Partie B — Interfaces
 
-#### M42 — Objets surréalistes en 32 px
+#### M42 — Objets surréalistes en 32 px (fait)
 
-`assets/procedural/iconGen.ts` est refait en modelage 32 px :
+**Modelage** (`assets/procedural/iconShade.ts`) : chaque icône (motif `icon`) est ombrée comme des volumes : chaque région de couleur s'arrondit sur un dixième de l'icône depuis ses bords, éclairée depuis le haut à gauche, avec un reflet là où elle fait face à la lumière. Toutes les icônes en profitent sans être redessinées, et la main et les objets posés les reprennent telles quelles.
 
-- volumes ombrés, contour, reflets ;
-- masques retracés en 32 px, palettes de matière.
+**Dessins surréalistes** (masques 32 × 32, `packs/base/iconsGear.ts` et `iconsTools.ts`, tracés par un petit script hors du jeu) :
 
-**Redessin** : baies et fruits (spirales, grappes cristallines, gousses), outils et armes (têtes asymétriques, incrustations), équipements, contenants.
+- les baies : un croissant, une baie à quatre lobes et une goutte au cœur lumineux sur une tige enroulée, violettes et sarcelle (et celles du buisson aussi) ; le bulbe de givre reprend la forme en glace ;
+- le fruit du palmthorn : une gourde vrillée en spirale, trois piquants recourbés, une feuille enroulée ;
+- la pioche : une longue pointe en faucille et une tête de marteau carrée dont le coin supérieur est tranché, un cristal serti dans l'entaille (une couleur par métal) ;
+- la hachette : une lame en croissant crochue au pied, un cristal en son cœur.
 
-La main et les drops les reprennent tels quels (sprite non tourné, M30).
+Les objets tirés d'une icône peuvent prendre 40 boîtes (37 pour les baies).
 
-**Tests** :
-
-- hash des icônes ;
-- lisibilité : contraste du contour ;
-- selftest de la main.
+**Tests** : lumière du haut à gauche, trous intacts, lisibilité (le pourtour plus sombre que l'intérieur de chaque icône pleine) ; selftest `m42` (`?worldType=flat&fixedStep=1&selftest=m0,m42`) : le Sac montre l'icône 32 × 32 d'un fruit qui se plante, ombrée en bien plus de couleurs que sa palette.
 
 #### M43 — Système visuel des interfaces
 
