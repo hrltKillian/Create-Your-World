@@ -97,6 +97,23 @@ export function torch(c: PatternContext, x: number, y: number): Pixel {
   return set(0, HOLE);
 }
 
+/**
+ * The torch hung on a wall (plan v5 « M46 »): its boxes stand 3–13/16 high, and whatever wall they
+ * hang on, their front faces sample columns 7–9/16 and their sides 0–2/16 or 14–16/16 (texels
+ * follow a box's place in the cell). The whole torch is drawn there, a stick (0–1) under a flame
+ * (2–3), and its top (rows 0–2/16 and 14–16/16 of columns 7–9) is the flame's.
+ */
+export function wallTorch(c: PatternContext, x: number, y: number): Pixel {
+  const { seed, s } = c;
+  const column = Math.floor(x / s);
+  const row = Math.floor(y / s);
+  const face = (column >= 7 && column < 9) || column < 2 || column >= 14;
+  if (face && row >= 3 && row < 10) return set(ramp(grain(seed, x, y), 0, 2));
+  if (face && row >= 10 && row < 13) return set(Math.min(c.n - 1, row < 12 ? 3 : 2));
+  if (column >= 7 && column < 9 && (row < 2 || row >= 14)) return set(Math.min(c.n - 1, 2));
+  return set(0, HOLE);
+}
+
 /** A frame (colour 0) with crossed slats over a panel (a gate, a workbench side). */
 export function lattice(c: PatternContext, x: number, y: number): Pixel {
   const { seed, size, s } = c;

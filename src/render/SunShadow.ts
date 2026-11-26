@@ -118,7 +118,11 @@ export class SunShadow {
       new ShaderMaterial({
         vertexShader: shadowVertex,
         fragmentShader: shadowFragment,
-        uniforms: { uTextures: uniforms.uTextures, uTime: uniforms.uTime, uWind: uniforms.uWind },
+        uniforms: {
+          uTextures: uniforms.uTextures,
+          uWind: uniforms.uWind,
+          uWindPhase: uniforms.uWindPhase,
+        },
         defines,
         side,
       });

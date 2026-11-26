@@ -128,6 +128,14 @@ export const textures = [
     seed: 35,
     alpha: 'coverage',
   },
+  {
+    // Plan v5 « M46 »: the same torch where a wall torch's boxes sample it.
+    key: 'tex:torch_wall',
+    pattern: 'wallTorch',
+    palette: ['#4a3524', '#6b5039', '#ffcf6b', '#fff1b8'],
+    seed: 35,
+    alpha: 'coverage',
+  },
   { key: 'tex:gate', pattern: 'lattice', palette: ['#4a3220', '#6e4a2e', '#86603d'], seed: 37 },
   {
     // Plan v3 « M34 »: staves and hoops, rainwater inside.

@@ -18,7 +18,7 @@ import {
   stationRecipes,
 } from '../logbook.ts';
 import type { ScreenActions } from '../slotBoard.ts';
-import { Tooltip } from '../tooltip.ts';
+import type { Tooltip } from '../tooltip.ts';
 import { menuButton } from './menuParts.ts';
 
 /** A queue entry as the Logbook shows it. */
@@ -62,14 +62,20 @@ export class LogbookPanel {
   private readonly tabs: HTMLElement;
   private readonly list: HTMLElement;
   private readonly detail: HTMLElement;
+  private readonly batches: HTMLElement;
+  /**
+   * The selected recipe (plan v5 « M46 »): its details, which scroll, over its craft buttons, which
+   * stay in view. The screen places it under its inventory.
+   */
+  readonly recipe: HTMLElement;
   private readonly queueLabel: HTMLElement;
   private readonly queue: HTMLElement;
   private readonly footer: HTMLElement;
   private tab: RecipeCategory = RECIPE_CATEGORIES[0]!;
   /** The selected recipe's row as last drawn (the detail pane comes back to it). */
   private selectedRow: RecipeRow | undefined;
-  /** The hovered recipe's description (its output's). */
-  readonly tooltip = new Tooltip();
+  /** The hovered recipe's description (its output's), in the screens' bubble. */
+  readonly tooltip: Tooltip;
   private selected = '';
   private query = '';
   private onlyCraftable = false;
@@ -77,7 +83,8 @@ export class LogbookPanel {
   private signature = '';
   private progress: HTMLElement | null = null;
 
-  constructor(art: ItemArt, actions: ScreenActions, limits: LogbookLimits) {
+  constructor(art: ItemArt, actions: ScreenActions, limits: LogbookLimits, tooltip: Tooltip) {
+    this.tooltip = tooltip;
     this.art = art;
     this.actions = actions;
     this.limits = limits;
@@ -112,6 +119,8 @@ export class LogbookPanel {
     this.tabs = h('nav', { class: 'logbook-tabs' });
     this.list = h('div', { class: 'logbook-list' });
     this.detail = h('div', { class: 'logbook-detail' });
+    this.batches = h('div', { class: 'logbook-batches' });
+    this.recipe = h('div', { class: 'logbook-recipe' }, this.detail, this.batches);
     // Rows are drawn again as they change: the list, which stays, moves and hides the bubble.
     this.list.addEventListener('pointermove', (event) =>
       this.tooltip.move(event.clientX, event.clientY),
@@ -127,11 +136,9 @@ export class LogbookPanel {
       h('div', { class: 'logbook-find' }, this.search, this.craftableOnly),
       this.tabs,
       this.list,
-      this.detail,
       this.queueLabel,
       this.queue,
       this.footer,
-      this.tooltip.element,
     );
   }
 
@@ -236,6 +243,9 @@ export class LogbookPanel {
     this.detail.replaceChildren(
       ...(row ? this.details(row) : [h('p', { class: 'logbook-empty' }, t('logbook.pick'))]),
     );
+    this.batches.replaceChildren(
+      ...(row ? CRAFT_BATCHES.map((batch) => this.batchButton(batch, row)) : []),
+    );
   }
 
   private rowButton(row: RecipeRow): HTMLElement {
@@ -334,11 +344,6 @@ export class LogbookPanel {
         'ul',
         { class: 'logbook-ingredients' },
         ...row.pips.map((pip) => this.ingredient(row, pip)),
-      ),
-      h(
-        'div',
-        { class: 'logbook-batches' },
-        ...CRAFT_BATCHES.map((batch) => this.batchButton(batch, row)),
       ),
     );
     return out;

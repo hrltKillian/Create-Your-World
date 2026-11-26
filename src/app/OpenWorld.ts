@@ -160,7 +160,7 @@ export class OpenWorld {
     this.inventory?.bridge.frame(dt);
     this.hud?.frame(dt);
     this.onboarding?.frame(dt);
-    this.cross.classList.toggle('hidden', session.rig.mode === 'third' || this.freecam !== null);
+    this.cross.classList.toggle('hidden', session.rig.mode !== 'first' || this.freecam !== null);
     return pose;
   }
 

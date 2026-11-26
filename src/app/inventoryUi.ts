@@ -19,6 +19,7 @@ import { MapScreen } from '../ui/screens/mapScreen.ts';
 import { StationScreen } from '../ui/screens/station.ts';
 import { WorkbenchScreen } from '../ui/screens/workbench.ts';
 import type { ScreenActions, ScreenDeps } from '../ui/slotBoard.ts';
+import { Tooltip } from '../ui/tooltip.ts';
 import type { GameSession } from './GameSession.ts';
 import { MapModel } from './mapModel.ts';
 import type { PlayGate } from './playGate.ts';
@@ -110,19 +111,22 @@ export class InventoryUi {
         if (click) audio.playUi(click);
       },
     };
+    const tooltip = new Tooltip();
+    tooltip.element.id = 'ui-tooltip';
     const deps: ScreenDeps = {
       art,
       actions,
       slotCount: session.player.inventory.length,
       openBase: OPEN_SLOTS_BASE,
       closeKey: () => input.keyLabel('inventory'),
+      tooltip,
     };
     this.hotbar = new Hotbar(art);
     const limits = { queue: CRAFT_QUEUE, maxCount: MAX_CRAFT_COUNT };
-    this.bag = new BagScreen(deps, new LogbookPanel(art, actions, limits));
+    this.bag = new BagScreen(deps, new LogbookPanel(art, actions, limits, tooltip));
     this.container = new ContainerScreen(deps);
     this.station = new StationScreen(deps);
-    this.workbench = new WorkbenchScreen(deps, new LogbookPanel(art, actions, limits));
+    this.workbench = new WorkbenchScreen(deps, new LogbookPanel(art, actions, limits, tooltip));
     this.map = new MapScreen(actions, () => input.keyLabel('map'));
     this.book = new BookScreen(
       actions,
@@ -145,6 +149,8 @@ export class InventoryUi {
       this.workbench.element,
       this.map.element,
       this.book.element,
+      // Last: the bubble shows over every screen.
+      tooltip.element,
     );
     window.addEventListener('keydown', this.onKeyDown);
   }

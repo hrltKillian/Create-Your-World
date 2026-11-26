@@ -42,6 +42,7 @@ import { M42_SUITE } from './m42.ts';
 import { M43_SUITE } from './m43.ts';
 import { M44_SUITE } from './m44.ts';
 import { M45_SUITE } from './m45.ts';
+import { M46_SUITE } from './m46.ts';
 import {
   assert,
   assertTiming,
@@ -295,7 +296,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
       run: async (app) => {
         const session = await playerSession(app);
         const mode = session.rig.mode;
-        session.rig.mode = 'third';
+        session.rig.mode = 'back';
         try {
           const rig = () => session.entities.rig(session.player.id)!;
           // One tick per rendered frame for a wall-clock time, so the display rate does not matter.
@@ -337,7 +338,7 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
         await nextFrame();
         window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', key: 'v' }));
         assert(session.rig.mode !== mode, `mode stayed ${mode}`);
-        session.rig.mode = 'third';
+        session.rig.mode = 'back';
         // The camera eases out per frame: wait wall-clock time, not a frame count.
         const settle = () => framesFor(700);
         await settle();
@@ -418,4 +419,5 @@ export const SUITES: Readonly<Record<string, readonly SelftestCase[]>> = {
   m43: M43_SUITE,
   m44: M44_SUITE,
   m45: M45_SUITE,
+  m46: M46_SUITE,
 };

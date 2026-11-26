@@ -148,6 +148,13 @@ export interface LiquidDef {
   readonly hardens?: { readonly source: BlockKey; readonly flow: BlockKey };
   /** What a rod fishes out of it (plan v3 « M33 »; a biome's `fish` replaces it there). */
   readonly fish?: LootKey;
+  /**
+   * Share of water's swimming and wading speeds in it (plan v5 « M46 »: lava 0.5, the reference
+   * game's thick lava). Default 1.
+   */
+  readonly moveFactor?: number;
+  /** Whether a head under it runs out of breath and drowns (lava does not: it burns). Default true. */
+  readonly drowns?: boolean;
 }
 
 /**
@@ -230,6 +237,11 @@ export interface BlockDef {
    */
   readonly wallShape?: { readonly boxes: readonly Box16[] };
   /**
+   * Textures of the block hung on a wall (plan v5 « M46 »), else `textures`: a box's texels follow
+   * its place in the cell, so a wall torch needs its art where its wall boxes sample it.
+   */
+  readonly wallTextures?: BlockTextures;
+  /**
    * Decays like leaves (sim/leafDecay.ts): unless placed by a player, the block falls apart (as if
    * broken, with its drops) `seconds` after no `anchors` block lies within `radius` blocks of it
    * (Manhattan distance).
@@ -281,6 +293,8 @@ export type TexturePattern =
   | 'glass'
   | 'cross'
   | 'torch'
+  /** The torch drawn where a wall torch's boxes sample it (plan v5 « M46 »). */
+  | 'wallTorch'
   | 'lattice'
   /** Two rails and rungs over holes (a ladder). */
   | 'ladder'

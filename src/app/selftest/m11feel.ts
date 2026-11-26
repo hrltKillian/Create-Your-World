@@ -87,7 +87,7 @@ const particlesDrawCase: SelftestCase = {
     particles.setEnabled(true);
     // In third person the avatar is in the batch already, so its one draw is counted without
     // particles too.
-    rig.mode = 'third';
+    rig.mode = 'back';
     try {
       look(app, 0, -0.3);
       await cameraSettled(app);

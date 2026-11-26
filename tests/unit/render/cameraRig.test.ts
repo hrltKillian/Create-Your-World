@@ -4,6 +4,7 @@ import { FLAG_SOLID } from '../../../src/content/registry.ts';
 import { EYE_HEIGHT } from '../../../src/core/player.ts';
 import {
   BOB,
+  type CameraMode,
   CameraRig,
   DIP_MAX,
   HURT_ROLL,
@@ -26,10 +27,18 @@ function solidAt(w: VoxelWorld, x: number, y: number, z: number): boolean {
 }
 
 /** Third-person pose after the camera settles (2 s of 60 fps frames). */
-function settle(w: VoxelWorld, x: number, y: number, z: number, yaw: number, pitch: number) {
+function settle(
+  w: VoxelWorld,
+  x: number,
+  y: number,
+  z: number,
+  yaw: number,
+  pitch: number,
+  mode: CameraMode = 'back',
+) {
   const player = createPlayer(1, x, y, z, 2, registry.pack.balance);
   const rig = new CameraRig();
-  rig.mode = 'third';
+  rig.mode = mode;
   rig.yaw = yaw;
   rig.pitch = pitch;
   for (let i = 0; i < 120; i++) rig.update(player, 1, w, registry.tables, 1 / 60);
@@ -52,6 +61,27 @@ function clear(w: VoxelWorld, rig: CameraRig): boolean {
 }
 
 describe('third-person camera', () => {
+  it('V turns through first person, behind, in front and first person again (plan v5 « M46 »)', () => {
+    const rig = new CameraRig();
+    const seen: CameraMode[] = [rig.mode];
+    for (let i = 0; i < 3; i++) {
+      rig.toggleMode();
+      seen.push(rig.mode);
+    }
+    expect(seen).toEqual(['first', 'back', 'front', 'first']);
+  });
+
+  it('in front: about 4 m ahead along the look, turned back towards the player', () => {
+    const w = flatWorld();
+    // Looking north (−z), a little down: the camera ahead, lower, looking south and up.
+    const rig = settle(w, 0.5, 64, 0.5, 0, -0.2, 'front');
+    expect(rig.pose.z).toBeLessThan(0.5 - 3.5);
+    expect(rig.pose.x).toBeCloseTo(0.5, 2);
+    expect(rig.pose.yaw).toBeCloseTo(Math.PI, 6);
+    expect(rig.pose.pitch).toBeCloseTo(0.2, 6);
+    expect(clear(w, rig)).toBe(true);
+  });
+
   it('sits about 4 m behind and 0.5 m above the eye in the open, through plants', () => {
     const w = flatWorld();
     for (let z = 0; z < 8; z++) w.setBlock(0, 64, z, GRASS_PLANT);
@@ -101,7 +131,7 @@ describe('third-person camera', () => {
     for (let yaw = 0; yaw < Math.PI * 2; yaw += Math.PI / 6) {
       for (const pitch of [-1.2, -0.4, 0, 0.6, 1.2]) {
         const rig = new CameraRig();
-        rig.mode = 'third';
+        rig.mode = 'back';
         rig.yaw = yaw;
         rig.pitch = pitch;
         for (let i = 0; i < 120; i++) rig.update(player, 1, w, registry.tables, 1 / 60);
@@ -268,7 +298,7 @@ describe('first-person feel', () => {
     for (let i = 0; i < 60; i++) frame();
     expect(rig.pose.fovOffset).toBe(0);
     // In third person the view keeps the setting, and never rolls.
-    rig.mode = 'third';
+    rig.mode = 'back';
     player.sprinting = true;
     rig.hurt(5.5, 0.5);
     for (let i = 0; i < 30; i++) frame(6.4);

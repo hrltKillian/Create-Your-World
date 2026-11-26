@@ -7,9 +7,14 @@ import { createRayHit, RAY_SOLID, raycast } from '../world/raycast.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { CameraPose } from './WorldView.ts';
 
-export type CameraMode = 'first' | 'third';
+/**
+ * The views V turns through (plan v5 « M46 »): first person, then third person from behind, then
+ * from the front (the camera ahead of the player, looking back at them).
+ */
+export const CAMERA_MODES = ['first', 'back', 'front'] as const;
+export type CameraMode = (typeof CAMERA_MODES)[number];
 
-/** Third-person offset: 4 m behind the eye and 0.5 m above it. */
+/** Third-person offset: 4 m behind (or ahead of) the eye and 0.5 m above it. */
 const THIRD_DISTANCE = 4;
 const THIRD_HEIGHT = 0.5;
 /** Distance kept from the first solid block (the near plane is 0.05). */
@@ -87,8 +92,9 @@ export class CameraRig implements LookTarget {
     this.pitch = clampPitch(this.pitch + dPitch);
   }
 
+  /** The next view: first person, behind, in front, first person again. */
   toggleMode(): void {
-    this.mode = this.mode === 'first' ? 'third' : 'first';
+    this.mode = CAMERA_MODES[(CAMERA_MODES.indexOf(this.mode) + 1) % CAMERA_MODES.length]!;
   }
 
   /** The player landed after falling `fall` blocks: the view dips, deeper for a longer fall. */
@@ -145,12 +151,19 @@ export class CameraRig implements LookTarget {
       this.distance = 0;
       return this.pose;
     }
-    // From the eye (always inside the player's own box) towards the point behind and above it,
-    // stopping WALL_MARGIN before the first solid block on any of five parallel probe rays.
+    // From the eye (always inside the player's own box) towards the point behind and above it (in
+    // front of it, along the look, for the front view), stopping WALL_MARGIN before the first
+    // solid block on any of five parallel probe rays.
+    const away = this.mode === 'front' ? -1 : 1;
     const cp = Math.cos(this.pitch);
-    const ox = Math.sin(this.yaw) * cp * THIRD_DISTANCE;
-    const oy = -Math.sin(this.pitch) * THIRD_DISTANCE + THIRD_HEIGHT;
-    const oz = Math.cos(this.yaw) * cp * THIRD_DISTANCE;
+    const ox = away * Math.sin(this.yaw) * cp * THIRD_DISTANCE;
+    const oy = -away * Math.sin(this.pitch) * THIRD_DISTANCE + THIRD_HEIGHT;
+    const oz = away * Math.cos(this.yaw) * cp * THIRD_DISTANCE;
+    if (this.mode === 'front') {
+      // Turned back towards the player.
+      this.pose.yaw = this.yaw + Math.PI;
+      this.pose.pitch = -this.pitch;
+    }
     const length = Math.sqrt(ox * ox + oy * oy + oz * oz);
     const ux = ox / length;
     const uy = oy / length;

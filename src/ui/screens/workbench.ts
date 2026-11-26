@@ -42,6 +42,7 @@ export class WorkbenchScreen {
             h('p', { class: 'bag-section' }, t('workbench.outputs')),
             this.outputs,
             ...board.inventory(true),
+            logbook.recipe,
           ),
         ),
         board.help(),

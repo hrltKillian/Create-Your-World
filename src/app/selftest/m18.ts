@@ -114,7 +114,7 @@ const logbookCase: SelftestCase = {
       'the tool recipe does not show',
     );
     hovered()!.dispatchEvent(new PointerEvent('pointerenter', { clientX: 200, clientY: 200 }));
-    const bubble = document.querySelector<HTMLElement>('#screen-bag .logbook .tooltip-anchor');
+    const bubble = document.querySelector<HTMLElement>('#ui-tooltip');
     assert(bubble && !bubble.hidden && bubble.textContent, 'the hovered recipe shows no bubble');
     hovered()!.dispatchEvent(new PointerEvent('pointerleave'));
     tap('KeyL', 'l');

@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M46 — The fifth play test's fixes** (plan v5, `docs/conception.md` « M46 »). `npm run dev`, then
+open `http://localhost:5173/?skipMenu=1`.
+
+- **V** turns through first person, third person from behind and **from the front**.
+- **Weather** no longer shakes the grass: plants sway faster in a storm, never frantically.
+- **Torches on walls** are drawn whole; **lava** is thick (half water's speed) and has no breath
+  gauge; an item's **bubble** sits by the pointer and shows whole, even by the panel's edge.
+- **The Logbook**: the selected recipe shows under the hotbar, its craft buttons always in view.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m46`.
+
+### Earlier milestones
+
 **M45 — Veyra's soundscape** (plan v4, `docs/conception.md` « M45 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -148,8 +160,6 @@ of them:
   by drop, **thunder** rolls away in waves; meals crunch, sips bubble, fires crackle.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m45`.
 
-### Earlier milestones
-
 **M44 — A truer sound engine** (plan v4, `docs/conception.md` « M44 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -159,8 +169,6 @@ of them:
   voices sound from above, below and behind (HRTF); a running creature's cries shift a little.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m44`; `__game.audio.ambience().reverb`.
 
-### Earlier milestones
-
 **M43 — The colony's interface** (plan v4, `docs/conception.md` « M43 »). `npm run dev`, then open
 `http://localhost:5173/`.
 
@@ -168,8 +176,6 @@ of them:
 - **Panels** are smoked glass with a teal rim, **buttons** brushed metal, **slots** pressed in; the
   slot in hand glows amber; screens slide in.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m43`; `npx playwright test e2e/hud.spec.ts`.
-
-### Earlier milestones
 
 **M42 — Modelled, surreal items** (plan v4, `docs/conception.md` « M42 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1` and press E.
@@ -181,8 +187,6 @@ of them:
   cut off, a crystal set in the cut (its colour depends on the metal).
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m42`.
 
-### Earlier milestones
-
 **M41 — Creatures with relief and shadows** (plan v4, `docs/conception.md` « M41 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 
@@ -190,8 +194,6 @@ then open `http://localhost:5173/?skipMenu=1`.
   coats and plumes are drawn as fur.
 - **Soft shadows** under them ground them; they fade as things rise.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m41`.
-
-### Earlier milestones
 
 **M40 — Veyra's glowing nights** (plan v4, `docs/conception.md` « M40 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
@@ -203,8 +205,6 @@ then open `http://localhost:5173/?skipMenu=1`.
   anti-aliasing.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m40`.
 
-### Earlier milestones
-
 **M39 — Veyra's sky** (plan v4, `docs/conception.md` « M39 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -215,8 +215,6 @@ then open `http://localhost:5173/?skipMenu=1`.
   and the highlands at night; each biome tints the air a little.
 - **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m39`, `?worldType=flat&fixedStep=1&selftest=m0,m39`.
 
-### Earlier milestones
-
 **M38 — Water and lava** (plan v4, `docs/conception.md` « M38 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -225,8 +223,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **Lava**'s crust drifts and its glow pulses.
 - **Dive**: the sun's light wavers over the bottom, in Veyra's teal water.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m38`.
-
-### Earlier milestones
 
 **M37 — Sunlight and shadows** (plan v4, `docs/conception.md` « M37 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
@@ -238,8 +234,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **Rain** wets the open ground (darker, with the sun's glint); **dawn mist** lies in the valleys.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m36,m37`.
 
-### Earlier milestones
-
 **M36 — Detailed textures with relief** (plan v4, `docs/conception.md` « M36 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 
@@ -250,8 +244,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **Review sheet**: `node tools/textureSheet.ts sheet.png stone,bark` writes the colours and
   normals of the matching textures.
 
-### Earlier milestones
-
 **M35 — HUD readability and layout** (plan v3, `docs/conception.md` « M35 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 
@@ -259,8 +251,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **The HUD** keeps every message in its own place (no overlap at 1024×768, 1280×720 or
   1920×1080) and grows with a tall window (×1.35 at 1080 pixels high).
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m35`; `npx playwright test e2e/hud.spec.ts`.
-
-### Earlier milestones
 
 **M34 — Weather and ambience** (plan v3, `docs/conception.md` « M34 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
@@ -273,8 +263,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **A rain barrel** (workbench) fills empty flasks and waterskins with clean water in the rain.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m34`; in the console,
   `__game.weather.set('storm')`.
-
-### Earlier milestones
 
 **M33 — Farming, cooking and fishing** (plan v3, `docs/conception.md` « M33 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
@@ -291,8 +279,6 @@ then open `http://localhost:5173/?skipMenu=1`.
 - **Quests**: pick three crops, catch a fish, cook both dishes.
 - **Zoom the big map** (M) with the wheel or « + » / « − » to place a waypoint on the very block.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m33`.
-
-### Earlier milestones
 
 - **M32, inventory comfort**: sort the bag or a chest, stack into chests nearby, a workbench
   crafting from its neighbouring chests; `?worldType=arena&fixedStep=1&selftest=m0,m32`.

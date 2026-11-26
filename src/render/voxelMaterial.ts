@@ -39,6 +39,8 @@ export interface VoxelUniforms {
   readonly uTime: IUniform<number>;
   /** Wind (plan v4 « M40 »): 1 calm, more in a storm; plants sway further. */
   readonly uWind: IUniform<number>;
+  /** The plants' sway phase (render/wind.ts). */
+  readonly uWindPhase: IUniform<number>;
   readonly uDaylight: IUniform<number>;
   /** The sky's light (plan v4 « M37 », `sunLight.ts`): direction, direct, sky and ground light. */
   readonly uSunDir: IUniform<Vector3>;
@@ -107,6 +109,7 @@ export function createVoxelMaterials(
     uTintColors: { value: tints },
     uTime: { value: 0 },
     uWind: { value: 1 },
+    uWindPhase: { value: 0 },
     uDaylight: { value: 1 },
     uSunDir: { value: new Vector3(0, 1, 0) },
     uSunLight: { value: new Color(0.6, 0.6, 0.6) },

@@ -89,6 +89,8 @@ export class BagScreen {
             { class: 'bag-inventory' },
             h('div', { class: 'bag-tools' }, sort, stack),
             ...board.inventory(),
+            // The Logbook's selected recipe, under the hotbar (plan v5 « M46 »).
+            logbook.recipe,
           ),
         ),
         board.help(),
@@ -120,6 +122,7 @@ export class BagScreen {
   show(page: BagPage): void {
     this.page = page;
     for (const name of BAG_PAGES) this.pages[name].hidden = name !== page;
+    this.logbook.recipe.hidden = page !== 'logbook';
     this.tabs.replaceChildren(...BAG_PAGES.map((name) => this.tab(name)));
   }
 

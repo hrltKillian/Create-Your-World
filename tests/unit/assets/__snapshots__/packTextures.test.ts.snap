@@ -193,6 +193,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:tall_grass": "9034254d",
   "tex:thornbush": "49589007",
   "tex:torch": "296e987a",
+  "tex:torch_wall": "a96c976d",
   "tex:trapdoor": "6b8c48b5",
   "tex:trotter_coat": "372dc795",
   "tex:trotter_dark": "e4168017",

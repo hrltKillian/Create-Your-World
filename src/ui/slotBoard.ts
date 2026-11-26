@@ -5,7 +5,7 @@ import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
 import { itemLines } from './itemInfo.ts';
 import { type ItemArt, type Slots, SlotView, stackName } from './itemSlot.ts';
-import { Tooltip } from './tooltip.ts';
+import type { Tooltip } from './tooltip.ts';
 
 /** Bag columns (6×4). */
 export const BAG_COLUMNS = 6;
@@ -32,6 +32,11 @@ export interface ScreenDeps {
   readonly openBase: number;
   /** Label of the key that opens and closes the screens, read at each opening. */
   readonly closeKey: () => string;
+  /**
+   * The bubble every screen shows a hovered item in (plan v5 « M46 »): one, over all the screens,
+   * never inside a panel (whose blur would hold and clip it).
+   */
+  readonly tooltip: Tooltip;
 }
 
 /**
@@ -43,8 +48,8 @@ export interface ScreenDeps {
  */
 export class SlotBoard {
   readonly element: HTMLElement;
-  /** The hovered stack's name and description, in a bubble by the pointer. */
-  readonly tooltip = new Tooltip();
+  /** The hovered stack's name and description, in the screens' bubble by the pointer. */
+  readonly tooltip: Tooltip;
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
   /** Inventory slots (hotbar then bag). */
@@ -66,6 +71,7 @@ export class SlotBoard {
     this.actions = deps.actions;
     this.slotCount = deps.slotCount;
     this.closeKey = deps.closeKey;
+    this.tooltip = deps.tooltip;
     this.closeHint = h('p', { class: 'bag-close' });
     this.cursor = new SlotView(null, deps.art);
     this.cursor.element.classList.add('slot-cursor');
@@ -83,7 +89,6 @@ export class SlotBoard {
         },
       },
       this.cursor.element,
-      this.tooltip.element,
     );
     this.element.hidden = true;
   }
@@ -191,6 +196,9 @@ export class SlotBoard {
   }
 
   private readonly onPointerOver = (event: PointerEvent): void => {
+    // Over a new slot before any move there: the bubble shows where the pointer is now.
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
     this.hover(slotOf(event.target));
   };
 

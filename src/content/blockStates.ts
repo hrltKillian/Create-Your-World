@@ -46,7 +46,7 @@ export function effective(
     emit: block.light?.emit ?? 0,
     filter: block.light?.filter ?? 0,
     collision: block.collision,
-    textures: block.textures,
+    textures: onWall ? (block.wallTextures ?? block.textures) : block.textures,
     shape: onWall ? block.wallShape! : block.shape,
     heat: block.heat,
   };

@@ -19,6 +19,7 @@ import { registry } from '../../helpers/registry.ts';
 
 const STONE = registry.defaultState('block:stone');
 const WATER = registry.defaultState('block:fresh_water');
+const LAVA = registry.defaultState('block:lava');
 const GATE = registry.defaultState('block:gate');
 const DT = 1 / 30;
 
@@ -192,6 +193,32 @@ describe('player physics', () => {
     expect(walk).toBeCloseTo(PHYSICS.wade, 0);
     expect(run).toBeGreaterThan(walk * 1.3);
     expect(run).toBeLessThan(PHYSICS.sprint);
+  });
+
+  it('wades through lava at half the speed of water, and its head never drowns (plan v5 « M46 »)', () => {
+    const pace = (liquid: number) => {
+      const world = flatWorld();
+      for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 64, z, liquid);
+      for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 63, z, STONE);
+      const body = createBody(0.5, 64, 0.5);
+      for (let i = 0; i < 10; i++) stepBody(body, idle, world, registry.tables, DT, out);
+      const z0 = body.z;
+      for (let i = 0; i < 30; i++)
+        stepBody(body, { ...idle, forward: 1 }, world, registry.tables, DT, out);
+      return z0 - body.z;
+    };
+    // Half water's top speed (the first ticks' speeding up keeps the ratio a little above).
+    const ratio = pace(LAVA) / pace(WATER);
+    expect(ratio).toBeGreaterThan(0.45);
+    expect(ratio).toBeLessThan(0.56);
+    const world = flatWorld();
+    for (let y = 64; y < 70; y++) world.setBlock(0, y, 0, LAVA);
+    const body = createBody(0.5, 64, 0.5);
+    stepBody(body, idle, world, registry.tables, DT, out);
+    expect([body.headInWater, body.headDrowns]).toEqual([true, false]);
+    for (let y = 64; y < 70; y++) world.setBlock(0, y, 0, WATER);
+    stepBody(body, idle, world, registry.tables, DT, out);
+    expect([body.headInWater, body.headDrowns]).toEqual([true, true]);
   });
 
   it('swims fast along the view when sprinting under water: dives and rises with it', () => {

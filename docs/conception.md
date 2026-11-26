@@ -3220,7 +3220,7 @@ Les sons des blocs prennent les modes de leur matière et un crissement de grain
 
 **Tests** : équilibre des niveaux (chaque son ponctuel audible sans écraser, les ambiances en fond discret, les voix des créatures à moins d'un facteur 6 les unes des autres) ; selftest `m45` (`?worldType=flat&fixedStep=1&selftest=m0,m45`) : chaque créature meurt en criant de sa propre voix.
 
-**Ensuite** : ta partie test, puis la boucle d'amélioration.
+**Ensuite** : le cinquième test (2026-11-26), puis le plan v5.
 
 ## Fichiers critiques v4
 
@@ -3254,3 +3254,274 @@ Les sons des blocs prennent les modes de leur matière et un crissement de grain
 2. Navigateur intégré : `?selftest=all`, `__game.errors()` vide, captures relues (jour, crépuscule, nuit, pluie, grotte, eau, chaque biome) et montrées dans le compte rendu.
 3. `npm run e2e:perf` sur `game-bench` : `walk` p95 ≤ 9 ms au palier moyen, `cave`, `mobs` et `dig` sous leurs seuils ; temps de génération au démarrage mesuré.
 4. Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte (`verify` et e2e sur GitHub) ; compte rendu en français avec captures.
+
+# Plan v5 : « Create Your World », refonte après le cinquième test
+
+## Contexte v5
+
+Le plan v4 est sur `main` (PR #42 à #53). Le cinquième test (2026-11-26) le juge insuffisant sur presque tous les points :
+
+**Sons**
+
+- Trop simples, répétitifs, incohérents avec ce qu'ils représentent.
+- Réverbération partout : sous les arbres, dans le Sporefen…
+- Des ambiances qui ressemblent à des créatures.
+- Des éclairs irréalistes.
+
+**Visuels**
+
+- HUD : icônes de vie, faim, soif et température sans âme.
+- Icônes d'objets « cubiques » et trop ombrées. Exemples : le lingot de cuivre, le feu de camp, l'établi, le coffre.
+- Outils méconnaissables, avec une gemme qui n'est pas dans la recette.
+- Interfaces à refaire entièrement.
+- Personnage incohérent avec le thème.
+- Créatures trop simples, et leurs sons aussi.
+
+**Bugs et manques**
+
+- Les herbes s'agitent frénétiquement au changement de météo.
+- La lave se comporte comme une eau qui blesse.
+- La torche murale n'est dessinée qu'à moitié.
+- La bulle d'information est décalée et coupée par le panneau.
+- Il manque une vue de face.
+- La mise en page du Bag est à revoir.
+
+**Tes choix**
+
+- **Sons** : toujours 100 % générés par code (décision 26 maintenue), mais refaits pour être réalistes ; c'est la priorité.
+- **Identité visuelle** : une colonie effondrée où la nature a repris ses droits. Le métal peint et usé de l'équipement de colon se mêle aux formes organiques et à la bioluminescence de Veyra.
+- **Personnage** : survivant du crash.
+- **Éclairs** : comme dans Minecraft, avec un vrai bloc de feu qui se propage.
+
+## Causes trouvées dans le code (v5)
+
+| Problème                     | Cause                                                                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Herbes frénétiques           | `voxelSway` (`render/shaders/voxel.glsl.ts`) calcule `phase = uTime * (1.2 + 0.5 * uWind)`. Quand `uWind` varie avec la météo (`Atmosphere.ts`), la phase saute de `uTime × Δvent`, et `uTime` vaut jusqu'à 3600 s. |
+| Bulle décalée et coupée      | `.bag-panel` a un `backdrop-filter` (M43), qui devient le bloc conteneur du `.tooltip-anchor` en `position: fixed`. Les bulles sont montées dans les écrans (`slotBoard.ts`, `screens/logbook.ts`).                 |
+| Torche murale à moitié       | Les UV d'une boîte suivent sa position dans la cellule. `WALL_TORCH` (`blocks.ts`, y 3–13) montre donc une autre partie de la texture que la torche au sol (y 0–10).                                                |
+| Lave = eau qui blesse        | `survival.ts` vide le souffle dès `e.underwater`, quel que soit le liquide. `physics.ts` applique les mêmes vitesses à tous les liquides.                                                                           |
+| Réverbération partout        | `BiomeDef.acoustics` donne une salle (forêt…) à chaque biome. `AudioBridge` l'applique dehors.                                                                                                                      |
+| Une seule vue en 3e personne | `CameraMode = 'first' \| 'third'` (`render/CameraRig.ts`), basculé par `toggleMode`.                                                                                                                                |
+
+## Décisions v5
+
+| #   | Décision                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 32  | **Sons réalistes, générés par code.** Chaque son est modélisé sur sa source réelle (contact et résonance, grains de surface, bulles, crépitements, turbulence, voix source-filtre). Chaque son a au moins 4 variantes, plus une variation de hauteur et de gain. Les ambiances sont des fonds longs avec des événements tirés au hasard, jamais une boucle courte. Aucune ambiance ne ressemble à une créature. |
+| 33  | **Réverbération seulement dans une vraie salle** : grotte ou intérieur fermé (toit et murs détectés). Dehors, forêt et tous les biomes : son sec. `BiomeDef.acoustics` est supprimé.                                                                                                                                                                                                                            |
+| 34  | **Identité « colonie effondrée »** : plaques de métal peint écaillé, rivets, bandes ambre usées, mousse et lianes qui gagnent les bords, accents bioluminescents sarcelle et violet, coins arrondis organiques. Une police libre (OFL) embarquée via `@fontsource`, quelques dizaines de kB en woff2. Le paquet npm sera ajouté à M48 ; l'approbation de ce plan vaut accord pour ce téléchargement.            |
+| 35  | **Icônes en pixel art dessiné.** 32 × 32 px, une palette maîtresse de Veyra (environ 64 couleurs, validée : aucune couleur hors palette). Contour sombre et 2 à 4 tons placés à la main par matière, sans ombrage ni dégradé générés (`shadeIcon` supprimé). Chaque objet est dessiné comme l'objet lui-même, blocs fonctionnels compris.                                                                       |
+| 36  | **Outils lisibles d'abord.** Silhouettes reconnaissables (hache à fer en coin, pioche à double pointe courbe, lance, couteau, houe), matières fidèles à la recette (silex, bâton, cordelette, métal du palier). Aucun élément absent du craft.                                                                                                                                                                  |
+| 37  | **Éclairs et feu comme Minecraft.** L'éclair frappe le bloc le plus haut près du joueur, blesse les entités proches et pose du feu. Le feu brûle et se propage selon l'inflammabilité des blocs, s'éteint sous la pluie à ciel ouvert ou au contact de l'eau.                                                                                                                                                   |
+| 38  | **Personnage : survivant du crash.** La touche V fait tourner trois vues : 1re personne, 3e de dos, 3e de face.                                                                                                                                                                                                                                                                                                 |
+| 39  | **Créatures redessinées.** Des modèles plus riches (cou, mâchoire, oreilles, queue, pattes articulées, carapaces en plaques), une silhouette propre à chaque espèce, des peaux en pixel art de la palette et une vie au repos (respiration, regard, queue, oreilles). Chaque voix est conçue d'après son corps : taille, gorge, carapace. Les comportements ne changent pas.                                    |
+
+## Jalons v5
+
+Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fois. Les sons passent en dernier : ils s'appuient sur les nouveaux feu, éclairs et créatures.
+
+### Partie A — Corrections
+
+#### M46 — Bugs du test, vue de face et Bag réorganisé (fait)
+
+- **Vent** : une phase accumulée sur le CPU (`uWindPhase += dt × vitesse(vent)`), au lieu de `uTime × vent` dans `voxelSway`. Shader voxel et passe d'ombre (`SunShadow.ts`), uniforme dans `voxelMaterial.ts`, mise à jour dans `Atmosphere.ts`.
+- **Bulle** : une seule `Tooltip` montée dans une couche d'interface racine, hors des panneaux (comme le curseur porté) et partagée par `SlotBoard` et `LogbookPanel`. Elle reste collée au pointeur et peut déborder du panneau.
+- **Torche murale** :
+  - les boîtes acceptent une origine UV (`Box16` étendu, lu par le mesher `meshBoxes`), pour que la torche murale montre toute sa texture ;
+  - posée haut sur le mur, légèrement décollée.
+- **Lave** :
+  - `LiquidDef` gagne `drowns` (le souffle ne baisse que dans un liquide qui noie) et `moveFactor` (vitesse et nage dans `physics.ts`) ;
+  - la lave : `drowns: false`, environ 0,5× la vitesse de l'eau, comme Minecraft ;
+  - pas de rangée de souffle dans la lave.
+- **Vues** : `CameraMode = 'first' | 'back' | 'front'`. V fait le cycle 1re → dos → face → 1re. La vue de face place la caméra devant, tournée vers le joueur, avec les mêmes sondes de collision. La main est cachée et l'avatar dessiné dans les deux vues de 3e personne.
+- **Bag** (`screens/bag.ts`, `screens/logbook.ts`, `inventory.css`) :
+  - le détail de la recette sélectionnée passe sous la hotbar, dans sa propre zone qui défile ;
+  - les boutons de craft (×1, ×5, max) sont hors du défilement, toujours visibles ;
+  - même disposition dans l'établi (`screens/workbench.ts`).
+
+**Tests** : unitaires (phase du vent continue quand le vent change, liquides, cycle des vues) et selftest `m46` :
+
+- bulle à moins de 24 px du pointeur, entièrement visible hors du panneau ;
+- torche murale : texture complète ;
+- lave lente et sans souffle ;
+- V : trois vues ;
+- boutons de craft visibles après un défilement.
+
+**Retenu à la réalisation** :
+
+- la bulle avait trois défauts : sa largeur dépendait de sa place (près du bord droit elle se comprimait et son texte débordait, d'où l'effet « coupé ») ; au survol elle se plaçait où le pointeur était au mouvement précédent ; il y en avait une par panneau. Une seule bulle (`#ui-tooltip`, `ScreenDeps.tooltip`) est montée au-dessus des écrans, en `width: max-content` ;
+- la torche murale prend sa texture à elle (`BlockDef.wallTextures`, motif `wallTorch`) : quelle que soit la paroi, les faces avant de ses boîtes lisent les colonnes 7–9/16 et leurs côtés 0–2/16 ou 14–16/16 ; la torche y est dessinée entière ;
+- `LiquidDef.moveFactor` (lave 0,5) et `drowns` (lave : non), lus par `Body.liquidMove`/`headDrowns`.
+
+### Partie B — Éclairs et feu
+
+#### M47 — Éclairs et feu de Minecraft
+
+- **Feu** (`sim/fire.ts`) :
+  - un bloc de feu avec un âge ;
+  - `BlockDef.flammability` (prise, combustion) sur les bûches, planches, feuilles, herbes et fibres ;
+  - propagation et combustion sur `UPDATE_FIRE` (file des mises à jour de blocs), selon les règles de Minecraft ;
+  - le feu s'éteint sur un bloc non inflammable, sous la pluie à ciel ouvert et au contact de l'eau ;
+  - il blesse et enflamme (`contact.ignites`), émet de la lumière et a une texture animée.
+- **Éclair** (`sim/weather.ts`) :
+  - il frappe le bloc le plus haut d'une colonne près d'un joueur ;
+  - il blesse les joueurs et créatures dans un rayon (cause `lightning`) et les enflamme ;
+  - il pose du feu au point d'impact ;
+  - l'événement `lightning` porte x, y, z.
+- **Rendu** (`render/Lightning.ts`) : un éclair ramifié du ciel au sol, émissif, qui scintille environ 0,4 s. Le flash existant (`WeatherFeel`) et le tonnerre retardé par la distance (`AudioBridge`) suivent.
+
+**Tests** : unitaires (propagation, extinction, dégâts, déterminisme du bot headless) et selftest `m47` (un éclair forcé allume une bûche, la pluie éteint le feu).
+
+### Partie C — Identité visuelle
+
+#### M48 — Interfaces « colonie effondrée »
+
+- **Base visuelle** :
+  - jetons CSS refaits (couleurs, formes, ombres) ;
+  - police OFL via `@fontsource` ;
+  - panneaux en plaques rivetées écaillées, avec mousse et lianes sur les bords et lueurs bioluminescentes ;
+  - cases en douilles métalliques ;
+  - onglets, boutons, barres de défilement.
+- **Écrans** (tous refaits) : Bag et ses pages, coffre, station, établi, carte, livre, mort, menus, réglages, pause, carte d'aide, bulle.
+- **HUD** :
+  - icônes des jauges en pixel art de la palette (vie = capsule médicale, faim = ration, soif = gourde, température = cadran à aiguille, toxicité et souffle) ;
+  - boussole en bande de métal envahie ;
+  - minicarte en hublot, hotbar en rail.
+  - `hudLayout` reste vert aux trois tailles.
+
+**Tests** : selftest `m48` (chaque écran s'ouvre ; les jetons et la police sont appliqués), `e2e/hud.spec.ts`, i18n.
+
+#### M49 — Icônes d'objets redessinées
+
+- **Pipeline** : palette maîtresse (`content/packs/base/palette.ts`), validation (couleurs dans la palette), suppression de `shadeIcon`.
+- **Objets** redessinés en 32 × 32 :
+  - matières : lingots trapézoïdaux, cordelette en rouleau, cuir en peau, silex taillé, charbon ;
+  - nourritures ;
+  - outils et armes selon la décision 36 ;
+  - équipements, contenants, journaux, plans, bandages.
+- La main et les objets au sol reprennent ces icônes.
+
+**Tests** : couleurs dans la palette ; silhouettes non vides ; selftest `m49` (le Bag montre les icônes).
+
+#### M50 — Icônes des blocs et objets posés
+
+- **Blocs fonctionnels** dessinés comme l'objet : feu de camp (bûches et flammes), coffre, établi, four, torche, échelle, porte, trappe, couchage, tonneau de pluie…
+- **Blocs de construction et de terrain** : cubes isométriques en pixel art de la palette, avec contour.
+
+**Tests** : couleurs dans la palette ; selftest `m50`.
+
+#### M51 — Le survivant du crash
+
+- **Modèle** : combinaison de pilote abîmée aux couleurs de la colonie, harnais, sac de survie, masque respiratoire autour du cou, cheveux visibles, gants, bottes, proportions humaines.
+- **Peaux** 32 px avec relief.
+- **Bras en 1re personne** assorti.
+- Vu en 3e personne de dos et de face, et sur la figure d'équipement du Bag.
+
+**Tests** : `rigs`/`creatureView` ; selftest `m51` (les vues de dos et de face dessinent l'avatar).
+
+#### M52 — Créatures redessinées
+
+Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, Prowler, Swarmling, Shellback, Glimmerback et Reedwader.
+
+- **Modèles** (`creatureModels.ts`) : plus de parties, articulées. Exemples : cou et mâchoire, oreilles, queue segmentée, pattes en deux segments, plaques de carapace, crête de spores.
+- **Silhouette** propre à chaque espèce et lisible de loin.
+- **Rendu** :
+  - peaux en pixel art de la palette (avec le relief de M41) ;
+  - parties émissives conservées (yeux ambre du Prowler, spores du Glimmerback).
+- **Animations** (`creatureRig.ts`) : respiration, regard, queue et oreilles au repos, démarche plus souple. Les gaits `GAIT_LEGS` restent.
+- **Inchangé** : hitboxes, comportements et données de combat.
+- La liste d'originalité est mise à jour (Prowler bas, quadrupède, yeux ambre).
+
+**Tests** :
+
+- `creatures.test.ts` (originalité) ;
+- `creatureView` ;
+- `MAX` de boîtes dans le budget ;
+- bench `mobs` sous son seuil ;
+- selftest `m52` : chaque espèce posée est dessinée et animée.
+
+### Partie D — Sons réalistes
+
+#### M53 — Moteur de sons réalistes
+
+- **Synthèse** (`assets/procedural/synth.ts`). Bruits rose et brun, plus ces modèles :
+  - **impact** : contact bref selon la dureté, puis modes amortis inharmoniques par matière ;
+  - **pas** : talon puis pointe, en grains selon la surface ;
+  - **bulles** de Minnaert : éclaboussures, gorgées, pluie sur l'eau ;
+  - **crépitement** : impulsions filtrées, souffle et grondement ;
+  - **turbulence** : vent et rafales ;
+  - **voix source-filtre** : pulsations glottiques avec jitter et shimmer, souffle, formants et taille du conduit vocal.
+- **Variantes** : au moins 4 variantes semées par son. La première est rendue au chargement, les autres en temps libre ; le moteur tire au hasard sans répéter la dernière.
+- **Ambiances** : des fonds longs plus des événements planifiés à l'exécution (rafales, froissements, clapotis, tonnerre lointain), jamais une boucle audible.
+- **Salles** (décision 33) : détection d'un intérieur fermé (toit et murs) dans `AudioBridge`, réverbération seulement en grotte ou en intérieur, `acoustics` retiré.
+- **Niveaux** : un niveau cible par catégorie et un limiteur.
+- **Planche des sons** (dev seulement, `?soundboard=1`) : chaque son et ses variantes, jouables d'un clic, pour l'écoute.
+
+**Tests** :
+
+- déterminisme ;
+- les variantes diffèrent ;
+- les sons de bruit restent sans raie tonale (planéité spectrale) ;
+- niveaux et durées ;
+- budget de rendu au chargement ;
+- selftest `m53` : dehors en forêt et dans le Sporefen, aucune réverbération ; en grotte, oui.
+
+#### M54 — Tous les sons refaits
+
+- **Monde et joueur** :
+  - pas par matière ;
+  - casser, poser et frapper par matière ;
+  - joueur : coups reçus, repas croquants, gorgées, plongeons, nage, atterrissage ;
+  - outils, portes, coffres, stations ;
+  - feu (le nouveau bloc de feu compris), eau, lave.
+- **Météo** :
+  - pluie sur les feuilles, sur un toit, sur l'eau ;
+  - vent ;
+  - tonnerre réaliste : claquement en onde N, puis roulement fait d'impulsions retardées le long de l'éclair, plus sourd avec la distance.
+- **Créatures** : chaque espèce redessinée à M52 a ses sons tirés de son corps. Exemples : la grande gorge grave du Shagback, le cliquetis de carapace du Shellback, le bourdonnement d'ailes et les mandibules du Swarmling. Cris, alerte, attaque, douleur, mort et pas, avec des variantes.
+- **Ambiances** par biome, jour et nuit, sans aucun son de créature.
+- **Interface** : clics.
+
+**Tests** : selftest `m54` (chaque clé de son jouée une fois sans erreur ; le tonnerre arrive après le flash ; chaque espèce a ses sons) ; les tests de niveaux sont mis à jour.
+
+## Fichiers critiques v5
+
+| Domaine                       | Fichiers                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Bugs                          | `render/shaders/voxel.glsl.ts`, `render/Atmosphere.ts`, `render/SunShadow.ts`, `ui/tooltip.ts`, `ui/slotBoard.ts`, `ui/screens/{bag,logbook,workbench}.ts`, `content/packs/base/blocks.ts`, `world/mesh/greedyMesher.ts`, `content/schema.ts` (`LiquidDef`, `Box16`), `sim/physics.ts`, `sim/survival.ts`, `render/CameraRig.ts`, `app/GameSession.ts` |
+| Feu et éclairs                | `sim/fire.ts` (nouveau), `sim/weather.ts`, `sim/blockUpdates.ts`, `sim/combat.ts`, `render/Lightning.ts` (nouveau), `app/WeatherFeel.ts`                                                                                                                                                                                                               |
+| Sons                          | `assets/procedural/synth.ts`, `audio/{AudioEngine,loops,Ambience,reverb}.ts`, `app/AudioBridge.ts`, `content/packs/base/{sfx,sfxParts,playerSfx,creatureSfx,ambienceSfx}.ts`, `content/soundSchema.ts`, `content/validateSounds.ts`                                                                                                                    |
+| Interfaces                    | `ui/styles/*.css`, `ui/hud/*`, `ui/screens/*`, `ui/symbols.ts`, `app/titleSky.ts`                                                                                                                                                                                                                                                                      |
+| Icônes, personnage, créatures | `assets/procedural/{iconGen,packTexture,iconShade}.ts`, `content/packs/base/{iconsTools,iconsGear,textures,models,creatureModels}.ts`, `render/{HandView,itemModels,EntityView,CreatureView,creatureRig}.ts`                                                                                                                                           |
+
+## Réutiliser v5
+
+- **Blocs et feu** :
+  - mises à jour de blocs : `BlockUpdateQueue`, `noteChanged` (`sim/blockUpdates.ts`) ;
+  - pose et retrait : `writeBlock`/`editBlock` (`sim/edits.ts`), `removeBlock` (`sim/blockRemoval.ts`) ;
+  - feu sur le joueur : `contact.ignites` et `burnTicks` (`sim/survival.ts`).
+- **Météo** : `fallingOn`/`fallsOn` (`sim/weather.ts`) pour la pluie à ciel ouvert.
+- **Sons** : `struck`/`crunch` (`sfxParts.ts`), à approfondir ; `impulseResponse` (`audio/reverb.ts`) pour grotte et intérieur ; le délai du tonnerre existant dans `AudioBridge`.
+- **Rendu et icônes** :
+  - boîtes et modèles : `BoxBatch`, `prepareModel`, `animateCreature` (biped) ;
+  - icônes : masques (`icon()`, `iconsTools.ts`), `createItemIcons`.
+- **Interface** : `hudLayout`, `uiScaleFor`.
+
+## Contraintes v5
+
+- Couches, déterminisme et zéro allocation dans les boucles chaudes.
+- Toute l'interface passe par `t()` ; aucun nom de contenu dans le moteur.
+- `GEN_VERSION` reste inchangé.
+- `SAVE_VERSION` n'est relevé que si le format change (l'âge du feu, si on le sauvegarde).
+- Budget gzip 460 kB, en comptant la police.
+- KISS, DRY, SRP.
+
+## Vérification v5 (chaque jalon)
+
+1. `npm run verify` vert.
+2. Navigateur : `__game.errors()` vide, selftest du jalon et suites antérieures vertes, `?selftest=all` dans les 8 setups, `i18nMissing()` vide.
+3. Captures relues : jour, nuit, pluie, orage, grotte, écrans. Pour les sons, une écoute de la planche des sons.
+4. `npm run e2e` et `npm run e2e:perf` verts.
+5. Une PR par jalon, fusionnée après la CI verte (vérification et e2e), une à la fois.
+6. Compte rendu en français avec les captures.

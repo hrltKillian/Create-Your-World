@@ -250,6 +250,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
 }
 
 .item-icon {
@@ -311,7 +312,10 @@
   overflow-y: auto;
 }
 
-/* The hovered item's bubble: placed in viewport pixels like the cursor stack, over everything. */
+/*
+ * The hovered item's bubble (one for every screen, over them all: plan v5 « M46 »), placed in
+ * viewport pixels like the cursor stack.
+ */
 .tooltip-anchor {
   position: fixed;
   left: 0;
@@ -329,6 +333,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  /* Its own width wherever it shows: near the window's right edge it flips, never squeezes. */
+  width: max-content;
   max-width: 300px;
   padding: 8px 12px 9px;
   border: 1px solid rgba(232, 176, 74, 0.45);

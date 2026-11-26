@@ -380,7 +380,10 @@ function checkBoxes(
 
 function checkTextures(block: BlockDef, path: string, textures: TextureSets, add: AddIssue): void {
   const needsTextures = block.shape !== 'none' && block.pass !== 'invisible';
-  const slots = Object.entries(block.textures) as [TextureSlot, string][];
+  const slots = [
+    ...Object.entries(block.textures),
+    ...Object.entries(block.wallTextures ?? {}),
+  ] as [TextureSlot, string][];
   if (needsTextures && slots.length === 0)
     add(`${path}.textures`, 'a visible block needs textures');
   for (const [slot, key] of slots) {
