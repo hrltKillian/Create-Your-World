@@ -56,6 +56,8 @@ export interface VoxelUniforms {
   /** The sky's gradient (`SKY_GRADIENT`), the water's reflection: copied from the sky each frame. */
   readonly uZenith: IUniform<Color>;
   readonly uHorizon: IUniform<Color>;
+  /** The sun's haze along the horizon, in the sky and the fog (plan v4 « M39 »). */
+  readonly uHaze: IUniform<Color>;
   /** The low ground's mist (`MIST`): strength 0–1 and the height it lies under. */
   readonly uMist: IUniform<number>;
   readonly uMistLine: IUniform<number>;
@@ -116,6 +118,7 @@ export function createVoxelMaterials(
     uUnderwater: { value: 0 },
     uZenith: { value: new Color() },
     uHorizon: { value: new Color() },
+    uHaze: { value: new Color() },
     uMist: { value: 0 },
     uMistLine: { value: 0 },
     uTorchTint: { value: new Color(1, 0.78, 0.55) },

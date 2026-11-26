@@ -12,6 +12,7 @@ import { validateCrafting } from './validateCrafting.ts';
 import { validateCreatures } from './validateCreatures.ts';
 import { validateItems } from './validateItems.ts';
 import { validateQuests } from './validateQuests.ts';
+import { validateSky } from './validateSky.ts';
 import { validateSounds } from './validateSounds.ts';
 import { validateWorld } from './validateWorld.ts';
 
@@ -63,6 +64,7 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   validateCrafting(pack, items, add);
   validateQuests(pack, items, add);
   validateSounds(pack, add);
+  validateSky(pack, add);
   validateBalance(pack, add);
   checkTints(pack.tints, 'tints', add);
   (pack.biomes ?? []).forEach((b, i) => {

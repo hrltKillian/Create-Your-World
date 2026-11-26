@@ -1,4 +1,6 @@
-import type { CameraPose, WeatherLook, WorldView } from '../render/WorldView.ts';
+import { approach } from '../core/ease.ts';
+import type { WeatherLook } from '../render/Atmosphere.ts';
+import type { CameraPose, WorldView } from '../render/WorldView.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimView } from '../sim/host.ts';
 import { dimOf, isWet, precipitationOf, type WeatherKind } from '../sim/weather.ts';
@@ -18,11 +20,6 @@ const FLASH_REACH = 160;
 /** How cloudy and foggy each kind looks (0–1). */
 const CLOUD: Readonly<Record<WeatherKind, number>> = { clear: 0, rain: 0.6, storm: 1, fog: 0.5 };
 const FOG: Readonly<Record<WeatherKind, number>> = { clear: 0, rain: 0.3, storm: 0.45, fog: 1 };
-
-/** Moves `from` towards `to` by at most `step`. */
-function ease(from: number, to: number, step: number): number {
-  return from < to ? Math.min(to, from + step) : Math.max(to, from - step);
-}
 
 export class WeatherFeel {
   /** Rain and snow falling around the camera, eased (0–1). */
@@ -81,12 +78,12 @@ export class WeatherFeel {
     const falls = isWet(kind)
       ? precipitationOf(biome < 0 ? undefined : gen.biomeDefs[biome])
       : 'none';
-    this.rain = ease(this.rain, falls === 'rain' ? 1 : 0, step);
-    this.snow = ease(this.snow, falls === 'snow' ? 1 : 0, step);
+    this.rain = approach(this.rain, falls === 'rain' ? 1 : 0, step);
+    this.snow = approach(this.snow, falls === 'snow' ? 1 : 0, step);
     const look = this.look;
-    look.cloud = ease(look.cloud, CLOUD[kind], step);
-    look.fog = ease(look.fog, FOG[kind], step);
-    look.dim = ease(look.dim, dimOf(kind, registry.pack.balance.weather), step);
+    look.cloud = approach(look.cloud, CLOUD[kind], step);
+    look.fog = approach(look.fog, FOG[kind], step);
+    look.dim = approach(look.dim, dimOf(kind, registry.pack.balance.weather), step);
     look.wet = this.rain;
     if (this.struck && Math.hypot(this.flashX - pose.x, this.flashZ - pose.z) <= FLASH_REACH)
       look.flash = 1;

@@ -1,4 +1,5 @@
 import { LIGHTING, MIST } from './lighting.glsl.ts';
+import { SKY_GRADIENT } from './sky.glsl.ts';
 import { CUTOUT_ALPHA, LIGHT_CURVE } from './voxel.glsl.ts';
 
 /**
@@ -85,6 +86,7 @@ in vec3 vWorld;
 
 ${LIGHT_CURVE}
 ${LIGHTING}
+${SKY_GRADIENT}
 ${MIST}
 
 void main() {
@@ -106,6 +108,6 @@ void main() {
   gl_FragColor = vec4(mix(lit, vec3(0.85, 0.08, 0.05), vFx.y * 0.6), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
-  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld.y);
+  gl_FragColor.rgb = fogged(gl_FragColor.rgb, vWorld);
 }
 `;

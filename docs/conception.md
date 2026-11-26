@@ -3112,23 +3112,24 @@ Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu vis
 
 **Tests** : le masque marque les couches des liquides et elles seules ; selftest `m38` (`?worldType=flat&fixedStep=1&selftest=m0,m38`) : une mare de l'eau du pack et une de sa lave changent d'une image à l'autre, le sol nu à côté non (empreinte `capture().hash`).
 
-#### M39 — Ciel, atmosphère et nuages
+#### M39 — Ciel, atmosphère et nuages (fait)
 
-**Ciel** :
+**Le ciel dans les données** (décision 29) : `ContentPack.sky` (`content/skySchema.ts`, validé par `validateSky`) porte la palette des heures, le soleil, une ou deux lunes (couleur, taille, période des phases, inclinaison), une géante gazeuse (couleurs, anneau, taille, place à minuit), les couleurs des nébuleuses et des aurores. Les biomes donnent la couleur de leur air (`BiomeDef.fog`, déjà là) et la force de leurs aurores (`BiomeDef.aurora`). Le ciel de Veyra (`packs/base/sky.ts`) : des bleus un peu sarcelle le jour, une nuit violette, des aubes et crépuscules magenta et ambre ; la lune pâle et une petite lune rouille ; la géante annelée au nord-est à minuit ; aurores sur la toundra et les hautes terres.
 
-- diffusion analytique (Rayleigh et Mie approchés) pour le jour, l'aube et le crépuscule ;
-- teinte extraterrestre par biome, données `BiomeDef.sky` ;
-- deux lunes à phases, la géante gazeuse à anneaux, des nébuleuses et un champ d'étoiles plus riche (tout dans le shader de ciel, dessiné en une fois).
+**Le dôme** (`shaders/sky.glsl.ts`, un seul draw) :
 
-**Nuages** : une couche en 2D (fbm qui défile), plus denses selon la météo du M34 (`WeatherFeel`).
+- dégradé de la palette et halo du soleil le long de l'horizon, fort à l'aube et au crépuscule (`skyHaze`, `SunLight.haze`) ;
+- les lunes éclairées par le soleil d'où il se trouve : leurs phases viennent de la géométrie ; chacune prend une révolution de retard sur le soleil en `period` jours (`moonDirection`, pleine au jour 0) ;
+- la géante tourne avec les étoiles, en bandes, éclairée par le soleil, une lueur faible sur sa face de nuit, son anneau devant elle en bas et derrière en haut ;
+- nébuleuses, étoiles qui scintillent, chaudes ou froides ;
+- une couche de nuages qui défile, plus épaisse et plus sombre avec la météo ;
+- les rideaux des aurores, la nuit, selon le biome.
 
-**Aurores** : rubans animés la nuit dans les biomes froids, intensité dans les données du biome.
+**L'air** (`render/Atmosphere.ts`, sorti de WorldView : palette, météo, air du biome, lumière, brouillard) : la couleur de l'air du biome autour de la caméra décale la teinte de l'horizon, du brouillard et du zénith en gardant leur luminosité, et ses aurores montent, en 4 s. Le brouillard prend le halo du soleil vers le soleil, comme le ciel derrière : la terre lointaine se fond dans le ciel.
 
-**Tests** :
+**Lumière** : la lune principale éclaire la nuit selon sa phase ; la boussole la suit (`moonBearing`).
 
-- palette ;
-- directions des astres (tests purs du `Sky`) ;
-- captures de nuit et d'aurore.
+**Tests** : palette, phases (pleine, nouvelle, deux lunes qui s'écartent), boussole, air qui s'installe et repart, validation ; selftest `m39` : à minuit le ciel au-dessus du biome aux aurores est plus clair qu'au-dessus du point d'apparition (`?seed=7&rd=4&fixedStep=1`), les nuages d'orage assombrissent le ciel de midi (`?worldType=flat&fixedStep=1`).
 
 #### M40 — La nuit de Veyra : bioluminescence et vie
 

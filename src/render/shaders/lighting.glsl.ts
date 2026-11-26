@@ -57,19 +57,22 @@ vec3 sunGloss(vec3 n, vec3 view, float roughness, float lit) {
 /**
  * Distance fog (three's `Fog` uniforms), thickened in the low ground by a mist (plan v4 « M37 »):
  * `uMist` 0–1 below `uMistLine`, fading out MIST_DEPTH blocks above it, never right at the eye.
- * Replaces three's fog chunk; without fog (the hand) the colour is left as is.
+ * The fog takes the sun's haze towards the sun, as the sky behind it does (`skyHaze`, « M39 »:
+ * SKY_GRADIENT comes first). Replaces three's fog chunk; without fog (the hand) the colour is
+ * left as is.
  */
 export const MIST = /* glsl */ `
 uniform float uMist;
 uniform float uMistLine;
 const float MIST_DEPTH = 12.0;
 
-vec3 fogged(vec3 color, float worldY) {
+vec3 fogged(vec3 color, vec3 world) {
   #ifdef USE_FOG
   float far = smoothstep(fogNear, fogFar, vFogDepth);
-  float low = clamp(1.0 - (worldY - uMistLine) / MIST_DEPTH, 0.0, 1.0);
+  float low = clamp(1.0 - (world.y - uMistLine) / MIST_DEPTH, 0.0, 1.0);
   float mist = uMist * low * smoothstep(4.0, fogFar * 0.5, vFogDepth);
-  return mix(color, fogColor, max(far, mist));
+  vec3 air = fogColor + skyHaze(normalize(world - cameraPosition), uSunDir);
+  return mix(color, air, max(far, mist));
   #else
   return color;
   #endif

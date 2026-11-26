@@ -16,7 +16,7 @@ import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
 import { heldItem, type PlayerState } from '../sim/player.ts';
 import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
-import { daylightAt, hourOf } from '../sim/time.ts';
+import { DAY_TICKS, daylightAt, hourOf } from '../sim/time.ts';
 import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
 import { ClientAim } from './ClientAim.ts';
 import type { FreeCam } from './FreeCam.ts';
@@ -338,8 +338,13 @@ export class GameSession {
    */
   private updateEnvironment(pose: CameraPose, dt: number): void {
     const sim = this.host.view;
-    const hour = hourOf(sim.time().ticks);
-    this.view.setTime(hour, daylightAt(hour));
+    const ticks = sim.time().ticks;
+    const hour = hourOf(ticks);
+    this.view.setTime(hour, daylightAt(hour), ticks / DAY_TICKS);
+    // The biome's air and auroras (plan v4 « M39 »).
+    const biome = sim.world.biomeAt(Math.floor(pose.x), Math.floor(pose.z));
+    const def = biome < 0 ? undefined : sim.gen.biomeDefs[biome];
+    this.view.setAir(def?.fog ?? null, def?.aurora ?? 0);
     this.weather.frame(dt, pose);
     this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
   }

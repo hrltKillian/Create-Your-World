@@ -451,6 +451,13 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `shaders/water.glsl.ts` (`WATER`: `liquidLayer`, `waterSlope`, `rainRings`, `caustic`), the sky
     gradient shared with the dome `SKY_GRADIENT` (sky.glsl.ts; `uZenith`/`uHorizon` copied each
     frame), `uUnderwater` (`setUnderwater`); `capture().hash` (FNV-1a of the pixels);
+  - sky (plan v4 « M39 »): the pack's `sky` (`content/skySchema.ts`: `SkyDef` keys, sun, moons,
+    giant, nebula, aurora; `validateSky`), `BiomeDef.fog` (the air's colour) and `aurora`;
+    `render/Sky.ts` (`skyPaletteOf`/`skyPalette`, `sunDirection`, `moonDirection(hour, days, moon)`,
+    `moonLit`, `moonBearing`, `sunAbove`, `DEFAULT_SKY`), the dome `shaders/sky.glsl.ts`
+    (`SKY_GRADIENT`: `skyGradient`, `skyHaze`), `render/Atmosphere.ts` (`WeatherLook`, palette,
+    weather, biome air `setAir`, light, fog; WorldView delegates to it), `WorldView.setTime(hour,
+    daylight, days)`; `core/ease.ts` (`approach`);
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -581,6 +588,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Sky checks of plan v4: `?seed=7&rd=4&fixedStep=1&selftest=m0,m39` (the auroras' biome at
+  midnight) and `?worldType=flat&fixedStep=1&selftest=m0,m39` (a storm's clouds).
 - Water checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m38` (`selftest/m38.ts`): a
   pool of the pond liquid and one of lava change from frame to frame, bare ground does not.
 - Light checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m36,m37` (`selftest/m36.ts`,

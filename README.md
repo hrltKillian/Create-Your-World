@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M39 — Veyra's sky** (plan v4, `docs/conception.md` « M39 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **Look up at night**: two moons going through their phases, a ringed gas giant in the
+  north-east, nebulae and twinkling stars.
+- **Dawn and dusk** glow magenta and amber along the horizon, and the far land melts into it.
+- **Clouds** drift over the sky and thicken with the weather; **auroras** ripple over the tundra
+  and the highlands at night; each biome tints the air a little.
+- **Checks**: `?seed=7&rd=4&fixedStep=1&selftest=m0,m39`, `?worldType=flat&fixedStep=1&selftest=m0,m39`.
+
+### Earlier milestones
+
 **M38 — Water and lava** (plan v4, `docs/conception.md` « M38 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
