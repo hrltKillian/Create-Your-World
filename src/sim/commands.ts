@@ -16,6 +16,7 @@ export type Command =
     }
   | InputCommand
   | InventoryCommand
+  | TidyCommand
   | ScreenCommand
   | SlotCommand
   | BlockEntityCommand
@@ -63,6 +64,14 @@ export interface InventoryCommand {
   readonly slot: number;
   readonly all: boolean;
 }
+
+/**
+ * Inventory comfort (plan v3 « M32 », sim/tidying.ts): the bag sorted (or the open chest with
+ * `open`), and the bag's items stacked into the chests nearby that hold them.
+ */
+export type TidyCommand =
+  | { readonly type: 'inv.sort'; readonly open: boolean }
+  | { readonly type: 'inv.stackNearby' };
 
 /**
  * The slot screens (docs « Écrans »): the Bag opens on its key; a chest or a station opens on

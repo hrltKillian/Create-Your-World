@@ -269,6 +269,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `uGamma` in `LIGHT_CURVE` (render/shaders/voxel.glsl.ts, shared with the box shader); the
     gauges as rows of symbols over the hotbar (`ui/hud/vitals.ts`: `IconRow`, `ROW_ICONS`,
     `.row-health`…, `.stat-icon` `--fill` 0/0.5/1);
+  - inventory comfort (plan v3 « M32 »): `sim/tidying.ts` (`sortSlots`, `stackInto`, `chestsNear`
+    with `entityAt` or a view's `blockEntity`, `STACK_RADIUS`/`BENCH_RADIUS`; commands
+    `inv.sort {open}`, `inv.stackNearby`, event `stackedNearby`); a workbench's crafts take from
+    `craftSources` (the inventory, then the chests near it: craftQueue.ts), its Logbook counts
+    them (UiBridge); buttons `data-action` `bag-sort`, `stack-nearby`, `chest-sort`;
   - feel and units of the fourth play test (plan v3 « M30 »): gauges counted in symbols
     (`ui/symbols.ts`: `ROW_ICONS`, `inSymbols`, `symbolCount`, `InfoLine`/`SymbolLine`,
     `lineElement`, `miniSymbol`; `.gauge-*` shapes shared by the HUD rows and `.mini-icon`;
@@ -509,6 +514,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Inventory checks of plan v3: `?worldType=arena&fixedStep=1&selftest=m0,m32` (`selftest/m32.ts`):
+  the Bag's « Sort » and « Stack into chests nearby » with the workshop's chest, the workbench
+  crafting with that chest's ingredients.
 - Map checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m31` (`selftest/m31.ts`): the
   minimap's coordinates, the big map dragged, a waypoint of a chosen symbol and colour marked at a
   clicked place and listed with its coordinates, only M closing the map.

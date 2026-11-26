@@ -138,20 +138,20 @@ of them:
 
 ## Try this milestone
 
-**M31 — The detailed map** (plan v3, `docs/conception.md` « M31 »). `npm run dev`, then open
+**M32 — Inventory comfort** (plan v3, `docs/conception.md` « M32 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
-- **A pixel a block**: the land as you saw it (trees, sand, water darker with depth, relief
-  shading), the minimap with your coordinates.
-- **The big map (M)**: drag it with the mouse, « Centre on me » brings it back, the coordinates
-  of you and of the pointer under it.
-- **Waypoints**: a name, one of six symbols and six colours, placed where you click on the map or
-  at your feet; listed with coordinates and distance, « Show » centres on one; drawn with their
-  names on the map and in their colour on the compass.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m31`.
+- **Sort** the bag (never the hotbar) or a chest: stacks merged, items in order.
+- **Stack into chests nearby**: the bag's items go into the chests within 6 blocks that already
+  hold them.
+- **The workbench uses its neighbours**: its recipes take ingredients from the chests within 6
+  blocks of it, and its Logbook counts them.
+- **Checks**: `?worldType=arena&fixedStep=1&selftest=m0,m32`.
 
 ### Earlier milestones
 
+- **M31, the detailed map**: a pixel a block, the big map dragged, waypoints with symbols,
+  colours, names and coordinates; `?worldType=flat&fixedStep=1&selftest=m0,m31`.
 - **M30, feel and units**: stats counted in symbols, Minecraft hunger with hidden saturation,
   sprint and swim in water, useful plants, a held item as its icon;
   `?worldType=flat&fixedStep=1&selftest=m0,m30`.

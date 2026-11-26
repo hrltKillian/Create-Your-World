@@ -58,6 +58,13 @@ export type SimEvent =
       readonly count: number;
     }
   | { readonly type: 'inventoryChanged'; readonly playerId: number }
+  /** The bag's items stacked into the chests nearby (plan v3 « M32 »): how many, how many chests. */
+  | {
+      readonly type: 'stackedNearby';
+      readonly playerId: number;
+      readonly count: number;
+      readonly chests: number;
+    }
   /** A player read the journal in hand (secondary, plan v3 « M28 »): the client shows its text. */
   | { readonly type: 'itemRead'; readonly playerId: number; readonly item: string }
   /** A player opened a chest or a station (its screen shows), or it closed (moved away, broken). */

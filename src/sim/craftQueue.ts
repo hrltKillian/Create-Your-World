@@ -11,6 +11,7 @@ import type { PlayerState } from './player.ts';
 import { levelOf } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { openedEntity } from './screens.ts';
+import { BENCH_RADIUS, chestsNear, entityAt } from './tidying.ts';
 
 /**
  * The Logbook's craft queues (docs « Craft : le Logbook »), 5 entries each, the first one in
@@ -94,7 +95,10 @@ function addCrafts(
   }
 }
 
-/** Takes the ingredients of `crafts` crafts from the player into an entry, counting them in it. */
+/**
+ * Takes the ingredients of `crafts` crafts into an entry, counting them in it: from the player's
+ * inventory first, then from the chests near their open workbench (`craftSources`).
+ */
 function reserve(
   sim: Simulation,
   player: PlayerState,
@@ -103,20 +107,33 @@ function reserve(
   crafts: number,
 ): void {
   const registry = sim.registry;
-  const inventory = player.inventory;
+  const crafting = registry.crafting;
   const taken: Inventory = [];
-  for (const input of recipe.inputs)
-    takeMatching(
-      inventory,
-      0,
-      inventory.length,
-      registry.crafting,
-      input.item,
-      input.count * crafts,
-      taken,
-    );
+  const sources = craftSources(sim, player);
+  for (const input of recipe.inputs) {
+    let left = input.count * crafts;
+    for (const slots of sources) {
+      if (left <= 0) break;
+      const here = Math.min(left, countMatching(slots, 0, slots.length, crafting, input.item));
+      takeMatching(slots, 0, slots.length, crafting, input.item, here, taken);
+      left -= here;
+    }
+  }
   for (const stack of taken) if (stack) pileOnto(entry.reserved, registry, stack);
   entry.count += crafts;
+}
+
+/**
+ * Where a player's crafts take their ingredients (plan v3 « M32 »): their inventory, then, with a
+ * workbench open, the chests within BENCH_RADIUS of it (tidying.ts, a fixed order).
+ */
+export function craftSources(sim: Simulation, player: PlayerState): Inventory[] {
+  const bench = openWorkbench(sim, player);
+  const sources = [player.inventory];
+  if (bench)
+    for (const chest of chestsNear(entityAt(sim), bench.x, bench.y, bench.z, BENCH_RADIUS))
+      sources.push(chest.slots);
+  return sources;
 }
 
 /** The workbench a player has open, if any. */
@@ -157,10 +174,13 @@ export function enqueueCraft(
   const queue = queueOf(sim, player, recipe);
   if (!queue) return 'station';
   if (queueRoom(registry, queue, recipe) < count) return 'queue full';
-  const inventory = player.inventory;
-  for (const input of recipe.inputs)
-    if (countMatching(inventory, 0, inventory.length, crafting, input.item) < input.count * count)
-      return 'ingredients';
+  const sources = craftSources(sim, player);
+  for (const input of recipe.inputs) {
+    let owned = 0;
+    for (const slots of sources)
+      owned += countMatching(slots, 0, slots.length, crafting, input.item);
+    if (owned < input.count * count) return 'ingredients';
+  }
   addCrafts(sim, player, queue, recipe, count);
   return null;
 }

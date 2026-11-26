@@ -39,13 +39,17 @@ export class ContainerScreen {
     this.chest = h('div', { class: 'container-slots' });
     const takeAll = menuButton('take-all', t('container.takeAll'), this.takeAll);
     const storeAll = menuButton('store-all', t('container.storeAll'), this.storeAll);
+    const sort = menuButton('chest-sort', t('container.sort'), () => {
+      this.actions.click();
+      this.actions.send({ type: 'inv.sort', open: true });
+    });
     this.element.append(
       h(
         'div',
         { class: 'bag-panel' },
         board.header(this.title),
         this.chest,
-        h('div', { class: 'container-actions' }, takeAll, storeAll),
+        h('div', { class: 'container-actions' }, takeAll, storeAll, sort),
         h('p', { class: 'bag-section' }, t('bag.title')),
         ...board.inventory(),
         h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),

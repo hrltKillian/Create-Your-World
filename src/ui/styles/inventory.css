@@ -336,3 +336,10 @@
   font-size: 0.74rem;
   line-height: 1.35;
 }
+
+/* Inventory comfort (plan v3 « M32 »): sort and stack into chests nearby, over the bag. */
+.bag-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

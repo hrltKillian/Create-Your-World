@@ -1,6 +1,7 @@
 import { WEAR_SLOTS } from '../../content/schema.ts';
 import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
+import type { Command } from '../../sim/commands.ts';
 import type { Gear } from '../../sim/environment.ts';
 import type { ItemStack } from '../../sim/inventory.ts';
 import type { BestiaryRow } from '../bestiary.ts';
@@ -11,6 +12,7 @@ import { type ScreenActions, type ScreenDeps, SlotBoard } from '../slotBoard.ts'
 import type { StatusView } from '../status.ts';
 import { BestiaryPanel } from './bestiaryPanel.ts';
 import type { LogbookPanel, LogbookState } from './logbook.ts';
+import { menuButton } from './menuParts.ts';
 import { QuestsPanel } from './questsPanel.ts';
 import { StatusPanel } from './statusPanel.ts';
 
@@ -56,6 +58,19 @@ export class BagScreen {
       status: this.status.element,
     };
     this.tabs = h('nav', { class: 'bag-tabs' });
+    // Inventory comfort (plan v3 « M32 »): the bag sorted, its items stacked into chests nearby.
+    const sort = menuButton(
+      'bag-sort',
+      t('bag.sort'),
+      () => this.send({ type: 'inv.sort', open: false }),
+      'quest-pin',
+    );
+    const stack = menuButton(
+      'stack-nearby',
+      t('bag.stackNearby'),
+      () => this.send({ type: 'inv.stackNearby' }),
+      'quest-pin',
+    );
     this.element.append(
       h(
         'div',
@@ -70,7 +85,12 @@ export class BagScreen {
           this.pages.bestiary,
           this.pages.quests,
           this.pages.status,
-          h('div', { class: 'bag-inventory' }, ...board.inventory()),
+          h(
+            'div',
+            { class: 'bag-inventory' },
+            h('div', { class: 'bag-tools' }, sort, stack),
+            ...board.inventory(),
+          ),
         ),
         h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
       ),
@@ -125,6 +145,11 @@ export class BagScreen {
     this.bestiary.update(bestiary);
     this.quests.update(quests, tasks);
     this.status.update(status);
+  }
+
+  private send(command: Command): void {
+    this.actions.click();
+    this.actions.send(command);
   }
 
   /** A hotbar number key (slot 0–7) pressed while the bag is open. */
