@@ -14,7 +14,9 @@
 .figure-torso,
 .figure-legs {
   position: absolute;
-  background: rgba(169, 184, 178, 0.1);
+  /* A survivor's silhouette stencilled on the plate (plan v5 « M48 »). */
+  background: rgba(155, 191, 78, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(155, 191, 78, 0.12);
 }
 
 .figure-head {
@@ -51,14 +53,14 @@
 }
 
 .wear-slot .slot {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  background: rgba(14, 22, 26, 0.6);
+  filter: saturate(0.85);
 }
 
 .wear-label {
-  color: var(--c-ink-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.1em;
+  color: var(--c-label);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -66,7 +68,7 @@
 .wear-stats {
   margin: 10px 0 0;
   color: var(--c-ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.74rem;
 }
 
 /* Logbook: a field notebook of recipes, not a grid. */
@@ -84,51 +86,74 @@
   gap: 6px;
 }
 
+/* A recessed field (plan v5 « M48 »): bone ink, a teal rim when it has the keys. */
 .logbook-search {
   flex: 1;
   min-width: 0;
-  padding: 5px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 6px 10px;
+  border: 1px solid var(--c-line);
+  border-radius: 2px 8px 2px 8px;
+  background: var(--c-field);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
   color: var(--c-ink);
-  font: 0.8rem var(--font);
+  caret-color: var(--c-active);
+  font: 500 0.84rem var(--font);
+}
+
+.logbook-search::placeholder {
+  color: var(--c-ink-dim);
+}
+
+.logbook-search:hover {
+  border-color: rgba(90, 240, 207, 0.45);
 }
 
 .logbook-search:focus {
-  border-color: var(--c-accent);
+  border-color: var(--c-hover);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 2px var(--c-hover-soft);
   outline: none;
 }
 
+/* A toggle: a recessed box, amber with a tick once on. */
 .logbook-filter {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px;
+  padding: 5px 9px;
   border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   color: var(--c-ink-muted);
-  font: 600 0.7rem var(--font);
+  font: 700 0.74rem var(--font);
+  letter-spacing: 0.04em;
   white-space: nowrap;
   cursor: pointer;
 }
 
+.logbook-filter:hover {
+  color: var(--c-hover);
+}
+
 .logbook-filter::before {
   content: "";
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--c-ink-muted);
-  border-radius: 3px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--c-line);
+  background: var(--c-field);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.6);
 }
 
 .logbook-filter.on {
-  color: var(--c-accent);
+  color: var(--c-active);
 }
 
 .logbook-filter.on::before {
-  border-color: var(--c-accent);
-  background: var(--c-accent);
+  border-color: var(--c-active);
+  background:
+    linear-gradient(45deg, transparent 40%, var(--c-outline) 40% 55%, transparent 55%) 1px 1px /
+    10px 10px no-repeat,
+    var(--c-active);
 }
 
 .logbook-tabs {
@@ -137,33 +162,42 @@
   gap: 4px;
 }
 
+/* A category: a small plate tag; hovered teal, open amber. */
 .logbook-tab {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 4px 9px;
   border: 0;
-  border-radius: 9px 9px 3px 9px;
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px 7px 2px 7px;
+  background: var(--c-row);
+  box-shadow: inset 0 0 0 1px var(--c-line);
   color: var(--c-ink-muted);
-  font: 600 0.68rem var(--font);
-  letter-spacing: 0.08em;
+  font: 700 0.7rem var(--font);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
 }
 
+.logbook-tab:hover {
+  box-shadow: inset 0 0 0 1px var(--c-hover);
+  color: var(--c-hover);
+}
+
 .logbook-tab.active {
-  background: rgba(232, 176, 74, 0.16);
-  color: var(--c-accent);
+  background: var(--c-active-soft);
+  box-shadow: inset 0 0 0 1px var(--c-active);
+  color: var(--c-active);
 }
 
 .logbook-count {
   min-width: 16px;
   padding: 0 4px;
-  border-radius: 8px;
-  background: var(--c-accent);
+  border-radius: 2px;
+  background: var(--c-active);
   color: #1b1408;
-  font-size: 0.62rem;
+  font-size: 0.64rem;
+  text-align: center;
   letter-spacing: 0;
 }
 
@@ -175,6 +209,10 @@
   overflow-y: auto;
 }
 
+/*
+ * A recipe: a dark row with a notched left edge; it can be made now (amber notch), hovered (teal),
+ * chosen (amber, lit).
+ */
 .logbook-row {
   display: grid;
   grid-template-columns: 28px 1fr auto;
@@ -182,13 +220,19 @@
   gap: 8px;
   padding: 4px 8px;
   border: 0;
-  border-left: 3px solid transparent;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 8px 1px 8px;
+  background: var(--c-row);
   color: var(--c-ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background 0.1s ease-out;
+}
+
+.logbook-row:hover {
+  border-left-color: var(--c-hover);
+  background: var(--c-hover-soft);
 }
 
 .logbook-row .item-icon {
@@ -197,11 +241,13 @@
 }
 
 .logbook-row.craftable {
-  border-left-color: var(--c-accent);
+  border-left-color: var(--c-good);
 }
 
 .logbook-row.selected {
-  background: rgba(232, 176, 74, 0.14);
+  border-left-color: var(--c-active);
+  background: var(--c-active-soft);
+  box-shadow: inset 0 0 0 1px rgba(226, 164, 58, 0.35);
 }
 
 /* An undiscovered recipe: greyed, at the bottom of its tab; its unseen ingredients are « ? ». */
@@ -236,7 +282,8 @@
 }
 
 .logbook-name {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
+  font-weight: 500;
 }
 
 .logbook-pips {
@@ -245,21 +292,23 @@
   gap: 4px;
 }
 
-/* Pips: owned/required, warm while short, green once there is enough. */
+/* Pips: owned/required, rust while short, moss once there is enough. */
 .pip {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   padding: 0 6px 0 2px;
-  border-radius: 9px;
-  background: rgba(224, 100, 79, 0.18);
-  color: #f1b3a6;
-  font: 0.64rem var(--font-mono);
+  border-radius: 2px 6px 2px 6px;
+  background: rgba(200, 64, 47, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(200, 64, 47, 0.35);
+  color: #f0a08c;
+  font: 600 0.66rem var(--font-mono);
 }
 
 .pip.filled {
-  background: rgba(127, 176, 79, 0.2);
-  color: #c4e3a4;
+  background: rgba(111, 145, 54, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(155, 191, 78, 0.4);
+  color: #c9e39a;
 }
 
 .pip .item-icon {
@@ -269,9 +318,12 @@
 
 .logbook-detail {
   min-height: 118px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
+  padding: 9px 11px;
+  border-radius: 1px 10px 1px 10px;
+  background: var(--c-row);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px var(--c-line);
 }
 
 .logbook-title {
@@ -279,13 +331,15 @@
   align-items: center;
   gap: 8px;
   margin: 0 0 6px;
-  font-size: 0.9rem;
+  color: var(--c-active);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
 }
 
 .logbook-time {
   margin-left: auto;
   color: var(--c-ink-muted);
-  font: 0.72rem var(--font-mono);
+  font: 600 0.74rem var(--font-mono);
 }
 
 .logbook-ingredients {
@@ -311,18 +365,19 @@
 }
 
 .pip-count {
-  color: #f1b3a6;
+  color: #f0a08c;
   font-family: var(--font-mono);
+  font-weight: 600;
 }
 
 .logbook-ingredients li.filled .pip-count {
-  color: #c4e3a4;
+  color: #c9e39a;
 }
 
 .logbook-hint {
   grid-column: 2 / -1;
-  color: var(--c-ink-muted);
-  font-size: 0.7rem;
+  color: var(--c-ink-dim);
+  font-size: 0.72rem;
   font-style: italic;
 }
 
@@ -348,6 +403,7 @@
   gap: 6px;
 }
 
+/* A craft queued: a small socket (a click cancels it: rust on hover). */
 .queue-entry {
   position: relative;
   display: grid;
@@ -355,25 +411,25 @@
   width: 40px;
   height: 40px;
   padding: 0;
-  border: 0;
-  border-radius: 10px 10px 10px 4px;
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  border: 5px solid transparent;
+  border-image: var(--art-socket) 3 fill / 5px stretch;
+  background: transparent;
   color: var(--c-ink);
+  image-rendering: pixelated;
   cursor: pointer;
 }
 
 .queue-entry.empty {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 
 .queue-entry.active {
-  box-shadow: inset 0 0 0 2px rgba(232, 176, 74, 0.6);
+  border-image-source: var(--art-socket-lit);
 }
 
 .queue-entry:not(.empty):hover {
-  box-shadow: inset 0 0 0 2px var(--c-danger);
+  box-shadow: 0 0 0 1px var(--c-danger);
 }
 
 .queue-entry .item-icon {
@@ -383,12 +439,12 @@
 
 .queue-progress {
   position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 4px;
+  left: 0;
+  right: 0;
+  bottom: -2px;
   height: 3px;
-  border-radius: 2px;
-  background: var(--c-accent);
+  background: var(--c-active);
+  box-shadow: 0 0 4px rgba(226, 164, 58, 0.7);
   transform: scaleX(var(--progress, 0));
   transform-origin: left;
 }
@@ -396,8 +452,8 @@
 .logbook-empty,
 .logbook-footer {
   margin: 4px 0;
-  color: var(--c-ink-muted);
-  font-size: 0.74rem;
+  color: var(--c-ink-dim);
+  font-size: 0.76rem;
 }
 
 /* In a fixed screen the list takes the room left; the detail and the queue keep theirs. */
@@ -442,27 +498,34 @@
   overflow-y: auto;
 }
 
+/* A creature's card: a dark tag notched on the left, moss once studied. */
 .bestiary-row {
-  padding: 8px 10px;
-  border: 1px solid rgba(232, 176, 74, 0.25);
-  border-radius: 6px;
-  background: rgba(20, 16, 10, 0.35);
+  padding: 8px 10px 8px 12px;
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 10px 1px 10px;
+  background: var(--c-row);
+  box-shadow: inset 0 0 0 1px var(--c-line);
 }
 
 .bestiary-row h3 {
   margin: 0 0 4px;
-  color: var(--c-accent);
-  font-size: 0.85rem;
+  color: var(--c-active);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
 }
 
 .bestiary-row p {
   margin: 2px 0;
   color: var(--c-ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
 }
 
 .bestiary-row.level-0 {
-  opacity: 0.55;
+  opacity: 0.5;
+}
+
+.bestiary-row.level-2 {
+  border-left-color: var(--c-good);
 }
 
 /* Quests: a card per quest unlocked, the ones to claim first, the claimed ones greyed. */
@@ -475,64 +538,86 @@
   overflow-y: auto;
 }
 
+/* A quest's card: notched teal once it can be claimed, faded once claimed. */
 .quest-row {
-  padding: 8px 10px;
-  border: 1px solid rgba(232, 176, 74, 0.25);
-  border-radius: 6px;
-  background: rgba(20, 16, 10, 0.35);
+  padding: 8px 10px 8px 12px;
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 10px 1px 10px;
+  background: var(--c-row);
+  box-shadow: inset 0 0 0 1px var(--c-line);
 }
 
 .quest-row h3 {
   margin: 0 0 4px;
-  color: var(--c-accent);
-  font-size: 0.85rem;
+  color: var(--c-active);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
 }
 
 .quest-row p,
 .quests-empty {
   margin: 2px 0;
   color: var(--c-ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
 }
 
 .quest-row .quest-progress {
   color: var(--c-ink);
   font-family: var(--font-mono);
+  font-weight: 600;
 }
 
 .quest-row.status-claim {
-  border-color: #8fcf7a;
+  border-left-color: var(--c-hover);
+  box-shadow:
+    inset 0 0 0 1px rgba(90, 240, 207, 0.35),
+    0 0 10px rgba(90, 240, 207, 0.12);
 }
 
 .quest-row.status-claimed {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
+/* A card's small buttons: plate tags; « Claim » glows teal, a pinned quest is amber. */
 .quest-claim,
 .quest-pin {
   margin-top: 6px;
-  padding: 3px 12px;
-  border: 1px solid var(--c-accent);
-  border-radius: 999px;
-  background: transparent;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 2px 8px 2px 8px;
+  background: var(--metal);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px var(--c-outline);
   color: var(--c-ink);
-  font-size: 0.72rem;
+  font: 700 0.74rem var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
+.quest-claim:hover:not(:disabled),
+.quest-pin:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px var(--c-hover);
+  color: var(--c-hover);
+}
+
 .quest-claim {
-  border-color: #8fcf7a;
-  background: rgba(143, 207, 122, 0.18);
+  background: linear-gradient(180deg, #2f8f7a, #1d6153);
+  color: #eafffa;
 }
 
 .quest-pin[aria-pressed="true"] {
-  background: rgba(232, 176, 74, 0.25);
+  background: linear-gradient(180deg, #ecb24c, #c78b2b);
+  color: #1b1408;
 }
 
 /* A recipe made at another station (found by a search). */
 .logbook-station {
-  color: var(--c-ink-muted);
-  font-size: 0.66rem;
+  color: var(--c-ink-dim);
+  font-size: 0.7rem;
   font-style: italic;
 }
 
@@ -540,15 +625,26 @@
 .logbook-info {
   margin: 2px 0;
   color: var(--c-ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
 }
 
 .quests-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 4px 0 0;
-  color: var(--c-ink-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
+  color: var(--c-label);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.quests-heading::before {
+  content: "";
+  width: 10px;
+  height: 2px;
+  background: var(--c-label);
 }
 
 .quest-claim:disabled,
@@ -570,37 +666,42 @@
 
 .status-level {
   margin: 0;
-  color: var(--c-accent);
-  font-size: 1rem;
+  color: var(--c-active);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .status-xp,
 .status-points {
   margin: 0;
   color: var(--c-ink-muted);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
 }
 
+/* A skill: a tag with its rule, a riveted « + » to spend a point. */
 .skill-row {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   column-gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid rgba(232, 176, 74, 0.25);
-  border-radius: 6px;
-  background: rgba(20, 16, 10, 0.35);
+  padding: 8px 10px 8px 12px;
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 10px 1px 10px;
+  background: var(--c-row);
+  box-shadow: inset 0 0 0 1px var(--c-line);
 }
 
 .skill-row h4 {
   display: flex;
   justify-content: space-between;
   margin: 0;
-  font-size: 0.8rem;
+  color: var(--c-ink);
+  font-size: 0.84rem;
 }
 
 .skill-points {
-  color: var(--c-ink-muted);
+  color: var(--c-active);
   font-family: var(--font-mono);
 }
 
@@ -608,26 +709,33 @@
   grid-column: 1;
   margin: 2px 0 0;
   color: var(--c-ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.74rem;
 }
 
 .skill-spend {
   grid-row: 1 / span 2;
   grid-column: 2;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--c-accent);
-  border-radius: 50%;
-  background: rgba(232, 176, 74, 0.18);
-  color: var(--c-ink);
-  font-size: 1rem;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 2px 8px 2px 8px;
+  background: linear-gradient(180deg, #ecb24c, #c78b2b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 1px var(--c-outline);
+  color: #1b1408;
+  font: 700 1.1rem var(--font);
   cursor: pointer;
+}
+
+.skill-spend:hover:not(:disabled) {
+  filter: brightness(1.1) drop-shadow(0 0 5px rgba(90, 240, 207, 0.4));
 }
 
 /* The big map (M): a fixed panel, the land on the left (dragged), the waypoints on the right. */
 
 .screen-map {
-  background: rgba(8, 13, 16, 0.45);
+  background: radial-gradient(120% 90% at 50% 50%, rgba(8, 12, 8, 0.35), rgba(8, 12, 8, 0.72));
 }
 
 .map-panel {
@@ -650,11 +758,15 @@
   gap: 6px;
 }
 
+/* The land under a thick worn frame. */
 .map-canvas {
   width: 512px;
   height: 512px;
-  border: 1px solid rgba(232, 176, 74, 0.35);
-  border-radius: 6px;
+  border: 4px solid #3a4537;
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 2px var(--c-outline),
+    0 0 0 3px rgba(226, 164, 58, 0.45);
   cursor: grab;
   touch-action: none;
 }
@@ -678,8 +790,8 @@
 
 .map-zoom {
   min-width: 2.2em;
-  color: var(--c-ink-muted);
-  font: 600 0.72rem var(--font-mono);
+  color: var(--c-active);
+  font: 700 0.76rem var(--font-mono);
   text-align: center;
 }
 
@@ -687,7 +799,7 @@
 .map-where {
   margin: 0;
   color: var(--c-ink-muted);
-  font: 600 0.72rem var(--font-mono);
+  font: 600 0.76rem var(--font-mono);
 }
 
 /* The player's and the pointer's coordinates: two lines of their own, the pointer's line reserved
@@ -716,12 +828,23 @@
 }
 
 .map-name {
-  padding: 4px 8px;
-  border: 1px solid rgba(232, 176, 74, 0.35);
-  border-radius: 999px;
-  background: rgba(20, 16, 10, 0.5);
+  padding: 5px 9px;
+  border: 1px solid var(--c-line);
+  border-radius: 2px 8px 2px 8px;
+  background: var(--c-field);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
   color: var(--c-ink);
-  font-size: 0.74rem;
+  caret-color: var(--c-active);
+  font: 500 0.8rem var(--font);
+}
+
+.map-name:hover {
+  border-color: rgba(90, 240, 207, 0.45);
+}
+
+.map-name:focus {
+  border-color: var(--c-hover);
+  outline: none;
 }
 
 .map-picker {
@@ -736,15 +859,19 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid rgba(232, 176, 74, 0.25);
-  border-radius: 6px;
-  background: rgba(20, 16, 10, 0.45);
+  border: 1px solid var(--c-line);
+  border-radius: 2px 7px 2px 7px;
+  background: var(--c-field);
   cursor: pointer;
 }
 
+.map-pick:hover {
+  border-color: var(--c-hover);
+}
+
 .map-pick[aria-pressed="true"] {
-  border-color: var(--c-accent);
-  box-shadow: 0 0 0 1px var(--c-accent);
+  border-color: var(--c-active);
+  box-shadow: 0 0 0 1px var(--c-active);
 }
 
 .map-swatch {
@@ -771,8 +898,16 @@
   align-items: center;
   gap: 6px;
   margin: 3px 0;
+  padding: 3px 6px;
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 8px 1px 8px;
+  background: var(--c-row);
   color: var(--c-ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.76rem;
+}
+
+.map-waypoints li:hover {
+  border-left-color: var(--c-hover);
 }
 
 .map-waypoint-text {
@@ -790,5 +925,5 @@
 }
 
 .map-waypoint-coords {
-  font: 0.66rem var(--font-mono);
+  font: 600 0.7rem var(--font-mono);
 }

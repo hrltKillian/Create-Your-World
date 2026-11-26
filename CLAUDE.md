@@ -500,6 +500,15 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `sim/lightning.ts` (`strike`: the top of a column, `weather.lightningDamage`/`lightningRadius`,
     cause `lightning`; command `debug.strike`, hook `weather.strike(x, z)`, `weather.get().bolt`); the
     bolt `render/Lightning.ts` (`WorldView.lightning`, `strokeAt`); a contact's `burnCause`;
+  - the « collapsed colony » interface (plan v5 « M48 »): its pixel art drawn by code at boot
+    (`assets/procedural/uiArt.ts`: `UI` colours, `plate`, `rivet`, `moss`, `vine`, `hazard`,
+    `gaugeFull`/`gaugeEmpty` of `GAUGE_SYMBOLS`; `ui/uiArt.ts` `applyUiArt` sets `--art-*` and
+    `--icon-*`), the tokens of main.css (`--plate`, `--glass` riveted, `--shape`, `--font` Barlow
+    Semi Condensed from `@fontsource`); panels get a vine (`::before`) and moss (`::after`); a gauge
+    symbol is its empty art under its full art clipped by `--fill`; the temperature dial's needle
+    (`.thermo-bulb::after`); slots are sockets (`socket`, `--art-socket`/`-hover`/`-lit` as a
+    9-slice `border-image`); states and text tokens `--c-hover` (teal), `--c-active` (amber),
+    `--c-label` (moss), `--c-ink-dim`, `--c-field`, `--c-row`, `--c-line`, `--c-outline`;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -630,6 +639,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Interface checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m48` (`selftest/m48.ts`):
+  the typeface, the gauges' pixel art, the dial's needle, the panels' vine and moss.
 - Lightning checks of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m47` (`selftest/m47.ts`):
   a strike on logs shows its bolt and lights a fire the rain puts out.
 - Fixes of plan v5: `?worldType=flat&fixedStep=1&selftest=m0,m46` (`selftest/m46.ts`): the
@@ -640,7 +651,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
 - Sound checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m44` (`selftest/m44.ts`): the
   room outdoors, then indoors under a roof. Hook: `audio.ambience().reverb`.
 - Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):
-  the Bag and hotbar in smoked glass with the teal rim, slots pressed in.
+  the Bag and hotbar as riveted plates (plan v5's look), unblurred, slots pressed in.
 - Icon checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m42` (`selftest/m42.ts`): the
   Bag shows a planting food's 32 × 32 shaded icon.
 - Creature checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m41` (`selftest/m41.ts`): a

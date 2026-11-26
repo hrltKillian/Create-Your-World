@@ -50,11 +50,12 @@ const bubbleCase: SelftestCase = {
       const r = slot.getBoundingClientRect();
       const x = r.left + r.width / 2;
       const y = r.top + r.height / 2;
-      // Straight onto the slot: the bubble shows where the pointer is now.
+      // Straight onto the slot: the bubble shows where the pointer is now. Measured at once, like
+      // m28: the browser's real pointer sends its own `pointerover` once the Bag is laid out (on
+      // the backdrop, wherever it rests), and on a slow frame that comes after this one.
       slot.dispatchEvent(
         new PointerEvent('pointerover', { bubbles: true, clientX: x, clientY: y }),
       );
-      await frameOrFail();
       const anchor = document.querySelector<HTMLElement>('#ui-tooltip');
       assert(anchor && !anchor.hidden, 'no bubble over the hovered item');
       assert(!anchor.closest('.bag-panel'), 'the bubble is inside the panel');

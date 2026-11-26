@@ -14,19 +14,21 @@
   place-items: center;
   width: var(--slot-size);
   height: var(--slot-size);
-  border-radius: 11px 11px 11px 4px;
-  background: var(--slot-bg);
-  box-shadow: var(--slot-edge);
+  /*
+   * A socket (plan v5 « M48 »): a recessed floor and a bracket bolted on each corner, pixel art
+   * drawn as a 9-slice (ui/uiArt.ts); hovered its brackets glow teal, in hand amber.
+   */
+  border: 6px solid transparent;
+  border-image: var(--art-socket) 3 fill / 6px stretch;
+  image-rendering: pixelated;
 }
 
-/* Highlight ring (selected or hovered slot), faded in with opacity. */
+/* A faint glow in the socket: teal when hovered, amber in hand. */
 .slot::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(232, 176, 74, 0.14);
-  box-shadow: inset 0 0 0 2px var(--c-accent);
+  inset: -2px;
+  background: radial-gradient(closest-side, var(--c-hover-soft), transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease-out;
@@ -41,55 +43,69 @@
 
 .slot-key {
   position: absolute;
-  left: 5px;
-  top: 2px;
-  color: var(--c-ink-muted);
-  font: 600 0.6rem var(--font-mono);
-  opacity: 0.75;
+  left: -2px;
+  top: -4px;
+  color: var(--c-active);
+  font: 700 0.6rem var(--font-mono);
+  text-shadow: 0 1px 0 var(--c-outline);
+  opacity: 0.85;
 }
 
 .slot-count {
   position: absolute;
-  right: 5px;
-  bottom: 2px;
-  font: 700 0.78rem var(--font);
+  right: -2px;
+  bottom: -4px;
+  color: var(--c-ink);
+  font: 700 0.8rem var(--font);
   text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.95),
-    0 0 4px rgba(0, 0, 0, 0.6);
+    1px 1px 0 var(--c-outline),
+    -1px 0 0 var(--c-outline),
+    0 -1px 0 var(--c-outline);
 }
 
 .slot-wear {
   position: absolute;
-  left: 7px;
-  right: 7px;
-  bottom: 5px;
+  left: 2px;
+  right: 2px;
+  bottom: -2px;
   height: 3px;
   overflow: hidden;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--c-outline);
 }
 
 .slot-wear-fill {
   display: block;
   height: 100%;
-  background: hsl(calc(var(--wear, 1) * 110) 70% 52%);
+  /* Worn from moss green through amber to red. */
+  background: hsl(calc(var(--wear, 1) * 85) 62% 48%);
   transform: scaleX(var(--wear, 1));
   transform-origin: left;
 }
 
+/* The hotbar (plan v5 « M48 »): a riveted rail of sockets, moss creeping over its top. */
 .hotbar {
   position: absolute;
   left: 50%;
   bottom: 14px;
   display: flex;
   gap: 6px;
-  padding: 9px 10px 8px;
-  border-top: 2px solid rgba(232, 176, 74, 0.4);
-  border-radius: 18px 18px 12px 12px;
+  padding: 10px 24px 9px;
+  border-radius: var(--shape);
   background: var(--glass);
   box-shadow: var(--glass-edge);
+  image-rendering: pixelated;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.hotbar::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 30%;
+  top: -12px;
+  height: 14px;
+  background: var(--art-moss) 0 100% / 72px 15px repeat-x;
 }
 
 .hotbar .slot {
@@ -100,34 +116,32 @@
   transform: translateY(-5px);
 }
 
+.hotbar .slot.selected {
+  border-image-source: var(--art-socket-lit);
+}
+
 .hotbar .slot.selected::after {
   opacity: 1;
+  background: radial-gradient(closest-side, var(--c-active-soft), transparent);
   animation: slot-glow 2.4s ease-in-out infinite;
 }
 
 /* The slot in hand breathes a little amber light. */
 @keyframes slot-glow {
   50% {
-    box-shadow:
-      inset 0 0 0 2px var(--c-accent),
-      0 0 12px rgba(232, 176, 74, 0.45);
+    opacity: 0.55;
   }
 }
 
 .screen-slots {
-  background: rgba(8, 13, 16, 0.45);
+  background: radial-gradient(120% 90% at 50% 50%, rgba(8, 12, 8, 0.35), rgba(8, 12, 8, 0.72));
 }
 
 .bag-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 18px 12px;
-  border: 1px solid rgba(232, 176, 74, 0.25);
-  border-radius: 18px;
-  background: var(--glass);
-  box-shadow: var(--glass-edge);
-  backdrop-filter: var(--glass-blur);
+  padding: 16px 22px 18px;
   user-select: none;
 }
 
@@ -149,17 +163,30 @@
 .bag-close,
 .bag-help {
   margin: 0;
-  color: var(--c-ink-muted);
-  font-size: 0.72rem;
+  color: var(--c-ink-dim);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
 }
 
+/* A section's label: moss-green stencil capitals after a short rule. */
 .bag-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 4px 0 0;
-  color: var(--c-ink-muted);
+  color: var(--c-label);
   font-size: 0.68rem;
-  letter-spacing: 0.12em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-align: left;
   text-transform: uppercase;
+}
+
+.bag-section::before {
+  content: "";
+  width: 10px;
+  height: 2px;
+  background: var(--c-label);
 }
 
 .bag-grid {
@@ -173,8 +200,12 @@
   cursor: pointer;
 }
 
+.screen-slots .slot[data-slot]:hover {
+  border-image-source: var(--art-socket-hover);
+}
+
 .screen-slots .slot[data-slot]:hover::after {
-  opacity: 0.55;
+  opacity: 1;
 }
 
 /* The cursor stack: a slot without its box, centred on the pointer, over everything. */
@@ -183,8 +214,8 @@
   left: calc(var(--slot-size) / -2);
   top: calc(var(--slot-size) / -2);
   z-index: 10;
-  background: transparent;
-  box-shadow: none;
+  border-image: none;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.6));
   pointer-events: none;
 }
 
@@ -192,28 +223,40 @@
   display: none;
 }
 
-/* The Bag's tab bar: Inventory, Logbook (Quests, Bestiary and Status come later). */
+/*
+ * The Bag's tab bar (plan v5 « M48 »): stencil labels on the plate; hovered teal, the open page
+ * amber over a bar, cut into a darker groove.
+ */
 .bag-tabs {
   display: flex;
-  gap: 4px;
-  border-bottom: 1px solid rgba(232, 176, 74, 0.2);
+  gap: 2px;
+  padding: 0 2px;
+  border-bottom: 2px solid var(--c-line);
+  box-shadow: 0 1px 0 var(--c-outline);
 }
 
 .bag-tab {
-  padding: 6px 14px;
+  margin-bottom: -2px;
+  padding: 7px 14px 6px;
   border: 0;
-  border-radius: 10px 10px 0 0;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--c-ink-muted);
-  font: 600 0.74rem var(--font);
-  letter-spacing: 0.1em;
+  font: 700 0.76rem var(--font);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
+  transition: color 0.1s ease-out;
+}
+
+.bag-tab:hover {
+  color: var(--c-hover);
 }
 
 .bag-tab.active {
-  background: rgba(232, 176, 74, 0.16);
-  color: var(--c-accent);
+  border-bottom-color: var(--c-active);
+  background: linear-gradient(0deg, var(--c-active-soft), transparent);
+  color: var(--c-active);
 }
 
 .bag-columns > [hidden] {
@@ -261,15 +304,17 @@
 }
 
 .item-icon.unseen {
-  filter: brightness(0) opacity(0.55);
+  filter: brightness(0) opacity(0.5);
 }
 
+/* A small label: a dark tag, lichen ink. */
 .badge {
   padding: 2px 7px;
-  border-radius: 7px 7px 7px 2px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px 7px 2px 7px;
+  background: var(--c-row);
+  box-shadow: inset 0 0 0 1px var(--c-line);
   color: var(--c-ink-muted);
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   white-space: nowrap;
 }
 
@@ -337,10 +382,13 @@
   width: max-content;
   max-width: 300px;
   padding: 8px 12px 9px;
-  border: 1px solid rgba(232, 176, 74, 0.45);
-  border-radius: 10px;
-  background: rgba(14, 18, 20, 0.96);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  border-left: 3px solid var(--c-accent);
+  border-radius: 3px 10px 3px 10px;
+  background: var(--plate);
+  box-shadow:
+    0 0 0 2px #0c0f0b,
+    0 8px 20px rgba(0, 0, 0, 0.55);
+  image-rendering: pixelated;
   color: var(--c-ink);
   font-size: 0.82rem;
   text-align: left;
@@ -348,12 +396,14 @@
 }
 
 .tooltip strong {
-  color: var(--c-accent);
+  color: var(--c-active);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
 }
 
 .tooltip-line {
   color: var(--c-ink-muted);
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   line-height: 1.35;
 }
 

@@ -30,6 +30,7 @@
   width: 300px;
 }
 
+/* The machine: a recessed bay of the plate, its slots, its gauge and its fire. */
 .station-machine {
   display: grid;
   grid-template-areas:
@@ -39,8 +40,11 @@
   align-items: center;
   gap: 10px 12px;
   padding: 12px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.22);
+  border-radius: 1px 12px 1px 12px;
+  background: var(--c-row);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px var(--c-line);
 }
 
 .station-inputs {
@@ -68,38 +72,43 @@
 .station-label {
   display: block;
   margin-top: 3px;
-  color: var(--c-ink-muted);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
+  color: var(--c-label);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-align: center;
   text-transform: uppercase;
 }
 
+/* The process's gauge: a dark groove filling amber, an arrow head after it. */
 .station-bar {
   position: relative;
   display: block;
   height: 8px;
   margin-right: 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--c-field);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.6),
+    0 0 0 1px var(--c-line);
 }
 
-/* Arrow head after the bar. */
 .station-bar::after {
   content: "";
   position: absolute;
   right: -9px;
   top: -4px;
   border: 8px solid transparent;
-  border-left: 9px solid rgba(255, 255, 255, 0.12);
+  border-left: 9px solid var(--c-line);
   border-right: 0;
 }
 
 .station-bar-fill {
   display: block;
   height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #c9852f, var(--c-accent));
+  background:
+    repeating-linear-gradient(90deg, transparent 0 6px, rgba(0, 0, 0, 0.25) 6px 8px),
+    linear-gradient(90deg, #a8661f, var(--c-active));
+  box-shadow: 0 0 6px rgba(226, 164, 58, 0.5);
   transform: scaleX(var(--progress, 0));
   transform-origin: left;
 }
@@ -120,12 +129,13 @@
 }
 
 /* « Keep burning »: a box that the simulation ticks once the fire is kept. */
+/* « Keep burning »: a toggle the simulation ticks once the fire is kept. */
 .station-keep-lit {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  font-size: 0.8rem;
+  padding: 7px 12px;
+  font-size: 0.82rem;
 }
 
 .station-keep-lit[hidden] {
@@ -136,13 +146,14 @@
   content: "";
   width: 12px;
   height: 12px;
-  border: 2px solid var(--c-ink-muted);
-  border-radius: 3px;
+  border: 1px solid var(--c-line);
+  background: var(--c-field);
 }
 
 .station-keep-lit.on::before {
-  border-color: var(--c-accent);
-  background: var(--c-accent);
+  border-color: var(--c-outline);
+  background: var(--c-active);
+  box-shadow: 0 0 6px rgba(226, 164, 58, 0.7);
 }
 
 .station-processes {
@@ -156,19 +167,23 @@
   list-style: none;
 }
 
+/* A process: a dark row notched on the left; the running one amber. */
 .station-process {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  font-size: 0.75rem;
+  border-left: 3px solid var(--c-line);
+  border-radius: 1px 8px 1px 8px;
+  background: var(--c-row);
+  color: var(--c-ink-muted);
+  font-size: 0.78rem;
 }
 
 .station-process.active {
-  background: rgba(232, 176, 74, 0.14);
-  box-shadow: inset 3px 0 0 var(--c-accent);
+  border-left-color: var(--c-active);
+  background: var(--c-active-soft);
+  color: var(--c-ink);
 }
 
 .process-item {
@@ -190,12 +205,12 @@
 .process-to {
   width: 12px;
   height: 2px;
-  background: var(--c-ink-muted);
+  background: var(--c-active);
 }
 
 /* A journal read (plan v3 « M28 »): a page of a fixed size, its text scrolling inside. */
 .screen-book {
-  background: rgba(8, 13, 16, 0.55);
+  background: radial-gradient(120% 90% at 50% 50%, rgba(8, 12, 8, 0.4), rgba(8, 12, 8, 0.78));
 }
 
 .book-panel {
@@ -204,17 +219,26 @@
   text-align: left;
 }
 
+/*
+ * A colonist's journal (plan v5 « M48 »): a stained page of the colony's paper, ink gone brown,
+ * pinned in the plate.
+ */
 .book-text {
   flex: 1;
   min-height: 0;
-  padding: 18px 22px;
+  padding: 20px 24px;
   overflow-y: auto;
-  border: 1px solid rgba(120, 92, 52, 0.6);
-  border-radius: 8px;
-  background: #e9dcc0;
-  color: #3a2c1c;
+  border-radius: 1px 6px 1px 6px;
+  background:
+    radial-gradient(60% 40% at 85% 12%, rgba(120, 90, 40, 0.18), transparent 70%),
+    radial-gradient(50% 35% at 10% 90%, rgba(80, 110, 40, 0.16), transparent 70%),
+    linear-gradient(180deg, #e8dcbf, #d9c9a3);
+  box-shadow:
+    0 0 0 2px var(--c-outline),
+    inset 0 0 24px rgba(90, 60, 20, 0.25);
+  color: #3a2a18;
   font:
-    0.95rem / 1.6 Georgia,
+    0.98rem / 1.6 Georgia,
     "Times New Roman",
     serif;
   user-select: text;

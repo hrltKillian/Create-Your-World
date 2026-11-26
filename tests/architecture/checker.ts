@@ -70,6 +70,8 @@ const PACKAGES: Readonly<Record<string, (file: string) => boolean>> = {
   three: (file) => file.startsWith('src/render/'),
   'simplex-noise': (file) => file === 'src/core/noise.ts',
   idb: (file) => file.startsWith('src/workers/'),
+  // The interface's typeface (plan v5 « M48 »), loaded once by the entry.
+  '@fontsource/barlow-semi-condensed': (file) => file === 'src/main.ts',
 };
 
 const PURE_LAYERS: ReadonlySet<Layer> = new Set(['core', 'content', 'world', 'sim']);
