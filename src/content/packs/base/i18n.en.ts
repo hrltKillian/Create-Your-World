@@ -19,6 +19,7 @@ export const strings = {
   'block.fresh_water': 'Water',
   'block.tall_grass': 'Tall Grass',
   'block.torch': 'Torch',
+  'block.fire': 'Fire',
   'block.gate': 'Gate',
   'block.kiln': 'Clay Kiln',
   'block.farmland': 'Farmland',

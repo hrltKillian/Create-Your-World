@@ -72,6 +72,9 @@ export const balance: BalanceDef = {
     snowChillC: 6,
     dim: { rain: 0.7, storm: 0.25, fog: 0.8 },
     lightningSeconds: 12,
+    // The reference game's strike: 5 of 20 health within 3 blocks.
+    lightningDamage: 25,
+    lightningRadius: 3,
     stormSpawns: 2,
   },
   fall: { safeBlocks: 3.5, damagePerBlock: 6 },

@@ -239,8 +239,10 @@ export interface Contact {
   toxicity: number;
   /** Health lost per second (thorns, magma, lava). */
   damage: number;
-  /** A block touched sets the player on fire (lava). */
+  /** A block touched sets the player on fire (lava, a fire block). */
   ignites: boolean;
+  /** What burns there: a liquid (lava), else a fire (plan v5 « M47 »). */
+  burnCause: 'lava' | 'fire';
   /** The feet are in a liquid that does not burn (water puts a fire out). */
   douses: boolean;
 }
@@ -263,6 +265,7 @@ export function touch(
   out.toxicity = 0;
   out.damage = 0;
   out.ignites = false;
+  out.burnCause = 'fire';
   const feet = world.blockIn(column, x, Math.floor(body.y + 0.05), z);
   out.douses =
     registry.tables.collision[feet] === COLLISION_LIQUID &&
@@ -278,5 +281,7 @@ function addContact(registry: Registry, state: number, out: Contact): void {
   if (!contact) return;
   out.toxicity = Math.max(out.toxicity, contact.toxicityPerMin ?? 0);
   out.damage = Math.max(out.damage, contact.damagePerSec ?? 0);
-  if (contact.ignites) out.ignites = true;
+  if (!contact.ignites) return;
+  out.ignites = true;
+  if (registry.tables.collision[state] === COLLISION_LIQUID) out.burnCause = 'lava';
 }

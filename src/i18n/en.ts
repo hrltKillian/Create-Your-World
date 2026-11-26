@@ -126,6 +126,7 @@ export const en = {
   'death.cause.contact': 'Hurt by something you touched',
   'death.cause.lava': 'Swam in lava',
   'death.cause.fire': 'Burned to death',
+  'death.cause.lightning': 'Struck by lightning',
   'death.cause.creature': 'Brought down by a creature',
   'death.cause.unknown': 'Your journey ended',
   'death.pack':

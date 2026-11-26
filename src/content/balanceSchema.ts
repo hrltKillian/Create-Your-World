@@ -119,6 +119,9 @@ export interface WeatherBalance {
   readonly dim: { readonly rain: number; readonly storm: number; readonly fog: number };
   /** Mean seconds between two lightning strikes near a player in a storm. */
   readonly lightningSeconds: number;
+  /** A strike's harm to the players and creatures within `lightningRadius` blocks (plan v5 « M47 »). */
+  readonly lightningDamage: number;
+  readonly lightningRadius: number;
   /** Hostile spawn candidates, × this in a storm. */
   readonly stormSpawns: number;
 }

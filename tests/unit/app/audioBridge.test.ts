@@ -103,7 +103,7 @@ describe('AudioBridge', () => {
     expect(gain()).toBeLessThan(1);
     expect(gain()).toBeGreaterThan(0);
     // A strike 170 blocks off: its thunder half a second after the light.
-    bridge.onEvent({ type: 'lightning', x: 170, z: 0 });
+    bridge.onEvent({ type: 'lightning', x: 170, y: 70, z: 0 });
     frames(20);
     expect(heard(sounds.thunder!)).toBe(false);
     frames(20);

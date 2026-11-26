@@ -40,6 +40,7 @@ export const basePack: ContentPack = {
       unknownItem: 'item:unknown',
       spawnBiomes: ['biome:meadow', 'biome:forest'],
       avatarModel: 'model:explorer',
+      fire: 'block:fire',
     },
   },
   blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks, ...colonyBlocks],

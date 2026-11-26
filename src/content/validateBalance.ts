@@ -36,6 +36,8 @@ export function validateBalance(pack: ContentPack, add: AddIssue): void {
     add('balance.weather.clearSpells', 'must be a whole number');
   if (!(w.spellSeconds > 0)) add('balance.weather.spellSeconds', 'must be > 0');
   if (!(w.lightningSeconds > 0)) add('balance.weather.lightningSeconds', 'must be > 0');
+  if (!(w.lightningDamage >= 0)) add('balance.weather.lightningDamage', 'must be ≥ 0');
+  if (!(w.lightningRadius > 0)) add('balance.weather.lightningRadius', 'must be > 0');
   if (!(Object.values(w.weights).reduce((sum, n) => sum + n, 0) > 0))
     add('balance.weather.weights', 'must weigh more than 0 in all');
   for (const [kind, dim] of Object.entries(w.dim))

@@ -30,6 +30,7 @@ export type DeathCause =
   | 'contact'
   | 'lava'
   | 'fire'
+  | 'lightning'
   | 'creature';
 export const DEATH_CAUSES: readonly DeathCause[] = [
   'starvation',
@@ -42,6 +43,7 @@ export const DEATH_CAUSES: readonly DeathCause[] = [
   'contact',
   'lava',
   'fire',
+  'lightning',
   'creature',
 ];
 
@@ -252,7 +254,7 @@ function takeDamage(s: SurvivalState, b: BalanceDef, e: Readonly<Exposure>, minu
     s.toxicity >= t.severeAt ? t.severePerMin : s.toxicity >= t.harmAt ? t.harmPerMin : 0;
   hurt(s, poison * minutes, 'toxicity');
   if (e.underwater && s.breath === 0) hurt(s, b.breath.drowningPerSec * TICK_SECONDS, 'drowning');
-  hurt(s, e.damage * TICK_SECONDS, e.ignites ? 'lava' : 'contact');
+  hurt(s, e.damage * TICK_SECONDS, e.ignites ? e.burnCause : 'contact');
   burn(s, b, e);
 }
 
@@ -324,6 +326,7 @@ const exposure: Exposure = {
   toxicity: 0,
   damage: 0,
   ignites: false,
+  burnCause: 'fire',
   douses: false,
   fireTicks: 0,
 };

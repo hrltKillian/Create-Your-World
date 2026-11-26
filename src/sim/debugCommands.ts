@@ -11,6 +11,7 @@ import { writeBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
+import { strike } from './lightning.ts';
 import { PHYSICS } from './physics.ts';
 import { type PlayerState, STAMINA } from './player.ts';
 import { staminaMax } from './progression.ts';
@@ -36,6 +37,12 @@ export function applyDebugCommand(
   }
   if (command.type === 'debug.setTime') {
     if (!setHour(sim.time, command.hours)) reject(out, playerId, command.type, 'invalid');
+    return;
+  }
+  if (command.type === 'debug.strike') {
+    const { x, z } = command;
+    if (!finite(x, z) || !strike(sim, Math.floor(x), Math.floor(z), out))
+      reject(out, playerId, command.type, 'invalid');
     return;
   }
   if (command.type === 'debug.setWeather') {

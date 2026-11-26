@@ -5,6 +5,18 @@ import { FUELS } from './recipes.ts';
 type PackBlock = BlockDef & { readonly nameKey: PackI18nKey };
 
 const TORCH: readonly Box16[] = [[7, 0, 7, 9, 10, 9]];
+/**
+ * How fire takes to blocks (plan v5 « M47 »): the reference game's encouragement and flammability,
+ * by material.
+ */
+export const FLAMMABLE = {
+  logs: { catch: 5, burn: 5 },
+  planks: { catch: 5, burn: 20 },
+  leaves: { catch: 30, burn: 60 },
+  plants: { catch: 60, burn: 100 },
+  cloth: { catch: 30, burn: 60 },
+} as const;
+
 /** A torch hung on the north wall of its cell (turned to the wall's side). */
 const WALL_TORCH: readonly Box16[] = [[7, 3, 0, 9, 13, 2]];
 /**
@@ -173,6 +185,7 @@ export const blocks = [
   },
   {
     key: 'block:broadleaf_log',
+    flammability: FLAMMABLE.logs,
     nameKey: 'block.broadleaf_log',
     shape: 'cube',
     pass: 'opaque',
@@ -189,6 +202,7 @@ export const blocks = [
   },
   {
     key: 'block:foliage',
+    flammability: FLAMMABLE.leaves,
     nameKey: 'block.foliage',
     states: ['placed'],
     decay: LEAF_DECAY,
@@ -205,6 +219,7 @@ export const blocks = [
   },
   {
     key: 'block:planks',
+    flammability: FLAMMABLE.planks,
     nameKey: 'block.planks',
     shape: 'cube',
     pass: 'opaque',
@@ -261,6 +276,7 @@ export const blocks = [
   },
   {
     key: 'block:tall_grass',
+    flammability: FLAMMABLE.plants,
     nameKey: 'block.tall_grass',
     shape: 'cross',
     pass: 'cutout',
@@ -293,6 +309,25 @@ export const blocks = [
     drops: 'self',
     placement: { support: 'attach' },
     sound: 'wood',
+  },
+  {
+    // Plan v5 « M47 »: the reference game's fire, lit by lightning (sim/fire.ts): it burns what
+    // is flammable around it, spreads, and burns out; rain and water put it out.
+    key: 'block:fire',
+    nameKey: 'block.fire',
+    states: ['age'],
+    shape: 'cross',
+    pass: 'cutout',
+    textures: { all: 'tex:fire' },
+    collision: 'none',
+    opaque: false,
+    replaceable: true,
+    light: { emit: 15 },
+    heat: { celsius: 25, radius: 2 },
+    contact: { damagePerSec: 4, ignites: true },
+    hardness: 0,
+    drops: 'none',
+    sound: 'cloth',
   },
   {
     // Climbed with forward or jump; hangs on a wall like a torch (plan v3 « M27 »).

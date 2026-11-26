@@ -92,7 +92,13 @@ describe('thermal model', () => {
     lookups.mockClear();
     const player = createPlayer(1, 0.5, 64, 0.5, 2, b);
     player.body.onGround = true;
-    const contact: Contact = { toxicity: 0, damage: 0, ignites: false, douses: false };
+    const contact: Contact = {
+      toxicity: 0,
+      damage: 0,
+      ignites: false,
+      burnCause: 'fire',
+      douses: false,
+    };
     touch(registry, world, player, contact);
     expect(lookups.mock.calls.length).toBe(1);
   });

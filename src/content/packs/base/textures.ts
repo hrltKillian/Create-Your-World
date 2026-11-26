@@ -129,6 +129,14 @@ export const textures = [
     alpha: 'coverage',
   },
   {
+    // Plan v5 « M47 »: tongues of flame, dark red tips to a white-hot heart.
+    key: 'tex:fire',
+    pattern: 'flame',
+    palette: ['#7a1e08', '#c2380f', '#ee6a1c', '#f9a531', '#ffd96a', '#fff4c4'],
+    seed: 53,
+    alpha: 'coverage',
+  },
+  {
     // Plan v5 « M46 »: the same torch where a wall torch's boxes sample it.
     key: 'tex:torch_wall',
     pattern: 'wallTorch',

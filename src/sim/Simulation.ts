@@ -395,6 +395,7 @@ export class Simulation implements ColumnSink {
       case 'debug.setTime':
       case 'debug.freezeTime':
       case 'debug.setWeather':
+      case 'debug.strike':
       case 'debug.open':
       case 'debug.spawn':
       case 'debug.killCreature':

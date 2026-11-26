@@ -230,6 +230,22 @@ export function cross(c: PatternContext, x: number, y: number): Pixel {
   return set(0, HOLE);
 }
 
+/**
+ * Flames (plan v5 « M47 », a fire block's cross quads): tongues rising from the whole width, each
+ * its own height, hottest (the last colours) low in their middle, darkest (0) at their tips.
+ */
+export function flame(c: PatternContext, x: number, y: number): Pixel {
+  const { seed, size } = c;
+  // Tongues: their heights across, from a tileable noise; their edges waver as they rise.
+  const xx = x + (valueNoise(seed + 5, x, y, size, 2, 4) - 0.5) * 0.25 * y;
+  const top = size * (0.35 + 0.6 * valueNoise(seed, xx, 0, size, 5, 1));
+  if (y >= top) return set(0, HOLE);
+  const t = y / top;
+  const core = 1 - Math.abs((((xx / size) * 5) % 1) - 0.5) * 2;
+  const heat = (1 - t) * (0.55 + 0.45 * core) + (grain(seed, x, y) - 0.5) * 0.15;
+  return set(ramp(heat, 0, c.n), SOLID, 1 - t);
+}
+
 /** Bark: ridged plates split by deep wavering fissures along the trunk, a few cross cracks. */
 export function bark(c: PatternContext, x: number, y: number): Pixel {
   const spot = accentSpot(c, x, y, 4);

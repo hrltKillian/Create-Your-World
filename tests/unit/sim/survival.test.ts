@@ -66,6 +66,7 @@ const idle: Exposure = {
   toxicity: 0,
   damage: 0,
   ignites: false,
+  burnCause: 'fire',
   douses: false,
   fireTicks: 0,
 };

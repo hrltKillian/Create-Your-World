@@ -70,7 +70,8 @@ export type StateProp =
   | 'attach'
   | 'placed'
   | 'level'
-  | 'falling';
+  | 'falling'
+  | 'age';
 
 /** Possible values of each state property; the first one is the default. */
 export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
@@ -91,6 +92,8 @@ export const STATE_VALUES: Readonly<Record<StateProp, readonly string[]>> = {
   level: ['0', '1', '2', '3', '4', '5', '6', '7'],
   /** A flowing liquid falling from the same liquid above (its level is then 1). */
   falling: ['0', '1'],
+  /** A fire's age (plan v5 « M47 », the reference game's): old fires burn out (sim/fire.ts). */
+  age: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'],
 };
 
 export type TextureSlot = 'all' | 'top' | 'bottom' | 'side' | 'front';
@@ -242,6 +245,12 @@ export interface BlockDef {
    */
   readonly wallTextures?: BlockTextures;
   /**
+   * How a fire takes to the block (plan v5 « M47 », the reference game's values): `catch` how
+   * readily a fire spreads into the air beside it (1–100), `burn` how readily a fire beside it
+   * burns it away (1–100). Without it, the block never burns.
+   */
+  readonly flammability?: { readonly catch: number; readonly burn: number };
+  /**
    * Decays like leaves (sim/leafDecay.ts): unless placed by a player, the block falls apart (as if
    * broken, with its drops) `seconds` after no `anchors` block lies within `radius` blocks of it
    * (Manhattan distance).
@@ -295,6 +304,8 @@ export type TexturePattern =
   | 'torch'
   /** The torch drawn where a wall torch's boxes sample it (plan v5 « M46 »). */
   | 'wallTorch'
+  /** Tongues of flame (a fire block, plan v5 « M47 »). */
+  | 'flame'
   | 'lattice'
   /** Two rails and rungs over holes (a ladder). */
   | 'ladder'
@@ -375,6 +386,8 @@ export interface PackBindings {
   readonly spawnBiomes?: readonly BiomeKey[];
   /** Model drawn for players in third person. */
   readonly avatarModel?: ModelKey;
+  /** The fire block (plan v5 « M47 »: lightning lights it, it spreads); with the `age` state. */
+  readonly fire?: BlockKey;
 }
 
 export interface PackManifest {

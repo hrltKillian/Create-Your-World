@@ -65,11 +65,12 @@ export function blockItemKey(block: BlockKey): ItemKey {
  * liquids and unbreakable blocks.
  */
 function placeable(pack: ContentPack) {
-  const { air, unknownBlock } = pack.manifest.bindings;
+  const { air, unknownBlock, fire } = pack.manifest.bindings;
   return pack.blocks.filter(
     (block) =>
       block.key !== air &&
       block.key !== unknownBlock &&
+      block.key !== fire &&
       block.shape !== 'liquid' &&
       block.hardness >= 0,
   );

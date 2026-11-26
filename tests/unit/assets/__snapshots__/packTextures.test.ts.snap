@@ -48,6 +48,7 @@ exports[`base pack textures > generates every texture deterministically 1`] = `
   "tex:emberstone": "89fa2ca1",
   "tex:farmland": "49c203f5",
   "tex:farmland_moist": "2a5cfc67",
+  "tex:fire": "c1e6557f",
   "tex:fire_bricks": "7f77748e",
   "tex:fireclay": "b6b52572",
   "tex:foliage": "ce68ab98",
