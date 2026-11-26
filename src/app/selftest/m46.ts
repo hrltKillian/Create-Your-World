@@ -110,7 +110,7 @@ const wallTorchCase: SelftestCase = {
 };
 
 const lavaCase: SelftestCase = {
-  name: 'lava is waded at about half the speed of water, and a head in it never runs out of breath',
+  name: 'lava drags the body at about 0.8 block a second (no swimming), a head in it keeps its breath',
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
   run: async (app) => {
@@ -144,10 +144,10 @@ const lavaCase: SelftestCase = {
     try {
       const inWater = await pace(water.key);
       const inLava = await pace(lava.key);
-      const ratio = inLava / inWater;
+      // The reference game's lava: about 0.8 block a second, a quarter of wading in water or less.
       assert(
-        ratio > 0.4 && ratio < 0.65,
-        `lava ${inLava.toFixed(2)} m against water ${inWater.toFixed(2)} m`,
+        inLava > 0.5 && inLava < 1 && inLava < inWater / 3,
+        `lava ${inLava.toFixed(2)} m against water ${inWater.toFixed(2)} m in a second`,
       );
       // Under a column of lava: the head is in it, the breath never falls.
       fill(

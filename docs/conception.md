@@ -3380,7 +3380,7 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
 - la pluie se teste au-dessus du feu : il compte dans la carte des hauteurs de sa colonne ;
 - l'éclair (`sim/lightning.ts`) : 25 de vie et 8 s de feu dans un rayon de 3 blocs, cause `lightning` ; `debug.strike` et `__game.weather.strike(x, z)` pour les tests.
 
-#### Correctif après le test de M48 : la lave brûle seulement dedans (fait)
+#### Correctif après le test de M48 : la lave comme dans Minecraft (fait)
 
 Bug relevé : debout sur le bloc voisin de la lave, on se brûlait. La lave rayonnait 60 °C sur 4 blocs (le magma 40 °C sur 3, le feu 25 °C sur 2) : la température ressentie montait jusqu'à la surchauffe. Le contact, lui, ne lisait que le bloc du centre des pieds.
 
@@ -3390,7 +3390,11 @@ Comme dans Minecraft :
 - le contact (`touch`, `sim/environment.ts`) lit chaque bloc que la boîte du corps chevauche, des pieds à la tête (à 0,001 près, comme le jeu de référence), et aucun bloc à côté : la lave et le feu brûlent seulement qui est dedans ;
 - le bloc sous les pieds compte aussi (le magma blesse qui marche dessus), sauf accroupi.
 
-**Tests** : `environment.test.ts` (à côté : ni dégâts ni chaleur ; la boîte qui entre dans la lave ou dans le feu brûle ; le magma blesse debout, pas accroupi).
+- au bord d'un bloc au-dessus d'une mare de lave, le centre du corps peut pendre au-dessus de la lave : le bloc « sous les pieds » n'est jamais un liquide ;
+- dans la lave on ne nage pas (`LiquidDef.swim: false`) : ni sprint ni nage le long du regard, ni marche plus rapide au fond ; on s'y traîne à environ 0,8 bloc/s (`moveFactor` 0,35), on coule et on remonte lentement ;
+- on n'y voit rien : chaque liquide décrit sa vue (`LiquidDef.fog`), la lave un brouillard orange opaque de 0,2 à 1,4 bloc, qui ne s'assombrit pas la nuit (elle luit), sans les reflets de l'eau.
+
+**Tests** : `environment.test.ts` (à côté : ni dégâts ni chaleur ; la boîte qui entre dans la lave ou dans le feu brûle ; au bord d'une mare, rien ; le magma blesse debout, pas accroupi), `physics.test.ts` (l'allure dans la lave, sprint ou non, sans plongée le long du regard), `sky.test.ts` (le brouillard de la lave), selftest `m46` (0,8 bloc/s environ).
 
 ### Partie C — Identité visuelle
 

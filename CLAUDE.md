@@ -494,7 +494,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`advanceWind`, uniform `uWindPhase`: never the clock × the wind); one hovered-item bubble for
     every screen (`ScreenDeps.tooltip`, `#ui-tooltip`, over the screens); a block's
     `wallTextures` (the wall torch's `wallTorch` pattern); `LiquidDef.moveFactor`/`drowns`
-    (`tables.liquidMove`/`drowns`, `Body.liquidMove`/`headDrowns`); camera modes `CAMERA_MODES`
+    (`tables.liquidMove`/`drowns`, `Body.liquidMove`/`headDrowns`), `swim` (`tables.swims`,
+    `Body.swims`: no sprint or swimming in lava, the reference game's) and `fog` (the eye's view in
+    it: `LiquidView`, `WATER_VIEW` in render/Atmosphere.ts, `WorldView.setUnderwater(view | null)`;
+    lava's opaque, 1.4 blocks); camera modes `CAMERA_MODES`
     (`first`, `back`, `front`; V turns through them); the Logbook's `recipe` pane, placed under the
     screen's inventory, its craft buttons out of its scroll;
   - lightning and fire (plan v5 « M47 », the reference game's rules): the fire block

@@ -105,6 +105,8 @@ export interface RawTables {
   readonly liquidMove: Uint8Array;
   /** State → 1 for a liquid a head drowns in, else 0 (plan v5 « M46 »: not lava). */
   readonly drowns: Uint8Array;
+  /** State → 1 for a liquid a body swims in (water), else 0 (lava: `LiquidDef.swim`). */
+  readonly swims: Uint8Array;
 }
 
 /** Surface height (sixteenths) of a liquid by its level: a source, then ever thinner flows. */
@@ -146,6 +148,7 @@ export function buildRawTables(pack: ContentPack, states: readonly StateInfo[]):
     liquidHeight: new Uint8Array(n),
     liquidMove: new Uint8Array(n),
     drowns: new Uint8Array(n),
+    swims: new Uint8Array(n),
   };
   // Box lists interned by their text (states sharing boxes share an index).
   const collisions = new Map<string, number>();
@@ -189,6 +192,7 @@ export function buildRawTables(pack: ContentPack, states: readonly StateInfo[]):
       tables.liquidHeight[s] = state.props.falling === '1' ? 16 : LIQUID_HEIGHTS[level]!;
       tables.liquidMove[s] = Math.round((block.liquid?.moveFactor ?? 1) * 100);
       tables.drowns[s] = block.liquid?.drowns === false ? 0 : 1;
+      tables.swims[s] = block.liquid?.swim === false ? 0 : 1;
     }
     if (eff.collision === 'full') tables.collision[s] = COLLISION_FULL;
     else if (eff.collision === 'liquid') tables.collision[s] = COLLISION_LIQUID;

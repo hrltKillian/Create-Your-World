@@ -10,6 +10,7 @@ import {
   skyPaletteOf,
   sunDirection,
 } from '../../../src/render/Sky.ts';
+import { WATER_VIEW } from '../../../src/render/Atmosphere.ts';
 import { createSunLight, sunLightAt } from '../../../src/render/sunLight.ts';
 import { createTestWorldView } from '../../helpers/worldView.ts';
 
@@ -155,16 +156,29 @@ describe('WorldView sky, fog and daylight', () => {
   it('switches to a short teal fog without sky under water, and back', () => {
     const { view } = createTestWorldView(6);
     view.setTime(12, 1);
-    view.setUnderwater(true);
+    view.setUnderwater(WATER_VIEW);
     view.frame(0);
     const fog = fogOf(view);
     expect([fog.near, fog.far]).toEqual([1, 20]);
     expect(fog.color.b).toBeGreaterThan(fog.color.r);
     expect(skyMesh(view).visible).toBe(false);
-    view.setUnderwater(false);
+    view.setUnderwater(null);
     view.frame(0);
     expect([fog.near, fog.far]).toEqual([6 * 32 * 0.55, 6 * 32 - 8]);
     expect(skyMesh(view).visible).toBe(true);
+  });
+
+  it('sees almost nothing in lava: its own opaque glowing fog, as in the reference game', () => {
+    const { view } = createTestWorldView(6);
+    const lava = basePack.blocks.find((b) => b.liquid?.swim === false)!.liquid!.fog!;
+    view.setTime(0, 0.05);
+    view.setUnderwater({ ...lava, glows: true });
+    view.frame(0);
+    const fog = fogOf(view);
+    expect(fog.far).toBeLessThanOrEqual(2);
+    // Glowing: as bright at midnight as its colour, never dimmed like water.
+    expect(hex(fog.color)).toBe(lava.color.slice(1));
+    expect(fog.color.r).toBeGreaterThan(fog.color.b);
   });
 
   it('flickers torch light a little around 1', () => {

@@ -158,6 +158,22 @@ export interface LiquidDef {
   readonly moveFactor?: number;
   /** Whether a head under it runs out of breath and drowns (lava does not: it burns). Default true. */
   readonly drowns?: boolean;
+  /**
+   * Whether a body swims in it (the reference game: water yes, lava no): sprint-swimming along the
+   * view and wading faster on its bottom; else it only drags along at its speeds. Default true.
+   */
+  readonly swim?: boolean;
+  /**
+   * What an eye in it sees (the reference game's fogs): a fog of `color` from `near` to `far`
+   * blocks, lit by the day unless the liquid glows, the sun's caustics on the blocks with
+   * `caustics`. Default: the engine's water fog.
+   */
+  readonly fog?: {
+    readonly color: string;
+    readonly near: number;
+    readonly far: number;
+    readonly caustics?: boolean;
+  };
 }
 
 /**
