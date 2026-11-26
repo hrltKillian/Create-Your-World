@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M42 — Modelled, surreal items** (plan v4, `docs/conception.md` « M42 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1` and press E.
+
+- **Every icon** is shaded like a little sculpture, lit from the top left with a glint.
+- **Veyra's berries**: a crescent, a four-lobed berry and a teardrop with a glowing core, violet
+  and teal; the palmthorn fruit is a twisted spiky gourd.
+- **Pickaxes and hatchets** are forged pieces: a sweeping spike and a hammer face with its corner
+  cut off, a crystal set in the cut (its colour depends on the metal).
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m42`.
+
+### Earlier milestones
+
 **M41 — Creatures with relief and shadows** (plan v4, `docs/conception.md` « M41 »). `npm run dev`,
 then open `http://localhost:5173/?skipMenu=1`.
 

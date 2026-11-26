@@ -11,8 +11,11 @@ import {
 } from '../content/registry.ts';
 import { BOX_NO_TINT, type BoxBatch, type BoxSkin, boxTint } from './BoxBatch.ts';
 
-/** Boxes an item extruded from its icon may use (docs/conception.md « BoxBatch »). */
-export const MAX_ITEM_BOXES = 32;
+/**
+ * Boxes an item extruded from its icon may use (docs/conception.md « BoxBatch »): 40 since the
+ * 32 × 32 icons of plan v4 « M42 » (the berries take 37).
+ */
+export const MAX_ITEM_BOXES = 40;
 
 /** One box of an item model: its unit-box transform in item space, and its skin. */
 export interface ItemPart {

@@ -312,7 +312,7 @@ export const textures = [
   {
     key: 'tex:berry_bush',
     pattern: 'leaves',
-    palette: ['#2f4a2a', '#3d5e36', '#4e7343', '#b23a48'],
+    palette: ['#2f4a2a', '#3d5e36', '#4e7343', '#8a46d8'],
     seed: 73,
     alpha: 'coverage',
     accents: 1,
