@@ -101,7 +101,9 @@ function validateTextures(pack: ContentPack, add: AddIssue): void {
     add('manifest.textureSize', `must be a power of two between 8 and 64 (got ${size})`);
   }
   const seen = new Set<string>();
-  pack.textures.forEach((tex, i) => checkTexture(tex, `textures[${i}]`, seen, add));
+  pack.textures.forEach((tex, i) => {
+    checkTexture(tex, `textures[${i}]`, seen, add);
+  });
   (pack.icons ?? []).forEach((tex, i) => {
     checkTexture(tex, `icons[${i}]`, seen, add);
     if (tex.pattern !== 'icon')

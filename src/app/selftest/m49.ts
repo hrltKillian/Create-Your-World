@@ -17,10 +17,10 @@ import {
  */
 
 /** Frames the page gets to draw its icons and the Bag to show them. */
-const ICON_FRAMES = 600;
+export const ICON_FRAMES = 600;
 
 /** The distinct colours of an image's opaque pixels, as `#rrggbb`. */
-function colours(img: HTMLImageElement): Set<string> {
+export function colours(img: HTMLImageElement): Set<string> {
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
@@ -64,7 +64,10 @@ const iconCase: SelftestCase = {
       const def = app.registry!.pack.textures.find((t) => t.key === fruit.icon);
       assert(def?.mask, 'the icon is not drawn from a grid');
       const palette = new Set(def.palette);
-      const stray = [...colours(icon)].filter((c) => !palette.has(c));
+      // The slot may still show what an earlier case left there until the screen refreshes it.
+      const strayNow = () => [...colours(img()!)].filter((c) => !palette.has(c));
+      await withinFrames(ICON_FRAMES, () => strayNow().length === 0);
+      const stray = strayNow();
       assert(stray.length === 0, `colours off its palette: ${stray.slice(0, 4).join(', ')}`);
     } finally {
       app.inventory!.closeScreen();
