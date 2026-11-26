@@ -105,8 +105,12 @@ function checkItems(
       add(`${path}.nameKey`, `no string for "${item.nameKey}"`);
     if (typeof item.icon === 'string') {
       if (!textureKeys.has(item.icon)) add(`${path}.icon`, `unknown texture "${item.icon}"`);
-    } else if (!blockKeys.has(item.icon.block)) {
-      add(`${path}.icon.block`, `unknown block "${item.icon.block}"`);
+    } else {
+      if (!blockKeys.has(item.icon.block))
+        add(`${path}.icon.block`, `unknown block "${item.icon.block}"`);
+      const art = item.icon.art;
+      if (art !== undefined && !(pack.icons ?? []).some((icon) => icon.key === art))
+        add(`${path}.icon.art`, `unknown icon "${art}"`);
     }
     const max = item.maxStack;
     if (max !== undefined && (!isCount(max, 1) || max > MAX_STACK))

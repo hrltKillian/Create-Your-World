@@ -118,6 +118,8 @@ export interface LiquidContainerDef {
 
 /** Traits a block's implicit item can carry (the rest comes from the block). */
 export interface ImplicitItemTraits {
+  /** The icon drawn for the block's item (plan v5 « M50 »), shown in slots instead of its cube. */
+  readonly art?: TexKey;
   readonly tags?: readonly TagKey[];
   readonly fuel?: FuelDef;
   readonly hintKey?: string;
@@ -127,7 +129,11 @@ export interface ItemDef {
   readonly key: ItemKey;
   readonly nameKey: string;
   /** Icon texture, or the block whose faces draw it. */
-  readonly icon: TexKey | { readonly block: BlockKey };
+  /**
+   * A drawn icon, or a block's item: its block (held and dropped as that block), shown in slots by
+   * its drawn `art` when it has one, else by its block's textures.
+   */
+  readonly icon: TexKey | { readonly block: BlockKey; readonly art?: TexKey };
   /**
    * Most items of a stack when it is not the default 64 (a tool, a weapon, a wearable and a water
    * container stack to 1 whatever it says: content/items.ts `stackLimit`).

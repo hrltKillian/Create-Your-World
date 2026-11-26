@@ -7,7 +7,9 @@ import { art, INK, PALETTE, RAMPS } from '../../../src/content/packs/base/palett
  * in colours of the pack's one palette only.
  */
 
-const icons = basePack.textures.filter((t) => t.key.startsWith('tex:icon_'));
+const icons = [...basePack.textures, ...(basePack.icons ?? [])].filter((t) =>
+  t.key.startsWith('tex:icon_'),
+);
 
 describe('the palette and the hand-drawn icons', () => {
   it('has six tones a ramp, darkest first, and an ink of its own', () => {
@@ -24,7 +26,8 @@ describe('the palette and the hand-drawn icons', () => {
   });
 
   it('draws every item icon on a 32 × 32 grid, in the palette’s colours only', () => {
-    expect(icons.length).toBeGreaterThanOrEqual(75);
+    // The items' own (plan v5 « M49 ») and the blocks' (« M50 »).
+    expect(icons.length).toBeGreaterThanOrEqual(75 + 69);
     for (const icon of icons) {
       expect(icon.pattern, icon.key).toBe('icon');
       expect(icon.mask, icon.key).toHaveLength(32);

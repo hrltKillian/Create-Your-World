@@ -81,14 +81,15 @@ function placeable(pack: ContentPack) {
  * tags, fuel, hint), then the pack's items.
  */
 export function packItems(pack: ContentPack): ItemDef[] {
-  const implicit = placeable(pack).map(
-    (block): ItemDef => ({
+  const implicit = placeable(pack).map((block): ItemDef => {
+    const { art, ...traits } = block.item ?? {};
+    return {
       key: blockItemKey(block.key),
       nameKey: block.nameKey,
-      icon: { block: block.key },
-      ...block.item,
-    }),
-  );
+      icon: art ? { block: block.key, art } : { block: block.key },
+      ...traits,
+    };
+  });
   return [...implicit, ...(pack.items ?? [])];
 }
 

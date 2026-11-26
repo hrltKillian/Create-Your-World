@@ -435,6 +435,11 @@ export interface ContentPack {
   readonly manifest: PackManifest;
   readonly blocks: readonly BlockDef[];
   readonly textures: readonly TextureDef[];
+  /**
+   * Icons drawn for slots only (plan v5 « M50 »: the art of block items, `ImplicitItemTraits.art`):
+   * pixel art of the `icon` pattern, never in the GPU's texture array (its layer limit).
+   */
+  readonly icons?: readonly TextureDef[];
   /** Display strings of this pack (English), keyed by i18n key. */
   readonly strings: Readonly<Record<string, string>>;
   /** Tint colours by tint channel ('grass', 'foliage', 'water'). */

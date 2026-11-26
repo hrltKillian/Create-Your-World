@@ -1,4 +1,4 @@
-import { MASK_INDEX, type TexKey, type TextureDef } from '../../schema.ts';
+import { type BlockKey, MASK_INDEX, type TexKey, type TextureDef } from '../../schema.ts';
 
 /*
  * Veyra's palette (plan v5 « M49 »): every item icon is drawn from these ramps only, six tones a
@@ -47,6 +47,53 @@ export const RAMPS = {
   ember: ['#33061c', '#a7364a', '#d54834', '#f2761a', '#fda86c', '#ffd8b9'],
   moss: ['#011815', '#053427', '#01542e', '#427138', '#6a9054', '#95ae7b'],
   dawn: ['#241229', '#8a5482', '#b76693', '#e4829e', '#fcadaf', '#fedfd8'],
+  // Blocks (plan v5 « M50 »): ramps from each block's colours in the world.
+  dirt: ['#1e0e0e', '#411f19', '#5f3523', '#7c5435', '#997353', '#b3947a'],
+  grass: ['#022117', '#2f7c4a', '#5e9741', '#9cb13e', '#c2d064', '#e9ef9c'],
+  sand: ['#27150f', '#aa8268', '#c7a174', '#dfc78d', '#fee9b9', '#fff4dc'],
+  gravel: ['#1d1a19', '#4c4542', '#675e59', '#847d75', '#a39c94', '#c2bdb6'],
+  darkstone: ['#06070a', '#1a1c23', '#2f333c', '#4a4e58', '#696a75', '#8b8890'],
+  snow: ['#191b1d', '#b0b5ba', '#c7ced4', '#e2eaf1', '#edf7fb', '#eef7f9'],
+  permafrost: ['#191b1d', '#444a4f', '#5c646a', '#798289', '#97a2a7', '#b9c3c4'],
+  ochre: ['#2e1012', '#924c40', '#b76541', '#d7884a', '#f5ab6d', '#ffd7b4'],
+  sandstone: ['#2e0f13', '#7e3933', '#a35034', '#c4723b', '#e2945d', '#f8bc8d'],
+  peat: ['#0a0404', '#190a06', '#311e15', '#4b3a2a', '#675645', '#827466'],
+  silt: ['#131d1a', '#2a3b2f', '#455440', '#686f57', '#888d75', '#a9ac98'],
+  barkLantern: ['#09070e', '#21192c', '#392f47', '#564964', '#78657d', '#998494'],
+  ringsLantern: ['#20181a', '#7a6868', '#99827f', '#baa29b', '#dac4ba', '#f8e7de'],
+  leafLantern: ['#012117', '#1a8349', '#569e37', '#9cb723', '#c4d652', '#ebf591'],
+  barkVeil: ['#110104', '#33040a', '#531711', '#73351c', '#905537', '#a7785d'],
+  needleVeil: ['#081e23', '#064248', '#135e5f', '#367d76', '#5f9c8c', '#8eb9a6'],
+  barkFrost: ['#04060a', '#141923', '#28303d', '#414b5a', '#5a6975', '#78888e'],
+  needleFrost: ['#061e27', '#125463', '#16717e', '#369297', '#61b3ac', '#96d1c2'],
+  barkTwist: ['#03120b', '#0f2c14', '#2f431c', '#585c2b', '#77794a', '#979771'],
+  needleTwist: ['#0c1e1e', '#174038', '#2d5b49', '#52785c', '#769677', '#9db397'],
+  barkWillow: ['#0d0e12', '#22252e', '#383c48', '#525865', '#747482', '#96929d'],
+  leafWillow: ['#151c1d', '#728483', '#8ca19d', '#acc2ba', '#d0e3d9', '#ecf9ef'],
+  barkPod: ['#000a07', '#012314', '#1d3b1f', '#43552e', '#63714a', '#858e6d'],
+  leafPod: ['#012117', '#165b33', '#43752e', '#7b8f30', '#9fad54', '#c4cb86'],
+  podFruit: ['#2f1007', '#955324', '#b4700c', '#c89921', '#e8ba54', '#fedf9e'],
+  glass: ['#121c22', '#8ba6b2', '#9cc1cc', '#b4dee6', '#d2fbfc', '#ddfdf8'],
+  planks: ['#281414', '#542a1f', '#734126', '#8f6136', '#ad8156', '#c7a481'],
+  brick: ['#2b1118', '#5a2129', '#7f3531', '#a1543d', '#bf7558', '#d69b7f'],
+  firebrick: ['#251613', '#ad8a77', '#c6a281', '#dbc296', '#f7deb3', '#fff4e1'],
+  colonyBrick: ['#211816', '#675449', '#826f5c', '#9d9077', '#bdb098', '#dcd1be'],
+  hull: ['#181b1f', '#373e47', '#4d5763', '#697581', '#85959e', '#a6b6ba'],
+  stem: ['#201916', '#a7958a', '#bfae9c', '#d6ccb4', '#f2e8d1', '#fcf4e2'],
+  cap: ['#0b0615', '#241639', '#3e2a58', '#5b4477', '#825f8d', '#a47f9e'],
+  magma: ['#340616', '#6c021f', '#9a020f', '#bb3d02', '#df601d', '#f18f59'],
+  bedroll: ['#2c1017', '#622227', '#86372b', '#a85634', '#c77851', '#dd9f7b'],
+  tallGrass: ['#0f1e19', '#5e7b66', '#7e9775', '#a8b58a', '#ccd5aa', '#f0f5d3'],
+  lichen: ['#161b1f', '#6f7e87', '#869ba5', '#a4bdc4', '#c5dfe2', '#e5faf9'],
+  amber: ['#2f1006', '#9c5a28', '#ba7812', '#cda128', '#edc25a', '#fee8b7'],
+  fern: ['#031519', '#003033', '#044b49', '#2b695f', '#528776', '#7fa491'],
+  reed: ['#022117', '#1e5934', '#477334', '#7b8d39', '#9fab5b', '#c3ca8b'],
+  shrub: ['#271512', '#563222', '#734b2b', '#8d6c3e', '#ab8c5f', '#c6ad8a'],
+  thorn: ['#190f0e', '#38241c', '#523c2b', '#6d5a42', '#8a7860', '#a69884'],
+  bloom: ['#041f23', '#357678', '#43958f', '#66b7a4', '#92d7bb', '#c5f5d8'],
+  lampLight: ['#2f1008', '#d99268', '#f4ac5f', '#fed27e', '#fff4df', '#fff4e0'],
+  kilnClay: ['#271418', '#552a2d', '#764039', '#975e4a', '#b57e66', '#cea28b'],
+  darkMetal: ['#08090b', '#1b1f24', '#30363d', '#4a5259', '#667075', '#858f91'],
   shine: ['#24222b', '#a9adbb', '#c8cbd6', '#e1e3ea', '#f3f4f7', '#ffffff'],
 } as const satisfies Record<string, readonly [string, string, string, string, string, string]>;
 
@@ -94,4 +141,18 @@ export function art(key: TexKey, mats: readonly Mat[], grid: string): TextureDef
         .join(''),
     );
   return { key, pattern: 'icon', palette, seed: 0, alpha: 'coverage', mask };
+}
+
+/** A block's drawn icon (plan v5 « M50 »): the block, and the art its item shows in slots. */
+export interface BlockArt {
+  readonly block: BlockKey;
+  readonly texture: TextureDef;
+}
+
+/** A block's icon drawn by hand (see `art`); its key `tex:icon_block_<name>`. */
+export function blockArt(block: BlockKey, mats: readonly Mat[], grid: string): BlockArt {
+  return {
+    block,
+    texture: art(`tex:icon_block_${block.slice(block.indexOf(':') + 1)}`, mats, grid),
+  };
 }

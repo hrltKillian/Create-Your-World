@@ -101,24 +101,11 @@ function validateTextures(pack: ContentPack, add: AddIssue): void {
     add('manifest.textureSize', `must be a power of two between 8 and 64 (got ${size})`);
   }
   const seen = new Set<string>();
-  pack.textures.forEach((tex, i) => {
-    const path = `textures[${i}]`;
-    if (!tex.key.startsWith('tex:')) add(`${path}.key`, `"${tex.key}" must start with "tex:"`);
-    if (seen.has(tex.key)) add(`${path}.key`, `duplicate texture "${tex.key}"`);
-    seen.add(tex.key);
-    if (tex.palette.length === 0) add(`${path}.palette`, 'palette is empty');
-    tex.palette.forEach((color, c) => {
-      if (!HEX.test(color)) add(`${path}.palette[${c}]`, `"${color}" is not a #rrggbb colour`);
-    });
-    if ((tex.pattern === 'icon') !== (tex.mask !== undefined))
-      add(`${path}.mask`, 'the icon pattern, and only it, needs a mask');
-    if ((tex.pattern === 'fracture') !== (tex.stage !== undefined))
-      add(`${path}.stage`, 'the fracture pattern, and only it, needs a stage');
-    const stage = tex.stage;
-    if (stage !== undefined && !(Number.isInteger(stage) && stage >= 0 && stage < CRACK_STAGES))
-      add(`${path}.stage`, `must be an integer from 0 to ${CRACK_STAGES - 1} (got ${stage})`);
-    checkMask(tex.mask, tex.palette.length, `${path}.mask`, add);
-    checkMaterial(tex, path, add);
+  pack.textures.forEach((tex, i) => checkTexture(tex, `textures[${i}]`, seen, add));
+  (pack.icons ?? []).forEach((tex, i) => {
+    checkTexture(tex, `icons[${i}]`, seen, add);
+    if (tex.pattern !== 'icon')
+      add(`icons[${i}].pattern`, 'an icon is drawn with the icon pattern');
   });
   if (pack.textures.length > MAX_TEXTURE_LAYERS) {
     add(
@@ -330,6 +317,26 @@ function validateArena(pack: ContentPack, blockKeys: ReadonlySet<string>, add: A
     ...arena.workshop.map((key, i): [string, string] => [`arena.workshop[${i}]`, key]),
   ];
   for (const [path, key] of refs) if (!blockKeys.has(key)) add(path, `unknown block "${key}"`);
+}
+
+/** A texture's key, palette, mask, crack stage and material (unique keys across `seen`). */
+function checkTexture(tex: TextureDef, path: string, seen: Set<string>, add: AddIssue): void {
+  if (!tex.key.startsWith('tex:')) add(`${path}.key`, `"${tex.key}" must start with "tex:"`);
+  if (seen.has(tex.key)) add(`${path}.key`, `duplicate texture "${tex.key}"`);
+  seen.add(tex.key);
+  if (tex.palette.length === 0) add(`${path}.palette`, 'palette is empty');
+  tex.palette.forEach((color, c) => {
+    if (!HEX.test(color)) add(`${path}.palette[${c}]`, `"${color}" is not a #rrggbb colour`);
+  });
+  if ((tex.pattern === 'icon') !== (tex.mask !== undefined))
+    add(`${path}.mask`, 'the icon pattern, and only it, needs a mask');
+  if ((tex.pattern === 'fracture') !== (tex.stage !== undefined))
+    add(`${path}.stage`, 'the fracture pattern, and only it, needs a stage');
+  const stage = tex.stage;
+  if (stage !== undefined && !(Number.isInteger(stage) && stage >= 0 && stage < CRACK_STAGES))
+    add(`${path}.stage`, `must be an integer from 0 to ${CRACK_STAGES - 1} (got ${stage})`);
+  checkMask(tex.mask, tex.palette.length, `${path}.mask`, add);
+  checkMaterial(tex, path, add);
 }
 
 /** Icon masks: rows of equal length, `.` or a character naming a palette colour (MASK_INDEX). */
