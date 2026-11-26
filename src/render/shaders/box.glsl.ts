@@ -28,6 +28,9 @@ flat out vec2 vFx;
 out vec2 vLight;
 out vec3 vNormal;
 out vec3 vWorld;
+/** The face's texture directions in the world (plan v4 « M41 »: relief); zero on sprites. */
+out vec3 vTangent;
+out vec3 vBitangent;
 #include <fog_pars_vertex>
 
 // Exact: the divisions are by powers of two and the packed value is an integer below 2^24.
@@ -39,24 +42,47 @@ void main() {
   vec3 t = aTexOrigin.xyz + position * aTexSize;
   vLayer = aLayers.x;
   float tint = aTints.x;
+  // u and v of each face as the chunks map them, and their directions on the box (relief).
+  vec3 tu = vec3(0.0);
+  vec3 tv = vec3(0.0);
   if (aTexOrigin.w > 0.5) vUv = aTexOrigin.xy + clamp(position.xy, 0.001, 0.999) * aTexSize.xy;
-  else if (normal.x > 0.5) vUv = vec2(-t.z, t.y);
-  else if (normal.x < -0.5) vUv = vec2(t.z, t.y);
-  else if (normal.y > 0.5) {
+  else if (normal.x > 0.5) {
+    vUv = vec2(-t.z, t.y);
+    tu = vec3(0.0, 0.0, -1.0);
+    tv = vec3(0.0, 1.0, 0.0);
+  } else if (normal.x < -0.5) {
+    vUv = vec2(t.z, t.y);
+    tu = vec3(0.0, 0.0, 1.0);
+    tv = vec3(0.0, 1.0, 0.0);
+  } else if (normal.y > 0.5) {
     vUv = vec2(t.x, t.z);
     vLayer = aLayers.y;
     tint = aTints.y;
+    tu = vec3(1.0, 0.0, 0.0);
+    tv = vec3(0.0, 0.0, 1.0);
   } else if (normal.y < -0.5) {
     vUv = vec2(t.x, -t.z);
     vLayer = aLayers.z;
     tint = aTints.z;
-  } else if (normal.z > 0.5) vUv = vec2(t.x, t.y);
-  else vUv = vec2(-t.x, t.y);
+    tu = vec3(1.0, 0.0, 0.0);
+    tv = vec3(0.0, 0.0, -1.0);
+  } else if (normal.z > 0.5) {
+    vUv = vec2(t.x, t.y);
+    tu = vec3(1.0, 0.0, 0.0);
+    tv = vec3(0.0, 1.0, 0.0);
+  } else {
+    vUv = vec2(-t.x, t.y);
+    tu = vec3(-1.0, 0.0, 0.0);
+    tv = vec3(0.0, 1.0, 0.0);
+  }
   vTint = unpackTint(tint);
   vCutout = aTints.w;
   vFx = aFx;
   vLight = aLight;
-  vNormal = normalize(mat3(modelMatrix * instanceMatrix) * normal);
+  mat3 turn = mat3(modelMatrix * instanceMatrix);
+  vNormal = normalize(turn * normal);
+  vTangent = tu == vec3(0.0) ? tu : normalize(turn * tu);
+  vBitangent = tv == vec3(0.0) ? tv : normalize(turn * tv);
   vWorld = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;
   vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
@@ -69,6 +95,7 @@ void main() {
 export const boxFragment = /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uTextures;
+uniform sampler2DArray uMaterials;
 uniform float uDaylight;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
@@ -82,6 +109,8 @@ flat in vec2 vFx;
 in vec2 vLight;
 in vec3 vNormal;
 in vec3 vWorld;
+in vec3 vTangent;
+in vec3 vBitangent;
 #include <fog_pars_fragment>
 
 ${LIGHT_CURVE}
@@ -98,10 +127,19 @@ void main() {
   vec3 base = texel.rgb * mix(vec3(1.0), vTint, cutout ? 1.0 : texel.a);
   // The sky's light as on the blocks (plan v4 « M37 »), the torch's from every side a little less
   // below; glowing boxes ignore both.
+  // The relief of the skin's material (plan v4 « M41 »), as on the blocks; sprites stay flat.
+  vec3 n = vNormal;
+  float cavity = 1.0;
+  if (dot(vTangent, vTangent) > 0.5) {
+    vec4 material = texture(uMaterials, vec3(vUv, vLayer));
+    vec2 tilt = material.xy * 2.0 - 1.0;
+    n = normalize(vTangent * tilt.x + vBitangent * tilt.y + vNormal * sqrt(max(0.0, 1.0 - dot(tilt, tilt))));
+    cavity = material.a;
+  }
   float sun = smoothstep(0.8, 1.0, vLight.x) * sunShadow(vWorld, vNormal);
   vec3 light = max(
-    skyShade(lightCurve(vLight.x * uDaylight), vNormal, sun, 1.0),
-    lightCurve(vLight.y) * uTorchTint * uFlicker * (0.8 + 0.2 * vNormal.y)
+    skyShade(lightCurve(vLight.x * uDaylight), n, sun, cavity),
+    lightCurve(vLight.y) * uTorchTint * uFlicker * (0.8 + 0.2 * n.y) * cavity
   );
   light = max(light, vec3(uMinLight));
   vec3 lit = mix(base * light, base * glowGain(lightCurve(vLight.x * uDaylight)), vFx.x);

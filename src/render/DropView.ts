@@ -5,6 +5,7 @@ import type { Entity } from '../sim/Simulation.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { BoxBatch } from './BoxBatch.ts';
+import type { ContactShadows } from './ContactShadows.ts';
 import { drawItem, type ItemModel } from './itemModels.ts';
 import { nthSmallest } from './nearest.ts';
 
@@ -25,6 +26,7 @@ const SPIN_RATE = 1.6;
  */
 export class DropView {
   private readonly batch: BoxBatch;
+  private readonly shadows: ContactShadows | null;
   private readonly world: VoxelWorld;
   private readonly registry: Registry;
   private readonly items: readonly ItemModel[];
@@ -56,7 +58,15 @@ export class DropView {
     if (entity.kind === 'itemDrop') this.drawDrop(entity);
   };
 
-  constructor(batch: BoxBatch, world: VoxelWorld, registry: Registry, items: readonly ItemModel[]) {
+  /** `shadows`: the contact shadows each drop lays on the ground (plan v4 « M41 »). */
+  constructor(
+    batch: BoxBatch,
+    world: VoxelWorld,
+    registry: Registry,
+    items: readonly ItemModel[],
+    shadows: ContactShadows | null = null,
+  ) {
+    this.shadows = shadows;
     this.batch = batch;
     this.world = world;
     this.registry = registry;
@@ -121,6 +131,7 @@ export class DropView {
     this.base.multiply(this.turn.makeScale(size, size, size));
     const detailed = this.distance2(d) <= this.detailLimit && this.detailed < MAX_DETAILED;
     if (detailed) this.detailed++;
+    this.shadows?.add(x, y, z, size * 0.6);
     const light = this.world.getLight(Math.floor(x), Math.floor(y + 0.1), Math.floor(z));
     drawItem(this.batch, model, this.base, skyOf(light) / 15, blockOf(light) / 15, detailed);
   }

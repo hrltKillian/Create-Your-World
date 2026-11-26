@@ -120,6 +120,7 @@ export class BoxBatch {
       uniforms: {
         ...UniformsUtils.clone(UniformsLib.fog),
         uTextures: shared.uTextures,
+        uMaterials: shared.uMaterials,
         uDaylight: shared.uDaylight,
         uSunDir: shared.uSunDir,
         uSunLight: shared.uSunLight,

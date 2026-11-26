@@ -4,6 +4,7 @@ import type { PlayerState } from '../sim/player.ts';
 import { blockOf, skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import { type BoxBatch, type BoxSkin, fullSkin } from './BoxBatch.ts';
+import type { ContactShadows } from './ContactShadows.ts';
 import { drawItem, type ItemModel } from './itemModels.ts';
 import {
   animate,
@@ -30,8 +31,12 @@ interface Tracked {
 }
 
 /** Draws players as posed box models into the BoxBatch (creatures: CreatureView). */
+/** The radius of the avatar's contact shadow (blocks). */
+const AVATAR_SHADOW = 0.35;
+
 export class EntityView {
   private readonly batch: BoxBatch;
+  private readonly shadows: ContactShadows | null;
   private readonly world: VoxelWorld;
   private readonly registry: Registry;
   private readonly items: readonly ItemModel[];
@@ -59,7 +64,15 @@ export class EntityView {
     this.batch.add(box, this.skins[i]!, this.sky, this.block);
   };
 
-  constructor(batch: BoxBatch, world: VoxelWorld, registry: Registry, items: readonly ItemModel[]) {
+  /** `shadows`: the contact shadow the avatar lays on the ground (plan v4 « M41 »). */
+  constructor(
+    batch: BoxBatch,
+    world: VoxelWorld,
+    registry: Registry,
+    items: readonly ItemModel[],
+    shadows: ContactShadows | null = null,
+  ) {
+    this.shadows = shadows;
     this.batch = batch;
     this.world = world;
     this.registry = registry;
@@ -117,7 +130,10 @@ export class EntityView {
     const crouchDrop = b.crouching ? CROUCH_DROP : 0;
     const visit = visible ? this.addBox : skipBox;
     poseModel(model, tracked.rig, this.root, crouchDrop, visit, this.scratch);
-    if (visible) this.drawHeld(player, model);
+    if (visible) {
+      this.drawHeld(player, model);
+      this.shadows?.add(x, y, z, AVATAR_SHADOW);
+    }
   }
 
   /** The held item at the bottom of the right arm: blocks in the fist, tools pointing forward. */

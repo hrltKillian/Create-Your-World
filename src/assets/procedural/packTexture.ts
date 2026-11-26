@@ -23,6 +23,7 @@ export interface PackLayer {
 
 const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon' | 'fracture'>, PatternFn>> = {
   speckle: nature.speckle,
+  fur: nature.fur,
   stone: nature.stone,
   gravel: nature.gravel,
   sand: nature.sand,
@@ -52,6 +53,7 @@ const PATTERNS: Readonly<Record<Exclude<TexturePattern, 'icon' | 'fracture'>, Pa
 /** Each pattern's relief strength, unless its texture sets `relief`: flat for drawn and thin things. */
 const RELIEF: Readonly<Record<TexturePattern, number>> = {
   speckle: 0.8,
+  fur: 0.7,
   stone: 1.2,
   gravel: 1.6,
   sand: 0.6,

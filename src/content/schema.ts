@@ -266,6 +266,8 @@ export type TexturePattern =
   | 'soil'
   /** Grass seen from above. */
   | 'turf'
+  /** Fur and plumes: fine strands in soft clumps (creatures, plan v4 « M41 »). */
+  | 'fur'
   | 'strata'
   | 'planks'
   | 'bark'
