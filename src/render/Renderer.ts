@@ -17,6 +17,8 @@ export interface RendererOptions {
   readonly maxPixelRatio: number;
   /** Benchmarks: render at this exact drawing-buffer size whatever the pane size. */
   readonly fixedBuffer?: readonly [number, number];
+  /** Share of the pixel ratio drawn (`?renderScale`, tests in software rendering); 1 by default. */
+  readonly scale?: number;
 }
 
 /** Owns the WebGL renderer and keeps the canvas sized to its container. */
@@ -26,6 +28,7 @@ export class Renderer {
   private readonly container: HTMLElement;
   private maxPixelRatio: number;
   private readonly fixedBuffer: readonly [number, number] | undefined;
+  private readonly scale: number;
   private dprQuery: MediaQueryList | null = null;
   private onResize: ((width: number, height: number) => void) | null = null;
 
@@ -40,6 +43,7 @@ export class Renderer {
     this.container = container;
     this.maxPixelRatio = options.maxPixelRatio;
     this.fixedBuffer = options.fixedBuffer;
+    this.scale = options.scale ?? 1;
     this.webgl.setPixelRatio(this.targetPixelRatio());
     const canvas = this.webgl.domElement;
     canvas.className = 'game-canvas';
@@ -72,7 +76,7 @@ export class Renderer {
 
   private targetPixelRatio(): number {
     if (this.fixedBuffer) return 1;
-    return Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    return Math.min(window.devicePixelRatio || 1, this.maxPixelRatio) * this.scale;
   }
 
   /** Re-arms a resolution media query so zoom or a monitor change updates the drawing buffer. */

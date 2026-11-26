@@ -4,10 +4,11 @@ import { expect, type Page } from '@playwright/test';
 
 /**
  * CI renders in software (SwiftShader): wall-clock thresholds are checked locally only
- * (?timing=0), and selftest waits stretch ×4, so e2e waits do too.
+ * (?timing=0), selftest waits stretch ×4, so e2e waits do too, and the canvas draws a quarter of
+ * its pixels (?renderScale=0.5: every pixel costs in software).
  */
 export const CI_FACTOR = process.env.CI ? 4 : 1;
-const TIMING = process.env.CI ? '&timing=0' : '';
+const TIMING = process.env.CI ? '&timing=0&renderScale=0.5' : '';
 
 /** The parts of `window.__game` the specs use (src/app/debugHook.ts). */
 export interface Hook {
