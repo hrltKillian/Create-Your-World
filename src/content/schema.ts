@@ -334,10 +334,11 @@ export interface TextureDef {
   readonly seed: number;
   readonly alpha?: TextureAlpha;
   /**
-   * `icon` pattern only: rows from the top, one character per pixel: `.` is transparent and a digit
-   * is a palette index. Scaled to the pack's texture size.
+   * `icon` pattern only: rows from the top, one character per pixel: `.` is transparent, else a
+   * palette index written with MASK_INDEX. Scaled to the pack's texture size.
    */
   readonly mask?: readonly string[];
+  /** `sprite` pattern only: its shapes (plan v5 « M49 »). */
   /** `fracture` pattern only: crack stage 0…CRACK_STAGES−1 (each contains the earlier cracks). */
   readonly stage?: number;
   /**
@@ -358,6 +359,9 @@ export interface TextureDef {
 
 /** Crack stages of a block being mined (mineProgress events, `fracture` textures). */
 export const CRACK_STAGES = 8;
+
+/** The palette index of each character of an icon mask: 0–9, then a–z, then A–Z (62 colours). */
+export const MASK_INDEX = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** Layout of the `arena` test world around its spawn, described with the pack's own blocks. */
 export interface ArenaDef {

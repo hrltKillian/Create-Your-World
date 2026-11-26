@@ -131,7 +131,7 @@ export const recipes: readonly RecipeDef[] = [
   recipe('planks', 'building', 1, { 'tag:log': 1 }, { count: 4, ...START }),
   recipe('stick', 'materials', 1, { planks: 1 }, { count: 4, ...START }),
   recipe('stone_shard', 'materials', 1, { stone: 1 }, { count: 4 }),
-  recipe('flint_knife', 'tools', 1.5, { flint: 1, stick: 1 }, START),
+  recipe('flint_knife', 'tools', 1.5, { flint: 1, stick: 1, cord: 1 }, START),
   recipe('flint_hatchet', 'tools', 2, { flint: 1, stick: 2, cord: 1 }, START),
   recipe('flint_pickaxe', 'tools', 2.5, { flint: 2, stick: 2, cord: 1 }, START),
   recipe('flint_spear', 'tools', 2, { flint: 1, stick: 3, cord: 1 }, START),
