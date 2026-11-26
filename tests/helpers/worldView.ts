@@ -2,7 +2,7 @@ import type { Camera, Material, Mesh, Object3D } from 'three';
 import type { Renderer } from '../../src/render/Renderer.ts';
 import { createTextureArray } from '../../src/render/textureArray.ts';
 import { WorldView } from '../../src/render/WorldView.ts';
-import { layers, TEXTURE_SIZE } from './packPixels.ts';
+import { layers, materialLayers, TEXTURE_SIZE } from './packPixels.ts';
 
 /** The materials of every mesh, line or sprite under `root`, hidden or not. */
 export function sceneMaterials(root: Object3D): Set<Material> {
@@ -29,10 +29,17 @@ export function createTestWorldView(renderDistance = 2) {
         return Promise.resolve(scene);
       },
       info: { reset: () => {} },
+      capabilities: { getMaxAnisotropy: () => 16 },
       render: () => {},
     },
   };
   const textures = createTextureArray(layers, TEXTURE_SIZE);
-  const view = new WorldView(renderer as unknown as Renderer, textures, [], renderDistance);
+  const materials = createTextureArray(materialLayers, TEXTURE_SIZE, false);
+  const view = new WorldView(
+    renderer as unknown as Renderer,
+    { textures, materials },
+    [],
+    renderDistance,
+  );
   return { view, compiled };
 }

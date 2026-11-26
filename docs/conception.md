@@ -1895,7 +1895,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   | `voxelBytes` (médiane de 3 trajets de 2 km)                        | ≤ 140 Mo          |
   | Chargement, rayon 3 / RD 6                                         | < 3 s / < 5 s     |
   | Édition → maillage visible                                         | ≤ 50 ms p95       |
-  | JS gzip                                                            | ≤ 400 Ko          |
+  | JS gzip                                                            | ≤ 460 Ko          |
 
 - **Approximations d'un M1** :
   - GPU : RD 8 à DPR 2 sur le M4 garde moins de 5 % d'intervalles supérieurs à 20 ms ;
@@ -3003,3 +3003,285 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 2. Navigateur intégré : `?selftest=mN` et `?selftest=all` dans ses configurations, `__game.errors()` vide, `i18nMissing()` vide, captures relues.
 3. `npm run e2e` vert ; CI verte avant le squash-merge ; compte rendu en français.
 4. Pour M23 et M24, captures de chaque biome et d'une entrée de grotte. Les mesures de grottes et de minerais sont des tests chiffrés.
+
+# Plan v4 : « Create Your World », rendu, interfaces et son
+
+## Contexte v4
+
+Le plan v3 est sur `main` et le jeu fonctionne. On passe au style : un rendu visuel et sonore le plus réaliste possible, avec le moins de ressources possible.
+
+**Principes** :
+
+- Les mécaniques restent celles de Minecraft (cubes, règles).
+- L'image et le son deviennent réalistes, avec une touche de fantaisie qui rappelle que Veyra n'est pas la Terre.
+
+**État actuel (lu dans le code)** :
+
+| Élément                       | Où                                                 | Constat                                                                               |
+| ----------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Textures                      | `assets/procedural/patterns.ts`, `textureSize: 16` | 16 px générées par code, filtre `Nearest`                                             |
+| Éclairage                     | `render/shaders/voxel.glsl.ts`                     | lumière par sommet (ciel, bloc), AO à 4 niveaux, ombrage fixe par face (`FACE_SHADE`) |
+| Ombres, reflets, tone mapping | —                                                  | aucun                                                                                 |
+| Eau                           | —                                                  | plate et translucide                                                                  |
+| Ciel                          | `render/shaders/sky.glsl.ts`                       | dégradé, soleil, lune, étoiles                                                        |
+| Sons                          | `assets/procedural/sfxSynth.ts`                    | bruit ou oscillateur, un filtre, une enveloppe : simple et peu réaliste               |
+| Interfaces                    | —                                                  | panneaux CSS sobres, icônes 16 px à masques                                           |
+
+**Tes choix** :
+
+- tout reste généré par code ;
+- textures en 32 px détaillées ;
+- toutes les touches de fantaisie : ciel extraterrestre, bioluminescence, aurores et nébuleuses, atmosphère décalée ;
+- objets surréalistes : baies aux formes et couleurs atypiques, outils façonnés comme des pièces avec un détail insolite ;
+- ordre : monde et lumière, puis interfaces, puis son.
+
+**Point de départ** : la CI de `main` était verte (`verify` et e2e) au début du plan v4.
+
+## Décisions
+
+| #   | Décision                                                                                                                                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 26  | **Tout procédural**. Aucun fichier d'image ni de son livré. Textures, reliefs, icônes, sons et réverbérations sont générés au démarrage et restent déterministes (testés par hash).                                                                                                                                                                          |
+| 27  | **Blocs en 32 px**. Le grossissement reste `Nearest` (des pixels nets de près) ; le filtrage de loin est anisotrope (pas de scintillement). Chaque calque a une carte de matière : relief (normale), rugosité, émission.                                                                                                                                     |
+| 28  | **Qualité par paliers**, le moyen restant la référence de perf (bench `walk` p95 ≤ 9 ms) : bas = rendu actuel amélioré, sans ombres ni post-traitement ; moyen = relief, reflets, tone mapping, ciel et eau riches, ombres du soleil légères ; haut = ombres plus fines et plus loin, bloom, MSAA. Chaque effet coûteux se coupe dans les réglages.          |
+| 29  | **Fantaisie de Veyra** : deux lunes à phases, une géante gazeuse à anneaux, un soleil légèrement teinté, des nébuleuses, des aurores au nord froid, une bioluminescence la nuit, un ciel, un brouillard et une eau légèrement sarcelle ou violets selon l'heure et le biome. Les couleurs passent par les données du pack (biomes, ciel), pas par le moteur. |
+| 30  | **Objets surréalistes** : les icônes deviennent des sprites 32 px modelés (volume, contour, reflets). Les baies et fruits prennent des formes et des couleurs atypiques ; les outils ressemblent à des pièces forgées avec un détail insolite (une incrustation de cristal, une arête asymétrique). Ils restent lisibles dans une case.                      |
+| 31  | **Budget de taille JS** : le procédural remplace des mégaoctets de fichiers, mais ajoute du code. Le budget gzip passe de 400 à 460 kB (`tools/gzipBudget.ts`), aujourd'hui 389,6 kB. Chaque jalon dit sa part.                                                                                                                                              |
+
+## Jalons v4
+
+### Partie A — Monde et lumière
+
+#### M36 — Textures 32 px et cartes de matière (fait)
+
+**Générateur** (`src/assets/procedural/`) :
+
+- `texNoise.ts` : bruits tuilables (valeur, fractal `fbm`, cellulaire `cellular`, grain, onde triangle `tri`).
+- `texPixel.ts` : ce qu'un motif rend par texel, un ton de palette fractionnaire (deux couleurs voisines mélangées par `writeTone`, `palette.ts`), une classe (plein, trou, masque) et une hauteur de relief.
+- `patternsNature.ts` et `patternsCraft.ts` : les motifs, en tailles de 16 texels (`ctx.s`). Nouveaux motifs : `stone` (marbrure, fissures fines, trous), `gravel` (galets), `sand` (grain et rides de vent), `soil` (mottes et cailloux), `turf` (herbe vue de dessus). Les autres sont refaits : écorce à sillons, feuilles qui se chevauchent avec nervure, brins effilés qui penchent, briques écornées, pierres taillées biseautées, planches veinées avec nœuds.
+- `TextureDef.accents` : les dernières couleurs d'une palette deviennent des taches rondes (baies du buisson, cosses, fruits du palmthorn), motifs `leaves` et `bark` seulement.
+- `packTexture.ts` (`renderPackTexture`) : la couche couleur et la couche matière d'une texture ; `fracture.ts` : les fissures du minage, sur une grille de 32.
+
+**Cartes de matière** (`materialMap.ts`) : RGBA = normale x et y (espace tangent), rugosité, cavité (la lumière ambiante qu'un texel garde, plus sombre au fond des creux). Le relief de chaque motif a une force par défaut (`RELIEF`), que `TextureDef.relief` remplace ; `roughness` et `maskRoughness` (paillettes de minerai, cristaux) sont validés. L'émission reste dans l'alpha des couches émissives, comme avant.
+
+**Rendu** :
+
+- Deux tableaux de textures : couleurs (sRGB) et matières (linéaires), filtrage net de près, trilinéaire et anisotrope (×4) de loin.
+- Le shader des chunks lit la matière : la normale du texel incline l'ombrage de sa face vers une lumière clé fixe, et la cavité l'assombrit ; un texel plat garde exactement l'ombrage d'avant. Le M37 remplace cette lumière clé par le soleil et la lune.
+- L'écran titre utilise le même générateur (l'ancien `textureGen.ts` disparaît).
+- Outil de revue : `node tools/textureSheet.ts sortie.png [mots]` écrit une planche des couleurs et des normales.
+
+**Coût** : 207 textures et leurs matières en moins d'une demi-seconde sous Node, 2,3 Mo de mémoire vidéo pour les deux tableaux avec leurs mipmaps.
+
+**Tests** : bruits tuilables, normales dans le disque unité, pente et creux, pas de couture, rugosités, accents, mémoire ; empreintes des textures mises à jour.
+
+#### M37 — Éclairage réaliste
+
+Shaders voxel et boîtes (`voxel.glsl.ts`, `box.glsl.ts`, `voxelMaterial.ts`) :
+
+- **Soleil et lune** : la lumière vient de leur direction (`render/Sky.ts`). Un Lambert par pixel avec la normale de la carte de matière remplace `FACE_SHADE`, pondéré par la lumière du ciel (les grottes restent sombres).
+- **Ambiance** : ciel dessus, rebond du sol dessous.
+- **Reflets** : Blinn-Phong selon la rugosité (glace, métal, roche humide sous la pluie).
+- **Tone mapping** (AgX ou ACES) avec exposition, et un léger étalonnage de couleur.
+- **Ombres du soleil** : une carte d'ombre orthographique autour du joueur, rendue tous les N images (le soleil bouge lentement) : 1024² sur 48 m en moyen, 2048² sur 96 m en haut, rien en bas.
+- **Brouillard** : en hauteur, teinté par le ciel (perspective aérienne).
+
+**Tests** :
+
+- shaders compilés (m0) ;
+- `render.capture()` : luminance jour et nuit, ombre présente au palier moyen ;
+- bench `walk`, `cave` et `mobs` sous les seuils.
+
+#### M38 — Eau et lave
+
+**Eau** :
+
+- shader dédié : deux couches de normales animées ;
+- Fresnel, avec le ciel réfléchi par la fonction de ciel partagée ;
+- éclat du soleil ;
+- couleur qui se fonce avec l'angle et la profondeur ;
+- rides sous la pluie.
+
+**Lave** : émissive, croûte en mouvement.
+
+**Sous l'eau** :
+
+- brouillard teinté ;
+- caustiques bon marché sur les surfaces immergées (motif animé selon la lumière du ciel).
+
+**Tests** :
+
+- shaders ;
+- captures ;
+- perf avec un lac à l'écran.
+
+#### M39 — Ciel, atmosphère et nuages
+
+**Ciel** :
+
+- diffusion analytique (Rayleigh et Mie approchés) pour le jour, l'aube et le crépuscule ;
+- teinte extraterrestre par biome, données `BiomeDef.sky` ;
+- deux lunes à phases, la géante gazeuse à anneaux, des nébuleuses et un champ d'étoiles plus riche (tout dans le shader de ciel, dessiné en une fois).
+
+**Nuages** : une couche en 2D (fbm qui défile), plus denses selon la météo du M34 (`WeatherFeel`).
+
+**Aurores** : rubans animés la nuit dans les biomes froids, intensité dans les données du biome.
+
+**Tests** :
+
+- palette ;
+- directions des astres (tests purs du `Sky`) ;
+- captures de nuit et d'aurore.
+
+#### M40 — La nuit de Veyra : bioluminescence et vie
+
+**Bioluminescence** :
+
+- Les plantes, champignons, minerais et créatures marqués émissifs brillent plus fort quand il fait noir.
+- Masques dans les cartes de matière, données `emissive` des recettes.
+
+**Ambiance de nuit** :
+
+- lucioles et spores luminescentes en particules légères dans certains biomes ;
+- feuillage rétro-éclairé par le soleil ;
+- vent plus fort par temps d'orage.
+
+**Bloom** léger au palier haut (seuil sur les émissifs et le soleil).
+
+**Tests** :
+
+- capture de nuit au Capwood ;
+- particules dans le budget de draws ;
+- perf.
+
+#### M41 — Créatures, avatar et objets posés
+
+- Peaux 32 px avec relief pour les modèles en boîtes (`creatureModels.ts`), avatar et drops.
+- Ombre de contact douce sous les entités.
+- Animations plus souples : regard, respiration, transitions de pas.
+
+**Tests** :
+
+- `creatureView` ;
+- captures ;
+- bench `mobs`.
+
+### Partie B — Interfaces
+
+#### M42 — Objets surréalistes en 32 px
+
+`assets/procedural/iconGen.ts` est refait en modelage 32 px :
+
+- volumes ombrés, contour, reflets ;
+- masques retracés en 32 px, palettes de matière.
+
+**Redessin** : baies et fruits (spirales, grappes cristallines, gousses), outils et armes (têtes asymétriques, incrustations), équipements, contenants.
+
+La main et les drops les reprennent tels quels (sprite non tourné, M30).
+
+**Tests** :
+
+- hash des icônes ;
+- lisibilité : contraste du contour ;
+- selftest de la main.
+
+#### M43 — Système visuel des interfaces
+
+**Thème « colonie » cohérent** :
+
+- panneaux de métal et de verre fumé ;
+- liserés à reflet extraterrestre ;
+- typographie, cases à relief, survol et sélection animés.
+
+**HUD redessiné**, en gardant le M35 :
+
+- rangées de jauges, boussole, cadre de minicarte, barre d'action ;
+- `hudLayout` reste vert aux trois tailles.
+
+**Menus** : écran titre avec la planète animée (ciel du M39), transitions douces.
+
+**Tests** :
+
+- e2e de disposition ;
+- i18n ;
+- captures des écrans.
+
+### Partie C — Son
+
+#### M44 — Moteur de synthèse réaliste
+
+**Synthèse** (`sfxSynth.ts`, `audio/`) :
+
+- **Synthèse modale** pour les impacts : pierre, bois, métal, verre.
+- **Synthèse granulaire** pour les textures : pas sur gravier, sable, neige ; feuillage ; pluie.
+- Bruits filtrés à résonateurs, enveloppes multiples.
+
+**Espace** :
+
+- réverbération à convolution avec des réponses impulsionnelles générées par lieu : grotte, forêt, plein air, intérieur ;
+- panoramique HRTF ;
+- léger effet Doppler sur les créatures rapides.
+
+**Données** : le schéma `SfxLayer` est étendu en restant rétrocompatible ; nouvelles sources `modal` et `grain`.
+
+**Tests** :
+
+- rendu déterministe ;
+- longueurs ;
+- crêtes et absence d'écrêtage ;
+- coût de rendu au démarrage (budget en ms).
+
+#### M45 — Paysage sonore de Veyra
+
+**Refaits sur le nouveau moteur** :
+
+- pas par matériau ;
+- blocs (casser, poser, frapper) ;
+- joueur ;
+- créatures : voix par synthèse de formants, cris extraterrestres reconnaissables ;
+- outils, feu, eau, lave.
+
+**Météo** : pluie sur les feuilles et sur un toit, vent, tonnerre plus réaliste.
+
+**Ambiances par biome** : couches de jour et de nuit, plus des sons « alien » discrets (chœurs d'insectes étranges, chants de la faune bioluminescente).
+
+**Tests** :
+
+- `audio.since()` dans les selftests existants ;
+- budget de voix ;
+- équilibre des niveaux.
+
+**Ensuite** : ta partie test, puis la boucle d'amélioration.
+
+## Fichiers critiques v4
+
+| Domaine    | Fichiers                                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Génération | `src/assets/procedural/` : `patterns.ts`, `textureGen.ts`, `iconGen.ts`, `sfxSynth.ts`                                                                                                                             |
+| Rendu      | `src/render/` : `textureArray.ts`, `voxelMaterial.ts`, `WorldView.ts`, `Sky.ts`, `Renderer.ts`, `quality.ts`, `Particles.ts`, `HandView.ts`, `CreatureView.ts`, `shaders/*.glsl.ts` (nouveau shader d'eau, ombres) |
+| Client     | `src/app/WeatherFeel.ts`, `app/graphicsPreset.ts`, `platform/settings.ts` (nouveaux réglages : ombres, bloom, qualité des textures)                                                                                |
+| Données    | `src/content/packs/base/` : `textures*.ts`, `icons*.ts`, `worldgen.ts` (ciel des biomes), `sfx*.ts`, `ambienceSfx.ts` ; `content/schema.ts`, `soundSchema.ts` et `validate*.ts`                                    |
+| Interfaces | `src/ui/styles/*.css`, `ui/hud/*`, `ui/screens/*`, `render/TitleScene.ts`                                                                                                                                          |
+
+## Réutiliser v4
+
+- **Ciel et lumière** : `Sky.ts` (`sunDirection`, `moonDirection`, `skyPalette`), `LIGHT_CURVE` et `uGamma`.
+- **Données de rendu** : `FACEFLAG_EMISSIVE` et le masque d'émission ; `textureSets` (`content/validate.ts`).
+- **Météo** : `WeatherFeel` (nuages, brouillard, pluie).
+- **Paliers** : `QUALITY_PRESETS` et `applyQuality`.
+- **Mesure** : `render.capture()`, les benchs `app/benchmarks.ts` et `hudLayout`.
+- **Audio** : `AudioEngine` (`setLoop`), `Ambience`.
+
+## Contraintes v4
+
+- `three` seulement sous `src/render`.
+- Génération pure et déterministe : aucun `Math.random` dans `assets`.
+- Le rendu ne touche pas la simulation : hash headless inchangé, GEN et SAVE inchangés.
+- KISS, DRY, SRP.
+
+## Vérification v4 (chaque jalon)
+
+1. `npm run verify` vert, dans le budget de taille de la décision 31 ; `test:perf` et `test:slow` ; hash headless inchangé.
+2. Navigateur intégré : `?selftest=all`, `__game.errors()` vide, captures relues (jour, crépuscule, nuit, pluie, grotte, eau, chaque biome) et montrées dans le compte rendu.
+3. `npm run e2e:perf` sur `game-bench` : `walk` p95 ≤ 9 ms au palier moyen, `cave`, `mobs` et `dig` sous leurs seuils ; temps de génération au démarrage mesuré.
+4. Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte (`verify` et e2e sur GitHub) ; compte rendu en français avec captures.

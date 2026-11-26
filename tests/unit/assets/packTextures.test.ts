@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generatePackTexture } from '../../../src/assets/procedural/patterns.ts';
+import { generatePackTexture } from '../../../src/assets/procedural/packTexture.ts';
 import { basePack } from '../../../src/content/packs/base/index.ts';
 import { fnv1aBytes } from '../../../src/core/hash.ts';
 

@@ -1,15 +1,24 @@
 import {
   DataArrayTexture,
+  LinearMipmapLinearFilter,
   NearestFilter,
-  NearestMipmapLinearFilter,
+  NoColorSpace,
   RepeatWrapping,
   RGBAFormat,
   SRGBColorSpace,
   UnsignedByteType,
 } from 'three';
 
-/** Packs same-sized RGBA layers into one sRGB texture array (pixel-art filtering, mipmapped). */
-export function createTextureArray(layers: readonly Uint8Array[], size: number): DataArrayTexture {
+/**
+ * Packs same-sized RGBA layers into one texture array: sRGB colours, or linear data (`srgb`
+ * false: the material layers). Texels stay sharp up close (nearest magnification) and blend
+ * smoothly far off (trilinear mipmaps, plus the anisotropy WorldView sets): no shimmer.
+ */
+export function createTextureArray(
+  layers: readonly Uint8Array[],
+  size: number,
+  srgb = true,
+): DataArrayTexture {
   const layerBytes = size * size * 4;
   const data = new Uint8Array(layerBytes * layers.length);
   layers.forEach((layer, i) => {
@@ -19,9 +28,9 @@ export function createTextureArray(layers: readonly Uint8Array[], size: number):
   const texture = new DataArrayTexture(data, size, size, layers.length);
   texture.format = RGBAFormat;
   texture.type = UnsignedByteType;
-  texture.colorSpace = SRGBColorSpace;
+  texture.colorSpace = srgb ? SRGBColorSpace : NoColorSpace;
   texture.magFilter = NearestFilter;
-  texture.minFilter = NearestMipmapLinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
   texture.generateMipmaps = true;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;

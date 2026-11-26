@@ -5,13 +5,13 @@ export const textures = [
   { key: 'tex:unknown', pattern: 'checker', palette: ['#2b1d33', '#d05fc8'], seed: 1 },
   {
     key: 'tex:worldrock',
-    pattern: 'speckle',
+    pattern: 'stone',
     palette: ['#16181d', '#22252c', '#2f333b', '#3c414a'],
     seed: 3,
   },
   {
     key: 'tex:stone',
-    pattern: 'speckle',
+    pattern: 'stone',
     palette: ['#5a5f63', '#686e72', '#777e81', '#868c8e', '#959a9a'],
     seed: 5,
   },
@@ -23,7 +23,7 @@ export const textures = [
   },
   {
     key: 'tex:dirt',
-    pattern: 'speckle',
+    pattern: 'soil',
     palette: ['#5b3d27', '#6a4830', '#79553a', '#8a6446'],
     seed: 9,
   },
@@ -42,7 +42,7 @@ export const textures = [
   },
   {
     key: 'tex:grass_top',
-    pattern: 'speckle',
+    pattern: 'turf',
     palette: ['#9da583', '#acb38f', '#bcc29c', '#ccd1aa'],
     seed: 11,
     alpha: 'tintFull',
@@ -56,13 +56,13 @@ export const textures = [
   },
   {
     key: 'tex:sand',
-    pattern: 'speckle',
+    pattern: 'sand',
     palette: ['#c9b27c', '#d4bd88', '#ddc794', '#e6d2a2'],
     seed: 15,
   },
   {
     key: 'tex:gravel',
-    pattern: 'speckle',
+    pattern: 'gravel',
     palette: ['#5c5853', '#6f6a64', '#837d76', '#99928a', '#aaa39a'],
     seed: 17,
   },
@@ -104,6 +104,7 @@ export const textures = [
     palette: ['#9fc6cf', '#d8eef2'],
     seed: 29,
     alpha: 'coverage',
+    roughness: 0.05,
   },
   {
     key: 'tex:water',
@@ -111,6 +112,7 @@ export const textures = [
     palette: ['#c2d6e0', '#d3e3eb', '#e4eff5'],
     seed: 31,
     alpha: 'coverage',
+    roughness: 0.05,
   },
   {
     key: 'tex:tall_grass',
@@ -139,6 +141,7 @@ export const textures = [
     pattern: 'ripple',
     palette: ['#3a2a1c', '#2f5f8c', '#3f78a8', '#6a9cc8'],
     seed: 49,
+    roughness: 0.1,
   },
   {
     key: 'tex:kiln_side',
@@ -171,6 +174,7 @@ export const textures = [
     palette: ['#5a5f63', '#6c7275', '#7f8587', '#c47a45', '#f0ab6c'],
     seed: 45,
     alpha: 'emissiveMask',
+    maskRoughness: 0.35,
   },
   {
     key: 'tex:emberstone',
@@ -181,9 +185,11 @@ export const textures = [
   },
   {
     key: 'tex:snow',
-    pattern: 'speckle',
+    pattern: 'sand',
     palette: ['#d9e2ea', '#e3eaf0', '#ecf1f5', '#f6f9fb'],
     seed: 47,
+    relief: 0.4,
+    roughness: 0.6,
   },
   {
     key: 'tex:permafrost',
@@ -197,10 +203,12 @@ export const textures = [
     palette: ['#9ec4dd', '#b4d3e7', '#cde3f1'],
     seed: 51,
     alpha: 'coverage',
+    relief: 0.3,
+    roughness: 0.15,
   },
   {
     key: 'tex:ochre_sand',
-    pattern: 'speckle',
+    pattern: 'sand',
     palette: ['#b9703f', '#c67d49', '#d18b55', '#dc9a63'],
     seed: 53,
   },
@@ -212,7 +220,7 @@ export const textures = [
   },
   {
     key: 'tex:peat',
-    pattern: 'speckle',
+    pattern: 'soil',
     palette: ['#2e231b', '#3a2c21', '#463628', '#53412f'],
     seed: 57,
   },
@@ -228,6 +236,7 @@ export const textures = [
     palette: ['#6f7d4f', '#7e8c5a', '#8e9c66'],
     seed: 61,
     alpha: 'coverage',
+    roughness: 0.15,
   },
   {
     // Veilpine: rust bark, blue-green needles.
@@ -306,6 +315,7 @@ export const textures = [
     palette: ['#2f4a2a', '#3d5e36', '#4e7343', '#b23a48'],
     seed: 73,
     alpha: 'coverage',
+    accents: 1,
   },
   {
     // Picked (plan v3 « M33 »): the same leaves without berries.
@@ -334,6 +344,7 @@ export const textures = [
     pattern: 'bark',
     palette: ['#3d5a32', '#4c6c3d', '#5d7f49', '#d9cf9a'],
     seed: 79,
+    accents: 1,
   },
   {
     // Fruiting (plan v3 « M33 »): orange fruit where the bare one has pale spines.
@@ -341,6 +352,7 @@ export const textures = [
     pattern: 'bark',
     palette: ['#3d5a32', '#4c6c3d', '#5d7f49', '#e8963a'],
     seed: 79,
+    accents: 1,
   },
   {
     key: 'tex:palmthorn_top',
@@ -387,6 +399,7 @@ export const textures = [
     palette: ['#5a5f63', '#6c7275', '#7f8587', '#3a3330', '#b9b2a8'],
     seed: 115,
     alpha: 'emissiveMask',
+    maskRoughness: 0.35,
   },
   {
     key: 'tex:bog_iron',
@@ -394,6 +407,7 @@ export const textures = [
     palette: ['#4f5544', '#5b614e', '#686f59', '#8a4b26', '#c27a3e'],
     seed: 117,
     alpha: 'emissiveMask',
+    maskRoughness: 0.35,
   },
   {
     key: 'tex:fireclay',
@@ -407,6 +421,7 @@ export const textures = [
     palette: ['#2e3036', '#383b42', '#43464e', '#e8a0b4', '#ffe3c2'],
     seed: 121,
     alpha: 'emissiveMask',
+    maskRoughness: 0.15,
   },
   // M8: crafted blocks, stations and furniture (appended: earlier layers keep their indices).
   {
@@ -446,6 +461,7 @@ export const textures = [
     palette: ['#2b3530', '#3a4740', '#4b5a52', '#7fe0c8', '#d4fff2'],
     seed: 129,
     alpha: 'emissiveMask',
+    maskRoughness: 0.2,
   },
   {
     // Ash and charred wood in a ring of stones; the lit top glows.

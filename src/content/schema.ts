@@ -254,6 +254,16 @@ export interface BlockDef {
 
 export type TexturePattern =
   | 'speckle'
+  /** Rock: mottling, hairline cracks, pits (plan v4 « M36 »). */
+  | 'stone'
+  /** Rounded pebbles with grit between them. */
+  | 'gravel'
+  /** Fine grain over wind ripples (sand, snow). */
+  | 'sand'
+  /** Soil clumps with a few pebbles. */
+  | 'soil'
+  /** Grass seen from above. */
+  | 'turf'
   | 'strata'
   | 'planks'
   | 'bark'
@@ -301,6 +311,20 @@ export interface TextureDef {
   readonly mask?: readonly string[];
   /** `fracture` pattern only: crack stage 0…CRACK_STAGES−1 (each contains the earlier cracks). */
   readonly stage?: number;
+  /**
+   * Strength of the relief the normal map shows (plan v4 « M36 »), 0 (flat) to 4; by default the
+   * pattern's own.
+   */
+  readonly relief?: number;
+  /** Roughness of the surface, 0 (polished) to 1 (matte); 0.85 by default. */
+  readonly roughness?: number;
+  /** Roughness of the mask texels (ore flecks, crystals, embers); `roughness` by default. */
+  readonly maskRoughness?: number;
+  /**
+   * `leaves` and `bark` only: the last `accents` palette colours are round spots over the pattern
+   * (berries, fruit, pods), each spot one whole colour.
+   */
+  readonly accents?: number;
 }
 
 /** Crack stages of a block being mined (mineProgress events, `fracture` textures). */

@@ -1,15 +1,17 @@
 import { Color, type Mesh, PerspectiveCamera, Scene } from 'three';
-import { generateTexture, type TextureRecipe } from '../assets/procedural/textureGen.ts';
+import { generatePackTexture, type TextureRecipe } from '../assets/procedural/packTexture.ts';
 import type { Renderer } from './Renderer.ts';
 import { createTestCube } from './TestCube.ts';
 import { createTextureArray } from './textureArray.ts';
 
-/** M0 test textures (replaced by the content pack's recipes in M1). */
+/** The title cube's textures: stone, planks and ore, drawn like the pack's (plan v4 « M36 »). */
 const TEST_TEXTURES: readonly TextureRecipe[] = [
-  { pattern: 'speckle', palette: ['#4b5257', '#5d666b', '#6f797c', '#838c8c'], seed: 11 },
+  { pattern: 'stone', palette: ['#4b5257', '#5d666b', '#6f797c', '#838c8c'], seed: 11 },
   { pattern: 'planks', palette: ['#4a2f1c', '#6b4429', '#80553a', '#966a49', '#a87c57'], seed: 23 },
   { pattern: 'ore', palette: ['#4d5458', '#5e676b', '#727c7f', '#c9824e', '#efb27a'], seed: 37 },
 ];
+
+const TITLE_TEXTURE_SIZE = 32;
 
 /** Spinning texture-array cube behind the temporary title overlay. */
 export class TitleScene {
@@ -27,8 +29,8 @@ export class TitleScene {
       this.camera.updateProjectionMatrix();
     });
     const textures = createTextureArray(
-      TEST_TEXTURES.map((recipe) => generateTexture(recipe)),
-      16,
+      TEST_TEXTURES.map((recipe) => generatePackTexture(recipe, TITLE_TEXTURE_SIZE)),
+      TITLE_TEXTURE_SIZE,
     );
     this.cube = createTestCube(textures, [0, 0, 1, 1, 2, 2]);
     this.cube.rotation.set(0.45, 0.6, 0);

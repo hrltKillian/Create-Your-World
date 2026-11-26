@@ -4,6 +4,7 @@ import {
   CRACK_STAGES,
   STATE_VALUES,
   type TextureAlpha,
+  type TextureDef,
   type TextureSlot,
 } from './schema.ts';
 import { validateBalance } from './validateBalance.ts';
@@ -70,6 +71,26 @@ export function validatePack(pack: ContentPack): ContentIssue[] {
   return issues;
 }
 
+/** The patterns that draw accent spots (TextureDef.accents). */
+const ACCENT_PATTERNS: ReadonlySet<string> = new Set(['leaves', 'bark']);
+
+/** Relief, roughness and accents of a texture (plan v4 « M36 »). */
+function checkMaterial(tex: TextureDef, path: string, add: AddIssue): void {
+  const within = (value: number | undefined, max: number) =>
+    value === undefined || (Number.isFinite(value) && value >= 0 && value <= max);
+  if (!within(tex.relief, 4)) add(`${path}.relief`, `must be from 0 to 4 (got ${tex.relief})`);
+  if (!within(tex.roughness, 1))
+    add(`${path}.roughness`, `must be from 0 to 1 (got ${tex.roughness})`);
+  if (!within(tex.maskRoughness, 1))
+    add(`${path}.maskRoughness`, `must be from 0 to 1 (got ${tex.maskRoughness})`);
+  const accents = tex.accents;
+  if (accents === undefined) return;
+  if (!ACCENT_PATTERNS.has(tex.pattern))
+    add(`${path}.accents`, `only the ${[...ACCENT_PATTERNS].join(' and ')} patterns take accents`);
+  if (!Number.isInteger(accents) || accents < 1 || accents >= tex.palette.length)
+    add(`${path}.accents`, `must leave at least one ramp colour (got ${accents})`);
+}
+
 /** Texture size, keys and palettes, and the layer limit. */
 function validateTextures(pack: ContentPack, add: AddIssue): void {
   const size = pack.manifest.textureSize;
@@ -94,6 +115,7 @@ function validateTextures(pack: ContentPack, add: AddIssue): void {
     if (stage !== undefined && !(Number.isInteger(stage) && stage >= 0 && stage < CRACK_STAGES))
       add(`${path}.stage`, `must be an integer from 0 to ${CRACK_STAGES - 1} (got ${stage})`);
     checkMask(tex.mask, tex.palette.length, `${path}.mask`, add);
+    checkMaterial(tex, path, add);
   });
   if (pack.textures.length > MAX_TEXTURE_LAYERS) {
     add(

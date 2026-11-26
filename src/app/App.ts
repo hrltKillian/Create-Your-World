@@ -1,4 +1,4 @@
-import { generatePackTexture } from '../assets/procedural/patterns.ts';
+import { type PackLayer, renderPackTexture } from '../assets/procedural/packTexture.ts';
 import { AudioEngine } from '../audio/AudioEngine.ts';
 import { basePack } from '../content/packs/base/index.ts';
 import { buildRegistry, NO_TINT, packTints, type Registry } from '../content/registry.ts';
@@ -190,8 +190,9 @@ export class App {
   /** The shared world view, input, audio and debug overlay, the save backend, then the Game. */
   private async startGame(registry: Registry, report: CapabilityReport): Promise<void> {
     const pack = registry.pack;
-    const layers = packLayers(pack);
-    const view = this.createWorldView(pack, layers, biomeTints(pack));
+    const rendered = packLayers(pack);
+    const layers = rendered.map((layer) => layer.color);
+    const view = this.createWorldView(pack, rendered, biomeTints(pack));
     this.view = view;
     const input = this.createInput();
     input.enabled = false;
@@ -227,14 +228,28 @@ export class App {
     await this.game.start();
   }
 
-  /** `layers`: the pack's textures (RGBA bytes, see `packLayers`). */
+  /** `layers`: the pack's textures (colours and materials, see `packLayers`). */
   private createWorldView(
     pack: ContentPack,
-    layers: readonly Uint8Array[],
+    layers: readonly PackLayer[],
     tints: readonly string[],
   ): WorldView {
-    const textures = createTextureArray(layers, pack.manifest.textureSize);
-    const view = new WorldView(this.renderer!, textures, tints, DEFAULT_SETTINGS.renderDistance);
+    const size = pack.manifest.textureSize;
+    const textures = createTextureArray(
+      layers.map((layer) => layer.color),
+      size,
+    );
+    const materials = createTextureArray(
+      layers.map((layer) => layer.material),
+      size,
+      false,
+    );
+    const view = new WorldView(
+      this.renderer!,
+      { textures, materials },
+      tints,
+      DEFAULT_SETTINGS.renderDistance,
+    );
     view.chunks.occlusion.setEnabled(this.params.occlusion);
     return view;
   }
@@ -388,9 +403,9 @@ export function biomeTints(pack: ContentPack): string[] {
   return out;
 }
 
-/** RGBA bytes of every pack texture, in layer order (the texture array and the item icons). */
-function packLayers(pack: ContentPack): Uint8Array[] {
-  return pack.textures.map((def) => generatePackTexture(def, pack.manifest.textureSize));
+/** Every pack texture in layer order: colours (texture array, item icons) and materials. */
+function packLayers(pack: ContentPack): PackLayer[] {
+  return pack.textures.map((def) => renderPackTexture(def, pack.manifest.textureSize));
 }
 
 interface KeyboardLayoutSource {

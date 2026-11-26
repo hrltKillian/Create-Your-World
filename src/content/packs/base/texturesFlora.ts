@@ -85,6 +85,7 @@ export const floraTextures = [
     palette: ['#56662a', '#687a33', '#7c8e3d', '#c49a3a'],
     seed: 423,
     alpha: 'coverage',
+    accents: 1,
   },
   {
     // Plants of Veyra.

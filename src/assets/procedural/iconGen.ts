@@ -9,7 +9,7 @@ import {
   SHAPE_LIQUID,
   TINT_NONE,
 } from '../../content/registry.ts';
-import { parseHex } from './textureGen.ts';
+import { parseHex } from './palette.ts';
 
 /** Side of an item icon in pixels: block cubes are drawn at this size, masks scaled up to it. */
 export const ICON_SIZE = 32;
