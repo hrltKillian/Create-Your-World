@@ -26,6 +26,7 @@ const BENCH = 'station:workbench';
 const CAMPFIRE = 'station:campfire';
 const KILN = 'station:kiln';
 const BLOOMERY = 'station:bloomery';
+const RAIN_BARREL = 'station:rain_barrel';
 
 /**
  * Stations: the workbench makes its recipes through its own queue into its 4 outputs; the others
@@ -58,6 +59,15 @@ export const stations = [
     fuelSlot: true,
     outputSlots: 1,
     burns: true,
+  },
+  // Plan v3 « M34 »: rain fills the empty containers left in it under the sky.
+  {
+    key: RAIN_BARREL,
+    nameKey: 'block.rain_barrel',
+    inputSlots: 2,
+    fuelSlot: false,
+    outputSlots: 2,
+    rain: true,
   },
 ] as const satisfies readonly PackStation[];
 
@@ -147,6 +157,7 @@ export const recipes: readonly RecipeDef[] = [
   bench('glowbloom_lantern', 'building', 2, { glass: 1, glowbloom: 2, stick: 1 }),
   bench('kiln', 'building', 3, { clay_lump: 4, stone_shard: 6 }),
   bench('copper_hoe', 'tools', 3, { copper_ingot: 2, stick: 2, leather: 1 }),
+  bench('rain_barrel', 'building', 3, { planks: 6, cord: 2, resin: 1 }),
   bench('trapdoor', 'building', 2, { planks: 3 }),
   bench('bloomery', 'building', 4, { fire_bricks: 8, bronze_ingot: 2, stone_shard: 4 }),
   bench('leather', 'materials', 3, { raw_hide: 2, resin: 1 }),
@@ -223,6 +234,21 @@ const process = (
   output: { item: `item:${id}`, count },
 });
 
+/**
+ * Rain fills an empty container left in a rain barrel under the sky with clean water, in 30 s of
+ * rain or snow (plan v3 « M34 »).
+ */
+function rainFill(container: 'flask' | 'waterskin'): ProcessDef {
+  return {
+    key: `process:rain_${container}`,
+    station: RAIN_BARREL,
+    seconds: 30,
+    fuel: 'rain',
+    inputs: ingredients({ [`${container}_empty`]: 1 }),
+    output: { item: `item:${container}_boiled`, count: 1 },
+  };
+}
+
 /** Processes (docs « Stations de transformation »). */
 export const processes: readonly ProcessDef[] = [
   process('grilled_meat', CAMPFIRE, 8, { raw_meat: 1 }),
@@ -242,4 +268,6 @@ export const processes: readonly ProcessDef[] = [
   // The alloy: 3 copper and 1 cassiterite give 3 bronze.
   process('bronze_ingot', KILN, 15, { copper_ingot: 3, cassiterite: 1 }, 3),
   process('iron_ingot', BLOOMERY, 20, { bog_iron: 2 }, 1, 'charcoal'),
+  rainFill('flask'),
+  rainFill('waterskin'),
 ];

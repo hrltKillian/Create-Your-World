@@ -27,6 +27,7 @@ const thermal = (fields: Partial<ThermalInput>): ThermalInput => ({
   cave: false,
   heat: 0,
   inWater: false,
+  chill: 0,
   warmth: 0,
   cooling: 0,
   ...fields,
@@ -39,6 +40,10 @@ describe('thermal model', () => {
     expect(feltTemperature(high, c)).toBeCloseTo(20 - 40 * c.altitudePerBlock, 9);
     expect(feltTemperature(thermal({ inWater: true }), c)).toBe(20 - c.waterC);
     expect(feltTemperature(thermal({ cave: true, dayC: -30, nightC: -30 }), c)).toBe(c.caveC);
+    // Rain falling on the player (plan v3 « M34 »).
+    expect(feltTemperature(thermal({ chill: b.weather.rainChillC }), c)).toBe(
+      20 - b.weather.rainChillC,
+    );
   });
 
   it('brings gear never past comfort', () => {

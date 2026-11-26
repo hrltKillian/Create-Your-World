@@ -161,7 +161,9 @@ export class StationScreen {
         ? t('station.charcoalOnly')
         : process.fuel === 'none'
           ? t('station.noFuel')
-          : '';
+          : process.fuel === 'rain'
+            ? t('station.rainOnly')
+            : '';
     return h(
       'li',
       { class: active ? 'station-process active' : 'station-process' },

@@ -145,6 +145,8 @@ export const biomes = [
     liquidCap: 'block:ice',
     tints: { grass: '#9fb59a', foliage: '#6f8a6b', water: '#4a7fb8' },
     fog: '#c7d6e2',
+    // Snow falls on the Rimefrost (plan v3 « M34 »).
+    precipitation: 'snow',
     features: [{ feature: 'feature:frostpine', chance: 0.08 }],
     plants: [
       { block: 'block:frost_lichen', chance: 0.05 },
@@ -167,6 +169,8 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#bfae6a', foliage: '#a3984f', water: '#3f86b8' },
     fog: '#e3c79c',
+    // The Ochre Waste stays dry (plan v3 « M34 »).
+    precipitation: 'none',
     features: [
       { feature: 'feature:palmthorn', chance: 0.1 },
       { feature: 'feature:thornbush', chance: 0.04 },

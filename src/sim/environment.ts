@@ -9,10 +9,11 @@ import type { PlayerState } from './player.ts';
 import { comfortBonus } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { daylightAt, hourOf, NIGHT_DAYLIGHT } from './time.ts';
+import { fallingOn } from './weather.ts';
 
 /*
- * What the world does to a player (docs « Survie »): the thermal model, the toxicity of the air,
- * worn gear and the blocks the body touches. `sampleEnvironment` runs every few ticks
+ * What the world does to a player (docs « Survie »): the thermal model (the rain's chill too: plan
+ * v3 « M34 »), the toxicity of the air, worn gear and the blocks the body touches. `sampleEnvironment` runs every few ticks
  * (`stepSurvival`); `touch` every tick. Module scratch only: nothing is allocated per call.
  */
 
@@ -36,6 +37,8 @@ export interface ThermalInput {
   /** °C from the strongest heat sources around. */
   heat: number;
   inWater: boolean;
+  /** °C the rain or snow falling on the player takes (plan v3 « M34 »). */
+  chill: number;
   /** Worn gear (°C). */
   warmth: number;
   cooling: number;
@@ -49,6 +52,7 @@ export function feltTemperature(input: Readonly<ThermalInput>, c: ClimateBalance
       c.altitudePerBlock * Math.max(0, input.y - c.altitudeFrom);
   t += input.heat;
   if (input.inWater) t -= c.waterC;
+  t -= input.chill;
   // Gear brings the air back towards comfort, never past it.
   if (t < c.comfortMinC) t = Math.min(c.comfortMinC, t + input.warmth);
   else if (t > c.comfortMaxC) t = Math.max(c.comfortMaxC, t - input.cooling);
@@ -187,6 +191,7 @@ const thermal: ThermalInput = {
   cave: false,
   heat: 0,
   inWater: false,
+  chill: 0,
   warmth: 0,
   cooling: 0,
 };
@@ -216,6 +221,9 @@ export function sampleEnvironment(sim: Simulation, player: PlayerState): boolean
   const middle = body.y + PHYSICS.height / 2;
   thermal.heat = heatAround(world, registry.tables, body.x, middle, body.z, b.climate.heatSources);
   thermal.inWater = body.inWater;
+  const falling = fallingOn(sim, x, head, z);
+  const w = b.weather;
+  thermal.chill = falling === 'rain' ? w.rainChillC : falling === 'snow' ? w.snowChillC : 0;
   thermal.warmth = gear.warmth;
   thermal.cooling = gear.cooling;
   s.ambient = feltTemperature(thermal, b.climate);

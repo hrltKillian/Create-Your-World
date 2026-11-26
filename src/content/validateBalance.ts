@@ -31,6 +31,15 @@ export function validateBalance(pack: ContentPack, add: AddIssue): void {
   if (!Number.isInteger(b.creatures.spawnGraceTicks))
     add('balance.creatures.spawnGraceTicks', 'must be a whole number of ticks');
   checkWeapon(b.combat.hand, 'balance.combat.hand', add);
+  const w = b.weather;
+  if (!Number.isInteger(w.clearSpells))
+    add('balance.weather.clearSpells', 'must be a whole number');
+  if (!(w.spellSeconds > 0)) add('balance.weather.spellSeconds', 'must be > 0');
+  if (!(w.lightningSeconds > 0)) add('balance.weather.lightningSeconds', 'must be > 0');
+  if (!(Object.values(w.weights).reduce((sum, n) => sum + n, 0) > 0))
+    add('balance.weather.weights', 'must weigh more than 0 in all');
+  for (const [kind, dim] of Object.entries(w.dim))
+    if (!(dim <= 1)) add(`balance.weather.dim.${kind}`, 'must be within 0–1');
   pack.blocks.forEach((block, i) => {
     checkHeat(block.heat, `blocks[${i}].heat`, add);
     for (const [prop, override] of Object.entries(block.whenState ?? {}))

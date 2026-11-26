@@ -52,6 +52,7 @@ function thermalIn(biome: string, day: number, gear = gearOf()) {
     cave: false,
     heat: 0,
     inWater: false,
+    chill: 0,
     warmth: gear.warmth,
     cooling: gear.cooling,
   };

@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
+import { Precipitation } from './Precipitation.ts';
 import type { Renderer } from './Renderer.ts';
 import { Sky } from './Sky.ts';
 import {
@@ -42,6 +43,26 @@ export interface CaptureStats {
   readonly uniqueColors: number;
 }
 
+/** What the weather looks like (plan v3 « M34 », the client's WeatherFeel): 0–1 each. */
+export interface WeatherLook {
+  cloud: number;
+  fog: number;
+  flash: number;
+  /** The share of the sky's light the clouds leave. */
+  dim: number;
+}
+
+/** How far clouds turn the sky grey, and how much darker that grey gets under full cloud. */
+const CLOUD_GREY = 0.8;
+const CLOUD_DARK = 0.5;
+/** A flash's light on the blocks and whitening of the sky. */
+const FLASH_LIGHT = 0.6;
+const FLASH_SKY = 0.5;
+/** Thick fog pulls the fog's start and end this much closer. */
+const FOG_NEAR = 0.85;
+const FOG_FAR = 0.65;
+const scratch = new Color();
+
 /** Underwater fog (docs « Ciel et brouillard »): blue, from 1 to 20 blocks. */
 const WATER_FOG = new Color('#1f4f78');
 const WATER_FOG_NEAR = 1;
@@ -71,6 +92,11 @@ export class WorldView {
   private fogFar = 1;
   /** Hour of the day shown: noon until a world clock sets it (`setTime`). */
   private hour = 12;
+  private daylight = 1;
+  /** The weather shown (plan v3 « M34 »): clouds, fog and a lightning flash, 0–1; the sky's dim. */
+  private readonly weather: WeatherLook = { cloud: 0, fog: 0, flash: 0, dim: 1 };
+  /** Rain and snow around the camera (filled by the client each frame). */
+  readonly precipitation = new Precipitation();
   private underwater = false;
   private hand: HandView | null = null;
   private elapsed = 0;
@@ -86,7 +112,7 @@ export class WorldView {
     this.renderer = renderer;
     this.materials = createVoxelMaterials(textures, tintColors);
     this.chunks = new ChunkMeshes(this.chunkRoot, this.materials);
-    this.scene.add(this.chunkRoot, this.sky.mesh);
+    this.scene.add(this.chunkRoot, this.sky.mesh, this.precipitation.rain, this.precipitation.snow);
     this.scene.background = this.background;
     this.scene.fog = this.fog;
     this.setRenderDistance(renderDistance);
@@ -175,7 +201,23 @@ export class WorldView {
    */
   setTime(hour: number, daylight: number): void {
     this.hour = hour;
-    this.materials.uniforms.uDaylight.value = daylight;
+    this.daylight = daylight;
+    this.materials.uniforms.uDaylight.value = this.litDaylight();
+  }
+
+  /**
+   * The weather shown (plan v3 « M34 »): clouds grey and darken the sky, fog closes in, a
+   * lightning flash lights everything for a moment; `dim` scales the sky's light on the blocks.
+   */
+  setWeather(look: Readonly<WeatherLook>): void {
+    Object.assign(this.weather, look);
+    this.materials.uniforms.uDaylight.value = this.litDaylight();
+  }
+
+  /** The sky's light on the blocks: the hour's under the clouds, a flash on top. */
+  private litDaylight(): number {
+    const w = this.weather;
+    return Math.min(1, this.daylight * w.dim + FLASH_LIGHT * w.flash);
   }
 
   /** The camera is inside a liquid: short blue fog and no sky. */
@@ -209,6 +251,7 @@ export class WorldView {
     const sky = this.sky;
     const uniforms = this.materials.uniforms;
     sky.update(this.hour);
+    this.weatherSky();
     uniforms.uSkyTint.value.copy(sky.colors.light);
     const fog = this.fog;
     if (this.underwater) {
@@ -218,11 +261,25 @@ export class WorldView {
       fog.far = WATER_FOG_FAR;
     } else {
       fog.color.copy(sky.colors.horizon);
-      fog.near = this.fogNear;
-      fog.far = this.fogFar;
+      // The weather's fog closes in (thick fog: a third of the render distance).
+      const thick = this.weather.fog;
+      fog.near = this.fogNear * (1 - FOG_NEAR * thick);
+      fog.far = this.fogFar * (1 - FOG_FAR * thick);
     }
     sky.mesh.visible = !this.underwater;
     this.background.copy(fog.color);
+  }
+
+  /** Clouds grey and darken the sky's colours; a flash whitens them. No allocation. */
+  private weatherSky(): void {
+    const { cloud, flash } = this.weather;
+    if (cloud <= 0 && flash <= 0) return;
+    const c = this.sky.colors;
+    for (const colour of [c.zenith, c.horizon]) {
+      const grey = (colour.r * 0.3 + colour.g * 0.59 + colour.b * 0.11) * (1 - CLOUD_DARK * cloud);
+      colour.lerp(scratch.setRGB(grey, grey, grey), CLOUD_GREY * cloud);
+      colour.lerp(scratch.setRGB(1, 1, 1), FLASH_SKY * flash);
+    }
   }
 
   /** Renders the current view into a small target and returns colour statistics. */

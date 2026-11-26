@@ -17,12 +17,23 @@ import { toColumn } from '../world/coords.ts';
 /** Radius (blocks) around the listener searched for a lit station, and how often (s). */
 export const LIT_RADIUS = 8;
 const LIT_SCAN_SECONDS = 0.5;
+/** Thunder (plan v3 « M34 »): heard this far (blocks), after the light at this speed (blocks/s). */
+const THUNDER_REACH = 400;
+const SOUND_SPEED = 340;
+/** The rain loop's gain under cover (a roof over the camera). */
+const RAIN_COVERED = 0.35;
+
+/** What the audio hears of the weather (the client's WeatherFeel). */
+export interface WeatherSound {
+  readonly rain: number;
+}
 
 /**
  * Feeds the audio from the open world: the simulation's events (cues.ts), and once a frame what
  * the client sees of the place and the local player: the underwater low-pass and the ambience at
- * the camera (biome, hour, cave, water), the body's footsteps, strokes and heartbeat, and the
- * crackles of the nearest lit station.
+ * the camera (biome, hour, cave, water), the rain over it (softer under a roof), the body's
+ * footsteps, strokes and heartbeat, and the crackles of the nearest lit station; thunder comes
+ * after a lightning strike's light, later the farther it is.
  */
 export class AudioBridge {
   private readonly audio: AudioEngine;
@@ -38,6 +49,11 @@ export class AudioBridge {
   private readonly fire = { key: null as string | null, x: 0, y: 0, z: 0 };
   private scanWait = 0;
   private lastTick = -1;
+  /** Where the ear was on the last frame. */
+  private earX = 0;
+  private earZ = 0;
+  /** Thunders on their way: seconds left before each is heard. */
+  private readonly thunders: number[] = [];
   /** Reused every frame (no allocation). */
   private readonly place: AmbiencePlace = {
     biome: undefined,
@@ -73,14 +89,21 @@ export class AudioBridge {
 
   onEvent(event: SimEvent): void {
     this.cues.onEvent(event);
+    if (event.type === 'lightning') {
+      const distance = Math.hypot(event.x - this.earX, event.z - this.earZ);
+      if (distance <= THUNDER_REACH) this.thunders.push(distance / SOUND_SPEED);
+    }
   }
 
-  /** One frame (`dt` wall seconds) heard from the camera `pose`. */
-  frame(dt: number, pose: CameraPose): void {
+  /** One frame (`dt` wall seconds) heard from the camera `pose`, in the `weather`. */
+  frame(dt: number, pose: CameraPose, weather: WeatherSound): void {
     const { world, registry } = this.view;
     const underwater = isLiquid(world, registry.tables, pose.x, pose.y, pose.z);
+    this.earX = pose.x;
+    this.earZ = pose.z;
     this.audio.setUnderwater(underwater);
     this.hearPlace(dt, pose, underwater);
+    this.hearWeather(dt, pose, weather.rain);
     this.hearBody();
     this.scanWait -= dt;
     if (this.scanWait <= 0) {
@@ -99,6 +122,9 @@ export class AudioBridge {
   /** The world closes: the ambience stops at once and the low-pass opens. */
   dispose(): void {
     this.ambience.stop();
+    const rain = this.view.registry.pack.sounds?.ambience.rain;
+    if (rain) this.audio.setLoop(rain, 0);
+    this.thunders.length = 0;
     this.audio.setUnderwater(false);
   }
 
@@ -117,6 +143,29 @@ export class AudioBridge {
     place.cave = inCave(world, x, y, z, registry.pack.balance.climate.caveDepth);
     place.underwater = underwater;
     this.ambience.update(ambienceKey(bindings, place), dt);
+  }
+
+  /**
+   * The rain loop over the place's (its gain the rain's, softer under a roof, none underwater or
+   * in a cave), and the thunders whose time has come.
+   */
+  private hearWeather(dt: number, pose: CameraPose, rain: number): void {
+    const sounds = this.view.registry.pack.sounds;
+    const loop = sounds?.ambience.rain;
+    if (loop) {
+      const place = this.place;
+      const top = this.view.world.heightAt(Math.floor(pose.x), Math.floor(pose.z));
+      const covered = top > Math.floor(pose.y) + 1;
+      const gain = place.underwater || place.cave ? 0 : rain * (covered ? RAIN_COVERED : 1);
+      this.audio.setLoop(loop, gain);
+    }
+    const thunders = this.thunders;
+    for (let i = thunders.length - 1; i >= 0; i--) {
+      thunders[i] = thunders[i]! - dt;
+      if (thunders[i]! > 0) continue;
+      thunders.splice(i, 1);
+      if (sounds?.thunder) this.audio.playLocal(sounds.thunder);
+    }
   }
 
   private hearBody(): void {

@@ -99,6 +99,30 @@ export interface FireBalance {
   readonly damagePerSec: number;
 }
 
+/**
+ * The weather (plan v3 « M34 »): one kind a spell of `spellSeconds`, drawn from the seed with the
+ * `weights` (sim/weather.ts), the first `clearSpells` of a world clear.
+ */
+export interface WeatherBalance {
+  readonly spellSeconds: number;
+  readonly clearSpells: number;
+  readonly weights: {
+    readonly clear: number;
+    readonly rain: number;
+    readonly storm: number;
+    readonly fog: number;
+  };
+  /** °C a player out in the rain, or in the snow, feels less. */
+  readonly rainChillC: number;
+  readonly snowChillC: number;
+  /** Share of the sky's light left under the clouds (the effective light, the shaders). */
+  readonly dim: { readonly rain: number; readonly storm: number; readonly fog: number };
+  /** Mean seconds between two lightning strikes near a player in a storm. */
+  readonly lightningSeconds: number;
+  /** Hostile spawn candidates, × this in a storm. */
+  readonly stormSpawns: number;
+}
+
 export interface BreathBalance {
   /** Air held with the head under water. */
   readonly seconds: number;
@@ -234,6 +258,7 @@ export interface BalanceDef {
   readonly toxicity: ToxicityBalance;
   readonly breath: BreathBalance;
   readonly fire: FireBalance;
+  readonly weather: WeatherBalance;
   readonly fall: FallBalance;
   readonly climate: ClimateBalance;
   readonly water: WaterBalance;

@@ -1,4 +1,4 @@
-import { fuelSlotOf, outputSlotOf } from '../content/crafting.ts';
+import { burnsFuel, fuelSlotOf, outputSlotOf } from '../content/crafting.ts';
 import type { Registry } from '../content/registry.ts';
 import type { ProcessDef, StationDef } from '../content/schema.ts';
 import { blockToColumn, toColumn } from '../world/coords.ts';
@@ -9,6 +9,7 @@ import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { addToRange, countMatching, type Inventory, roomFor, takeMatching } from './inventory.ts';
 import type { Simulation } from './Simulation.ts';
+import { fallsOn, isWet, weatherOf } from './weather.ts';
 import { advanceWorkbench } from './workbench.ts';
 
 /**
@@ -66,11 +67,17 @@ function ignite(station: StationEntity, def: StationDef, registry: Registry, pro
 }
 
 /**
- * One tick of a station. Returns false when nothing happened (no fire, no progress, the same
- * process): the station then stays as it is until something outside changes it, which ends a
- * catch-up early with the same result as ticking on.
+ * One tick of a station, `wet` when rain or snow falls on it. Returns false when nothing happened
+ * (no fire, no progress, the same process): the station then stays as it is until something
+ * outside changes it, which ends a catch-up early with the same result as ticking on. A rain
+ * process waiting for rain is never idle (the weather changes it).
  */
-export function stepStation(station: StationEntity, def: StationDef, registry: Registry): boolean {
+export function stepStation(
+  station: StationEntity,
+  def: StationDef,
+  registry: Registry,
+  wet = false,
+): boolean {
   const process = processFor(station, def, registry);
   let changed = false;
   const key = process?.key ?? '';
@@ -82,7 +89,7 @@ export function stepStation(station: StationEntity, def: StationDef, registry: R
   const out = outputSlotOf(def);
   const end = out + def.outputSlots;
   const ready = process !== undefined && roomFor(station.slots, registry, out, end, process.output);
-  const wantsFire = station.keepLit || (ready && process?.fuel !== 'none');
+  const wantsFire = station.keepLit || (ready && burnsFuel(process.fuel));
   if (wantsFire && station.burnTicksLeft === 0) ignite(station, def, registry, process);
   const burning = wantsFire && station.burnTicksLeft > 0;
   if (burning) {
@@ -90,8 +97,10 @@ export function stepStation(station: StationEntity, def: StationDef, registry: R
     changed = true;
   }
   station.lit = burning;
-  // Full outputs pause the process (its progress stays); so does a fire gone out.
-  if (!ready || process === undefined || !(burning || process.fuel === 'none')) return changed;
+  // Full outputs pause the process (its progress stays); so do a fire gone out and dry weather.
+  if (!ready || process === undefined) return changed;
+  if (process.fuel === 'rain' ? !wet : !(burning || process.fuel === 'none'))
+    return changed || process.fuel === 'rain';
   station.progressTicks++;
   if (station.progressTicks >= ticksOf(process.seconds)) complete(station, def, registry, process);
   return true;
@@ -121,14 +130,25 @@ function complete(
   addToRange(slots, registry, out, out + def.outputSlots, output);
 }
 
-/** `ticks` ticks of a station, stopping once a tick changes nothing (stepStation). */
+/**
+ * `ticks` ticks of a station up to `sim`'s tick, stopping once a tick changes nothing
+ * (stepStation); with `sim`, wet the ticks rain or snow fell on it (the weather of each tick: a
+ * pure function, weather.ts). Without it (tests), dry.
+ */
 export function advanceStation(
   station: StationEntity,
   def: StationDef,
   registry: Registry,
   ticks: number,
+  sim: Simulation | null = null,
 ): void {
-  for (let i = 0; i < ticks; i++) if (!stepStation(station, def, registry)) return;
+  const { x, y, z } = station;
+  // Its column's sky and biome are checked once: the weather changes, the station stays.
+  const open = sim !== null && fallsOn(sim, x, y + 1, z) !== 'none';
+  for (let i = 0; i < ticks; i++) {
+    const wet = open && isWet(weatherOf(sim!, sim!.tick - ticks + 1 + i));
+    if (!stepStation(station, def, registry, wet)) return;
+  }
 }
 
 /** Whether a block column is loaded, lit and within the simulation radius of some player. */
@@ -159,7 +179,7 @@ export function stepStations(sim: Simulation, out: SimEvent[]): void {
     }
     const def = registry.crafting.station(entity.station);
     if (!def) continue;
-    advanceStation(entity, def, registry, ticks);
+    advanceStation(entity, def, registry, ticks, sim);
     showFire(sim, entity, out);
   }
 }

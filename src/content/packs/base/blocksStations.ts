@@ -10,6 +10,8 @@ const CHEST: readonly Box16[] = [[1, 0, 1, 15, 14, 15]];
 /** A mat lying flat, head to the north when facing north. */
 const BEDROLL: readonly Box16[] = [[2, 0, 0, 14, 2, 16]];
 const LANTERN: readonly Box16[] = [[4, 0, 4, 12, 10, 12]];
+/** A barrel open at the top (plan v3 « M34 »). */
+const BARREL: readonly Box16[] = [[2, 0, 2, 14, 15, 14]];
 /** A squat bag on the ground. */
 const PACK: readonly Box16[] = [[3, 0, 4, 13, 9, 12]];
 
@@ -73,6 +75,24 @@ export const stationBlocks = [
     drops: 'self',
     blockEntity: 'workbench',
     station: 'station:workbench',
+    sound: 'wood',
+  },
+  {
+    // Plan v3 « M34 »: rain fills the empty flasks and waterskins left in it.
+    key: 'block:rain_barrel',
+    nameKey: 'block.rain_barrel',
+    shape: { boxes: BARREL },
+    pass: 'opaque',
+    textures: { top: 'tex:rain_barrel_top', side: 'tex:rain_barrel_side' },
+    collision: { boxes: BARREL },
+    opaque: false,
+    light: { filter: 1 },
+    hardness: 1.5,
+    tool: 'axe',
+    drops: 'self',
+    blockEntity: 'station',
+    station: 'station:rain_barrel',
+    placement: { support: 'below' },
     sound: 'wood',
   },
   {

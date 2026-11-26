@@ -116,17 +116,21 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     expect(process('flask_boiled').seconds).toBe(6);
   });
 
-  it('gives each processing station a lit block entity, the workbench its own; only the campfire may be kept lit', () => {
+  it('gives each processing station a block entity (lit with a fire), the workbench its own; only the campfire may be kept lit', () => {
     const blocks = basePack.blocks.filter((b) => b.station !== undefined);
     expect(blocks.map((b) => b.station).sort()).toEqual([
       'station:bloomery',
       'station:campfire',
       'station:kiln',
+      'station:rain_barrel',
       'station:workbench',
     ]);
     for (const block of blocks) {
-      const fire = crafting.station(block.station!)!.burns !== undefined;
-      expect(block.blockEntity, block.key).toBe(fire ? 'station' : 'workbench');
+      const station = crafting.station(block.station!)!;
+      const fire = station.burns !== undefined;
+      // The rain barrel processes without fire (plan v3 « M34 »).
+      const processing = fire || station.rain === true;
+      expect(block.blockEntity, block.key).toBe(processing ? 'station' : 'workbench');
       expect(block.states?.includes('lit') ?? false, block.key).toBe(fire);
     }
     const kept = basePack.stations!.filter((s) => s.keepLit).map((s) => s.key);

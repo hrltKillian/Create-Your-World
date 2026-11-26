@@ -56,7 +56,7 @@ describe('stepFrames (the audio selftest steps two ticks a frame)', () => {
       pose.x = body.x;
       pose.y = body.y + EYE_HEIGHT;
       pose.z = body.z;
-      bridge.frame(1 / hz, pose);
+      bridge.frame(1 / hz, pose, { rain: 0 });
     });
     // The case's walk: forward held, two ticks a frame (fixed steps).
     const app = { session: { step: (n: number) => s.tick(n, { forward: 1 }) } } as unknown as App;

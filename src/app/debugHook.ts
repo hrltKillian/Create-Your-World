@@ -1,8 +1,9 @@
 import type { Action } from '../input/bindings.ts';
 import type { CameraPose } from '../render/WorldView.ts';
+import type { WeatherKind } from '../sim/weather.ts';
 import type { App } from './App.ts';
 import { ambienceView, audioMark, heardSince } from './audioAutomation.ts';
-import { clock, freezeTime, look, press, setTime } from './automation.ts';
+import { clock, freezeTime, look, press, setTime, setWeather, weatherView } from './automation.ts';
 import { botHook, craftHooks, entitiesHook, playerHook, questsHook } from './hook/player.ts';
 import { perfHook, renderHook } from './hook/render.ts';
 import { onboardingHook, saveHook, settingsHook, uiHook } from './hook/screens.ts';
@@ -16,7 +17,7 @@ import { worldHook } from './hook/world.ts';
  */
 export function installDebugHook(app: App): void {
   const api = {
-    version: 22,
+    version: 34,
     params: app.params,
     ready: () => app.ready(),
     errors: () => [...app.errors],
@@ -61,6 +62,15 @@ export function installDebugHook(app: App): void {
       freeze: (frozen = true) => {
         freezeTime(app, frozen);
         return clock(app);
+      },
+    },
+    weather: {
+      /** The weather (plan v3 « M34 »): its kind and what the client shows of it. */
+      get: () => weatherView(app),
+      /** Holds a weather for `seconds` now (null: the seed's again); returns the weather. */
+      set: (weather: WeatherKind | null, seconds = 600) => {
+        setWeather(app, weather, seconds);
+        return weatherView(app);
       },
     },
     input: {

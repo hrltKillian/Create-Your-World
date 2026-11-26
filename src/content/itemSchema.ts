@@ -222,8 +222,11 @@ export interface RecipeDef {
   readonly level?: number;
 }
 
-/** What a process burns: any fuel, charcoal-grade fuel only, or nothing. */
-export type ProcessFuel = 'any' | 'charcoal' | 'none';
+/**
+ * What a process burns: any fuel, charcoal-grade fuel only, or nothing; `rain`: nothing, but it
+ * runs only while rain or snow falls on its station (plan v3 « M34 »: a rain barrel).
+ */
+export type ProcessFuel = 'any' | 'charcoal' | 'none' | 'rain';
 
 /** A transformation inside a station block (docs « Stations de transformation »). */
 export interface ProcessDef {
@@ -250,6 +253,11 @@ export interface StationDef {
   readonly outputSlots: number;
   /** A processing station: its fire burns fuel only while one of its processes runs. */
   readonly burns?: boolean;
+  /**
+   * A processing station without fire (plan v3 « M34 »: a rain barrel): its `rain` processes run
+   * while rain or snow falls on it.
+   */
+  readonly rain?: boolean;
   /**
    * Its fire may also be kept burning without a process, for warmth and light (the campfire's
    * « Keep burning » toggle on its screen; any fuel).
