@@ -12,6 +12,7 @@ import {
 import type { SkyDef } from '../content/skySchema.ts';
 import { fnv1aBytes } from '../core/hash.ts';
 import { Atmosphere, type WeatherLook } from './Atmosphere.ts';
+import { Bloom } from './Bloom.ts';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
 import { Precipitation } from './Precipitation.ts';
@@ -74,6 +75,8 @@ export class WorldView {
   private fogNear = 0;
   private fogFar = 1;
   private underwater = false;
+  /** The bloom passes (plan v4 « M40 »; null: off). */
+  private bloom: Bloom | null = null;
   /** The sun's shadow map (null: shadows off). */
   private shadow: SunShadow | null = null;
   /** Rain and snow around the camera (filled by the client each frame). */
@@ -132,10 +135,22 @@ export class WorldView {
     if (size === (this.shadow?.size ?? 0)) return;
     const uniforms = this.materials.uniforms;
     this.shadow?.dispose();
-    this.shadow = size > 0 ? new SunShadow(size, uniforms.uTextures.value) : null;
+    this.shadow = size > 0 ? new SunShadow(size, uniforms) : null;
     uniforms.uShadowMap.value = this.shadow?.texture ?? null;
     uniforms.uShadowTexel.value = this.shadow?.texel ?? 0;
     uniforms.uShadowMatrix.value = this.shadow?.matrix ?? uniforms.uShadowMatrix.value;
+  }
+
+  /** Bloom and the frame's multisampling (plan v4 « M40 », the high preset), on or off. */
+  setBloom(on: boolean): void {
+    if (on === (this.bloom !== null)) return;
+    this.bloom?.dispose();
+    this.bloom = on ? new Bloom() : null;
+  }
+
+  /** Whether bloom is on (`setBloom`). */
+  get blooms(): boolean {
+    return this.bloom !== null;
   }
 
   /** Draw calls of the last shadow pass (0 without shadows). */
@@ -260,6 +275,13 @@ export class WorldView {
       this.shadow.update(webgl, this.chunkRoot, opaque, cutout, at, dir, this.chunks.revision);
     }
     webgl.info.reset();
+    if (this.bloom) this.bloom.render(webgl, this.draw);
+    else this.draw();
+  }
+
+  /** The world, then the hand over it, into the current target. */
+  private readonly draw = (): void => {
+    const webgl = this.renderer.webgl;
     webgl.render(this.scene, this.camera);
     const hand = this.hand;
     if (hand?.visible && hand.batch.size > 0) {
@@ -268,7 +290,7 @@ export class WorldView {
       webgl.render(hand.scene, hand.camera);
       webgl.autoClear = true;
     }
-  }
+  };
 
   /** Renders the current view into a small target and returns colour statistics. */
   capture(width = 256, height = 144): CaptureStats {
@@ -306,6 +328,7 @@ export class WorldView {
 
   dispose(): void {
     this.shadow?.dispose();
+    this.bloom?.dispose();
     this.atmosphere.sky.dispose();
     this.chunks.clear();
     this.materials.dispose();

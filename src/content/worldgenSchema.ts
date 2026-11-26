@@ -219,6 +219,8 @@ export interface BiomeDef {
   readonly fog: string;
   /** How strong the auroras are there at night, 0–1 (none by default; plan v4 « M39 »). */
   readonly aurora?: number;
+  /** Fireflies or glowing spores in the air there at night (plan v4 « M40 »): colour, how many. */
+  readonly motes?: { readonly color: string; readonly count: number };
   /**
    * Decoration: features with their chance per 8×8 cell (one candidate per cell, the chances add
    * up), and plants with their chance per surface block.

@@ -12,7 +12,9 @@ import { DropView } from './DropView.ts';
 import { EntityView } from './EntityView.ts';
 import { HandView } from './HandView.ts';
 import { buildItemModels } from './itemModels.ts';
+import { type MoteLook, Motes } from './Motes.ts';
 import { Particles } from './Particles.ts';
+import { palestTexel } from './particleArt.ts';
 import type { CameraPose, WorldView } from './WorldView.ts';
 
 /** What one frame of play shows besides the chunks (filled by the session). */
@@ -29,6 +31,8 @@ export interface PlayFrame {
   readonly avatarVisible: boolean;
   /** The player eats or drinks (plan v3 « M35 »): the hand brings it to the mouth. */
   readonly eating: boolean;
+  /** Fireflies and spores in the air around (plan v4 « M40 »), null for none. */
+  readonly motes: MoteLook | null;
   readonly targets: OverlayTargets;
 }
 
@@ -44,6 +48,7 @@ export class PlayView {
   readonly creatures: CreatureView;
   readonly drops: DropView;
   readonly particles: Particles;
+  readonly motes: Motes;
   readonly overlay: BlockOverlay;
   readonly hand: HandView;
   private readonly sim: SimView;
@@ -67,6 +72,9 @@ export class PlayView {
     // Chips and dust take the chunks' own tint colours.
     const tints = shared.uTintColors.value.map(colorTint);
     this.particles = new Particles(this.batch, sim.world, registry.tables, { tints, texels, size });
+    const pale = palestTexel(texels, size);
+    const texel = { layer: pale.layer, u: (pale.x + 0.5) / size, v: (pale.y + 0.5) / size };
+    this.motes = new Motes(this.batch, sim.world, registry.tables, texel);
     this.overlay = new BlockOverlay(shared, sim.world, registry.tables, registry.pack);
     this.hand = new HandView(shared, registry, items);
     view.scene.add(this.batch.mesh, this.overlay.group);
@@ -118,6 +126,7 @@ export class PlayView {
     this.entities.drawPlayer(frame.player, frame.alpha, frame.dt, frame.avatarVisible);
     this.drops.drawAll(this.sim.entities, pose.x, pose.y, pose.z, frame.alpha, frame.dt);
     this.particles.update(frame.dt);
+    this.motes.draw(frame.dt, eye.x, eye.y, eye.z, frame.motes);
     // Creatures last: they share the room the bounded drops and particles leave, nearest first.
     const reach = this.view.reach;
     this.creatures.drawAll(this.sim.entities, pose.x, pose.z, reach, frame.alpha, frame.dt);

@@ -1,6 +1,5 @@
 import {
   BackSide,
-  type DataArrayTexture,
   DepthTexture,
   DoubleSide,
   LessEqualCompare,
@@ -16,6 +15,7 @@ import {
   WebGLRenderTarget,
 } from 'three';
 import { shadowFragment, shadowVertex } from './shaders/shadow.glsl.ts';
+import type { VoxelUniforms } from './voxelMaterial.ts';
 
 /**
  * The sun's shadow map (plan v4 « M37 », decision 28): the chunk meshes around the camera drawn
@@ -98,7 +98,8 @@ export class SunShadow {
   /** Where the map was last drawn around (NaN: never). */
   private readonly drawnAt = new Vector3(Number.NaN, 0, 0);
 
-  constructor(size: number, textures: DataArrayTexture) {
+  /** `uniforms`: the chunks' (textures, time and wind: plants sway in their shadows too). */
+  constructor(size: number, uniforms: VoxelUniforms) {
     const extent = shadowExtent(size);
     this.size = size;
     this.texel = 1 / size;
@@ -117,7 +118,7 @@ export class SunShadow {
       new ShaderMaterial({
         vertexShader: shadowVertex,
         fragmentShader: shadowFragment,
-        uniforms: { uTextures: { value: textures }, uTime: { value: 0 } },
+        uniforms: { uTextures: uniforms.uTextures, uTime: uniforms.uTime, uWind: uniforms.uWind },
         defines,
         side,
       });

@@ -328,6 +328,7 @@ describe('play feel', () => {
         firstPerson: true,
         avatarVisible: false,
         eating: false,
+        motes: null,
         targets: { hit: createRayHit(), ghost: { x: 0, y: 0, z: 0, state: -1, upper: -1 } },
       });
     const settle = () => rig.update(player, 1, sim.world, registry.tables, 1 / 60);

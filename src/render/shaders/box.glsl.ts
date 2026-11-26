@@ -104,7 +104,7 @@ void main() {
     lightCurve(vLight.y) * uTorchTint * uFlicker * (0.8 + 0.2 * vNormal.y)
   );
   light = max(light, vec3(uMinLight));
-  vec3 lit = mix(base * light, base, vFx.x);
+  vec3 lit = mix(base * light, base * glowGain(lightCurve(vLight.x * uDaylight)), vFx.x);
   gl_FragColor = vec4(mix(lit, vec3(0.85, 0.08, 0.05), vFx.y * 0.6), 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

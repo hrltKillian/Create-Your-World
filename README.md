@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M40 — Veyra's glowing nights** (plan v4, `docs/conception.md` « M40 »). `npm run dev`, then open
+`http://localhost:5173/?skipMenu=1`.
+
+- **At night** glowing mushrooms, plants, lamps and creature spots shine brighter; teal spores
+  drift in the Capwood, fireflies over the meadows, forests and marshes.
+- **Leaves** light up with the sun behind them; **storms** bend the plants harder.
+- **Bloom** (Settings → Bloom, on with the High preset): bright lights glow softly, with 4×
+  anti-aliasing.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m40`.
+
+### Earlier milestones
+
 **M39 — Veyra's sky** (plan v4, `docs/conception.md` « M39 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 

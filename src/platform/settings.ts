@@ -3,8 +3,8 @@ import { QUALITIES, QUALITY_PRESETS, type Quality, SHADOW_SIZES } from '../rende
 
 /**
  * Player settings (docs « Settings »): graphics (render distance, field of view, resolution,
- * particles, shadows, view bob; a quality preset sets the render distance, the resolution, the
- * particles and the shadows at once), the controls (mouse, crouch mode, key bindings), the audio buses and the
+ * particles, shadows, bloom, view bob; a quality preset sets the render distance, the
+ * resolution, the particles, the shadows and bloom at once), the controls (mouse, crouch mode, key bindings), the audio buses and the
  * interface scale. Kept in `localStorage` under SETTINGS_KEY as versioned JSON; a missing, blocked
  * or unreadable store gives the defaults, and every field is checked on its own: a bad or missing
  * value (a field an older version did not store) falls back to its default.
@@ -60,6 +60,8 @@ export interface Settings {
   readonly particles: boolean;
   /** The sun's shadow map: texels a side, 0 for none (one of SHADOW_SIZES). */
   readonly shadows: number;
+  /** Bloom round what shines, with a multisampled frame (plan v4 « M40 »). */
+  readonly bloom: boolean;
   readonly viewBob: boolean;
   /** Brightness of the dark (plan v3 « M28 »): 0 the plain light curve, 1 the brightest. */
   readonly gamma: number;
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pixelRatio: MEDIUM.pixelRatio,
   particles: MEDIUM.particles,
   shadows: MEDIUM.shadows,
+  bloom: MEDIUM.bloom,
   viewBob: true,
   gamma: 0,
   sensitivity: 1,
@@ -126,6 +129,7 @@ export function readSettings(data: unknown): Settings {
     pixelRatio: oneOf(PIXEL_RATIOS, d.pixelRatio, def.pixelRatio),
     particles: flag(d.particles, def.particles),
     shadows: oneOf(SHADOW_SIZES, d.shadows, def.shadows),
+    bloom: flag(d.bloom, def.bloom),
     viewBob: flag(d.viewBob, def.viewBob),
     gamma: clamped(d.gamma, 0, 1, def.gamma),
     sensitivity: clamped(
@@ -158,7 +162,7 @@ export function patchSettings(settings: Settings, patch: SettingsPatch): Setting
   });
 }
 
-/** The quality preset the settings match (render distance, resolution, particles, shadows), else null. */
+/** The quality preset the settings' graphics match, else null. */
 export function qualityOf(settings: Settings): Quality | null {
   return (
     QUALITIES.find((quality) => {
@@ -167,16 +171,17 @@ export function qualityOf(settings: Settings): Quality | null {
         preset.renderDistance === settings.renderDistance &&
         preset.pixelRatio === settings.pixelRatio &&
         preset.particles === settings.particles &&
-        preset.shadows === settings.shadows
+        preset.shadows === settings.shadows &&
+        preset.bloom === settings.bloom
       );
     }) ?? null
   );
 }
 
-/** The settings with a quality preset's render distance, resolution, particles and shadows. */
+/** The settings with a quality preset's graphics: distance, resolution, particles, shadows, bloom. */
 export function withQuality(settings: Settings, quality: Quality): Settings {
-  const { renderDistance, pixelRatio, particles, shadows } = QUALITY_PRESETS[quality];
-  return { ...settings, renderDistance, pixelRatio, particles, shadows };
+  const { renderDistance, pixelRatio, particles, shadows, bloom } = QUALITY_PRESETS[quality];
+  return { ...settings, renderDistance, pixelRatio, particles, shadows, bloom };
 }
 
 /** The stored text of the settings (with the schema version). */

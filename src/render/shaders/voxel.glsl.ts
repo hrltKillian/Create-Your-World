@@ -28,6 +28,8 @@ float lightCurve(float level) {
 export const VOXEL_DECODE = /* glsl */ `
 in uvec2 aPacked;
 uniform float uTime;
+/** Wind: 1 calm, more in a storm (plan v4 « M40 »); plants sway that much further. */
+uniform float uWind;
 
 uint voxelFace() {
   return (aPacked.y >> 9u) & 7u;
@@ -71,9 +73,9 @@ vec2 voxelUv(vec3 pos) {
 vec3 voxelSway(vec3 pos) {
   if ((voxelFlags() & 1u) != 0u && voxelFace() > 5u && voxelAo() >= 2u) {
     vec3 origin = mod(modelMatrix[3].xyz, 256.0);
-    float phase = uTime * 1.7 + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
-    pos.x += 0.05 * sin(phase);
-    pos.z += 0.05 * cos(phase * 0.8);
+    float phase = uTime * (1.2 + 0.5 * uWind) + (origin.x + pos.x) * 0.7 + (origin.z + pos.z) * 0.5;
+    pos.x += 0.05 * uWind * sin(phase);
+    pos.z += 0.05 * uWind * cos(phase * 0.8);
   }
   return pos;
 }
@@ -164,6 +166,9 @@ const float WET_DARKEN = 0.25;
 /** Lava (plan v4 « M38 »): its crust drifts this many textures a second, its glow pulses. */
 const vec2 LAVA_DRIFT = vec2(0.021, 0.013);
 const float LAVA_PULSE = 0.25;
+/** Glowing plants glow this share of their texels; leaves let this much of the sun through. */
+const float PLANT_GLOW = 0.5;
+const float LEAF_GLOW = 0.6;
 /** Water: the sun's glint on its surface; caustics' share of the sun's light under water. */
 const float WATER_ROUGHNESS = 0.03;
 const float CAUSTICS = 1.4;
@@ -205,7 +210,8 @@ void main() {
   vec3 base = texel.rgb;
   #if defined(ALPHA_CUTOUT) || defined(TRANSLUCENT)
   base *= vTint;
-  float mask = 0.0;
+  // A glowing plant (emissive cutout faces) glows over most of it.
+  float mask = (vFlags & 2u) != 0u ? PLANT_GLOW : 0.0;
   #else
   // Opaque layers use alpha as a mask: tint mask on tinted faces, emissive mask on emissive ones.
   float mask = texel.a;
@@ -242,10 +248,14 @@ void main() {
   vec3 view = normalize(cameraPosition - vWorld);
   float roughness = liquid ? WATER_ROUGHNESS : mix(material.b, WET_ROUGHNESS, wet);
   vec3 color = base * light + sunGloss(n, view, roughness, lit) * skyLevel;
+  #ifdef ALPHA_CUTOUT
+  // Leaves glow with the sun behind them.
+  if (cube) color += base * uSunLight * (pow(max(dot(-view, uSunDir), 0.0), 4.0) * LEAF_GLOW * open);
+  #endif
   if ((vFlags & 2u) != 0u) {
-    // Lava's glow pulses slowly, place by place.
+    // Lava's glow pulses slowly, place by place; all glows shine brighter in the dark.
     float pulse = liquid ? 1.0 + LAVA_PULSE * sin(uTime * 1.3 + vWorld.x * 0.7 + vWorld.z * 0.5) : 1.0;
-    color = mix(color, base * pulse, mask);
+    color = mix(color, base * pulse * glowGain(skyLevel), mask);
   }
   float alpha = uOpacity;
   #ifdef TRANSLUCENT

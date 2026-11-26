@@ -3,16 +3,24 @@ import type { ContentPack } from './schema.ts';
 type AddIssue = (path: string, message: string) => void;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+/** The most motes a biome may ask for (render/Motes.ts draws at most as many). */
+export const MAX_MOTES = 64;
 const within = (v: number, min: number, max: number) => Number.isFinite(v) && v >= min && v <= max;
 
 /**
  * The sky (plan v4 « M39 »): keys by ascending hour within a day, colours, star visibility, one or
- * two moons with a positive period, sizes in degrees; the biomes' aurora strengths in 0…1.
+ * two moons with a positive period, sizes in degrees; the biomes' aurora strengths in 0…1 and
+ * their motes (« M40 »).
  */
 export function validateSky(pack: ContentPack, add: AddIssue): void {
   (pack.biomes ?? []).forEach((biome, i) => {
     if (biome.aurora !== undefined && !within(biome.aurora, 0, 1))
       add(`biomes[${i}].aurora`, `must be from 0 to 1 (got ${biome.aurora})`);
+    const motes = biome.motes;
+    if (motes && !HEX.test(motes.color))
+      add(`biomes[${i}].motes.color`, `"${motes.color}" is not a #rrggbb colour`);
+    if (motes && !(Number.isInteger(motes.count) && within(motes.count, 1, MAX_MOTES)))
+      add(`biomes[${i}].motes.count`, `must be a whole number from 1 to ${MAX_MOTES}`);
   });
   const sky = pack.sky;
   if (!sky) return;

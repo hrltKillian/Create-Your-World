@@ -216,6 +216,8 @@ function writeFaces(
   art: FaceArt,
 ): void {
   const s = state.id;
+  // A plant that gives light glows whole (plan v4 « M40 »: Veyra's bioluminescent flora).
+  const glows = block.shape === 'cross' && (block.light?.emit ?? 0) > 0;
   for (let face = 0; face < 6; face++) {
     const { key, rotate } = faceTexture(textures, face, state.props);
     tables.faceLayer[s * 6 + face] = key ? (art.textureLayer.get(key) ?? 0) : 0;
@@ -225,7 +227,7 @@ function writeFaces(
       block.pass !== 'opaque' || (key && art.tintable.has(key)) ? tint : TINT_NONE;
     tables.faceFlags[s * 6 + face] =
       (rotate ? FACEFLAG_UV_ROTATE : 0) |
-      (key && art.emissive.has(key) ? FACEFLAG_EMISSIVE : 0) |
+      ((key && art.emissive.has(key)) || glows ? FACEFLAG_EMISSIVE : 0) |
       (block.tint === 'foliage' || block.shape === 'cross' ? FACEFLAG_SWAY : 0);
   }
 }

@@ -272,6 +272,7 @@ describe('creature view budget', () => {
       firstPerson: true,
       avatarVisible: false,
       eating: false,
+      motes: null,
       targets: { hit: createRayHit(), ghost: { x: 0, y: 0, z: 0, state: -1, upper: -1 } },
     });
     // Boxes around the drop (instances are relative to the camera section, origin (0, 64, 0)).

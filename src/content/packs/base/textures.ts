@@ -375,7 +375,7 @@ export const textures = [
   {
     key: 'tex:glowcap',
     pattern: 'ore',
-    palette: ['#3b2b4d', '#4a3860', '#5a4673', '#7fe0c8', '#d4fff2'],
+    palette: ['#3b2b4d', '#4a3860', '#5a4673', '#1fb894', '#7de8c8'],
     seed: 99,
     alpha: 'emissiveMask',
   },

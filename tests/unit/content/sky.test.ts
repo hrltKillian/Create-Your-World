@@ -34,3 +34,15 @@ describe('the sky of a pack (plan v4 « M39 »)', () => {
     expect(issues({ ...basePack, biomes })).toContain('biomes[0].aurora');
   });
 });
+
+describe('biome motes (plan v4 « M40 »)', () => {
+  it('validates the base biomes, and refuses bad colours and counts', () => {
+    expect(basePack.biomes!.some((biome) => biome.motes)).toBe(true);
+    const biomes = basePack.biomes!.map((biome, i) =>
+      i === 0 ? { ...biome, motes: { color: 'teal', count: 500 } } : biome,
+    );
+    const found = issues({ ...basePack, biomes });
+    expect(found).toContain('biomes[0].motes.color');
+    expect(found).toContain('biomes[0].motes.count');
+  });
+});

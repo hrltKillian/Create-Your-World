@@ -44,6 +44,12 @@ vec3 skyShade(float level, vec3 n, float lit, float occlusion) {
   return level * (ambient + direct);
 }
 
+// What glows (emissive texels, glowing parts) shines brighter in the dark (plan v4 « M40 »): its
+// gain under a sky light 'level' (after the light curve).
+float glowGain(float level) {
+  return 1.0 + 0.3 * (1.0 - level);
+}
+
 // The sun's highlight on a glossy surface (Blinn-Phong): roughness 0 a mirror, 1 matte.
 vec3 sunGloss(vec3 n, vec3 view, float roughness, float lit) {
   float gloss = 1.0 - roughness;

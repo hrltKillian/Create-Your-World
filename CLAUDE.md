@@ -458,6 +458,12 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`SKY_GRADIENT`: `skyGradient`, `skyHaze`), `render/Atmosphere.ts` (`WeatherLook`, palette,
     weather, biome air `setAir`, light, fog; WorldView delegates to it), `WorldView.setTime(hour,
     daylight, days)`; `core/ease.ts` (`approach`);
+  - night (plan v4 « M40 »): `glowGain` (lighting.glsl.ts) brightens what glows in the dark, a
+    light-emitting cross plant's faces are emissive (rawTables `writeFaces`), back-lit leaves,
+    storm wind `uWind` (also in the shadow pass); motes `render/Motes.ts` (`Motes`, `nightShare`,
+    `BiomeDef.motes`, `MAX_MOTES` in validateSky.ts; `PlayFrame.motes` from GameSession); bloom
+    `render/Bloom.ts` (half-float MSAA frame, mip chain, ACES composite; `Settings.bloom`, the high
+    preset; `WorldView.setBloom`/`blooms`);
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -588,6 +594,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Night checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m40` (`selftest/m40.ts`): a
+  glowing wall at midnight, the biome's motes by night only, bloom on the high preset.
 - Sky checks of plan v4: `?seed=7&rd=4&fixedStep=1&selftest=m0,m39` (the auroras' biome at
   midnight) and `?worldType=flat&fixedStep=1&selftest=m0,m39` (a storm's clouds).
 - Water checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m38` (`selftest/m38.ts`): a

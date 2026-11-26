@@ -100,6 +100,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b25a', foliage: '#64a046', water: '#3a78c6' },
     fog: '#9cc0dc',
+    motes: { color: '#a8f4ff', count: 18 },
     // Its lakes teem with fish (plan v3 « M33 »).
     fish: 'loot:fish_basin',
     features: [{ feature: 'feature:willow', chance: 0.1 }],
@@ -125,6 +126,7 @@ export const biomes = [
     liquid: 'block:foul_water',
     tints: { grass: '#7d8c45', foliage: '#6b7a3c', water: '#6e7a3f' },
     fog: '#9aa27c',
+    motes: { color: '#b9ff6e', count: 40 },
     features: [{ feature: 'feature:podtree', chance: 0.14 }],
     plants: [
       { block: 'block:reed', chance: 0.08 },
@@ -223,6 +225,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#5f7a4c', foliage: '#4f6a40', water: '#3a6aa8' },
     fog: '#7f86a0',
+    motes: { color: '#7fe0c8', count: 48 },
     groves: { scale: 90, contrast: 0.5 },
     features: [{ feature: 'feature:giant_mushroom', chance: 0.3 }],
     plants: [
@@ -243,6 +246,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#6fa84a', foliage: '#4f8f36', water: '#3a72c2' },
     fog: '#9dbdd6',
+    motes: { color: '#ffd66b', count: 28 },
     groves: { scale: 120, contrast: 0.9 },
     features: [
       { feature: 'feature:conifer', chance: 0.55 },
@@ -265,6 +269,7 @@ export const biomes = [
     liquid: 'block:fresh_water',
     tints: { grass: '#86b44f', foliage: '#5f9a3e', water: '#3f76c4' },
     fog: '#9fc2de',
+    motes: { color: '#ffe48a', count: 24 },
     groves: { scale: 100, contrast: 0.8 },
     features: [
       { feature: 'feature:broadleaf', chance: 0.06 },
