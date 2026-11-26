@@ -7,11 +7,13 @@
   display: flex;
   padding: 24px 16px;
   overflow: auto;
-  /* Dusk over green hills: an amber glow up right, meadow light from below. */
+  /*
+   * Veyra's night sky turns behind the main menu (plan v4 « M43 », Game.titleSky): a veil darker
+   * towards the bottom keeps the panels readable.
+   */
   background:
-    radial-gradient(120% 55% at 50% 112%, rgba(104, 163, 94, 0.3), transparent 62%),
-    radial-gradient(70% 45% at 88% -6%, rgba(232, 176, 74, 0.18), transparent 70%),
-    linear-gradient(180deg, #152630 0%, var(--c-bg) 72%);
+    radial-gradient(90% 60% at 50% 110%, rgba(6, 10, 14, 0.85), transparent 70%),
+    linear-gradient(180deg, rgba(6, 10, 16, 0.1) 0%, rgba(6, 10, 14, 0.62) 78%);
 }
 
 /* Over a paused world: the world stays visible behind a veil. */
@@ -39,12 +41,13 @@
 }
 
 .menu-panel {
+  backdrop-filter: var(--glass-blur);
   width: 100%;
   padding: 22px 26px 24px;
   border: 1px solid rgba(232, 176, 74, 0.22);
   border-radius: 14px 14px 14px 5px;
-  background: var(--c-panel);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  background: var(--glass);
+  box-shadow: var(--glass-edge);
   text-align: left;
 }
 
@@ -155,9 +158,18 @@
 
 /* Buttons: the accent `.button` from main.css, and these variants. */
 .button.secondary {
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background: var(--metal);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   color: var(--c-ink);
+}
+
+.button.secondary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px var(--c-sheen-soft),
+    0 0 14px rgba(127, 224, 200, 0.16);
 }
 
 .button.ghost {

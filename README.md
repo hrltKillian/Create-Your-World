@@ -138,6 +138,16 @@ of them:
 
 ## Try this milestone
 
+**M43 — The colony's interface** (plan v4, `docs/conception.md` « M43 »). `npm run dev`, then open
+`http://localhost:5173/`.
+
+- **The title screen** opens on Veyra's night sky: auroras rising, the ringed giant, turning stars.
+- **Panels** are smoked glass with a teal rim, **buttons** brushed metal, **slots** pressed in; the
+  slot in hand glows amber; screens slide in.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m43`; `npx playwright test e2e/hud.spec.ts`.
+
+### Earlier milestones
+
 **M42 — Modelled, surreal items** (plan v4, `docs/conception.md` « M42 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1` and press E.
 
