@@ -2,12 +2,12 @@ import { h } from './h.ts';
 import { type InfoLine, lineElement, lineText } from './symbols.ts';
 
 /**
- * Pixels from the pointer to the bubble: to its right, clear of the cursor's arrow (it points up
- * and to the left from the pointer and runs about 20 pixels down and right); to its left when it
- * flips, where no arrow stands.
+ * Pixels from the pointer to the bubble: to its right, clear of the cursor (an arrow points up and
+ * to the left from the pointer and runs about 20 pixels down and right; a hand about 16 to the
+ * right); to its left when it flips, where no cursor stands.
  */
-const RIGHT = 24;
-const LEFT = 10;
+const RIGHT = 28;
+const LEFT = 12;
 /** The bubble's top, a little above the pointer: beside it, not under it. */
 const RISE = 6;
 /** Pixels kept free at the edges of the window. */
@@ -58,6 +58,17 @@ export class Tooltip {
     const bottom = (globalThis.innerHeight ?? Number.POSITIVE_INFINITY) - EDGE;
     const left = x + RIGHT + width > right ? Math.max(EDGE, x - LEFT - width) : x + RIGHT;
     const top = Math.max(EDGE, Math.min(y - RISE, bottom - height));
+    this.place(left, top);
+    // Whatever zoom the interface puts the anchor under, it lands where it is meant to: in
+    // viewport pixels, measured (an anchor zoomed twice once sat far off the pointer).
+    const at = this.element.getBoundingClientRect?.();
+    if (at && left > EDGE && Math.abs(at.left - Math.round(left)) > 0.5) {
+      const k = at.left / Math.round(left);
+      this.place(left / k, top / k);
+    }
+  }
+
+  private place(left: number, top: number): void {
     this.element.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }
 

@@ -23,7 +23,7 @@ export class ContainerScreen {
   private readonly actions: ScreenActions;
   private readonly base: number;
   /** Inventory slots (hotbar then bag). */
-  private readonly slotCount: number;
+  private readonly inventorySize: () => number;
   private readonly title: HTMLElement;
   private readonly chest: HTMLElement;
   private slots: Slots = [];
@@ -33,7 +33,7 @@ export class ContainerScreen {
     this.board = board;
     this.actions = deps.actions;
     this.base = deps.openBase;
-    this.slotCount = deps.slotCount;
+    this.inventorySize = deps.inventorySize;
     this.element = board.element;
     this.title = h('h2');
     this.chest = h('div', { class: 'container-slots' });
@@ -91,7 +91,7 @@ export class ContainerScreen {
 
   /** One Shift+click per filled bag slot, each into the container. */
   private readonly storeAll = (): void => {
-    this.sendEach(HOTBAR_SLOTS, this.slotCount);
+    this.sendEach(HOTBAR_SLOTS, this.inventorySize());
   };
 
   private sendEach(from: number, to: number): void {

@@ -361,6 +361,11 @@
   overflow-y: auto;
 }
 
+/* The inventory scrolls too once carrying points and frames grow it past the panel. */
+.screen-slots .bag-inventory {
+  overflow-y: auto;
+}
+
 .container-slots {
   flex: 1;
   align-items: flex-start;
@@ -370,7 +375,8 @@
 
 /*
  * The hovered item's bubble (one for every screen, over them all: plan v5 « M46 »), placed in
- * viewport pixels like the cursor stack.
+ * viewport pixels. Its anchor is a child of the play layer, whose children take the interface's
+ * zoom: it takes none, and the bubble inside takes the interface's zoom.
  */
 .tooltip-anchor {
   position: fixed;
@@ -378,7 +384,10 @@
   top: 0;
   z-index: 20;
   pointer-events: none;
-  zoom: var(--ui-unscale, 1);
+}
+
+.play-layer > .tooltip-anchor {
+  zoom: 1;
 }
 
 .tooltip-anchor[hidden] {
