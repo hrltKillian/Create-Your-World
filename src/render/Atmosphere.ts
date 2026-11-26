@@ -1,4 +1,5 @@
 import { Color, type Fog } from 'three';
+import type { LiquidDef } from '../content/schema.ts';
 import type { SkyDef } from '../content/skySchema.ts';
 import { approach } from '../core/ease.ts';
 import { Sky } from './Sky.ts';
@@ -26,10 +27,20 @@ const FLASH_SKY = 0.5;
 /** Thick fog pulls the fog's start and end this much closer. */
 const FOG_NEAR = 0.85;
 const FOG_FAR = 0.65;
-/** Underwater fog (docs « Ciel et brouillard »): Veyra's teal water (plan v4 « M38 »), 1–20 blocks. */
-const WATER_FOG = new Color('#2a7486');
-const WATER_FOG_NEAR = 1;
-const WATER_FOG_FAR = 20;
+/** The fog of a liquid the eye is in (`LiquidDef.fog`), and whether that liquid glows. */
+export type LiquidView = NonNullable<LiquidDef['fog']> & { readonly glows: boolean };
+
+/**
+ * The fog of a liquid that sets none (docs « Ciel et brouillard »): Veyra's teal water (plan v4
+ * « M38 »), 1–20 blocks, the sun's caustics on the blocks.
+ */
+export const WATER_VIEW: LiquidView = {
+  color: '#2a7486',
+  near: 1,
+  far: 20,
+  caustics: true,
+  glows: false,
+};
 /** The biome's air tints the horizon and the fog this much, the zenith less (plan v4 « M39 »). */
 const AIR_HORIZON = 0.35;
 const AIR_ZENITH = 0.12;
@@ -61,6 +72,8 @@ export class Atmosphere {
   private daylight = 1;
   private windPhase = 0;
   private underwater = false;
+  /** The liquid the eye is in: its fog's colour, start and end, and whether it glows. */
+  private readonly liquid = { color: new Color(), near: 1, far: 20, glows: false };
   /** The biome's air: its colour and auroras now, eased towards those of the biome around. */
   private readonly air = { tint: new Color(1, 1, 1), share: 0, aurora: 0 };
   private readonly airTarget = { tint: new Color(1, 1, 1), hex: '', share: 0, aurora: 0 };
@@ -109,9 +122,16 @@ export class Atmosphere {
     air.aurora = approach(air.aurora, airTarget.aurora, step);
   }
 
-  setUnderwater(underwater: boolean): void {
-    this.underwater = underwater;
-    this.uniforms.uUnderwater.value = underwater ? 1 : 0;
+  /** The liquid the eye is in (`null` out of liquids): its fog, the caustics on the blocks. */
+  setUnderwater(view: LiquidView | null): void {
+    this.underwater = view !== null;
+    this.uniforms.uUnderwater.value = view?.caustics ? 1 : 0;
+    if (!view) return;
+    const liquid = this.liquid;
+    if (liquid.color.getHexString() !== view.color.slice(1)) liquid.color.set(view.color);
+    liquid.near = view.near;
+    liquid.far = view.far;
+    liquid.glows = view.glows;
   }
 
   /** The sky's light on the blocks: the hour's under the clouds, a flash on top. */
@@ -166,10 +186,12 @@ export class Atmosphere {
       this.cloudLight,
     );
     if (this.underwater) {
-      // Darker water at night, never black.
-      fog.color.copy(WATER_FOG).multiplyScalar(0.2 + 0.8 * uniforms.uDaylight.value);
-      fog.near = WATER_FOG_NEAR;
-      fog.far = WATER_FOG_FAR;
+      // A liquid's own fog: darker at night unless it glows (lava), never black.
+      const liquid = this.liquid;
+      fog.color.copy(liquid.color);
+      if (!liquid.glows) fog.color.multiplyScalar(0.2 + 0.8 * uniforms.uDaylight.value);
+      fog.near = liquid.near;
+      fog.far = liquid.far;
     } else {
       fog.color.copy(colors.horizon);
       // The weather's fog closes in (thick fog: a third of the render distance).

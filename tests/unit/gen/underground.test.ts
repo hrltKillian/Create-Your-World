@@ -135,7 +135,8 @@ describe('caves', () => {
     }
     expect(magma).toBeGreaterThan(0);
     expect(registry.tables.emit[ctx.magma]).toBe(15);
-    expect(registry.blockDef(ctx.magma).heat).toBeDefined();
+    // No heat around it: it burns only what is in it (the reference game).
+    expect(registry.blockDef(ctx.magma).heat).toBeUndefined();
     expect(registry.blockDef(ctx.magma).contact?.ignites).toBe(true);
     // A source (level 0): it stays put until something changes next to it.
     expect(registry.prop(ctx.magma, 'level')).toBe('0');

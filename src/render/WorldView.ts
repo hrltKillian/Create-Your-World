@@ -11,7 +11,7 @@ import {
 } from 'three';
 import type { SkyDef } from '../content/skySchema.ts';
 import { fnv1aBytes } from '../core/hash.ts';
-import { Atmosphere, type WeatherLook } from './Atmosphere.ts';
+import { Atmosphere, type LiquidView, type WeatherLook } from './Atmosphere.ts';
 import { Bloom } from './Bloom.ts';
 import { ChunkMeshes } from './ChunkMeshes.ts';
 import type { HandView } from './HandView.ts';
@@ -250,10 +250,10 @@ export class WorldView {
     this.atmosphere.setAir(tint, aurora);
   }
 
-  /** The camera is inside a liquid: short teal fog, no sky, caustics. */
-  setUnderwater(underwater: boolean): void {
-    this.underwater = underwater;
-    this.atmosphere.setUnderwater(underwater);
+  /** The camera is inside a liquid (`null`: out of liquids): its fog, no sky, caustics in water. */
+  setUnderwater(view: LiquidView | null): void {
+    this.underwater = view !== null;
+    this.atmosphere.setUnderwater(view);
   }
 
   frame(dt: number): void {

@@ -337,6 +337,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `LiquidDef.hardens` where another liquid touches it, `sounds.hardens`; drops burn in it);
     fire `SurvivalState.burnTicks` (`contact.ignites` relights it for `balance.fire` seconds,
     `Contact.douses`: feet in a liquid that does not burn; causes `lava`, `fire`; `#hud-fire`);
+    contact as in the reference game (`touch`, sim/environment.ts): every block the body's box
+    overlaps, feet to head, none beside it, plus the block stood on unless crouching (magma); lava,
+    magma and fire give no heat around them;
   - progression (plan v3 « M22 »): `sim/progression.ts` (`SKILLS`, `levelOf`/`xpToNext`/
     `xpIntoLevel`, `pointsLeft`, `gainXp` (events `xpGained`, `levelUp`), the skills' effects
     `healthMax` (`SurvivalState.healthMax`), `staminaMax`, `metabolismFactor` (`Exposure`),
@@ -491,7 +494,10 @@ They never override the rules above (determinism, zero allocations in hot loops,
     (`advanceWind`, uniform `uWindPhase`: never the clock × the wind); one hovered-item bubble for
     every screen (`ScreenDeps.tooltip`, `#ui-tooltip`, over the screens); a block's
     `wallTextures` (the wall torch's `wallTorch` pattern); `LiquidDef.moveFactor`/`drowns`
-    (`tables.liquidMove`/`drowns`, `Body.liquidMove`/`headDrowns`); camera modes `CAMERA_MODES`
+    (`tables.liquidMove`/`drowns`, `Body.liquidMove`/`headDrowns`), `swim` (`tables.swims`,
+    `Body.swims`: no sprint or swimming in lava, the reference game's) and `fog` (the eye's view in
+    it: `LiquidView`, `WATER_VIEW` in render/Atmosphere.ts, `WorldView.setUnderwater(view | null)`;
+    lava's opaque, 1.4 blocks); camera modes `CAMERA_MODES`
     (`first`, `back`, `front`; V turns through them); the Logbook's `recipe` pane, placed under the
     screen's inventory, its craft buttons out of its scroll;
   - lightning and fire (plan v5 « M47 », the reference game's rules): the fire block

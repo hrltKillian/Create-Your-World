@@ -195,30 +195,48 @@ describe('player physics', () => {
     expect(run).toBeLessThan(PHYSICS.sprint);
   });
 
-  it('wades through lava at half the speed of water, and its head never drowns (plan v5 « M46 »)', () => {
-    const pace = (liquid: number) => {
+  it('drags through lava as in the reference game: slow, no swimming, its head never drowns', () => {
+    const pool = (liquid: number, depth: number) => {
       const world = flatWorld();
-      for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 64, z, liquid);
-      for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 63, z, STONE);
+      for (let x = -8; x < 8; x++)
+        for (let z = -30; z < 8; z++) {
+          world.setBlock(x, 63, z, STONE);
+          for (let y = 64; y < 64 + depth; y++) world.setBlock(x, y, z, liquid);
+        }
+      return world;
+    };
+    const pace = (liquid: number, sprint: boolean) => {
+      const world = pool(liquid, 1);
       const body = createBody(0.5, 64, 0.5);
       for (let i = 0; i < 10; i++) stepBody(body, idle, world, registry.tables, DT, out);
       const z0 = body.z;
       for (let i = 0; i < 30; i++)
-        stepBody(body, { ...idle, forward: 1 }, world, registry.tables, DT, out);
+        stepBody(body, { ...idle, forward: 1, sprint }, world, registry.tables, DT, out);
       return z0 - body.z;
     };
-    // Half water's top speed (the first ticks' speeding up keeps the ratio a little above).
-    const ratio = pace(LAVA) / pace(WATER);
-    expect(ratio).toBeGreaterThan(0.45);
-    expect(ratio).toBeLessThan(0.56);
-    const world = flatWorld();
-    for (let y = 64; y < 70; y++) world.setBlock(0, y, 0, LAVA);
-    const body = createBody(0.5, 64, 0.5);
-    stepBody(body, idle, world, registry.tables, DT, out);
+    // About 0.8 block a second (the reference game's lava), sprinting or not; water far faster.
+    expect(pace(LAVA, false)).toBeGreaterThan(0.6);
+    expect(pace(LAVA, false)).toBeLessThan(0.9);
+    expect(pace(LAVA, true)).toBeCloseTo(pace(LAVA, false), 5);
+    expect(pace(WATER, true)).toBeGreaterThan(pace(LAVA, true) * 4);
+    // Deep in lava a sprint looking down never dives along the view: the body only sinks slowly.
+    const deep = pool(LAVA, 8);
+    const body = createBody(0.5, 69, 0.5);
+    for (let i = 0; i < 30; i++)
+      stepBody(
+        body,
+        { ...idle, forward: 1, sprint: true, pitch: -1.2 },
+        deep,
+        registry.tables,
+        DT,
+        out,
+      );
+    expect(body.swims).toBe(false);
+    expect(69 - body.y).toBeLessThan(1.4);
     expect([body.headInWater, body.headDrowns]).toEqual([true, false]);
-    for (let y = 64; y < 70; y++) world.setBlock(0, y, 0, WATER);
-    stepBody(body, idle, world, registry.tables, DT, out);
-    expect([body.headInWater, body.headDrowns]).toEqual([true, true]);
+    const water = pool(WATER, 8);
+    stepBody(body, idle, water, registry.tables, DT, out);
+    expect([body.headInWater, body.headDrowns, body.swims]).toEqual([true, true, true]);
   });
 
   it('swims fast along the view when sprinting under water: dives and rises with it', () => {

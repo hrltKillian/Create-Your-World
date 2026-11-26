@@ -292,7 +292,9 @@ describe('content validation of the balance', () => {
     const heat = (key: string) => registry.tables.heat[registry.stateId(key)];
     expect(heat('block:campfire[lit=1]')).toBeGreaterThan(0);
     expect(heat('block:campfire[lit=0]')).toBe(0);
-    expect(heat('block:magma')).toBeGreaterThan(0);
+    // Magma, lava and fire give no heat around them (the reference game: they hurt only what is in
+    // or on them).
+    expect(heat('block:magma')).toBe(0);
     const kiln = registry.stateId('block:kiln[facing4=n,lit=1]');
     const lit = registry.blockDef(kiln).whenState!.lit!.heat!;
     expect([heat('block:kiln[facing4=n,lit=1]'), registry.tables.heatRadius[kiln]]).toEqual([

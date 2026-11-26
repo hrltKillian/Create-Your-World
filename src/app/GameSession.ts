@@ -2,6 +2,7 @@ import type { Registry } from '../content/registry.ts';
 import { clampPitch } from '../core/angles.ts';
 import type { InputManager } from '../input/InputManager.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
+import { type LiquidView, WATER_VIEW } from '../render/Atmosphere.ts';
 import { CameraRig } from '../render/CameraRig.ts';
 import type { EntityView } from '../render/EntityView.ts';
 import { type MeshBudgets, MeshScheduler } from '../render/MeshScheduler.ts';
@@ -63,6 +64,8 @@ export class GameSession {
   readonly weather: WeatherFeel;
   /** The motes of the biome around the camera (plan v4 « M40 »). */
   private readonly motes = { color: '#ffffff', count: 0, night: 0 };
+  /** Each liquid state's view, made once (its fog and glow). */
+  private readonly liquidViews = new Map<number, LiquidView>();
   readonly entities: EntityView;
   /** The creature or block under the crosshair and the placement ghost, from the client's eye. */
   readonly aim: ClientAim;
@@ -356,7 +359,22 @@ export class GameSession {
     motes.count = def?.motes?.count ?? 0;
     motes.night = nightShare(daylightAt(hour));
     this.weather.frame(dt, pose);
-    this.view.setUnderwater(isLiquid(sim.world, this.registry.tables, pose.x, pose.y, pose.z));
+    this.view.setUnderwater(this.liquidView(pose));
+  }
+
+  /** What the eye sees in the liquid it is in, if any: the liquid's own fog (lava's is opaque). */
+  private liquidView(pose: CameraPose): LiquidView | null {
+    const sim = this.host.view;
+    const tables = this.registry.tables;
+    if (!isLiquid(sim.world, tables, pose.x, pose.y, pose.z)) return null;
+    const state = sim.world.getBlock(Math.floor(pose.x), Math.floor(pose.y), Math.floor(pose.z));
+    const fog = this.registry.blockDef(state).liquid?.fog;
+    if (!fog) return WATER_VIEW;
+    const view = this.liquidViews.get(state);
+    if (view) return view;
+    const made: LiquidView = { ...fog, glows: tables.emit[state]! > 0 };
+    this.liquidViews.set(state, made);
+    return made;
   }
 
   /** The creature or block under the crosshair from the interpolated eye, and the ghost. */

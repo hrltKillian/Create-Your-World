@@ -4,7 +4,7 @@ import { toColumn } from '../world/coords.ts';
 import { skyOf } from '../world/light.ts';
 import type { VoxelWorld } from '../world/VoxelWorld.ts';
 import type { Inventory } from './inventory.ts';
-import { eyeHeight, PHYSICS } from './physics.ts';
+import { bodyHeight, eyeHeight, PHYSICS } from './physics.ts';
 import type { PlayerState } from './player.ts';
 import { comfortBonus } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
@@ -247,9 +247,14 @@ export interface Contact {
   douses: boolean;
 }
 
+/** How far the body's box must reach into a block to touch it (the reference game's 0.001). */
+const REACH_IN = 0.001;
+
 /**
- * The contact of the blocks at the feet and, on the ground, under them (the strongest of each),
- * written into `out`.
+ * The contact of the blocks the body is in, written into `out` (the strongest of each). As in the
+ * reference game, every block the body's box overlaps, feet to head, counts and none beside it:
+ * lava and fire hurt only who is inside them; the solid block stood on counts too (a magma block),
+ * unless crouching on it.
  */
 export function touch(
   registry: Registry,
@@ -258,21 +263,27 @@ export function touch(
   out: Contact,
 ): void {
   const body = player.body;
-  const x = Math.floor(body.x);
-  const z = Math.floor(body.z);
-  // Both cells lie in one column: looked up once.
-  const column = world.getColumn(toColumn(x), toColumn(z));
   out.toxicity = 0;
   out.damage = 0;
   out.ignites = false;
   out.burnCause = 'fire';
-  const feet = world.blockIn(column, x, Math.floor(body.y + 0.05), z);
+  const half = PHYSICS.width / 2 - REACH_IN;
+  const top = Math.floor(body.y + bodyHeight(body) - REACH_IN);
+  for (let x = Math.floor(body.x - half); x <= Math.floor(body.x + half); x++)
+    for (let z = Math.floor(body.z - half); z <= Math.floor(body.z + half); z++)
+      for (let y = Math.floor(body.y + REACH_IN); y <= top; y++)
+        addContact(registry, world.getBlock(x, y, z), out);
+  const x = Math.floor(body.x);
+  const z = Math.floor(body.z);
+  const feet = world.getBlock(x, Math.floor(body.y + 0.05), z);
   out.douses =
     registry.tables.collision[feet] === COLLISION_LIQUID &&
     !registry.blockDef(feet).contact?.ignites;
-  addContact(registry, feet, out);
-  if (body.onGround)
-    addContact(registry, world.blockIn(column, x, Math.floor(body.y - 0.05), z), out);
+  // The block stood on (a magma block): never a liquid. On a rim, the middle of the body may hang
+  // over lava below: the reference game burns only a body in it, never one beside it.
+  const under = world.getBlock(x, Math.floor(body.y - 0.05), z);
+  if (body.onGround && !body.crouching && registry.tables.collision[under] !== COLLISION_LIQUID)
+    addContact(registry, under, out);
   if (out.toxicity > 0 && wornGear(registry, player.equipment, gear).waterproof) out.toxicity = 0;
 }
 
