@@ -155,20 +155,6 @@
   gap: 6px;
 }
 
-.bag-caption {
-  display: flex;
-  flex-direction: column;
-  min-height: 1.3em;
-  margin: 2px 0 0;
-  font-size: 0.85rem;
-}
-
-/* The hovered item's description under its name. */
-.bag-caption .caption-line {
-  color: var(--c-ink-muted);
-  font-size: 0.72rem;
-}
-
 .screen-slots .slot[data-slot] {
   cursor: pointer;
 }
@@ -276,4 +262,77 @@
   opacity: 0.35;
   cursor: default;
   filter: none;
+}
+
+/*
+ * Fixed-size slot screens (plan v3 « M28 »): a screen never grows or shrinks with what it shows;
+ * the page column (Logbook, Bestiary, Quests, Status, a station) and a chest's slots scroll inside.
+ */
+.screen-slots > .bag-panel {
+  width: 860px;
+  height: 620px;
+}
+
+#screen-container > .bag-panel {
+  width: 560px;
+}
+
+.screen-slots .bag-columns {
+  flex: 1;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.screen-slots .bag-columns > :not(.bag-inventory) {
+  width: 380px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.container-slots {
+  flex: 1;
+  align-items: flex-start;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The hovered item's bubble: placed in viewport pixels like the cursor stack, over everything. */
+.tooltip-anchor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 20;
+  pointer-events: none;
+  zoom: var(--ui-unscale, 1);
+}
+
+.tooltip-anchor[hidden] {
+  display: none;
+}
+
+.tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 300px;
+  padding: 8px 12px 9px;
+  border: 1px solid rgba(232, 176, 74, 0.45);
+  border-radius: 10px;
+  background: rgba(14, 18, 20, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  color: var(--c-ink);
+  font-size: 0.82rem;
+  text-align: left;
+  zoom: var(--ui-scale, 1);
+}
+
+.tooltip strong {
+  color: var(--c-accent);
+}
+
+.tooltip-line {
+  color: var(--c-ink-muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }

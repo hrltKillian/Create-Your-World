@@ -138,21 +138,22 @@ of them:
 
 ## Try this milestone
 
-**M27 — Exploration** (plan v3, `docs/conception.md` « M27 »). `npm run dev`, then open
-`http://localhost:5173/?skipMenu=1`.
+**M28 — Interfaces from the third play test** (plan v3, `docs/conception.md` « M28 »).
+`npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
 
-- **The minimap** at the top right: the land you walked around you, coloured by biome and height,
-  you as an arrow; **M** opens the big map.
-- **Waypoints**: name a place and mark it on the big map; it shows on the minimap and on the
-  compass as a diamond wherever you go (eight at most, removed from the list).
-- **Ladders** (7 sticks make 3, by hand) hang on the wall you aim at: forward or jump climbs,
-  crouch holds, letting go slides down unhurt.
-- **Trapdoors** (3 planks at the workbench) close a shaft flush with the floor; secondary opens
-  and closes them.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m27`.
+- **Your gauges over the hotbar**: rows of our own symbols (vital cells, ration pods, drops,
+  spore crystals, bubbles), full, half or empty, and a horizontal thermometer.
+- **Bubbles**: hover an item or a recipe to read its description; screens keep their size and
+  scroll inside.
+- **Journals**: right-click with one in hand to read it like a book.
+- **Gamma** in Settings → Graphics brightens the dark.
+- **Quest messages** stay six seconds on a line of their own.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m28`.
 
 ### Earlier milestones
 
+- **M27, exploration**: the minimap and the big map (M), waypoints on the compass, ladders and
+  trapdoors; `?worldType=flat&fixedStep=1&selftest=m0,m27`.
 - **M26, the lost colony**: the crashed capsule near the spawn, the outpost, the north relay and
   the marsh station with their journals, blueprints for the Colony Lamp and Bricks, story quests;
   `?seed=7&rd=4&fixedStep=1&selftest=m0,m26`.

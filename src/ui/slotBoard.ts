@@ -5,6 +5,7 @@ import type { ItemStack } from '../sim/inventory.ts';
 import { h } from './h.ts';
 import { itemLines } from './itemInfo.ts';
 import { type ItemArt, type Slots, SlotView, stackName } from './itemSlot.ts';
+import { Tooltip } from './tooltip.ts';
 
 /** Bag columns (6×4). */
 export const BAG_COLUMNS = 6;
@@ -42,9 +43,8 @@ export interface ScreenDeps {
  */
 export class SlotBoard {
   readonly element: HTMLElement;
-  /** Name of the hovered stack. */
-  readonly caption: HTMLElement;
-  private captionText = '';
+  /** The hovered stack's name and description, in a bubble by the pointer. */
+  readonly tooltip = new Tooltip();
   private readonly art: ItemArt;
   private readonly actions: ScreenActions;
   /** Inventory slots (hotbar then bag). */
@@ -66,7 +66,6 @@ export class SlotBoard {
     this.actions = deps.actions;
     this.slotCount = deps.slotCount;
     this.closeKey = deps.closeKey;
-    this.caption = h('p', { class: 'bag-caption' });
     this.closeHint = h('p', { class: 'bag-close' });
     this.cursor = new SlotView(null, deps.art);
     this.cursor.element.classList.add('slot-cursor');
@@ -84,6 +83,7 @@ export class SlotBoard {
         },
       },
       this.cursor.element,
+      this.tooltip.element,
     );
     this.element.hidden = true;
   }
@@ -167,19 +167,16 @@ export class SlotBoard {
     this.actions.click();
   }
 
-  /** The hovered slot's item: its name, then its description (ui/itemInfo.ts). */
+  /** The hovered slot's item: its name, then its description (ui/itemInfo.ts), in the bubble. */
   private hover(slot: number): void {
     this.hovered = slot;
     const stack = slot >= 0 ? this.slots[slot] : null;
-    const name = stack ? stackName(this.art, stack) : '';
-    const lines = stack ? itemLines(this.art.registry, stack.item) : [];
-    const text = [name, ...lines].join('\n');
-    if (text === this.captionText) return;
-    this.captionText = text;
-    this.caption.replaceChildren(
-      ...(name ? [h('strong', null, name)] : []),
-      ...lines.map((line) => h('span', { class: 'caption-line' }, line)),
-    );
+    if (!stack) {
+      this.tooltip.hide();
+      return;
+    }
+    const name = stackName(this.art, stack);
+    this.tooltip.show(name, itemLines(this.art.registry, stack.item), this.pointerX, this.pointerY);
   }
 
   /** Puts the cursor stack's view where the pointer last was (viewport pixels: main.css). */
@@ -196,6 +193,7 @@ export class SlotBoard {
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     if (!this.cursor.element.hidden) this.placeCursor();
+    this.tooltip.move(this.pointerX, this.pointerY);
   };
 
   /** A press on a slot clicks it; one outside the panel (the backdrop) is slot −1. */

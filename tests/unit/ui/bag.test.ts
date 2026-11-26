@@ -180,6 +180,28 @@ describe('BagScreen', () => {
     expect(cursor.hidden).toBe(true);
   });
 
+  it('shows a hovered stack’s name and description in a bubble by the pointer, none off the stacks', () => {
+    const { screen } = deps();
+    const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
+    bag.open();
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
+    slots[3] = { item: 'item:flint_pickaxe', count: 1 };
+    const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+    bag.update(slots, null, { source: logbookSource({}), queue: [] }, gear, [], [], [], STATUS);
+    const slot = (n: number) =>
+      fake(bag.element).findAll((el) => el.getAttribute('data-slot') === String(n))[0]!;
+    const bubble = fake(bag.element).querySelector('.tooltip-anchor')!;
+    expect(bubble.hidden).toBe(true);
+    fake(bag.element).dispatch('pointermove', { clientX: 100, clientY: 60 });
+    fake(bag.element).dispatch('pointerover', { target: slot(3) });
+    expect(bubble.hidden).toBe(false);
+    expect(bubble.textContent).toContain('Flint Pickaxe');
+    expect(bubble.textContent).toContain('Stone:');
+    expect(bubble.style.transform).toBe('translate(114px, 74px)');
+    fake(bag.element).dispatch('pointerover', { target: slot(4) });
+    expect(bubble.hidden).toBe(true);
+  });
+
   it('shows what the worn items protect from', () => {
     const { screen } = deps();
     const bag = new BagScreen(screen, new LogbookPanel(screen.art, screen.actions, LIMITS));
@@ -239,18 +261,22 @@ describe('LogbookPanel', () => {
     );
   });
 
-  it('shows a hovered discovered recipe’s description in the detail pane, then the selected one', () => {
+  it('shows a hovered discovered recipe’s description in a bubble; the detail pane keeps its recipe', () => {
     const { logbook, root } = panel();
     logbook.update({ source: logbookSource(tools), queue: [] });
     byAttr(root, 'data-tab', 'tools')[0]!.dispatch('click');
     const detail = () => fake(root).querySelector('.logbook-detail')!.textContent ?? '';
     byAttr(root, 'data-recipe', 'recipe:flint_knife')[0]!.dispatch('click');
-    expect(detail()).toContain('Damage');
-    byAttr(root, 'data-recipe', 'recipe:flint_pickaxe')[0]!.dispatch('pointerenter');
-    expect(detail()).toContain('Stone:');
+    const before = detail();
+    expect(logbook.tooltip.text()).toBe('');
+    byAttr(root, 'data-recipe', 'recipe:flint_pickaxe')[0]!.dispatch('pointerenter', {
+      clientX: 100,
+      clientY: 80,
+    });
+    expect(logbook.tooltip.text()).toContain('Stone:');
+    expect(detail()).toBe(before);
     byAttr(root, 'data-recipe', 'recipe:flint_pickaxe')[0]!.dispatch('pointerleave');
-    expect(detail()).not.toContain('Stone:');
-    expect(detail()).toContain('Damage');
+    expect(logbook.tooltip.text()).toBe('');
   });
 
   it('searches outputs and ingredients, and « Can craft now » keeps what the inventory pays for', () => {

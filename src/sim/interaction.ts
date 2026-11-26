@@ -137,8 +137,9 @@ function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: S
 }
 
 /**
- * Secondary button: an aimed interactive block on the press; else what the hand eats, drinks or
- * fills while held; else a placement on the press, then every PLACE_REPEAT_TICKS while held.
+ * Secondary button: an aimed interactive block on the press; else a journal in hand read on the
+ * press; else what the hand eats, drinks or fills while held; else a placement on the press, then
+ * every PLACE_REPEAT_TICKS while held.
  */
 function useButton(sim: Simulation, player: PlayerState, status: number, out: SimEvent[]): void {
   const st = player.interaction;
@@ -156,12 +157,27 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
     if (pressed) useAimed(sim, player, out);
     return;
   }
+  if (readsHeld(sim, player, pressed, out)) {
+    st.useItem = NO_USE;
+    return;
+  }
   if (holdUse(sim, player, pressed, out)) return;
   st.useItem = NO_USE;
   if (!pressed && --st.useCooldown > 0) return;
   st.useCooldown = PLACE_REPEAT_TICKS;
   if (status === AIM_OUT_OF_REACH) reject(out, player.playerId, 'input', 'reach');
   else if (status === AIM_HIT) place(sim, player, out);
+}
+
+/**
+ * A journal in hand (an item with `lore`, plan v3 « M28 ») is read on the press: the client shows
+ * its text. Held, it does nothing more (never placed). Returns whether the hand holds one.
+ */
+function readsHeld(sim: Simulation, player: PlayerState, pressed: boolean, out: SimEvent[]) {
+  const stack = player.inventory[player.input.slot];
+  if (!stack || !sim.registry.item(stack.item)?.lore) return false;
+  if (pressed) out.push({ type: 'itemRead', playerId: player.playerId, item: stack.item });
+  return true;
 }
 
 /**

@@ -4,6 +4,19 @@
  * GLSL ES 3.00: three.js adds the version line and its prefix; glslVersion stays null.
  */
 
+/**
+ * Light level (0–1) → brightness: each step down keeps 82 % (docs « Éclairage »); the player's
+ * gamma (Settings, 0–1) lifts the dark end towards 1 − (1 − c)⁴ as the reference game's brightness
+ * does. Shared by the chunk and the box shaders (they declare `uGamma`).
+ */
+export const LIGHT_CURVE = /* glsl */ `
+float lightCurve(float level) {
+  float c = pow(0.82, 15.0 * (1.0 - level));
+  float d = 1.0 - c;
+  return mix(c, 1.0 - d * d * d * d, uGamma);
+}
+`;
+
 export const voxelVertex = /* glsl */ `
 in uvec2 aPacked;
 uniform vec3 uTintColors[32];
@@ -77,6 +90,7 @@ uniform vec3 uSkyTint;
 uniform vec3 uTorchTint;
 uniform float uFlicker;
 uniform float uMinLight;
+uniform float uGamma;
 uniform float uOpacity;
 uniform int uDebugView;
 in vec2 vUv;
@@ -92,9 +106,7 @@ in vec2 vQuadUv;
 
 const float FACE_SHADE[8] = float[8](0.8, 0.8, 1.0, 0.55, 0.68, 0.68, 0.9, 0.9);
 
-float lightCurve(float level) {
-  return pow(0.82, 15.0 * (1.0 - level));
-}
+${LIGHT_CURVE}
 
 void main() {
   vec4 texel = texture(uTextures, vec3(vUv, vLayer));

@@ -240,6 +240,24 @@ describe('placement', () => {
     expect(s.block(1, 66, -2)).toBe('block:gate[facing4=s,open=0,half=upper]');
   });
 
+  it('reads a journal in hand on the press only: the client shows it, nothing is placed', () => {
+    const s = setup();
+    const journal = registry.pack.items!.find((item) => item.lore)!;
+    s.give(journal.key);
+    s.put(0, 66, -3, 'block:stone');
+    const target: ClientTarget = { x: 0, y: 66, z: -3, face: 4 };
+    s.events.length = 0;
+    s.tick(10, { secondary: true, target });
+    expect(eventsOf(s.events, 'itemRead')).toEqual([
+      { type: 'itemRead', playerId: 1, item: journal.key },
+    ]);
+    expect(eventsOf(s.events, 'blockPlaced')).toEqual([]);
+    expect(countItem(s.player.inventory, journal.key)).toBe(1);
+    s.tick(1, { secondary: false, target });
+    s.tick(1, { secondary: true, target });
+    expect(eventsOf(s.events, 'itemRead')).toHaveLength(2);
+  });
+
   it('toggles a gate on the press only, and places against it when crouching', () => {
     const s = setup();
     s.give('item:dirt', 5);

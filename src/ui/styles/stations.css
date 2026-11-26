@@ -192,3 +192,39 @@
   height: 2px;
   background: var(--c-ink-muted);
 }
+
+/* A journal read (plan v3 « M28 »): a page of a fixed size, its text scrolling inside. */
+.screen-book {
+  background: rgba(8, 13, 16, 0.55);
+}
+
+.book-panel {
+  width: 560px;
+  height: 600px;
+  text-align: left;
+}
+
+.book-text {
+  flex: 1;
+  min-height: 0;
+  padding: 18px 22px;
+  overflow-y: auto;
+  border: 1px solid rgba(120, 92, 52, 0.6);
+  border-radius: 8px;
+  background: #e9dcc0;
+  color: #3a2c1c;
+  font:
+    0.95rem / 1.6 Georgia,
+    "Times New Roman",
+    serif;
+  user-select: text;
+}
+
+.book-text p {
+  margin: 0 0 0.8em;
+}
+
+.book-actions {
+  display: flex;
+  justify-content: flex-end;
+}

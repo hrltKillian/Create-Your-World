@@ -399,6 +399,24 @@
   font-size: 0.74rem;
 }
 
+/* In a fixed screen the list takes the room left; the detail and the queue keep theirs. */
+.screen-slots .logbook {
+  overflow: hidden;
+}
+
+.screen-slots .logbook-list {
+  flex: 1 1 0;
+  min-height: 60px;
+  max-height: none;
+}
+
+.screen-slots .logbook-detail {
+  flex: none;
+  height: 130px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* Bestiary: a card per creature, greyed until met. */
 
 .bestiary {
@@ -406,7 +424,6 @@
   flex-direction: column;
   gap: 8px;
   width: 340px;
-  max-height: 420px;
   overflow-y: auto;
 }
 
@@ -440,7 +457,6 @@
   flex-direction: column;
   gap: 8px;
   width: 340px;
-  max-height: 420px;
   overflow-y: auto;
 }
 
@@ -534,7 +550,6 @@
   flex-direction: column;
   gap: 6px;
   width: 340px;
-  max-height: 420px;
   overflow-y: auto;
 }
 

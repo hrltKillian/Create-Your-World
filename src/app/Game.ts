@@ -365,6 +365,7 @@ export class Game {
     input.bindings = settings.bindings;
     audio.setVolumes(settings.volumes);
     view.setFov(settings.fov);
+    view.setGamma(settings.gamma);
     // main.css zooms the HUD, screens and menus; the cursor stack undoes it (it follows the
     // pointer in viewport pixels).
     root.style.setProperty('--ui-scale', String(settings.uiScale));

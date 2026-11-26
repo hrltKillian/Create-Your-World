@@ -97,7 +97,7 @@ const logbookCase: SelftestCase = {
     const station = () =>
       document.querySelector(`#screen-bag [data-recipe="${benchRecipe.key}"] .logbook-station`);
     assert(await withinFrames(UI_FRAMES, () => station() !== null), 'the search did not say where');
-    // A hovered discovered recipe shows its item's description.
+    // A hovered discovered recipe shows its item's description in a bubble.
     search.value = '';
     search.dispatchEvent(new Event('input'));
     const described = crafting.recipes.find(
@@ -113,9 +113,10 @@ const logbookCase: SelftestCase = {
       await withinFrames(UI_FRAMES, () => hovered() !== null),
       'the tool recipe does not show',
     );
-    hovered()!.dispatchEvent(new PointerEvent('pointerenter'));
-    const info = document.querySelector('#screen-bag .logbook-detail .logbook-info');
-    assert(info?.textContent, 'the hovered recipe shows no description');
+    hovered()!.dispatchEvent(new PointerEvent('pointerenter', { clientX: 200, clientY: 200 }));
+    const bubble = document.querySelector<HTMLElement>('#screen-bag .logbook .tooltip-anchor');
+    assert(bubble && !bubble.hidden && bubble.textContent, 'the hovered recipe shows no bubble');
+    hovered()!.dispatchEvent(new PointerEvent('pointerleave'));
     tap('KeyL', 'l');
   },
 };

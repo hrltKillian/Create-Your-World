@@ -122,6 +122,7 @@ export class BoxBatch {
         uTorchTint: shared.uTorchTint,
         uFlicker: shared.uFlicker,
         uMinLight: shared.uMinLight,
+        uGamma: shared.uGamma,
       },
       fog,
     });

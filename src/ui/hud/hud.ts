@@ -5,6 +5,7 @@ import { AttackGauge } from './attackGauge.ts';
 import { CombatMarks } from './combatMarks.ts';
 import { Compass } from './compass.ts';
 import { Flash } from './flash.ts';
+import { HudHint } from './hudHint.ts';
 import { Minimap } from './minimap.ts';
 import { PickupFeed } from './pickups.ts';
 import { PinnedQuest } from './pinnedQuest.ts';
@@ -14,11 +15,15 @@ import { TargetLine } from './targetLine.ts';
 import { Vignettes } from './vignettes.ts';
 import { Vitals } from './vitals.ts';
 
+/** Seconds a quest message stays on screen. */
+export const QUEST_NEWS_SECONDS = 6;
+
 /**
  * The survival HUD of a play session (docs « Interface », original layout): vignettes under
  * everything; vitals at the bottom left; the pickup messages on the left; the stamina arc, the
  * hit marker and the damage arcs around the crosshair; the compass, the clock and the target name
- * and the pinned quest at the top centre; the minimap at the top right; the day's banners, the
+ * and the pinned quest at the top centre, the quest messages under them; the minimap at the top
+ * right; the day's banners, the
  * biome's name on entering it and the sleep fade; and the death screen. Built once;
  * `app/HudBridge.ts` refreshes it.
  */
@@ -36,6 +41,8 @@ export class Hud {
   readonly clock: HTMLElement;
   readonly target = new TargetLine();
   readonly quest = new PinnedQuest();
+  /** A quest unlocked, done or claimed: its own line, long enough to read (plan v3 « M28 »). */
+  readonly questNews = new HudHint('hud-quest-news', QUEST_NEWS_SECONDS);
   readonly banner = new Flash('hud-banner', 'hud-banner');
   readonly biome = new Flash('hud-biome', 'hud-biome');
   readonly pickups = new PickupFeed();
@@ -65,6 +72,7 @@ export class Hud {
       this.vitals.element,
       this.map.element,
       this.pickups.element,
+      this.questNews.element,
       this.banner.element,
       this.biome.element,
       this.sleep.element,

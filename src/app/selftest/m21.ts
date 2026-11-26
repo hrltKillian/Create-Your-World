@@ -57,7 +57,7 @@ const questsCase: SelftestCase = {
       for (const item of first.condition.items) give(app, item, 1);
       nextCheck(app);
       assert(player.quests[next.key]?.done === true, `${next.key} was not done at its unlock`);
-      const hint = () => document.getElementById('hud-hint')?.textContent ?? '';
+      const hint = () => document.getElementById('hud-quest-news')?.textContent ?? '';
       const already = t('hud.questAlready', { name: t(next.textKey) });
       const said = await withinFrames(UI_FRAMES, () => hint().includes(already));
       assert(said, `the HUD says "${hint()}", not "${already}"`);

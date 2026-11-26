@@ -108,9 +108,10 @@ export class HudBridge {
     this.hud.attack.update(attackGauge(this.session.host.view.registry, this.session.player));
     this.hud.pickups.frame(dt);
     if (this.questLines.length > 0) {
-      this.inventory.hint.show(this.questLines.join(' · '));
+      this.hud.questNews.show(this.questLines.join(' · '));
       this.questLines.length = 0;
     }
+    this.hud.questNews.frame(dt);
   }
 
   private onEvent(event: SimEvent): void {
