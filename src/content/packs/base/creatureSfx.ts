@@ -31,117 +31,258 @@ const hiss = (
 ): SfxLayer => ({ source: 'noise', filter: { type, freq, q }, gain, attack, decay, delay });
 
 /**
- * Creature voices (docs « Audio »: five per creature, synthesized): soft bleats for the Trotter,
- * low bellows for the Shagback, rasps and screeches for the Prowler, chitters and buzzing for the
- * Swarmling, shell clacks and rumbles for the Shellback. The Trotter never attacks.
+ * A voiced call (plan v4 « M45 »): a source at a pitch gliding over `pitch` and wavering by
+ * `vibrato`, heard through the formants of the creature's throat (band-pass frequency, share):
+ * the vowel that makes each species recognisable.
+ */
+const call = (
+  source: SfxSource,
+  pitch: readonly [number, number],
+  formants: readonly (readonly [number, number])[],
+  gain: number,
+  [attack, decay]: readonly [number, number],
+  delay = 0,
+  vibrato = { rate: 5, depth: 0.25 },
+): SfxLayer[] =>
+  formants.map(([freq, share]) => ({
+    source,
+    freq: [pitch[0], pitch[1]],
+    gain: gain * share,
+    attack,
+    decay,
+    delay,
+    vibrato,
+    filter: { type: 'bandpass', freq, q: 5 },
+  }));
+
+/** Struck resonances (shells, crystals): frequency, ring time, gain. */
+const struck = (
+  modes: readonly (readonly [number, number, number])[],
+  gain: number,
+  delay = 0,
+): SfxLayer => ({
+  source: 'modal',
+  modes,
+  gain,
+  attack: 0.001,
+  hold: Math.max(...modes.map(([, ring]) => ring)),
+  decay: 0.02,
+  delay,
+});
+
+/** Chittering: pitched clicks at `rate` a second for `seconds`. */
+const chitter = (
+  rate: number,
+  [low, high]: readonly [number, number],
+  gain: number,
+  seconds: number,
+): SfxLayer => ({
+  source: 'grains',
+  grains: { rate, seconds: [0.003, 0.008], tone: [low, high] },
+  gain,
+  attack: 0.005,
+  hold: seconds,
+  decay: 0.04,
+});
+
+/** The throats of Veyra's fauna: formants (Hz, share) of each species' vowel. */
+const THROAT = {
+  trotter: [
+    [650, 1],
+    [1800, 0.6],
+    [2700, 0.3],
+  ],
+  shagback: [
+    [350, 1],
+    [800, 0.5],
+    [2300, 0.2],
+  ],
+  prowler: [
+    [900, 1],
+    [1400, 0.7],
+    [3200, 0.4],
+  ],
+  shellback: [
+    [300, 1],
+    [620, 0.5],
+  ],
+  reedwader: [
+    [700, 1],
+    [1100, 0.7],
+    [2500, 0.3],
+  ],
+} as const;
+
+/** A shell's knock and a crystal's chime (struck modes). */
+const SHELL = [
+  [620, 0.08, 0.6],
+  [1430, 0.05, 0.3],
+  [2650, 0.03, 0.15],
+] as const;
+const CRYSTAL = [
+  [1320, 0.6, 0.5],
+  [2210, 0.45, 0.3],
+  [3150, 0.3, 0.2],
+] as const;
+
+/**
+ * Creature voices (docs « Audio », plan v4 « M45 »): each species calls through its own throat
+ * (formants) with its own waver: the Trotter bleats « eh », the Shagback bellows « oo », the
+ * Prowler warbles a raspy « ah », the Reedwader honks; the Swarmling chitters, the Shellback's
+ * shell knocks under a rumble, the Glimmerback chimes like struck crystal and whistles. The
+ * Trotter and the Glimmerback never attack.
  */
 const VOICES = {
   trotter: {
     idle: [
-      tone('triangle', [520, 610], 0.22, [0.02, 0.16]),
-      tone('triangle', [610, 470], 0.18, [0.02, 0.18], 0.14),
+      ...call('sawtooth', [520, 610], THROAT.trotter, 0.7, [0.02, 0.16], 0, {
+        rate: 6,
+        depth: 0.4,
+      }),
+      ...call('sawtooth', [610, 470], THROAT.trotter, 0.6, [0.02, 0.18], 0.14, {
+        rate: 6,
+        depth: 0.4,
+      }),
     ],
     alert: [
       hiss('bandpass', 1800, 0.4, [0.005, 0.12], 0, 2),
-      tone('square', [700, 900], 0.1, [0.005, 0.08], 0, 2400),
+      ...call('square', [700, 900], THROAT.trotter, 0.45, [0.005, 0.1], 0, { rate: 9, depth: 0.6 }),
     ],
-    hurt: [tone('sawtooth', [900, 480], 0.3, [0.005, 0.22], 0, 2600)],
+    hurt: call('sawtooth', [900, 480], THROAT.trotter, 0.9, [0.005, 0.22], 0, {
+      rate: 12,
+      depth: 0.8,
+    }),
     death: [
-      tone('triangle', [720, 210], 0.3, [0.01, 0.6]),
+      ...call('sawtooth', [720, 210], THROAT.trotter, 0.9, [0.01, 0.6], 0, { rate: 4, depth: 0.6 }),
       hiss('lowpass', 600, 0.25, [0.005, 0.25], 0.45),
     ],
   },
   shagback: {
-    idle: [tone('sawtooth', [92, 80], 0.3, [0.06, 0.5], 0, 420)],
+    idle: call('sawtooth', [92, 80], THROAT.shagback, 0.9, [0.06, 0.5], 0, {
+      rate: 3.5,
+      depth: 0.3,
+    }),
     alert: [
-      tone('sawtooth', [140, 185], 0.4, [0.04, 0.45], 0, 700),
+      ...call('sawtooth', [140, 185], THROAT.shagback, 1, [0.04, 0.45], 0, { rate: 4, depth: 0.5 }),
       tone('square', [70, 92], 0.18, [0.04, 0.45], 0, 300),
     ],
     hurt: [
-      tone('sawtooth', [210, 120], 0.4, [0.01, 0.25], 0, 900),
+      ...call('sawtooth', [210, 120], THROAT.shagback, 1, [0.01, 0.25], 0, { rate: 7, depth: 0.8 }),
       hiss('lowpass', 500, 0.25, [0.005, 0.15]),
     ],
     attack: [
       hiss('bandpass', 420, 0.5, [0.01, 0.3], 0, 1),
-      tone('sawtooth', [110, 160], 0.3, [0.02, 0.35], 0, 600),
+      ...call('sawtooth', [110, 160], THROAT.shagback, 0.9, [0.02, 0.35], 0, {
+        rate: 5,
+        depth: 0.6,
+      }),
     ],
-    death: [tone('sawtooth', [150, 55], 0.4, [0.05, 1.2], 0, 500)],
+    death: call('sawtooth', [150, 55], THROAT.shagback, 1, [0.05, 1.2], 0, {
+      rate: 2.5,
+      depth: 0.5,
+    }),
   },
   prowler: {
     idle: [hiss('bandpass', 900, 0.2, [0.1, 0.4], 0, 4), tone('sine', [56, 50], 0.22, [0.1, 0.5])],
     alert: [
       hiss('highpass', 3000, 0.35, [0.02, 0.35]),
-      tone('square', [300, 620], 0.12, [0.01, 0.25], 0, 1500),
+      ...call('sawtooth', [300, 620], THROAT.prowler, 0.6, [0.01, 0.25], 0, {
+        rate: 9,
+        depth: 1.2,
+      }),
     ],
     hurt: [
-      tone('sawtooth', [320, 180], 0.4, [0.005, 0.2], 0, 1400),
+      ...call('sawtooth', [320, 180], THROAT.prowler, 0.9, [0.005, 0.2], 0, {
+        rate: 11,
+        depth: 1.4,
+      }),
       hiss('bandpass', 1200, 0.3, [0.005, 0.15], 0, 2),
     ],
     attack: [
-      tone('sawtooth', [500, 920], 0.4, [0.01, 0.25], 0, 1800),
+      ...call('sawtooth', [500, 920], THROAT.prowler, 0.9, [0.01, 0.25], 0, {
+        rate: 9,
+        depth: 1.2,
+      }),
       hiss('highpass', 2500, 0.3, [0.005, 0.2]),
     ],
-    death: [tone('sawtooth', [600, 120], 0.35, [0.02, 0.9], 0, 1200)],
+    death: call('sawtooth', [600, 120], THROAT.prowler, 0.9, [0.02, 0.9], 0, { rate: 6, depth: 1 }),
   },
   swarmling: {
-    idle: [
-      hiss('highpass', 4000, 0.2, [0.002, 0.02]),
-      hiss('highpass', 4400, 0.18, [0.002, 0.02], 0.06),
-      hiss('highpass', 3800, 0.16, [0.002, 0.02], 0.12),
-    ],
-    alert: [tone('square', [220, 265], 0.18, [0.01, 0.3], 0, 1800)],
-    hurt: [tone('triangle', [2200, 1400], 0.25, [0.003, 0.1])],
-    attack: [
-      hiss('bandpass', 3000, 0.35, [0.002, 0.05], 0, 2),
-      hiss('highpass', 5000, 0.2, [0.005, 0.15], 0.05),
-    ],
-    death: [
-      tone('sine', [900, 200], 0.3, [0.003, 0.15]),
-      hiss('highpass', 3000, 0.2, [0.01, 0.4], 0.05),
-    ],
-  },
-  shellback: {
-    idle: [hiss('lowpass', 300, 0.35, [0.06, 0.4]), tone('sine', [70, 60], 0.2, [0.06, 0.4])],
+    idle: [chitter(45, [3200, 4800], 0.4, 0.18)],
     alert: [
-      hiss('bandpass', 1100, 0.45, [0.002, 0.06], 0, 3),
-      hiss('bandpass', 1000, 0.4, [0.002, 0.06], 0.12, 3),
-      tone('triangle', [180, 160], 0.15, [0.005, 0.1]),
+      chitter(90, [2600, 4200], 0.35, 0.25),
+      tone('square', [220, 265], 0.15, [0.01, 0.3], 0, 1800),
     ],
     hurt: [
-      tone('triangle', [240, 200], 0.35, [0.003, 0.18]),
-      hiss('bandpass', 900, 0.3, [0.002, 0.08], 0, 4),
+      chitter(140, [1800, 3200], 0.45, 0.08),
+      tone('triangle', [2200, 1400], 0.2, [0.003, 0.1]),
     ],
     attack: [
-      tone('sawtooth', [80, 120], 0.45, [0.05, 0.7], 0, 500),
+      hiss('bandpass', 3000, 0.35, [0.002, 0.05], 0, 2),
+      chitter(120, [3000, 5200], 0.35, 0.12),
+    ],
+    death: [tone('sine', [900, 200], 0.3, [0.003, 0.15]), chitter(30, [1500, 2600], 0.3, 0.35)],
+  },
+  shellback: {
+    idle: [
+      hiss('lowpass', 300, 0.35, [0.06, 0.4]),
+      ...call('sawtooth', [70, 60], THROAT.shellback, 0.6, [0.06, 0.4]),
+    ],
+    alert: [
+      struck(SHELL, 0.45),
+      struck(SHELL, 0.4, 0.12),
+      tone('triangle', [180, 160], 0.15, [0.005, 0.1]),
+    ],
+    hurt: [struck(SHELL, 0.5), tone('triangle', [240, 200], 0.3, [0.003, 0.18])],
+    attack: [
+      ...call('sawtooth', [80, 120], THROAT.shellback, 1, [0.05, 0.7], 0, { rate: 3, depth: 0.4 }),
       hiss('lowpass', 400, 0.35, [0.05, 0.6]),
     ],
     death: [
       hiss('lowpass', 250, 0.5, [0.01, 0.8]),
-      tone('sawtooth', [120, 40], 0.3, [0.02, 1], 0, 400),
+      ...call('sawtooth', [120, 40], THROAT.shellback, 0.9, [0.02, 1], 0, { rate: 2, depth: 0.5 }),
     ],
   },
-  // Soft chimes for the Glimmerback; croaks and a sharp rattle for the Reedwader (plan v3 « M25 »).
   glimmerback: {
     idle: [
-      tone('sine', [880, 990], 0.16, [0.03, 0.3]),
-      tone('sine', [1320, 1180], 0.1, [0.03, 0.3], 0.12),
+      struck(CRYSTAL, 0.25),
+      { ...tone('sine', [880, 990], 0.14, [0.03, 0.3], 0.1), vibrato: { rate: 11, depth: 0.5 } },
     ],
-    alert: [tone('triangle', [1100, 1500], 0.25, [0.005, 0.14])],
-    hurt: [tone('triangle', [1200, 600], 0.3, [0.005, 0.25], 0, 3000)],
+    alert: [
+      struck(CRYSTAL, 0.4),
+      { ...tone('triangle', [1100, 1500], 0.2, [0.005, 0.14]), vibrato: { rate: 14, depth: 0.7 } },
+    ],
+    hurt: [struck(CRYSTAL, 0.45), tone('triangle', [1200, 600], 0.25, [0.005, 0.25], 0, 3000)],
     death: [
-      tone('sine', [990, 330], 0.3, [0.02, 0.8]),
-      tone('sine', [1485, 495], 0.12, [0.02, 0.8]),
+      struck(CRYSTAL, 0.4),
+      struck(CRYSTAL, 0.25, 0.3),
+      { ...tone('sine', [990, 330], 0.25, [0.02, 0.8]), vibrato: { rate: 6, depth: 1 } },
     ],
   },
   reedwader: {
-    idle: [tone('square', [220, 180], 0.14, [0.01, 0.18], 0, 900)],
+    idle: call('square', [220, 180], THROAT.reedwader, 0.55, [0.01, 0.18], 0, {
+      rate: 7,
+      depth: 0.5,
+    }),
     alert: [
-      tone('square', [300, 420], 0.2, [0.005, 0.12], 0, 1600),
-      tone('square', [300, 420], 0.2, [0.005, 0.12], 0.16, 1600),
+      ...call('square', [300, 420], THROAT.reedwader, 0.7, [0.005, 0.12], 0, {
+        rate: 7,
+        depth: 0.6,
+      }),
+      ...call('square', [300, 420], THROAT.reedwader, 0.7, [0.005, 0.12], 0.16, {
+        rate: 7,
+        depth: 0.6,
+      }),
     ],
-    hurt: [tone('sawtooth', [520, 260], 0.3, [0.005, 0.2], 0, 2000)],
-    attack: [hiss('bandpass', 2400, 0.4, [0.002, 0.06], 0, 3)],
-    death: [tone('square', [260, 90], 0.3, [0.01, 0.7], 0, 900)],
+    hurt: call('sawtooth', [520, 260], THROAT.reedwader, 0.9, [0.005, 0.2], 0, {
+      rate: 10,
+      depth: 1,
+    }),
+    attack: [hiss('bandpass', 2400, 0.4, [0.002, 0.06], 0, 3), struck(SHELL, 0.2)],
+    death: call('square', [260, 90], THROAT.reedwader, 0.9, [0.01, 0.7], 0, {
+      rate: 4,
+      depth: 0.8,
+    }),
   },
 } as const satisfies Readonly<Record<string, Partial<Record<CreatureSound, readonly SfxLayer[]>>>>;
 

@@ -3204,25 +3204,21 @@ Les sons des blocs prennent les modes de leur matière et un crissement de grain
 
 **Tests** : chaque recette du pack rendue deux fois à l'identique, à sa longueur, sans écrêtage, en temps borné ; modes qui résonnent et s'éteignent, grains épars, filtre ; salles (longueur, énergie unité, oreilles décorrélées, décroissance), Doppler ; validation des modes et grains ; selftest `m44` (`?worldType=flat&fixedStep=1&selftest=m0,m44`) : la salle suit le lieu, dehors puis sous un toit.
 
-#### M45 — Paysage sonore de Veyra
+#### M45 — Paysage sonore de Veyra (fait)
 
-**Refaits sur le nouveau moteur** :
+**Le synthétiseur** gagne un vibrato pour les sons (`SfxLayer.vibrato` : vitesse, profondeur en demi-tons).
 
-- pas par matériau ;
-- blocs (casser, poser, frapper) ;
-- joueur ;
-- créatures : voix par synthèse de formants, cris extraterrestres reconnaissables ;
-- outils, feu, eau, lave.
+**Les voix des créatures** (`packs/base/creatureSfx.ts`) : chaque espèce appelle par sa propre gorge, des formants (des passe-bandes : la voyelle de l'espèce) sur une source qui glisse et tremble (`call`) : le Trotter bêle « eh », le Shagback mugit « ou », le Prowler roule un « a » rauque au trémolo étrange, le Reedwader cancane ; le Swarmling stridule par grains, la carapace du Shellback cogne (modes frappés) sous un grondement, le Glimmerback tinte comme un cristal frappé et siffle.
 
-**Météo** : pluie sur les feuilles et sur un toit, vent, tonnerre plus réaliste.
+**Ambiances et météo** (`ambienceSfx.ts`, `playerSfx.ts`) :
 
-**Ambiances par biome** : couches de jour et de nuit, plus des sons « alien » discrets (chœurs d'insectes étranges, chants de la faune bioluminescente).
+- le jour, quelques sifflets étrangers ; la nuit, un chœur de cliquetis de la faune de Veyra et, de temps en temps, un chant tremblé ;
+- la pluie : un crépitement dense de gouttes en grains sur le lavis ;
+- les grottes : des gouttes en grains (la salle de la grotte leur donne leur écho) ;
+- le tonnerre : un craquement déchiré puis des vagues de grondement de plus en plus tard et graves ;
+- les repas croquent grain à grain, les gorgées font des bulles, le feu de camp crépite.
 
-**Tests** :
-
-- `audio.since()` dans les selftests existants ;
-- budget de voix ;
-- équilibre des niveaux.
+**Tests** : équilibre des niveaux (chaque son ponctuel audible sans écraser, les ambiances en fond discret, les voix des créatures à moins d'un facteur 6 les unes des autres) ; selftest `m45` (`?worldType=flat&fixedStep=1&selftest=m0,m45`) : chaque créature meurt en criant de sa propre voix.
 
 **Ensuite** : ta partie test, puis la boucle d'amélioration.
 

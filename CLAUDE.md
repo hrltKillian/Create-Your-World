@@ -481,6 +481,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `crunch` (packs/base/sfxParts.ts); rooms `audio/reverb.ts` (`REVERBS`, `impulseResponse`,
     `doppler`), `AudioEngine.setReverb`/`reverb()` (two convolvers crossfaded), HRTF panners,
     `BiomeDef.acoustics`; AudioBridge picks the room and applies Doppler to creature sounds;
+  - soundscape (plan v4 « M45 »): `SfxLayer.vibrato`; creature calls through formants (`call`,
+    `THROAT`, struck shells and crystals, `chitter` grains in creatureSfx.ts); grain beds and songs
+    in the ambience loops (`grainBed`, `song`); the levels test `tests/unit/content/soundLevels.test.ts`;
   - performance (docs « Mesure de performance »): cave culling `render/Occlusion.ts` (ChunkMeshes
     `cull`/`outdated`; no mask means fully connected; `?occlusion=0`), in-place remeshes
     (`ChunkMeshes.updatePass`), presets `render/quality.ts` (`QUALITY_PRESETS`, `parseQuality`)
@@ -611,6 +614,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Soundscape checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m45` (`selftest/m45.ts`):
+  each creature's death cry in its own voice.
 - Sound checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m44` (`selftest/m44.ts`): the
   room outdoors, then indoors under a roof. Hook: `audio.ambience().reverb`.
 - Interface checks of plan v4: `?worldType=flat&fixedStep=1&selftest=m0,m43` (`selftest/m43.ts`):

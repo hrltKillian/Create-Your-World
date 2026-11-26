@@ -91,6 +91,9 @@ function checkSource(layer: SfxLayer, lpath: string, add: AddIssue): void {
   }
   if (!layer.freq?.every((f) => inRange(f, 20, MAX_FREQ)))
     add(`${lpath}.freq`, `a tone needs two frequencies in 20–${MAX_FREQ} Hz`);
+  const v = layer.vibrato;
+  if (v && !(inRange(v.rate, 0.1, 40) && inRange(v.depth, 0, 12)))
+    add(`${lpath}.vibrato`, 'a rate in 0.1–40 Hz and a depth in 0–12 semitones');
 }
 
 /** Gains, envelope times, frequencies and the length of one recipe. */

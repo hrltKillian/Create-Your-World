@@ -1,5 +1,5 @@
 import type { SfxDef, SfxLayer } from '../../schema.ts';
-import { type Filter, noise, tone } from './sfxParts.ts';
+import { crunch, type Filter, noise, tone } from './sfxParts.ts';
 import { sounds } from './sounds.ts';
 
 const LOW: Filter = { type: 'lowpass', freq: 500 };
@@ -72,18 +72,30 @@ export const playerSfx: readonly SfxDef[] = [
       tone('sine', 380, 620, 0.08, 0.06, 0.12),
     ],
   },
-  // Three bites with a chew under them.
+  // Three bites with a chew under them, crunching grain by grain (plan v4 « M45 »).
   {
     key: player.eat,
     layers: [
       ...pops({ type: 'bandpass', freq: 2200, q: 1.5 }, 0.3, [0, 0.09, 0.18]),
       noise(LOW, 0.2, 0.25),
+      crunch({ type: 'bandpass', freq: 1800, q: 1 }, 70, 0.25, 0.22),
     ],
   },
-  // Two gulps.
+  // Two gulps, each with its bubble.
   {
     key: player.drink,
-    layers: [tone('sine', 300, 520, 0.25, 0.09), tone('sine', 280, 500, 0.22, 0.09, 0.16)],
+    layers: [
+      tone('sine', 300, 520, 0.25, 0.09),
+      tone('sine', 280, 500, 0.22, 0.09, 0.16),
+      {
+        source: 'grains',
+        grains: { rate: 14, seconds: [0.01, 0.025], tone: [350, 700] },
+        gain: 0.18,
+        attack: 0.005,
+        hold: 0.26,
+        decay: 0.03,
+      },
+    ],
   },
   // Lub-dub.
   {
@@ -130,12 +142,13 @@ export const playerSfx: readonly SfxDef[] = [
       noise({ type: 'highpass', freq: 3000 }, 0.15, 0.02, 0.06),
     ],
   },
-  // A campfire: pops over a soft roar.
+  // A campfire: pops and crackles over a soft roar.
   {
     key: sounds.lit['station:campfire']!,
     layers: [
       { ...noise({ type: 'lowpass', freq: 700 }, 0.12, 0.3), attack: 0.08 },
       ...pops({ type: 'highpass', freq: 2500 }, 0.25, [0, 0.07, 0.19, 0.31]),
+      crunch({ type: 'highpass', freq: 3000 }, 40, 0.2, 0.3),
     ],
   },
   // A kiln: a deeper roar, fewer pops.
@@ -146,13 +159,16 @@ export const playerSfx: readonly SfxDef[] = [
       ...pops({ type: 'bandpass', freq: 1500, q: 1 }, 0.15, [0.05, 0.27]),
     ],
   },
-  // Thunder (plan v3 « M34 »): a crack, then a long low rumble rolling away.
+  // Thunder (plan v3 « M34 », v4 « M45 »): a tearing crack, then a low rumble rolling away in
+  // waves, each a little later and lower.
   {
     key: sounds.thunder!,
     layers: [
       noise({ type: 'highpass', freq: 1800 }, 0.35, 0.12),
+      crunch({ type: 'bandpass', freq: 900, q: 0.7 }, 120, 0.3, 0.2),
       { ...noise({ type: 'lowpass', freq: 140 }, 0.6, 1.6, 0.05), attack: 0.25 },
       { ...noise({ type: 'lowpass', freq: 320 }, 0.25, 1, 0.4), attack: 0.3 },
+      { ...noise({ type: 'lowpass', freq: 110 }, 0.35, 0.75, 0.8), attack: 0.35 },
     ],
   },
   // Dusk: three notes falling away. Dawn: the same notes rising.
