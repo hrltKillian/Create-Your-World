@@ -30,7 +30,9 @@ describe('items', () => {
         expect(item < 0 ? -1 : items.places[item], block.key).toBe(-1);
         continue;
       }
-      expect(registry.items[item]!.icon).toEqual({ block: block.key });
+      // Its block, shown in slots by the art drawn for it (plan v5 « M50 »).
+      expect(registry.items[item]!.icon).toEqual({ block: block.key, art: block.item?.art });
+      expect(block.item?.art, block.key).toMatch(/^tex:icon_block_/);
       expect(registry.items[item]!.nameKey).toBe(block.nameKey);
       expect(items.maxStack[item]).toBe(DEFAULT_STACK);
       expect(items.places[item]).toBe(registry.defaultState(block.key));

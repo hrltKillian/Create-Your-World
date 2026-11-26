@@ -9,6 +9,8 @@ import {
   SHAPE_LIQUID,
   TINT_NONE,
 } from '../../content/registry.ts';
+import type { BlockKey } from '../../content/schema.ts';
+import { renderPackTexture } from './packTexture.ts';
 import { parseHex } from './palette.ts';
 
 /** Side of an item icon in pixels: block cubes are drawn at this size, masks scaled up to it. */
@@ -42,12 +44,24 @@ export function itemIconPixels(
   size: number,
 ): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(ICON_SIZE * ICON_SIZE * 4);
-  const icon = registry.items[itemId]!.icon;
-  if (typeof icon === 'string') {
-    const layer = layers[registry.textureKeys.indexOf(icon)]!;
+  const item = registry.items[itemId]!.icon;
+  // A block's drawn art (plan v5 « M50 »): one of the pack's slot icons, rendered here.
+  const art = typeof item === 'string' ? undefined : item.art;
+  const artDef = art ? registry.pack.icons?.find((icon) => icon.key === art) : undefined;
+  if (artDef) {
+    drawFlat(
+      out,
+      { layer: renderPackTexture(artDef, size).color, tint: null, opaque: false, shade: 1 },
+      size,
+    );
+    return out;
+  }
+  if (typeof item === 'string') {
+    const layer = layers[registry.textureKeys.indexOf(item)]!;
     drawFlat(out, { layer, tint: null, opaque: false, shade: 1 }, size);
     return out;
   }
+  const icon = item as { readonly block: BlockKey };
   const state = registry.defaultState(icon.block);
   const shape = registry.tables.shape[state];
   const face = (f: number, shade: number) => faceArt(registry, layers, state, f, shade);

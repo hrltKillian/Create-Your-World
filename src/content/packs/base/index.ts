@@ -1,4 +1,4 @@
-import type { ContentPack } from '../../schema.ts';
+import type { BlockDef, ContentPack } from '../../schema.ts';
 import { ambienceSfx } from './ambienceSfx.ts';
 import { balance } from './balance.ts';
 import { blocks } from './blocks.ts';
@@ -10,13 +10,22 @@ import { creatureModels, creatureSkins } from './creatureModels.ts';
 import { creatureSfx } from './creatureSfx.ts';
 import { creatures } from './creatures.ts';
 import { strings } from './i18n.en.ts';
+import { buildingIcons } from './iconsBuilding.ts';
 import { containerIcons } from './iconsContainers.ts';
+import { fixtureIcons } from './iconsFixtures.ts';
 import { consumableIcons } from './iconsFood.ts';
 import { equipmentIcons } from './iconsGear.ts';
+import { leafIcons } from './iconsLeaves.ts';
 import { materialIcons } from './iconsMaterials.ts';
 import { metalToolIcons } from './iconsMetalTools.ts';
 import { natureIcons } from './iconsNature.ts';
+import { plantIcons } from './iconsPlants.ts';
+import { rockIcons } from './iconsRock.ts';
+import { shrubIcons } from './iconsShrubs.ts';
+import { soilIcons } from './iconsSoil.ts';
+import { stationIcons } from './iconsStations.ts';
 import { toolIcons } from './iconsTools.ts';
+import { treeIcons } from './iconsTrees.ts';
 import { wearIcons } from './iconsWear.ts';
 import { items } from './items.ts';
 import { loot } from './loot.ts';
@@ -34,6 +43,23 @@ import { tiers, toolNames } from './tiers.ts';
 import { biomes, features, ores, worldgen } from './worldgen.ts';
 
 /** The neutral placeholder content pack shipped with the game. */
+/** The blocks' drawn icons (plan v5 « M50 »): each block's item shows its art in slots. */
+const blockIcons = [
+  ...soilIcons,
+  ...rockIcons,
+  ...treeIcons,
+  ...leafIcons,
+  ...buildingIcons,
+  ...stationIcons,
+  ...fixtureIcons,
+  ...plantIcons,
+  ...shrubIcons,
+];
+const withArt = (block: BlockDef): BlockDef => {
+  const icon = blockIcons.find((b) => b.block === block.key);
+  return icon ? { ...block, item: { ...block.item, art: icon.texture.key } } : block;
+};
+
 export const basePack: ContentPack = {
   manifest: {
     id: 'base',
@@ -49,7 +75,9 @@ export const basePack: ContentPack = {
       fire: 'block:fire',
     },
   },
-  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks, ...colonyBlocks],
+  blocks: [...blocks, ...natureBlocks, ...undergroundBlocks, ...stationBlocks, ...colonyBlocks].map(
+    withArt,
+  ),
   // Icons, cracks and creature skins go last so that block texture layers keep their indices.
   textures: [
     ...textures,
@@ -66,6 +94,7 @@ export const basePack: ContentPack = {
     ...crackTextures,
     ...creatureSkins,
   ],
+  icons: blockIcons.map((b) => b.texture),
   strings,
   tints: { grass: '#7fb04f', foliage: '#5f9a3e', water: '#3f76c4' },
   devScene: {

@@ -1895,7 +1895,7 @@ But : appliquer la décision 12 au code de M0–M3 **sans changer le comportemen
   | `voxelBytes` (médiane de 3 trajets de 2 km)                        | ≤ 140 Mo          |
   | Chargement, rayon 3 / RD 6                                         | < 3 s / < 5 s     |
   | Édition → maillage visible                                         | ≤ 50 ms p95       |
-  | JS gzip                                                            | ≤ 460 Ko          |
+  | JS gzip                                                            | ≤ 480 Ko          |
 
 - **Approximations d'un M1** :
   - GPU : RD 8 à DPR 2 sur le M4 garde moins de 5 % d'intervalles supérieurs à 20 ms ;
@@ -3446,12 +3446,20 @@ Comme dans Minecraft :
 - un contenant plein montre une goutte de ce qu'il tient ; des vagues de chaleur au-dessus de l'eau bouillie, les spores de la jauge de toxicité au-dessus de l'eau croupie ;
 - le motif `icon` lit des index de palette sur 62 caractères (`MASK_INDEX`) ; `shadeIcon` et le moteur de formes sont supprimés ; `MAX_ITEM_BOXES` passe à 48 (le fruit de palmépine et ses épines en prennent 46).
 
-#### M50 — Icônes des blocs et objets posés
+#### M50 — Icônes des blocs et objets posés (fait)
 
 - **Blocs fonctionnels** dessinés comme l'objet : feu de camp (bûches et flammes), coffre, établi, four, torche, échelle, porte, trappe, couchage, tonneau de pluie…
 - **Blocs de construction et de terrain** : cubes isométriques en pixel art de la palette, avec contour.
 
 **Tests** : couleurs dans la palette ; selftest `m50`.
+
+**Retenu à la réalisation** (planche des 144 objets validée par le joueur) :
+
+- les 69 objets-blocs ont chacun leur icône dessinée à la main, dans le rendu de M49 : les blocs de matière en cube isométrique (le dessus éclairé, la gauche en base, la droite dans l'ombre, contour encre), chaque face portant la texture du bloc dessinée sur 16 × 16 avec ses couleurs du monde (une rampe par bloc ajoutée à la palette) ; les minerais avec leurs éclats, le magma en croûte piquetée de braises, les bûches avec l'écorce et les cernes de leur arbre ;
+- le coffre, l'établi, le four et le bas fourneau sont des cubes comme les autres blocs (le coffre : couvercle en planches, joint profond, montants, fermoir en cordelette) ; la torche, l'échelle, la barrière, la trappe, le tonneau, le couchage, la lanterne et le feu de camp sont dessinés comme l'objet ; les 14 plantes comme des plantes ;
+- un bloc garde son modèle 3D en main et au sol ; seule la case montre son dessin (`ImplicitItemTraits.art`, l'icône `{ block, art }`) ;
+- le budget gzip passe de 460 à 480 kB : les 144 grilles dessinées (M49 et M50) sont des données d'environ 45 kB compressés, que le découpage en morceaux ne réduirait pas ;
+- ces dessins ne servent qu'aux cases : ils sont les `icons` du pack, rendus par le processeur et jamais envoyés dans le tableau de textures de la carte graphique (sa limite de 256 couches) ; modules `iconsSoil`, `iconsRock`, `iconsTrees`, `iconsLeaves`, `iconsBuilding`, `iconsStations`, `iconsFixtures`, `iconsPlants`, `iconsShrubs`.
 
 #### M51 — Le survivant du crash
 
@@ -3556,7 +3564,7 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - Toute l'interface passe par `t()` ; aucun nom de contenu dans le moteur.
 - `GEN_VERSION` reste inchangé.
 - `SAVE_VERSION` n'est relevé que si le format change (l'âge du feu, si on le sauvegarde).
-- Budget gzip 460 kB, en comptant la police.
+- Budget gzip 460 kB, en comptant la police (480 kB depuis M50 : les 144 icônes dessinées à la main pèsent environ 45 kB).
 - KISS, DRY, SRP.
 
 ## Vérification v5 (chaque jalon)

@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M50 — Block icons drawn by hand** (plan v5, `docs/conception.md` « M50 »). `npm run dev`, then
+open `http://localhost:5173/?skipMenu=1` and press E.
+
+- **All 144 items** now show pixel art drawn by hand: the 69 blocks too.
+- **Blocks of matter** are isometric cubes in their own colours of the world: stones, ores and their
+  glints, soils, snow, ice, every tree's logs and crowns, bricks, glass, the colony's hull plate.
+- **Placed things** are drawn as themselves (the torch, ladder, gate, trapdoor, barrel, bedroll,
+  lantern, campfire), the chest and the stations as cubes like every block, the plants as plants.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m49,m50`.
+
+### Earlier milestones
+
 **M49 — Item icons drawn by hand** (plan v5, `docs/conception.md` « M49 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1` and press E.
 
@@ -148,8 +160,6 @@ open `http://localhost:5173/?skipMenu=1` and press E.
 - **Veyra's touch**: the colony's stamp on the ingots, lantern berries with a glowing seed, the dawn
   crystal, a fish fillet with glowing spots; heat over boiled water, spores over foul water.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m49`.
-
-### Earlier milestones
 
 **M48 — The collapsed colony's interface** (plan v5, `docs/conception.md` « M48 »). `npm run
 dev`, then open `http://localhost:5173/`.
