@@ -160,7 +160,7 @@ of them:
 ### Earlier milestones
 
 **M42 — Modelled, surreal items** (plan v4, `docs/conception.md` « M42 »). `npm run dev`, then open
-`http://localhost:5173/?skipMenu=1` and press I.
+`http://localhost:5173/?skipMenu=1` and press E.
 
 - **Every icon** is shaded like a little sculpture, lit from the top left with a glint.
 - **Veyra's berries**: a crescent, a four-lobed berry and a teardrop with a glowing core, violet
