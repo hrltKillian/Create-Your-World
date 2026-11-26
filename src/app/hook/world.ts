@@ -1,7 +1,8 @@
 import { Column } from '../../world/Column.ts';
-import { findBiome, findStructure } from '../../world/gen/find.ts';
+import { findBiome } from '../../world/gen/find.ts';
 import { columnHash, generateColumn } from '../../world/gen/generateColumn.ts';
 import { pointInfo } from '../../world/gen/sample.ts';
+import { findStructure } from '../../world/gen/sites.ts';
 import type { App } from '../App.ts';
 import { blockKey, fill, lightAt, setBlock, waitForChunks, yieldTask } from '../automation.ts';
 

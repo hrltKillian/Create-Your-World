@@ -116,7 +116,7 @@ They never override the rules above (determinism, zero allocations in hot loops,
     caves only) and `tunnelsAt` (`world/gen/caves.ts`: tunnel families, cavern bands, entrances,
     ravines, caves flooded under lake beds within `floodedDepth`, dry ones `seal` blocks of rock
     from any liquid; `CaveDef`), `bankAt`/`topBlockAt` (`world/gen/banks.ts`), structure sites
-    (`world/gen/structures.ts`: `siteIn`, `regionOf`, `nearSite`); searches `world/gen/find.ts`
+    (`world/gen/structures.ts`: `siteIn`, `regionOf`, `nearSite`; story sites `world/gen/sites.ts`); searches `world/gen/find.ts`
     (`spiral`, `findBiome`, `findStructure`, `biomesWithin`), the spawn `world/gen/spawn.ts` (no
     surface opening within `OPENING_CLEARANCE`) and `surfaceY` (the floor of a carved surface); a
     generation step reads the padded `heights` (`PADDED` rows, `MARGIN` around the column,
@@ -286,8 +286,8 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `inventory`/`logbook`/`bestiary`/`quests`/`status` (`input/bindings.ts`, `InventoryUi.toggleBag(page)`); the
     jump cooldown `PHYSICS.jumpCooldownTicks`; item descriptions `ui/itemInfo.ts` (`itemLines`)
     over the shared break rule `toolBreakSeconds` (`content/items.ts`); creatures look at and
-    strike the middle of the body (`BODY_HEIGHT`, core/player.ts); the base pack has no structure
-    until M26, the engine tested on `tests/fixtures/structures.ts` (`structurePack`,
+    strike the middle of the body (`BODY_HEIGHT`, core/player.ts); the base pack's structures are
+    the lost colony's (M26), the engine also tested on `tests/fixtures/structures.ts` (`structurePack`,
     `structureRegistry`); selftest key presses `key`/`tap` (selftest/support.ts);
   - slot screens (Bag with the Logbook, Container, Station, Workbench with its Logbook:
     `ui/screens/workbench.ts`): `app/inventoryUi.ts` opens and closes them (the bag on its key,
@@ -461,6 +461,11 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Colony checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m26` (`selftest/m26.ts`): every
+  story site in its range of the spawn, the nearest one's chest keeping its loot. Story sites
+  (`StructureDef.place`), `columnSites`, `structureLootAt` and `findStructure` live in
+  `world/gen/sites.ts`; journals `ItemDef.lore`, blueprints `ItemDef.blueprint` with recipes
+  `known: 'blueprint'` (`Crafting.revealed`); the quests walk takes relics from chests (`salvage`).
 - Fauna checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m25` (`selftest/m25.ts`): the
   creatures of the new biomes placed, drawn, alive.
 - Underground checks of plan v3: `?seed=7&rd=4&fixedStep=1&selftest=m0,m24` (`selftest/m24.ts`): a

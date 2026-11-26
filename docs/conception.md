@@ -2814,6 +2814,14 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 - Le Scanner prend les pièces de la capsule.
 - Les quêtes d'histoire se branchent sur le graphe du M21.
 
+**Retenu à la réalisation** :
+
+- Moteur : `StructureDef.place { distance }` fait d'une structure un site d'histoire, placé une fois par monde au plus proche point plat et sec de ses biomes dans sa fourchette autour de l'apparition (`world/gen/sites.ts` : `storySites`, mémoïsé, calculé avant tout tampon de la colonne car la recherche d'apparition génère des colonnes). Les colonnes connaissent les sites d'histoire jusqu'à deux portées d'élément (14 blocs) ; un site de région s'efface devant un site d'histoire proche. `findStructure`, `structureLootAt` et `columnSites` y vivent.
+- Sites : la capsule écrasée (14 à 48 blocs de l'apparition, casier de récupération : pièces de capsule, journal, silex), l'avant-poste (120 à 250 blocs, Amberfield, Veilwood, Capwood ou Highlands : registre, plan de la lampe, lingots de cuivre), le relais du nord (Rimefrost : notes, plan de la brique, fourrure ; une lampe de la colonie sous son toit) et la station du marais (Sporefen, sur pilotis : journal, charbon, bandages). Des ruines au hasard (6 % des régions de terre ferme) gardent des pages déchirées.
+- Objets : `ItemDef.lore` (le texte d'un journal, lu dans sa description) et `ItemDef.blueprint` (les recettes `known: 'blueprint'` qu'il révèle une fois eu). Recettes à plan : lampe de la colonie et briques. Le Scanner se fabrique désormais avec les pièces de la capsule et de la corde. `reachable` prend `blueprints` et atteint le fer sans elles ; la validation veut un plan pour chaque recette à plan.
+- Quêtes d'histoire : récupérer la capsule (ouverte dès le départ), trouver l'avant-poste, puis le relais (après le nord, la boussole au nord) et la station (après le sud), enfin allumer une lampe de la colonie. La marche des quêtes va chercher journaux et plans dans les coffres des sites (`salvage`) et le plan avant sa recette.
+- Selftest `m26` (`?seed=7&rd=4&fixedStep=1&selftest=m0,m26`). `GEN_VERSION` 10.
+
 ### M27 — Exploration
 
 - Carte du monde découverte (onglet Carte), balises sur la boussole.

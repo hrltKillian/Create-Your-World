@@ -217,6 +217,7 @@ export const en = {
   'wear.feet': 'Feet',
   'wear.stats': 'Armor {armor} · Warmth +{warmth} °C · Cooling −{cooling} °C',
   'logbook.title': 'Logbook',
+  'info.blueprint': 'Blueprint: teaches the {name}',
   'info.tool': '{tier} {tool}',
   'info.mines': '{block}: {seconds} s',
   'info.weapon': 'Damage {damage} · every {cooldown} s · reach {reach} b',

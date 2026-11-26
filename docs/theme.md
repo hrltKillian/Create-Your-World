@@ -8,8 +8,8 @@ chaînes (`src/content/packs/base/i18n.en.ts`) : on peut les changer sans touche
 
 Ta capsule de secours s'écrase sur **Veyra**, une planète tempérée à la faune et à la flore
 étrangères. Une première colonie humaine, l'expédition _Long Haul_, s'y est installée des
-décennies plus tôt, puis a disparu. Ses ruines (M18) gardent des reliques, des journaux et des
-plans. Les quêtes (M19) suivent la piste des anciens colons. La progression va de la
+décennies plus tôt, puis a disparu. Ses ruines (M26) gardent des reliques, des journaux et des
+plans. Les quêtes (M21) suivent la piste des anciens colons. La progression va de la
 récupération (pièces de la capsule, silex) à la reconstruction (les blocs de la colonie), en
 passant par le cuivre, le bronze et le fer.
 
@@ -89,8 +89,13 @@ bestiaire et un scanner) :
 - **Pierres** : pierre, pierre sombre en profondeur, magma au fond des grottes, cristal d'aube
   luisant sur les parois profondes, pierre ardente (combustible, 50 s).
 
-## Noms à venir
+## La colonie perdue (plan v3 « M26 »)
 
-Les sites de la colonie (M18 : le site du crash, l'avant-poste, le relais du nord, la station du
-marais) et les objets de la colonie (journaux, plans, scanner) seront nommés ici au fil des
-jalons.
+- **La capsule écrasée**, près de l'apparition : coque de plaques (`Hull Plate`), un hublot, et le
+  casier de récupération : les pièces de la capsule (le Scanner), ton journal (« Your Log »).
+- **L'avant-poste** de l'expédition _Long Haul_, à 120–250 blocs : murs de briques de la colonie
+  (`Colony Brick`) à demi tombés, le registre (« Outpost Ledger ») et le plan de la lampe.
+- **Le relais du nord**, dans le Rimefrost : une tour de coque et de briques, une lampe de la
+  colonie (`Colony Lamp`) sous le toit, les notes de l'opérateur et le plan de la brique.
+- **La station du marais**, sur pilotis dans le Sporefen : le journal de la station.
+- **Des ruines** partout sur la terre ferme : des pages déchirées.

@@ -290,6 +290,8 @@ describe('content validation of the balance', () => {
 describe('content validation of the quests', () => {
   it('checks keys, strings, requirements, compass points, goals and rewards', () => {
     const pack = JSON.parse(JSON.stringify(basePack));
+    // The first five quests alone: none of them requires another.
+    pack.quests = pack.quests.slice(0, 5);
     const [first, second, third, fourth, fifth] = pack.quests;
     first.key = second.key;
     second.textKey = 'quest.nope';
@@ -299,6 +301,7 @@ describe('content validation of the quests', () => {
     fourth.condition = { drank: false };
     delete fourth.counter;
     fifth.counter = { event: 'killed', target: 'creature:nope', count: 0 };
+    fifth.condition = { drank: true };
     fifth.rewards = [{ item: 'item:nope', count: 1 }];
     const issues = validatePack(pack as ContentPack).map((i) => i.path);
     expect(issues).toEqual([
@@ -311,8 +314,6 @@ describe('content validation of the quests', () => {
       'quests[2].condition.stations[0]',
       'quests[2].condition.biomes',
       'quests[3].condition',
-      // Its requirement was the first quest, whose key is now the second's.
-      'quests[4].requires[0]',
       'quests[4]',
       'quests[4].counter.target',
       'quests[4].counter.count',

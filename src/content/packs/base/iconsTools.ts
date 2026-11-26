@@ -350,6 +350,7 @@ const SINEW = [
 
 /** Material icons. */
 export const materialIcons = [
+  icon('tex:icon_capsule_parts', 373, ['#22272c', '#4b5560', '#7b8690', '#a9b4bd'], PLATE),
   icon('tex:icon_stick', 311, ['#3b2716', '#5a3d24', '#86603d', '#b08456'], STICK),
   icon('tex:icon_plant_fiber', 312, ['#2f3a1e', '#55702f', '#7f9a45', '#a9c26a', '#c8b27e'], FIBER),
   icon('tex:icon_cord', 313, ['#3e3020', '#8a7048', '#b39462', '#d6bd86'], CORD),

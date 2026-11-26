@@ -5,8 +5,8 @@ import { reachable } from '../../../src/content/reachability.ts';
 import type { ContentPack, LootTableDef } from '../../../src/content/schema.ts';
 
 const IRON = 'item:iron_ingot';
-const withHostiles = reachable(basePack, { hostiles: true, levels: true });
-const withoutHostiles = reachable(basePack, { hostiles: false, levels: true });
+const withHostiles = reachable(basePack, { hostiles: true, levels: true, blueprints: true });
+const withoutHostiles = reachable(basePack, { hostiles: false, levels: true, blueprints: true });
 
 const keys = <T extends { key: string }>(list: readonly T[] | undefined) =>
   (list ?? []).map((x) => x.key);
@@ -28,14 +28,18 @@ describe('reachability from the start state (an empty inventory)', () => {
     expect(withoutHostiles.items.has(IRON)).toBe(true);
   });
 
-  it('reaches the iron ingot without the recipes of a level, which make nothing else', () => {
-    const levelless = reachable(basePack, { hostiles: false, levels: false });
+  it('reaches the iron ingot without the recipes of a level or a blueprint, which make nothing else', () => {
+    const levelless = reachable(basePack, { hostiles: false, levels: false, blueprints: false });
     expect(levelless.items.has(IRON)).toBe(true);
-    const levelled = basePack.recipes!.filter((r) => r.level !== undefined);
-    expect(levelled.length).toBeGreaterThanOrEqual(2);
+    const levelled = basePack.recipes!.filter(
+      (r) => r.level !== undefined || r.known === 'blueprint',
+    );
+    expect(levelled.length).toBeGreaterThanOrEqual(4);
     for (const recipe of levelled) expect(levelless.recipes.has(recipe.key)).toBe(false);
+    // Only their outputs can be lost (a colony block also stands in the colony's ruins).
     const lost = missing([...withoutHostiles.items], levelless.items);
-    expect(lost.sort()).toEqual(levelled.map((r) => r.output.item).sort());
+    expect(lost.length).toBeGreaterThan(0);
+    for (const item of lost) expect(levelled.map((r) => r.output.item)).toContain(item);
   });
 
   it('reaches every recipe, process and pack item when hostiles are enabled', () => {
@@ -63,13 +67,19 @@ describe('reachability from the start state (an empty inventory)', () => {
       ),
     };
     expect(
-      reachable(pack, { hostiles: false, levels: true }).items.has('item:bronze_pickaxe'),
+      reachable(pack, { hostiles: false, levels: true, blueprints: true }).items.has(
+        'item:bronze_pickaxe',
+      ),
     ).toBe(false);
-    expect(reachable(pack, { hostiles: true, levels: true }).items.has('item:bronze_pickaxe')).toBe(
-      true,
-    );
+    expect(
+      reachable(pack, { hostiles: true, levels: true, blueprints: true }).items.has(
+        'item:bronze_pickaxe',
+      ),
+    ).toBe(true);
     // The iron path needs copper tools only.
-    expect(reachable(pack, { hostiles: false, levels: true }).items.has(IRON)).toBe(true);
+    expect(
+      reachable(pack, { hostiles: false, levels: true, blueprints: true }).items.has(IRON),
+    ).toBe(true);
   });
 
   it('follows tool tiers, stations and fuel rules', () => {
@@ -78,6 +88,7 @@ describe('reachability from the start state (an empty inventory)', () => {
     const flintless = reachable(lootWithout('item:flint', ...metals), {
       hostiles: true,
       levels: true,
+      blueprints: true,
     });
     expect(flintless.items.has('item:stone')).toBe(false);
     expect(flintless.items.has('item:kiln')).toBe(false);
@@ -88,7 +99,7 @@ describe('reachability from the start state (an empty inventory)', () => {
         ...lootWithout('item:charcoal'),
         processes: basePack.processes!.filter((p) => p.key !== 'process:charcoal'),
       },
-      { hostiles: true, levels: true },
+      { hostiles: true, levels: true, blueprints: true },
     );
     expect(charcoalless.items.has('item:bloomery')).toBe(true);
     expect(charcoalless.items.has(IRON)).toBe(false);
@@ -97,7 +108,7 @@ describe('reachability from the start state (an empty inventory)', () => {
       ...basePack,
       recipes: basePack.recipes!.filter((r) => r.key !== 'recipe:workbench'),
     };
-    const benchless = reachable(noBench, { hostiles: true, levels: true });
+    const benchless = reachable(noBench, { hostiles: true, levels: true, blueprints: true });
     expect(benchless.recipes.has('recipe:kiln')).toBe(false);
     expect(benchless.items.has(IRON)).toBe(false);
   });

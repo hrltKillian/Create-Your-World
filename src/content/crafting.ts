@@ -55,14 +55,20 @@ export class Crafting {
   }
 
   /**
-   * Whether a player knows a recipe (docs « Craft : le Logbook »): known from the start, or one of
-   * its ingredients has been seen. `seen` holds the item keys a player has had and their tags.
+   * Whether a player knows a recipe (docs « Craft : le Logbook »): known from the start, revealed by
+   * a blueprint had (plan v3 « M26 »), or one of its ingredients has been seen. `seen` holds the item keys a player has had and their tags.
    */
   revealed(
-    recipe: Pick<RecipeDef, 'known' | 'inputs'>,
+    recipe: { readonly key: string } & Pick<RecipeDef, 'known' | 'inputs'>,
     seen: Readonly<Record<string, boolean>>,
   ): boolean {
     if (recipe.known === 'start') return true;
+    if (recipe.known === 'blueprint') {
+      for (const item of this.itemIndex.values())
+        if (item.blueprint?.some((key) => key === recipe.key) && seen[item.key] === true)
+          return true;
+      return false;
+    }
     for (const input of recipe.inputs) if (seen[input.item] === true) return true;
     return false;
   }

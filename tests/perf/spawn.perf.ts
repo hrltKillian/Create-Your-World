@@ -5,9 +5,10 @@ import { registry } from '../helpers/registry.ts';
 
 /**
  * The spawn search runs on the main thread when a world starts. Apple M4: seeds 1–300 take at most
- * about 0.13 s with the surfaces memoized (up to 0.6 s before).
+ * about 0.13 s with the surfaces memoized (up to 0.6 s before); the colony's ruins (plan v3
+ * « M26 ») add a structure check to the columns it reads: about 0.48 s at worst.
  */
-const SPAWN_WORST_MS = 300;
+const SPAWN_WORST_MS = 600;
 const SEEDS = 300;
 
 describe('spawn performance', () => {

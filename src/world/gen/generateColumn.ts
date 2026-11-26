@@ -27,15 +27,11 @@ import { placeFeatures, placePlants, type ResolvedFeature } from './decor.ts';
 import { FLAT_SURFACE, generateFlatColumn } from './flat.ts';
 import { placeOres, type ResolvedOre } from './ores.ts';
 import { heightAt, LatticeCache, rawBiomeOf, settledBiome } from './sample.ts';
-import {
-  columnSite,
-  placeStructure,
-  type ResolvedStructure,
-  resolveStructure,
-} from './structures.ts';
+import { columnSites, storySites } from './sites.ts';
+import { placeStructure, type ResolvedStructure, resolveStructure } from './structures.ts';
 
 /** Bump when generation output changes: golden hashes and saves of untouched terrain depend on it. */
-export const GEN_VERSION = 9;
+export const GEN_VERSION = 10;
 
 export interface ResolvedBiome {
   readonly def: BiomeDef;
@@ -209,6 +205,9 @@ export function generateColumn(ctx: GenContext, column: Column): void {
     if (ctx.arena) placeArena(column, ctx.arena);
     return;
   }
+  // The story sites first: their spawn search generates columns, which share this module's
+  // scratch buffers (sites.ts).
+  storySites(ctx);
   const cache = new LatticeCache();
   const x0 = column.cx * SECTION_SIZE - MARGIN;
   const z0 = column.cz * SECTION_SIZE - MARGIN;
@@ -237,10 +236,10 @@ export function generateColumn(ctx: GenContext, column: Column): void {
   }
   carveCaves(ctx, column, heights);
   placeOres(ctx, column, heights);
-  const site = columnSite(ctx, cache, column);
+  const sites = columnSites(ctx, cache, column);
   placePlants(ctx, column, heights);
-  placeFeatures(ctx, column, heights, cache, site);
-  placeStructure(ctx, column, heights, site);
+  placeFeatures(ctx, column, heights, cache, sites);
+  for (const site of sites) placeStructure(ctx, column, heights, site);
   fillHeightmap(ctx, column);
   for (const section of column.sections) section.compact();
 }

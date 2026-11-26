@@ -98,6 +98,19 @@ function checkItems(
     // stack (stackLimit): a pack may not say otherwise.
     if ((tool || item.weapon || item.wear || item.container) && max !== undefined && max !== 1)
       add(`${path}.maxStack`, 'a tool, a weapon, a wearable or a container must have maxStack 1');
+    if (item.lore !== undefined && pack.strings[item.lore] === undefined)
+      add(`${path}.lore`, `no string for "${item.lore}"`);
+    (item.blueprint ?? []).forEach((key, b) => {
+      const recipe = (pack.recipes ?? []).find((r) => r.key === key);
+      if (recipe?.known !== 'blueprint')
+        add(`${path}.blueprint[${b}]`, `"${key}" is no recipe a blueprint teaches`);
+    });
+  });
+  // Every blueprint recipe has its blueprint (plan v3 « M26 »).
+  (pack.recipes ?? []).forEach((recipe, r) => {
+    if (recipe.known !== 'blueprint') return;
+    if (!(pack.items ?? []).some((item) => item.blueprint?.includes(recipe.key)))
+      add(`recipes[${r}].known`, `no blueprint teaches "${recipe.key}"`);
   });
   return keys;
 }

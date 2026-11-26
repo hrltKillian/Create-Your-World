@@ -7,6 +7,8 @@ export interface ReachRules {
   readonly hostiles: boolean;
   /** Recipes of a player level (plan v3 « M22 ») count. */
   readonly levels: boolean;
+  /** Recipes a blueprint teaches (plan v3 « M26 ») count, once their blueprint is reached. */
+  readonly blueprints: boolean;
 }
 
 /** What a player can obtain, make and process. */
@@ -61,6 +63,12 @@ export function reachable(pack: ContentPack, rules: ReachRules): Reach {
     }
     for (const recipe of crafting.recipes) {
       if (recipe.level !== undefined && !rules.levels) continue;
+      if (recipe.known === 'blueprint') {
+        const taught = all.some(
+          (item) => item.blueprint?.some((key) => key === recipe.key) && items.has(item.key),
+        );
+        if (!rules.blueprints || !taught) continue;
+      }
       if (recipe.station !== undefined && !stationAt(recipe.station)) continue;
       if (!recipe.inputs.every(has)) continue;
       recipes.add(recipe.key);

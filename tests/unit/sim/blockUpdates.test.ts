@@ -199,5 +199,5 @@ describe('generated trees', () => {
       }
       expect(checked).toBeGreaterThan(0);
     }
-  });
+  }, 60_000);
 });

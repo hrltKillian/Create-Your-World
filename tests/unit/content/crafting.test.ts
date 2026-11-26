@@ -176,8 +176,8 @@ describe('base pack crafting data (docs « Craft », « Stations », « Progress
     };
     expect(share('loot:gravel', 'item:flint')).toBeCloseTo(0.35);
     expect(share('loot:tall_grass', 'item:plant_fiber')).toBeCloseTo(0.6);
-    // No structure until the lost colony's (plan v3 « M26 »); Shagbacks leave sinew meanwhile.
-    expect(basePack.structures ?? []).toEqual([]);
+    // The lost colony's structures (plan v3 « M26 ») keep relics; Shagbacks leave sinew.
+    expect((basePack.structures ?? []).map((s) => s.key)).toContain('structure:crash_site');
     expect(registry.loot('loot:shagback')!.entries.map((e) => e.item)).toContain(
       'item:prowler_sinew',
     );

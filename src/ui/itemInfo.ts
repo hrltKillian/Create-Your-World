@@ -6,7 +6,8 @@ import { t } from '../i18n/i18n.ts';
 /*
  * An item's description (plan v3 « M18 »), written from its data: what a tool mines and how fast
  * on its favourite block, a weapon's blow, what a wearable protects from, what a food or a drink
- * gives, a fuel's time and the uses left of a fresh one. Shown under the hovered slot and with a
+ * gives, a fuel's time and the uses left of a fresh one; a journal's text and what a blueprint
+ * teaches (plan v3 « M26 »). Shown under the hovered slot and with a
  * Logbook recipe. Pure.
  */
 
@@ -37,6 +38,12 @@ export function itemLines(registry: Registry, key: string): string[] {
   const item: ItemDef | undefined = registry.item(key);
   if (!item) return [];
   const lines: string[] = [];
+  if (item.lore) lines.push(t(item.lore));
+  for (const recipe of item.blueprint ?? []) {
+    const output = registry.crafting.recipe(recipe)?.output.item;
+    const name = output ? registry.item(output)?.nameKey : undefined;
+    if (name) lines.push(t('info.blueprint', { name: t(name) }));
+  }
   if (item.tool) lines.push(...toolLines(registry, item.tool));
   const weapon = item.weapon;
   if (weapon)
