@@ -156,7 +156,7 @@ describe('quests', () => {
 
   it('claims a quest done and pins an open one by its buttons; the line shows the pinned one', () => {
     const sent: unknown[] = [];
-    const panel = new QuestsPanel({ send: (c) => sent.push(c), click: () => {} });
+    const panel = new QuestsPanel({ send: (c) => sent.push(c), sound: () => {}, panel: () => {} });
     const el = fake(panel.element);
     panel.update([], []);
     expect(el.textContent).toBe('QuestsNo quest yet.');

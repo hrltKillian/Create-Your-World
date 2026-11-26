@@ -28,15 +28,20 @@ const STATUS = { level: 'Level 1', xp: '', pointsLeft: '', skills: [] };
 
 function deps(label = () => 'E') {
   const sent: Command[] = [];
+  const cues: string[] = [];
   const screen: ScreenDeps = {
     art: { registry, icons: [], figure: '' },
-    actions: { send: (command) => sent.push(command), click: () => {} },
+    actions: {
+      send: (command) => sent.push(command),
+      sound: (cue) => cues.push(cue),
+      panel: (panel, open) => cues.push(`${panel}:${open}`),
+    },
     slotCount: BASE_INVENTORY_SLOTS,
     openBase: OPEN_SLOTS_BASE,
     closeKey: label,
     tooltip: new Tooltip(),
   };
-  return { screen, sent };
+  return { screen, sent, cues };
 }
 
 const fake = (element: HTMLElement) => element as unknown as FakeElement;
@@ -168,6 +173,38 @@ describe('BagScreen', () => {
     bag.close();
     bag.open('bestiary');
     expect(bag.shown()).toBe('bestiary');
+  });
+
+  it('sounds what a click does: a stack taken, put, thrown; the Bag opening and closing', () => {
+    const { screen, cues } = deps();
+    const bag = new BagScreen(
+      screen,
+      new LogbookPanel(screen.art, screen.actions, LIMITS, screen.tooltip),
+    );
+    bag.open();
+    const slots: Inventory = new Array(OPEN_SLOTS_BASE + WEAR_SLOTS.length).fill(null);
+    slots[2] = { item: 'item:flint', count: 3 };
+    const gear = { armor: 0, warmth: 0, cooling: 0, airFilter: 1, waterproof: false };
+    const state = { source: logbookSource({}), queue: [] };
+    const press = (slot: number) =>
+      fake(bag.element).dispatch('pointerdown', {
+        target: byAttr(bag.element, 'data-slot', String(slot))[0]!,
+        button: 0,
+        preventDefault: () => {},
+      });
+    bag.update(slots, null, state, gear, [], [], [], STATUS);
+    press(2);
+    bag.update(slots, { item: 'item:flint', count: 3 }, state, gear, [], [], [], STATUS);
+    press(5);
+    fake(bag.element).dispatch('pointerdown', {
+      target: bag.element,
+      button: 0,
+      preventDefault: () => {},
+    });
+    bag.update(slots, null, state, gear, [], [], [], STATUS);
+    press(6);
+    bag.close();
+    expect(cues).toEqual(['bag:true', 'take', 'put', 'throw', 'tab', 'bag:false']);
   });
 
   it('draws the cursor stack under the pointer while it holds one', () => {

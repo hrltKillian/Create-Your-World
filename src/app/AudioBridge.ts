@@ -21,8 +21,16 @@ const LIT_SCAN_SECONDS = 0.5;
 /** Thunder (plan v3 « M34 »): heard this far (blocks), after the light at this speed (blocks/s). */
 const THUNDER_REACH = 400;
 const SOUND_SPEED = 340;
-/** The rain's gain under cover (a roof over the camera). */
-const RAIN_COVERED = 0.35;
+/** Closer than this (blocks), a strike's crack is heard; farther, its rumble alone (plan v5 « M54 »). */
+const THUNDER_NEAR = 80;
+/** The rain's gain under a roof (plan v5 « M54 »: its own tapping, softer). */
+const RAIN_ROOFED = 0.6;
+/** How far up (blocks) the ear looks for what covers it from the rain, how far down for water. */
+const COVER_REACH = 24;
+const WATER_BELOW = 3;
+/** Creatures this close (blocks) are heard stepping, a step every `max(STEP_MIN, width)` blocks. */
+const STEP_REACH = 24;
+const STEP_MIN = 0.35;
 /** How often the room around the ear is probed (s; plan v5 « M53 »). */
 const ROOM_SECONDS = 0.25;
 
@@ -69,8 +77,18 @@ export class AudioBridge {
   private earZ = 0;
   /** A roof over the ear on the last frame (the rain is softer, the room an indoor one). */
   private covered = false;
-  /** Thunders on their way: seconds left before each is heard. */
-  private readonly thunders: number[] = [];
+  /** Thunders on their way: seconds left before each is heard, and whether it is near. */
+  private readonly thunders: { wait: number; near: boolean }[] = [];
+  /** What covers the ear from the rain (plan v5 « M54 »), probed with the room. */
+  private cover: 'open' | 'water' | 'leaves' | 'roof' = 'open';
+  /** Per block state: 1 for leaves (a canopy over the ear). */
+  private readonly leaves: Uint8Array;
+  /** Each creature's place and the ground it covered since its last step. */
+  private readonly strides = new Map<
+    number,
+    { x: number; z: number; walked: number; frame: number }
+  >();
+  private frameCount = 0;
   /** Reused every frame (no allocation). */
   private readonly place: AmbiencePlace = {
     biome: undefined,
@@ -105,6 +123,9 @@ export class AudioBridge {
     this.ambience = new Ambience(audio);
     this.rain = new Ambience(audio);
     this.walls = roomWalls(registry);
+    this.leaves = Uint8Array.from({ length: registry.tables.stateCount }, (_, state) =>
+      registry.blockDef(state).decay ? 1 : 0,
+    );
     this.body = sounds
       ? new BodySounds(audio, sounds.player, registry.pack.balance.health.lowAt, PHYSICS.sprint * 2)
       : null;
@@ -116,7 +137,8 @@ export class AudioBridge {
     this.cues.onEvent(event);
     if (event.type === 'lightning') {
       const distance = Math.hypot(event.x - this.earX, event.z - this.earZ);
-      if (distance <= THUNDER_REACH) this.thunders.push(distance / SOUND_SPEED);
+      if (distance <= THUNDER_REACH)
+        this.thunders.push({ wait: distance / SOUND_SPEED, near: distance < THUNDER_NEAR });
     }
   }
 
@@ -131,6 +153,7 @@ export class AudioBridge {
     this.hearPlace(dt, pose, underwater);
     this.hearWeather(dt, weather.rain);
     this.hearBody();
+    this.hearSteps();
     this.scanWait -= dt;
     if (this.scanWait <= 0) {
       this.scanWait = LIT_SCAN_SECONDS;
@@ -189,28 +212,93 @@ export class AudioBridge {
     if (this.roomWait <= 0) {
       this.roomWait = ROOM_SECONDS;
       this.indoors = this.covered && enclosed(this.closes, x, y, z);
+      this.cover = this.coverOver(x, y, z);
     }
     this.audio.setReverb(place.cave ? 'cave' : this.indoors ? 'indoor' : 'dry');
   }
 
   /**
-   * The rain's ambience over the place's (at the rain's strength, softer under a roof, none
-   * underwater or in a cave), and the thunders whose time has come.
+   * The rain's ambience over the place's, as it sounds on what covers the ear (the open ground,
+   * a canopy, a roof: softer), at the rain's strength, none underwater or in a cave; and the
+   * thunders whose time has come, a crack near, a rumble far.
    */
   private hearWeather(dt: number, rain: number): void {
     const sounds = this.view.registry.pack.sounds;
     const place = this.place;
-    const strength = place.underwater || place.cave ? 0 : rain * (this.covered ? RAIN_COVERED : 1);
-    const def = strength > 0 ? (sounds?.ambience.rain ?? null) : null;
-    this.rain.update(def, dt, this.earX, this.earY, this.earZ, strength);
+    const strength =
+      place.underwater || place.cave ? 0 : rain * (this.cover === 'roof' ? RAIN_ROOFED : 1);
+    const rains = sounds?.ambience.rain;
+    this.rain.update(
+      strength > 0 && rains ? rains[this.cover] : null,
+      dt,
+      this.earX,
+      this.earY,
+      this.earZ,
+      strength,
+    );
     const thunders = this.thunders;
     for (let i = thunders.length - 1; i >= 0; i--) {
-      thunders[i] = thunders[i]! - dt;
-      if (thunders[i]! > 0) continue;
+      const thunder = thunders[i]!;
+      thunder.wait -= dt;
+      if (thunder.wait > 0) continue;
       thunders.splice(i, 1);
-      if (sounds?.thunder) this.audio.playLocal(sounds.thunder);
+      if (sounds?.thunder)
+        this.audio.playLocal(thunder.near ? sounds.thunder.near : sounds.thunder.far);
     }
   }
+
+  /**
+   * What the rain falls on by the ear's cell: a canopy of leaves or a roof over it, else water just
+   * under it (wading, swimming, at a pond's edge), else the open ground.
+   */
+  private coverOver(x: number, y: number, z: number): 'open' | 'water' | 'leaves' | 'roof' {
+    const { world, registry } = this.view;
+    for (let d = 1; d <= COVER_REACH; d++) {
+      const state = world.getBlock(x, y + d, z);
+      if (this.leaves[state] === 1) return 'leaves';
+      if (this.walls[state] === 1) return 'roof';
+    }
+    for (let d = 0; d <= WATER_BELOW; d++)
+      if (isLiquid(world, registry.tables, x + 0.5, y - d + 0.5, z + 0.5)) return 'water';
+    return 'open';
+  }
+
+  /**
+   * The creatures' footsteps (plan v5 « M54 »): each on the ground within STEP_REACH of the ear
+   * steps once every so much ground it covers (its width, at least STEP_MIN), its own step sound.
+   */
+  private hearSteps(): void {
+    const frame = ++this.frameCount;
+    const registry = this.view.registry;
+    for (const entity of this.view.entities.values()) {
+      if (entity.kind !== 'creature' || entity.mode === 'dying') continue;
+      const b = entity.body;
+      const dx = b.x - this.earX;
+      const dz = b.z - this.earZ;
+      if (dx * dx + dz * dz > STEP_REACH * STEP_REACH) continue;
+      let stride = this.strides.get(entity.id);
+      if (!stride) {
+        stride = { x: b.x, z: b.z, walked: 0, frame };
+        this.strides.set(entity.id, stride);
+      }
+      stride.frame = frame;
+      if (b.onGround) stride.walked += Math.hypot(b.x - stride.x, b.z - stride.z);
+      stride.x = b.x;
+      stride.z = b.z;
+      const def = registry.creature(entity.creature);
+      const length = Math.max(STEP_MIN, def?.hitbox[0] ?? 1);
+      if (stride.walked < length) continue;
+      stride.walked -= length * Math.floor(stride.walked / length);
+      const step = def?.sounds.step;
+      if (step) this.audio.play(step, b.x, b.y + 0.1, b.z);
+    }
+    // Creatures gone or out of reach are forgotten.
+    this.strides.forEach(this.forget);
+  }
+
+  private readonly forget = (stride: { frame: number }, id: number): void => {
+    if (stride.frame !== this.frameCount) this.strides.delete(id);
+  };
 
   private hearBody(): void {
     const player = this.view.player();
@@ -294,17 +382,29 @@ export function roomWalls(registry: Registry): Uint8Array {
 }
 
 /**
- * Per block state, the index in `keys` (filled here) of the sound its station makes while lit
- * (the pack's `sounds.lit`), −1 for a state that is not a lit station.
+ * Per block state, the index in `keys` (filled here) of the sound it makes near the ear: a lit
+ * station's (the pack's `sounds.lit`), the fire block's (`sounds.burning`) and lava's
+ * (`sounds.lava`, the world's magma); −1 for a state that makes none.
  */
 export function litSounds(registry: Registry, keys: string[]): Int16Array {
   const table = new Int16Array(registry.tables.stateCount).fill(-1);
-  const lit = registry.pack.sounds?.lit;
-  if (!lit) return table;
+  const sounds = registry.pack.sounds;
+  if (!sounds) return table;
+  const fire = registry.pack.manifest.bindings.fire;
+  const lava = registry.pack.worldgen?.magma;
+  const lit = sounds.lit;
   for (let state = 0; state < table.length; state++) {
-    const station = registry.blockDef(state).station;
-    const key = station && lit[station];
-    if (!key || registry.prop(state, 'lit') !== '1') continue;
+    const def = registry.blockDef(state);
+    const station = def.station;
+    const key =
+      def.key === fire
+        ? sounds.burning
+        : def.key === lava
+          ? sounds.lava
+          : station && registry.prop(state, 'lit') === '1'
+            ? lit[station]
+            : undefined;
+    if (!key) continue;
     if (!keys.includes(key)) keys.push(key);
     table[state] = keys.indexOf(key);
   }

@@ -52,7 +52,15 @@ describe('AudioCues', () => {
     ];
     for (const event of events) c.onEvent(event);
     const p = sounds.player;
-    expect(player.keys()).toEqual([p.jump, p.land, p.eat, p.drink, p.drink, sounds.craft, p.death]);
+    expect(player.keys()).toEqual([
+      p.jump,
+      p.land,
+      p.eat,
+      p.drink,
+      p.drink,
+      sounds.ui.craft,
+      p.death,
+    ]);
     const buses = player.calls.map((call) => call.at);
     expect(buses).toEqual(['local', 'local', 'local', 'local', 'local', 'ui', 'local']);
   });
@@ -90,7 +98,7 @@ describe('AudioCues', () => {
     const { player, cues: c } = cues();
     const made = { recipe: 'recipe:chest', item: 'item:chest', count: 1 };
     c.onEvent({ type: 'workbenchCrafted', x: 6, y: 65, z: 0, ...made });
-    expect(player.calls).toEqual([{ key: sounds.craft, at: 'world', x: 6.5, pitch: 1 }]);
+    expect(player.calls).toEqual([{ key: sounds.ui.craft, at: 'world', x: 6.5, pitch: 1 }]);
   });
 
   it('sounds the stingers of dusk and dawn', () => {

@@ -40,7 +40,7 @@ export class ContainerScreen {
     const takeAll = menuButton('take-all', t('container.takeAll'), this.takeAll);
     const storeAll = menuButton('store-all', t('container.storeAll'), this.storeAll);
     const sort = menuButton('chest-sort', t('container.sort'), () => {
-      this.actions.click();
+      this.actions.sound('button');
       this.actions.send({ type: 'inv.sort', open: true });
     });
     this.element.append(
@@ -97,6 +97,6 @@ export class ContainerScreen {
   private sendEach(from: number, to: number): void {
     for (let slot = from; slot < to; slot++)
       if (this.slots[slot]) this.actions.send({ type: 'slot.click', slot, button: 0, shift: true });
-    this.actions.click();
+    this.actions.sound('button');
   }
 }

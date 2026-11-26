@@ -50,8 +50,37 @@ export interface AmbienceBindings {
   readonly fallback: DayNightAmbience;
   readonly cave: AmbienceDef;
   readonly underwater: AmbienceDef;
-  /** Rain on the leaves and the ground (plan v3 « M34 »), over the place's while it rains. */
-  readonly rain?: AmbienceDef;
+  /** Rain over the place's while it rains (plan v3 « M34 »), by what is over the ear. */
+  readonly rain?: RainAmbience;
+}
+
+/**
+ * The rain as it sounds in the open, on water just under the ear, under a canopy, under a roof
+ * (plan v5 « M54 »).
+ */
+export interface RainAmbience {
+  readonly open: AmbienceDef;
+  readonly water: AmbienceDef;
+  readonly leaves: AmbienceDef;
+  readonly roof: AmbienceDef;
+}
+
+/**
+ * The interface's sounds (plan v5 « M54 »): a button pressed, a tab or a picker chosen, a stack
+ * taken onto the cursor, put into a slot or thrown beside the panel, a craft done, and each kind
+ * of screen opening and closing (the Bag and the slot screens, the map, a journal, the menus).
+ */
+export interface UiSounds {
+  readonly button: SfxKey;
+  readonly tab: SfxKey;
+  readonly take: SfxKey;
+  readonly put: SfxKey;
+  readonly throw: SfxKey;
+  readonly craft: SfxKey;
+  readonly bag: OpenClose;
+  readonly map: OpenClose;
+  readonly book: OpenClose;
+  readonly menu: OpenClose;
 }
 
 /**
@@ -63,10 +92,8 @@ export interface SoundBindings {
   readonly pickup: SfxKey;
   /** A liquid hardening where another touches it (lava meeting water). */
   readonly hardens?: SfxKey;
-  /** Interface click (bag, slots). */
-  readonly click: SfxKey;
-  /** One craft of the queue is done (interface bus). */
-  readonly craft: SfxKey;
+  /** The interface's sounds (plan v5 « M54 »). */
+  readonly ui: UiSounds;
   /** A player's blow landing on a creature, and a creature's blow landing on a player. */
   readonly combat: { readonly hit: SfxKey; readonly hurt: SfxKey };
   /** The local player's own sounds, at the ear. */
@@ -82,6 +109,8 @@ export interface SoundBindings {
     /** Beats while health is under the balance's `health.lowAt`. */
     readonly heartbeat: SfxKey;
     readonly death: SfxKey;
+    /** A swing of the arm or the held tool (plan v5 « M54 »). */
+    readonly swing: SfxKey;
   };
   /** A door or gate toggled (any block with the `open` state). */
   readonly door: OpenClose;
@@ -89,10 +118,16 @@ export interface SoundBindings {
   readonly chest: OpenClose;
   /** Crackles of a lit station block near the listener, by station (fire, kilns). */
   readonly lit: Readonly<Partial<Record<StationKey, SfxKey>>>;
+  /** The fire block burning, and lava bubbling, near the listener (plan v5 « M54 »). */
+  readonly burning?: SfxKey;
+  readonly lava?: SfxKey;
   /** Stingers: the sun sets (18:30), a night is survived (06:00). */
   readonly clock: { readonly dusk: SfxKey; readonly dawn: SfxKey };
-  /** A lightning strike's thunder, heard after the light (plan v3 « M34 »). */
-  readonly thunder?: SfxKey;
+  /**
+   * A lightning strike's thunder, heard after the light (plan v3 « M34 »): its crack close by, its
+   * rumble far off (plan v5 « M54 »).
+   */
+  readonly thunder?: { readonly near: SfxKey; readonly far: SfxKey };
   readonly ambience: AmbienceBindings;
 }
 

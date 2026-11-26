@@ -3545,7 +3545,7 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - planche des sons (`?soundboard=1`, en dev) : chaque recette par classe, un bouton par variante, un interrupteur par fond (`ui/screens/soundboard.ts`, `AudioEngine.playVariant`) ;
 - selftest `m53` : chaque biome du monde généré est sec (forêts et Sporefen compris), une grotte résonne ; dans le monde plat, une cabane fermée résonne et le pré est sec.
 
-#### M54 — Tous les sons refaits
+#### M54 — Tous les sons refaits (fait)
 
 - **Monde et joueur** :
   - pas par matière ;
@@ -3562,6 +3562,17 @@ Les sept espèces sont redessinées selon la décision 39 : Trotter, Shagback, P
 - **Interface** : tous les sons, même ceux qui n'existent pas encore : clics des boutons, cases (prendre, poser, déplacer, jeter), ouverture et fermeture de chaque écran et menu (Bag et ses pages, coffre, station, établi, carte, livre, pause, réglages, menus), craft terminé, signaux du crépuscule et de l'aube. Aucune recette d'avant n'est gardée.
 
 **Tests** : selftest `m54` (chaque clé de son jouée une fois sans erreur ; le tonnerre arrive après le flash ; chaque espèce a ses sons) ; les tests de niveaux sont mis à jour.
+
+**Retenu à la réalisation** :
+
+- aucune recette d'avant n'est gardée : chaque son est une recette nouvelle sur les modèles de M53, avec sa classe de niveau ; les briques des recettes (`sfxParts.ts` : `impact`, `crunch`, `burst`, `bubbles`, `crackle`, `air`, `voice` et ses voyelles `VOWELS`, `footstep`) ;
+- les blocs (`sfx.ts`) : chaque matière a son corps (ses modes), la dureté du contact et ses grains (pierre dure et brève, terre sourde, sable qui siffle, gravier, planche creuse, feuilles qui bruissent, verre qui tinte, métal qui sonne, tissu étouffé) ; casser = le coup, les grains et les débris qui retombent ; frapper, poser ; marcher = le talon puis la pointe ; l'eau, des bulles ; les portes et les coffres grincent sur leurs gonds (une friction rendue par le modèle de voix) puis le bois retombe dans le cadre, et le loquet ;
+- le joueur (`playerSfx.ts`) : saut (semelles, vêtements, souffle), atterrissage, plongeon (surface rompue, nuage de bulles), nage, trois bouchées, trois gorgées, battement de cœur, dernier souffle et chute, coup dans le vide (`player.swing`, à l'événement `playerSwung`), coup reçu (choc et grognement) ;
+- feux : le feu de camp, le four (un tirage grondant), le bloc de feu (`sounds.burning`) et la lave (`sounds.lava` : bulles épaisses et éclaboussures), joués au plus proche dans les 8 blocs (`litSounds`) ; le tonnerre proche (claquement de l'onde de choc puis roulement) et lointain (roulement seul, plus sourd et plus lent), au-delà de 80 blocs (`sounds.thunder.near`/`far`) ; la cloche de la colonie au loin, deux coups graves au crépuscule, trois plus aigus à l'aube ;
+- les créatures (`creatureSfx.ts`) : une gorge par espèce (longueur du conduit, voyelle, souffle, rugosité) : le bêlement nasal du Trotter, le mugissement du Shagback (conduit 2,3 fois humain), le grondement et le sifflement du Prowler, les mandibules, le bourdonnement d'ailes et le cliquetis du Swarmling, la carapace creuse et le grondement lent du Shellback, le fredonnement soufflé du Glimmerback et ses spores qui tintent, le croassement et le claquement de bec du Reedwader ; chacune a ses pas (`CreatureDef.sounds.step`), joués par `AudioBridge` à chaque largeur de corps parcourue au sol dans les 24 blocs ;
+- les ambiances (`ambienceSfx.ts`) : un fond par lieu (herbe et brise, feuilles et air des troncs, eau qui clapote, boue du Sporefen, vent froid et neige, sable et vent sec, souffle de la pierre, pression sous l'eau) et leurs événements (rafales, brindille qui casse, branche qui grince, clapotis, bulle de boue, gouttes, cailloux, bulles qui montent), seulement des bruits du monde : rien qui chante, appelle ou stridule ; la pluie selon ce qui est au-dessus de l'oreille ou juste dessous (`RainAmbience` : à découvert, sur l'eau, sous les feuilles, sous un toit, plus doux) ;
+- l'interface (`uiSfx.ts`, `sounds.ui`, `UiSounds`) : un bouton (interrupteur sur plaque d'acier), un onglet (plus léger), une pile prise, posée, jetée (toile, bois, souffle), un craft (deux coups d'outil) ; le Bag et les écrans à cases (toile et boucle), la carte (papier qui se déplie), le livre (couverture et page), les menus (panneau riveté qui glisse sur son rail, loquet), chacun à l'ouverture et à la fermeture ; les écrans disent ce qui arrive (`ScreenActions.sound(cue)`, `panel(panel, open)`, `UiCue`, `UiPanel`) et `app/uiSounds.ts` le joue ; une case cliquée sonne selon le geste (prendre, poser, jeter) ;
+- selftest `m54` : chaque recette rendue et jouée dans le navigateur, chaque variante de chaque son, chaque fond mis en boucle ; le Bag et la carte sonnent à l'ouverture et à la fermeture ; le tonnerre arrive après l'éclair ; chaque espèce a ses cris, son attaque si elle attaque, et ses pas.
 
 ## Fichiers critiques v5
 

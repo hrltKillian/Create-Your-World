@@ -1,4 +1,5 @@
 import {
+  type AmbienceDef,
   type ContentPack,
   MIN_VARIANTS,
   SFX_LEVELS,
@@ -9,8 +10,8 @@ import {
 
 type AddIssue = (path: string, message: string) => void;
 
-/** Longest synthesized one-shot (s). */
-export const MAX_SFX_SECONDS = 2;
+/** Longest synthesized one-shot (s): a thunder's rumble, a bell's ring. */
+export const MAX_SFX_SECONDS = 6;
 /**
  * Longest ambience bed (s): rendered on first use, so its length costs nothing at startup; long
  * enough that its loop is not heard under the events dropped into it (plan v5 « M53 »).
@@ -94,17 +95,16 @@ export function validateSounds(pack: ContentPack, add: AddIssue): void {
 }
 
 /** Every ambience of the bindings by its path. */
-function ambiences(
-  sounds: SoundBindings,
-): Record<string, NonNullable<SoundBindings['ambience']['rain']>> {
+function ambiences(sounds: SoundBindings): Record<string, AmbienceDef> {
   const a = sounds.ambience;
-  const out: Record<string, NonNullable<SoundBindings['ambience']['rain']>> = {
+  const out: Record<string, AmbienceDef> = {
     'sounds.ambience.cave': a.cave,
     'sounds.ambience.underwater': a.underwater,
     'sounds.ambience.fallback.day': a.fallback.day,
     'sounds.ambience.fallback.night': a.fallback.night,
   };
-  if (a.rain) out['sounds.ambience.rain'] = a.rain;
+  if (a.rain)
+    for (const [cover, def] of Object.entries(a.rain)) out[`sounds.ambience.rain.${cover}`] = def;
   for (const [biome, both] of Object.entries(a.biomes)) {
     if (!both) continue;
     out[`sounds.ambience.biomes.${biome}.day`] = both.day;
