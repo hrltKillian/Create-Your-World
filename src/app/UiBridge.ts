@@ -96,7 +96,8 @@ export class UiBridge {
       !this.dirty &&
       this.elapsed < REFRESH_SECONDS &&
       this.input.slot === hotbar.selected &&
-      open === this.shown
+      open === this.shown &&
+      !(open === 'map' && this.views.map.stale)
     )
       return;
     this.dirty = false;
@@ -105,9 +106,16 @@ export class UiBridge {
     const inventory = this.player.inventory;
     hotbar.update(inventory, this.input.slot);
     if (open === 'bag') this.bagScreen();
-    else if (open === 'map')
-      this.views.map.update(this.views.maps.view(this.player, BIG_MAP_RADIUS));
+    else if (open === 'map') this.mapScreen();
     else if (open) this.blockScreen(open);
+  }
+
+  /** The big map, centred where it was dragged (a pixel a block). */
+  private mapScreen(): void {
+    const { map, maps } = this.views;
+    const body = this.player.body;
+    const centre = map.centreFor(body.x, body.z);
+    map.update(maps.view(this.player, BIG_MAP_RADIUS, centre.x, centre.z));
   }
 
   private openScreen(): OpenScreen {

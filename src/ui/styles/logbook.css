@@ -609,15 +609,15 @@
   cursor: pointer;
 }
 
-/* The big map (M): a fixed panel, the land on the left, the waypoints on the right. */
+/* The big map (M): a fixed panel, the land on the left (dragged), the waypoints on the right. */
 
 .screen-map {
   background: rgba(8, 13, 16, 0.45);
 }
 
 .map-panel {
-  width: 760px;
-  height: 560px;
+  width: 880px;
+  height: 640px;
   text-align: left;
 }
 
@@ -628,13 +628,38 @@
   min-height: 0;
 }
 
-.map-canvas {
-  width: 480px;
-  height: 480px;
+.map-view {
+  display: flex;
   flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-canvas {
+  width: 512px;
+  height: 512px;
   border: 1px solid rgba(232, 176, 74, 0.35);
   border-radius: 6px;
-  image-rendering: pixelated;
+  cursor: grab;
+  touch-action: none;
+}
+
+.map-canvas:active {
+  cursor: grabbing;
+}
+
+.map-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-coords,
+.map-where {
+  margin: 0;
+  color: var(--c-ink-muted);
+  font: 600 0.72rem var(--font-mono);
 }
 
 .map-side {
@@ -645,24 +670,51 @@
   min-width: 0;
 }
 
-.map-mark {
-  display: flex;
-  gap: 6px;
-}
-
 .map-name {
-  flex: 1;
-  min-width: 0;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border: 1px solid rgba(232, 176, 74, 0.35);
   border-radius: 999px;
   background: rgba(20, 16, 10, 0.5);
   color: var(--c-ink);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
+}
+
+.map-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.map-pick {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(232, 176, 74, 0.25);
+  border-radius: 6px;
+  background: rgba(20, 16, 10, 0.45);
+  cursor: pointer;
+}
+
+.map-pick[aria-pressed="true"] {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 1px var(--c-accent);
+}
+
+.map-swatch {
+  background: var(--swatch);
+}
+
+.map-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .map-waypoints {
   flex: 1;
+  min-height: 0;
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -672,15 +724,26 @@
 .map-waypoints li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
-  margin: 2px 0;
+  margin: 3px 0;
   color: var(--c-ink-muted);
   font-size: 0.72rem;
 }
 
-.map-waypoints li span {
+.map-waypoint-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.map-waypoint-text strong {
   overflow: hidden;
+  color: var(--c-ink);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.map-waypoint-coords {
+  font: 0.66rem var(--font-mono);
 }

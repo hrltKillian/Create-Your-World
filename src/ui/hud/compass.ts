@@ -77,8 +77,9 @@ export interface CompassTargets {
   readonly quest: number;
   /** The player's Abandoned Packs. */
   readonly graves: readonly number[];
-  /** The player's waypoints (plan v3 « M27 »). */
+  /** The player's waypoints (plan v3 « M27 ») and their colours (« M31 »). */
   readonly waypoints: readonly number[];
+  readonly waypointColours: readonly string[];
 }
 
 /**
@@ -125,6 +126,11 @@ export class Compass {
     this.quest.place(targets.quest, heading);
     this.placeAll(this.graves, 'compass-grave', targets.graves, heading);
     this.placeAll(this.waypoints, 'compass-waypoint', targets.waypoints, heading);
+    for (let i = 0; i < targets.waypointColours.length; i++) {
+      const style = this.waypoints[i]!.element.style;
+      const colour = targets.waypointColours[i]!;
+      if (style.getPropertyValue('--c') !== colour) style.setProperty('--c', colour);
+    }
   }
 
   /** A pool of marks of one kind at the given bearings (marks are made as needed, never dropped). */

@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -188,6 +188,18 @@ export const MIGRATIONS: readonly MigrationStep[] = [
         ...record,
         survival: { ...rest, saturation: hunger / 4, exhaustion: 0, foodTicks: 0 },
       };
+    },
+    column: (record) => record,
+  },
+  // 15 → 16 (plan v3 « M31 »): every waypoint marked so far is a flag of the first colour.
+  {
+    world: (record) => record,
+    player: (record) => {
+      if (!Array.isArray(record.waypoints)) return record;
+      const waypoints = record.waypoints.map((w: unknown) =>
+        typeof w === 'object' && w !== null ? { icon: 'flag', colour: 0, ...w } : w,
+      );
+      return { ...record, waypoints };
     },
     column: (record) => record,
   },

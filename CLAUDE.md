@@ -243,14 +243,21 @@ They never override the rules above (determinism, zero allocations in hot loops,
   - exploration (plan v3 « M27 »): `sim/exploration.ts` (`stepExploration` once a second marks
     `player.explored` (`exploredKey`) within `EXPLORE_RADIUS` columns; `player.waypoints`, at most
     `MAX_WAYPOINTS`, commands `waypoint.add {name}`/`waypoint.remove {index}`, event
-    `waypointsChanged`); the maps: colours `app/mapModel.ts` (`MapModel.view(player, radius)`:
-    from the generation, no column loaded; `InventoryUi.maps`), `ui/map.ts` (`MAP_CELLS`,
-    `MINIMAP_RADIUS`/`BIG_MAP_RADIUS`, sides, `MapView`), the canvas `ui/mapCanvas.ts`
-    (`MapCanvas`, centred on the player, `UNEXPLORED`), the HUD's minimap `ui/hud/minimap.ts`
-    (`#hud-map`, HudBridge at 10 Hz) and the big map screen `ui/screens/mapScreen.ts` (key M,
-    `ui.screen()` 'map', `#screen-map`, the client's alone: `InventoryUi.toggleMap`; `data-action`
-    `waypoint-name`/`waypoint-add`/`waypoint-remove`, rows `data-waypoint`); waypoints on the compass (`CompassTargets.waypoints`,
-    `.compass-waypoint`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
+    `waypointsChanged`); waypoints carry `icon` and `colour` (`core/waypoints.ts`:
+    `WAYPOINT_ICONS`, `WAYPOINT_COLOURS`; `WAYPOINT_PALETTE` in ui/map.ts) and may be set at a
+    picked block (`waypoint.add {name, icon, colour, x?, z?}`; plan v3 « M31 »); the maps:
+    colours `app/mapModel.ts` (`MapModel(gen, world, registry, layers)`: a pixel a block, loaded
+    columns read as they stand and re-read on a change (sections' versions), kept once unloaded,
+    else from the generation; relief and water depth shading; `view(player, radius, centreX?,
+    centreZ?)`), `ui/map.ts` (`MAP_CELLS` 32, sides and radii, `MapView` in blocks,
+    `drawWaypointIcon`), the canvas `ui/mapCanvas.ts` (`MapCanvas(side, class, style)`,
+    `blockAt`, `UNEXPLORED`), the HUD's minimap `ui/hud/minimap.ts` (`#hud-map`, the player's
+    coordinates under it) and the big map screen `ui/screens/mapScreen.ts` (key M only,
+    `ui.screen()` 'map', `#screen-map`, the client's alone: `InventoryUi.toggleMap`; dragged
+    (`centreFor`, `stale`), a click picks a place; `data-action` `map-centre`/`waypoint-name`/
+    `waypoint-add`/`waypoint-show`/`waypoint-remove`, pickers `data-icon`/`data-colour`, rows
+    `data-waypoint`); waypoints on the compass (`CompassTargets.waypoints`/`waypointColours`,
+    `.compass-waypoint` with `--c`); ladders `BlockDef.climbable` (`FLAG_CLIMBABLE`, `PHYSICS.climb`/
     `climbSlide`, `Body.onLadder`, no fall damage); trapdoors use the gate's `open` state; box
     faces are lit by the brighter of their cell and the cell they face (greedyMesher `meshBoxes`);
   - interfaces of the third play test (plan v3 « M28 »): quest messages on their own line
@@ -502,6 +509,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Map checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m31` (`selftest/m31.ts`): the
+  minimap's coordinates, the big map dragged, a waypoint of a chosen symbol and colour marked at a
+  clicked place and listed with its coordinates, only M closing the map.
 - Feel checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m30` (`selftest/m30.ts`): the
   held icon unturned (the bare arm otherwise), a sprint wading in shallow water, a food's ration
   pods in its bubble, a sprint's exhaustion.

@@ -62,7 +62,11 @@ function setup(entity?: BlockEntity) {
   const container = screen<[Inventory, Cursor]>();
   const station = screen<[Inventory, Cursor, StationStatus]>();
   const workbench = screen<[Inventory, Cursor, LogbookState]>();
-  const map = screen<[MapView]>();
+  const map = {
+    ...screen<[MapView]>(),
+    stale: false,
+    centreFor: (x: number, z: number) => ({ x: Math.floor(x), z: Math.floor(z) }),
+  };
   const maps = {
     radii: [] as number[],
     view(_player: unknown, radius: number) {
@@ -73,6 +77,7 @@ function setup(entity?: BlockEntity) {
   const input = { slot: 0 };
   const player = {
     playerId: 1,
+    body: { x: 0.5, y: 64, z: 0.5 },
     inventory: createInventory(),
     equipment: [null, null, null, null, null] as Inventory,
     bestiary: {},

@@ -113,9 +113,9 @@
 .compass-waypoint {
   width: 9px;
   height: 9px;
-  border: 2px solid #7fd0e0;
+  border: 2px solid var(--c, #7fd0e0);
   border-radius: 50% 50% 50% 0;
-  background: rgba(127, 208, 224, 0.35);
+  background: color-mix(in srgb, var(--c, #7fd0e0) 40%, transparent);
 }
 
 .compass-grave {
@@ -881,7 +881,6 @@
   border: 2px solid rgba(232, 176, 74, 0.45);
   border-radius: 50%;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  image-rendering: pixelated;
 }
 
 .minimap-hint {

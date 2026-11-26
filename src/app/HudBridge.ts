@@ -16,7 +16,7 @@ import { damageBearing } from '../ui/hud/combatMarks.ts';
 import { bearingOf, headingOf, POINT_BEARINGS } from '../ui/hud/compass.ts';
 import { Hud } from '../ui/hud/hud.ts';
 import { type Vignette, vignetteLevels } from '../ui/hud/vignettes.ts';
-import { MINIMAP_RADIUS } from '../ui/map.ts';
+import { MINIMAP_RADIUS, WAYPOINT_PALETTE } from '../ui/map.ts';
 import { questLine } from '../ui/quests.ts';
 import type { GameSession } from './GameSession.ts';
 import { BiomeWatch, targetText } from './hudModel.ts';
@@ -69,6 +69,7 @@ export class HudBridge {
     quest: Number.NaN,
     graves: [] as number[],
     waypoints: [] as number[],
+    waypointColours: [] as string[],
   };
 
   /** `layer`: the world's play layer (the HUD goes under its overlays, the death screen over). */
@@ -275,9 +276,11 @@ export class HudBridge {
     }
     const waypoints = this.session.player.waypoints;
     targets.waypoints.length = waypoints.length;
+    targets.waypointColours.length = waypoints.length;
     for (let i = 0; i < waypoints.length; i++) {
       const w = waypoints[i]!;
       targets.waypoints[i] = bearingOf(w.x + 0.5 - body.x, w.z + 0.5 - body.z);
+      targets.waypointColours[i] = WAYPOINT_PALETTE[w.colour] ?? WAYPOINT_PALETTE[0];
     }
   }
 
