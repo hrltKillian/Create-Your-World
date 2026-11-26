@@ -16,6 +16,8 @@ import { heightAt, type LatticeCache } from './sample.ts';
  * a liquid beside or above air (nothing flows until a player opens the way).
  * `carveCaves` fills a whole column; `caveAt` answers for one cell with the same arithmetic, so
  * decoration (and anything else) can ask whether generation carves a cell without generating it.
+ * Kept in one file despite its length: the bulk pass is a generation hot loop, and it and `caveAt`
+ * must keep the very same arithmetic side by side.
  */
 
 /** Lattice spacing in blocks, and its log2. */

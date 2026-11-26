@@ -10,14 +10,9 @@ import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, restoreSim, snapshotSim } from '../../../src/sim/persistence.ts';
 import { PHYSICS } from '../../../src/sim/physics.ts';
 import type { PlayerState } from '../../../src/sim/player.ts';
+import { playerRecord, readPlayer } from '../../../src/sim/playerRecords.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
-import {
-  DROP_CEILING,
-  dropRecord,
-  playerRecord,
-  readDrop,
-  readPlayer,
-} from '../../../src/sim/saveRecords.ts';
+import { DROP_CEILING, dropRecord, readDrop } from '../../../src/sim/saveRecords.ts';
 import type { ColumnRecord, SaveBatch } from '../../../src/sim/storage.ts';
 import { type Bot, wanderBot } from '../../../src/sim/testing/bots.ts';
 import { createInlineSim } from '../../../src/sim/testing/inlineSim.ts';

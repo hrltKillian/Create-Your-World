@@ -7,7 +7,7 @@ import type { SimEvent } from './events.ts';
 import { freshStack, spendUses } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
 import { rollLoot } from './loot.ts';
-import type { PlayerState } from './player.ts';
+import { heldItemId, type PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { aimedLiquid, aimedLiquidCell } from './water.ts';
 
@@ -40,8 +40,7 @@ export function holdRod(
   out: SimEvent[],
 ): boolean {
   const registry = sim.registry;
-  const stack = player.inventory[player.input.slot];
-  const id = stack ? registry.itemId(stack.item) : -1;
+  const id = heldItemId(registry, player);
   const rod = id < 0 ? undefined : registry.items[id]?.rod;
   if (!rod) return false;
   const liquid = aimedLiquid(sim, player);

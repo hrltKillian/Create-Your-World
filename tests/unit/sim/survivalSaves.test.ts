@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash } from '../../../src/sim/persistence.ts';
-import { playerRecord, readPlayer } from '../../../src/sim/saveRecords.ts';
+import { playerRecord, readPlayer } from '../../../src/sim/playerRecords.ts';
 import { createSurvival } from '../../../src/sim/survival.ts';
 import { registry } from '../../helpers/registry.ts';
 import { restoreFrom, saveTo, settle } from '../../helpers/save.ts';

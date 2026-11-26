@@ -10,7 +10,7 @@ import {
   WAYPOINT_COLOURS,
 } from '../../../src/sim/exploration.ts';
 import { PHYSICS } from '../../../src/sim/physics.ts';
-import { playerRecord, readPlayer } from '../../../src/sim/saveRecords.ts';
+import { playerRecord, readPlayer } from '../../../src/sim/playerRecords.ts';
 import { BIG_MAP_RADIUS, MAP_CELLS } from '../../../src/ui/map.ts';
 import { blockToColumn } from '../../../src/world/coords.ts';
 import { registry } from '../../helpers/registry.ts';

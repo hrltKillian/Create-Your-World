@@ -6,7 +6,7 @@ import { ticksOf } from './clock.ts';
 import { editBlock } from './edits.ts';
 import type { SimEvent } from './events.ts';
 import { spendUses } from './inventory.ts';
-import type { PlayerState } from './player.ts';
+import { heldItem, type PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 
 /*
@@ -59,8 +59,7 @@ function irrigated(sim: Simulation, x: number, y: number, z: number, radius: num
 /** The farmland a held hoe would till the aimed block into (−1: none). */
 export function tilledState(sim: Simulation, player: PlayerState, state: number): number {
   const registry = sim.registry;
-  const stack = player.inventory[player.input.slot];
-  if (!stack || !registry.item(stack.item)?.hoe) return -1;
+  if (!heldItem(registry, player)?.hoe) return -1;
   const tills = registry.blockDef(state).tills;
   return tills === undefined ? -1 : registry.defaultState(tills);
 }

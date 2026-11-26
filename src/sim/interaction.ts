@@ -30,7 +30,7 @@ import {
   type Placement,
   planPlacement,
 } from './placement.ts';
-import { type PlayerState, STAMINA, spendStamina } from './player.ts';
+import { heldItem, heldItemId, type PlayerState, STAMINA, spendStamina } from './player.ts';
 import { strengthFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { sleepOn } from './sleep.ts';
@@ -68,15 +68,9 @@ export function stepInteraction(sim: Simulation, player: PlayerState, out: SimEv
   useButton(sim, player, shielded ? AIM_NONE : status, out);
 }
 
-/** Selected hotbar item id (−1: empty hand). */
-function heldItem(sim: Simulation, player: PlayerState): number {
-  const stack = player.inventory[player.input.slot];
-  return stack ? sim.registry.itemId(stack.item) : -1;
-}
-
 function mine(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
   const st = player.interaction;
-  const itemId = heldItem(sim, player);
+  const itemId = heldItemId(sim.registry, player);
   const strength = strengthFactor(player, sim.registry.pack.balance);
   const seconds = breakSeconds(sim.registry, hit.state, itemId, player.exhausted, strength);
   if (seconds === Number.POSITIVE_INFINITY) {
@@ -194,9 +188,9 @@ function useButton(sim: Simulation, player: PlayerState, status: number, out: Si
  * its text. Held, it does nothing more (never placed). Returns whether the hand holds one.
  */
 function readsHeld(sim: Simulation, player: PlayerState, pressed: boolean, out: SimEvent[]) {
-  const stack = player.inventory[player.input.slot];
-  if (!stack || !sim.registry.item(stack.item)?.lore) return false;
-  if (pressed) out.push({ type: 'itemRead', playerId: player.playerId, item: stack.item });
+  const item = heldItem(sim.registry, player);
+  if (!item?.lore) return false;
+  if (pressed) out.push({ type: 'itemRead', playerId: player.playerId, item: item.key });
   return true;
 }
 
@@ -266,7 +260,7 @@ function toggleOpen(sim: Simulation, player: PlayerState, out: SimEvent[]): void
 
 /** Whether the held item is a food that plants a block (berries) and it holds at the aimed face. */
 function plantsHere(sim: Simulation, player: PlayerState): boolean {
-  const itemId = heldItem(sim, player);
+  const itemId = heldItemId(sim.registry, player);
   const state = itemId < 0 ? -1 : sim.registry.itemTables.places[itemId]!;
   if (state < 0 || !sim.registry.items[itemId]?.consume) return false;
   const { world, registry, entities } = sim;
@@ -275,7 +269,7 @@ function plantsHere(sim: Simulation, player: PlayerState): boolean {
 
 /** Places one of the held blocks against the aimed face. */
 function place(sim: Simulation, player: PlayerState, out: SimEvent[]): void {
-  const itemId = heldItem(sim, player);
+  const itemId = heldItemId(sim.registry, player);
   const state = itemId < 0 ? -1 : sim.registry.itemTables.places[itemId]!;
   if (state < 0) return;
   const refusal = planPlacement(

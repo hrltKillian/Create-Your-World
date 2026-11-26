@@ -14,7 +14,7 @@ import { NEUTRAL_INPUT } from '../sim/commands.ts';
 import { consuming } from '../sim/consume.ts';
 import type { SimEvent } from '../sim/events.ts';
 import type { SimHost } from '../sim/host.ts';
-import type { PlayerState } from '../sim/player.ts';
+import { heldItem, type PlayerState } from '../sim/player.ts';
 import { INTEGRATE_PER_TICK, LOADING_FACTOR } from '../sim/Simulation.ts';
 import { daylightAt, hourOf } from '../sim/time.ts';
 import { blockToColumn, SECTIONS_PER_COLUMN, sectionKey } from '../world/coords.ts';
@@ -48,8 +48,7 @@ export interface SessionOptions {
  */
 export function eating(player: Readonly<PlayerState>, registry: Registry): boolean {
   if (!consuming(player)) return false;
-  const stack = player.inventory[player.input.slot];
-  return !stack || registry.item(stack.item)?.consume !== undefined;
+  return !player.inventory[player.input.slot] || heldItem(registry, player)?.consume !== undefined;
 }
 
 export class GameSession {

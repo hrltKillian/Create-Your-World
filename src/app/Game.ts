@@ -10,6 +10,7 @@ import {
   loadSettings,
   type Settings,
   saveSettings,
+  uiScaleFor,
 } from '../platform/settings.ts';
 import { WorkerColumnSource } from '../platform/WorkerColumnSource.ts';
 import type { WorkerPool } from '../platform/WorkerPool.ts';
@@ -75,21 +76,6 @@ export interface GameHost {
  * loading → world ⇄ paused → quitting → menu). `?skipMenu=1` (and selftests) start in a new world,
  * `?world=<id>` in a saved one.
  */
-/** Window height (px) the interface is drawn for at its own size, and its largest growth. */
-const UI_DESIGN_HEIGHT = 800;
-const UI_MAX_GROWTH = 2;
-
-/**
- * The interface's scale (plan v3 « M35 »): the player's setting times the window's height over
- * UI_DESIGN_HEIGHT (never below 1, at most UI_MAX_GROWTH: ×1.35 at 1080 pixels high), so the
- * HUD and screens read the same on a large screen.
- */
-export function uiScaleFor(setting: number, height: number): number {
-  // No window height (tests): the interface's own size.
-  const growth = height > 0 ? height / UI_DESIGN_HEIGHT : 1;
-  return setting * Math.min(UI_MAX_GROWTH, Math.max(1, growth));
-}
-
 export class Game {
   state: AppState = 'boot';
   settings: Settings;

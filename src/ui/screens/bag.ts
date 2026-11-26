@@ -1,5 +1,4 @@
 import { WEAR_SLOTS } from '../../content/schema.ts';
-import { HOTBAR_SLOTS } from '../../core/player.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { Command } from '../../sim/commands.ts';
 import type { Gear } from '../../sim/environment.ts';
@@ -92,7 +91,7 @@ export class BagScreen {
             ...board.inventory(),
           ),
         ),
-        h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS })),
+        board.help(),
       ),
     );
     this.show(this.page);

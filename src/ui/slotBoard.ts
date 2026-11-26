@@ -109,13 +109,19 @@ export class SlotBoard {
     this.views.length = Math.min(this.views.length, from);
   }
 
-  /** The bag (6×4), then the hotbar, with their views. */
-  inventory(): HTMLElement[] {
+  /** The bag (6×4), then the hotbar, with their views; `titled`: under the bag's heading. */
+  inventory(titled = false): HTMLElement[] {
     return [
+      ...(titled ? [h('p', { class: 'bag-section' }, t('bag.title'))] : []),
       slotGrid(this.slotViews(HOTBAR_SLOTS, this.slotCount), BAG_COLUMNS),
       h('p', { class: 'bag-section' }, t('bag.hotbar')),
       slotGrid(this.slotViews(0, HOTBAR_SLOTS), HOTBAR_SLOTS),
     ];
+  }
+
+  /** The help line under a slot screen: the clicks and the hotbar's number keys. */
+  help(): HTMLElement {
+    return h('p', { class: 'bag-help' }, t('bag.help', { first: 1, last: HOTBAR_SLOTS }));
   }
 
   isOpen(): boolean {

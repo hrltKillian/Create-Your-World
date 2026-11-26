@@ -8,13 +8,9 @@ import { OPEN_SLOTS_BASE } from '../../../src/sim/commands.ts';
 import { countItem } from '../../../src/sim/inventory.ts';
 import { MemoryStorage } from '../../../src/sim/MemoryStorage.ts';
 import { persistentHash, snapshotSim } from '../../../src/sim/persistence.ts';
+import { playerRecord, readPlayer } from '../../../src/sim/playerRecords.ts';
 import type { Simulation } from '../../../src/sim/Simulation.ts';
-import {
-  blockEntityRecord,
-  playerRecord,
-  readBlockEntity,
-  readPlayer,
-} from '../../../src/sim/saveRecords.ts';
+import { blockEntityRecord, readBlockEntity } from '../../../src/sim/saveRecords.ts';
 import type { SaveBatch } from '../../../src/sim/storage.ts';
 import { shiftClick, slotClick } from '../../../src/sim/testing/slotMoves.ts';
 import { cellKey } from '../../../src/world/coords.ts';

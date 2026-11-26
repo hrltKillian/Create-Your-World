@@ -3,7 +3,7 @@ import { ticksOf } from './clock.ts';
 import type { SimEvent } from './events.ts';
 import { freshStack, MAX_INVENTORY_SLOTS, spendUses, takeFromSlot } from './inventory.ts';
 import { giveItems } from './inventoryCommands.ts';
-import type { PlayerState } from './player.ts';
+import { heldItemId, type PlayerState } from './player.ts';
 import type { Simulation } from './Simulation.ts';
 import { adjustGauges, saturate } from './survival.ts';
 import { aimedLiquid, fill, sip } from './water.ts';
@@ -64,7 +64,7 @@ export function holdUse(
 ): boolean {
   const registry = sim.registry;
   const stack = player.inventory[player.input.slot];
-  const id = stack ? registry.itemId(stack.item) : -1;
+  const id = heldItemId(registry, player);
   const def = id < 0 ? undefined : registry.items[id];
   if (def?.consume) {
     if (held(player, pressed, id, ticksOf(def.consume.seconds))) consume(sim, player, def, out);

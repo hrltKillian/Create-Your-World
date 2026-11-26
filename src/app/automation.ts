@@ -9,130 +9,18 @@ import { blockOf, skyOf } from '../world/light.ts';
 import type { App } from './App.ts';
 import type { Game } from './Game.ts';
 import { queueView, stationStatus } from './UiBridge.ts';
+import { frameOrFail, waitForChunks } from './waits.ts';
 
 /**
- * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests:
- * frame and task waits, condition polling, chunk readiness, the debug commands, input, block
- * keys and light, the world clock, what the hotbar shows, crafting, block entities (opening one
- * without aiming), clicks on the screens (their buttons, their slots and beside their panel), and
- * saving or reloading the open world (the survival ones: survivalAutomation.ts).
+ * Automation helpers shared by the debug hook (`window.__game`) and the in-browser selftests: the
+ * debug commands, input, block keys and light, the world clock and the weather, what the hotbar
+ * shows, crafting, block entities (opening one without aiming), and saving or reloading the open
+ * world. The waits (waits.ts) and the clicks on the screens (screenAutomation.ts) are re-exported
+ * here; the survival ones are survivalAutomation.ts's.
  */
 
-/** Resolves on the next animation frame (never while the page is hidden). */
-export function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-/** Longest wait for one animation frame before a frame wait gives up. */
-const FRAME_TIMEOUT_MS = 3000;
-
-/** The next animation frame; rejects (instead of hanging) when frames stop, as in a hidden pane. */
-export function frameOrFail(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () =>
-        reject(new Error(`no animation frame for ${FRAME_TIMEOUT_MS} ms (is the page hidden?)`)),
-      FRAME_TIMEOUT_MS,
-    );
-    requestAnimationFrame(() => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-/** Renders up to `frames` frames until `done` holds; returns whether it held. */
-export async function withinFrames(frames: number, done: () => boolean): Promise<boolean> {
-  for (let i = 0; i < frames; i++) {
-    if (done()) return true;
-    await frameOrFail();
-  }
-  return done();
-}
-
-/** Yields to the event loop without timer throttling (works in hidden or background panes). */
-export function yieldTask(): Promise<void> {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => resolve();
-    channel.port2.postMessage(0);
-  });
-}
-
-export interface WaitOptions {
-  readonly timeoutMs: number;
-  /** Start of the timeout error: "<label> after <timeoutMs> ms". */
-  readonly label: string;
-  /** Called after every poll, for example to step the world when frames do not. */
-  readonly pump?: () => void;
-  /** Wall time between polls while the page is visible (hidden pages poll between tasks). */
-  readonly pollMs?: number;
-}
-
-/** No frame for this long means the animation loop is stalled (hidden or throttled pane). */
-const STALL_MS = 50;
-
-/** Multiplies every waitUntil timeout (the selftest runner stretches waits on slow CI renderers). */
-let waitScale = 1;
-
-export function scaleWaits(factor: number): void {
-  waitScale = factor;
-}
-
-/** A wait's limit (ms) stretched like every other wait (×4 on slow CI renderers). */
-export function scaledWait(ms: number): number {
-  return ms * waitScale;
-}
-
-/** Polls `done` until it holds; throws once `timeoutMs` (times the wait scale) has passed. */
-export async function waitUntil(done: () => boolean, options: WaitOptions): Promise<void> {
-  const t0 = performance.now();
-  const limit = scaledWait(options.timeoutMs);
-  while (!done()) {
-    if (performance.now() - t0 > limit) throw new Error(`${options.label} after ${limit} ms`);
-    // Timers are throttled in hidden pages: only sleep while visible.
-    if (options.pollMs && !document.hidden)
-      await new Promise((resolve) => setTimeout(resolve, options.pollMs));
-    else await yieldTask();
-    options.pump?.();
-  }
-}
-
-/**
- * Waits until every column within `radius` of the focus is meshed, loading through the normal
- * frame loop. Only when the page is hidden or no frame has rendered for STALL_MS does it step the
- * world itself, so automation still works in a hidden pane without racing the real loading.
- */
-export async function waitForChunks(app: App, radius: number, timeoutMs: number): Promise<void> {
-  const session = app.session;
-  if (!session) throw new Error('No world session');
-  let frames = app.frames.frameTotal();
-  let lastFrameAt = performance.now();
-  await waitUntil(() => session.chunksReady(radius), {
-    timeoutMs,
-    label: `radius ${radius} not meshed`,
-    pump: () => {
-      const now = performance.now();
-      if (app.frames.frameTotal() !== frames) {
-        frames = app.frames.frameTotal();
-        lastFrameAt = now;
-      } else if (document.hidden || now - lastFrameAt > STALL_MS) {
-        // Tick only when the page is hidden; a slow visible page keeps its own 30 Hz clock.
-        session.pumpOnce(document.hidden);
-      }
-    },
-  });
-}
-
-/** Renders frames for `ms` of wall time, calling `eachFrame` before each one; fails if frames stop. */
-export async function framesFor(ms: number, eachFrame?: () => void, minFrames = 0): Promise<void> {
-  const t0 = performance.now();
-  // At least `minFrames` frames too: on a slow renderer a few frames may span the whole time.
-  for (let frames = 0; performance.now() - t0 < ms || frames < minFrames; frames++) {
-    eachFrame?.();
-    await frameOrFail();
-  }
-}
+export * from './screenAutomation.ts';
+export * from './waits.ts';
 
 /** Sends commands in order; fixed-step sessions apply them now (one tick). */
 export function sendAndStep(app: App, ...commands: Command[]): void {
@@ -312,88 +200,6 @@ export function blockEntityContents(app: App, x: number, y: number, z: number) {
     slots,
     ...stationStatus(view.registry, entity),
   };
-}
-
-/** Clicks the first element a selector matches; returns false when none does or it is disabled. */
-export function click(selector: string): boolean {
-  const element = document.querySelector<HTMLElement>(selector);
-  if (!element || (element instanceof HTMLButtonElement && element.disabled)) return false;
-  element.click();
-  return true;
-}
-
-/** The middle of an element in the viewport (scrolled into view first). */
-function middleOf(element: Element): { clientX: number; clientY: number } {
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  const box = element.getBoundingClientRect();
-  return { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
-}
-
-/** The open slot screen (Bag, Container, Station, Workbench), if one shows. */
-function slotScreen(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('.screen-slots:not([hidden])');
-}
-
-/** The view of a slot on the open slot screen, if it shows (not on a hidden page of the Bag). */
-function slotView(slot: number): Element | null {
-  const view = slotScreen()?.querySelector(`[data-slot="${slot}"]`);
-  return view && view.getClientRects().length > 0 ? view : null;
-}
-
-/** A mouse button (0 left, 1 right) pressed on an element at a point, as the mouse does. */
-function pressOn(
-  target: Element,
-  button: 0 | 1,
-  shift: boolean,
-  at: { clientX: number; clientY: number },
-): void {
-  target.dispatchEvent(
-    new PointerEvent('pointerdown', {
-      bubbles: true,
-      pointerId: 1,
-      pointerType: 'mouse',
-      isPrimary: true,
-      button: button === 1 ? 2 : 0,
-      buttons: button === 1 ? 2 : 1,
-      shiftKey: shift,
-      ...at,
-    }),
-  );
-}
-
-/**
- * Clicks a slot of the open slot screen as the mouse does: a left (0) or right (1) button press on
- * its view, with Shift or not; the screen sends the simulation's `slot.click`. Slots are numbered
- * as in `[data-slot]` (the inventory from 0; the open chest, station or workbench, or the Bag's
- * worn items, from 64). Returns false when the slot does not show.
- */
-export function clickSlot(slot: number, button: 0 | 1 = 0, shift = false): boolean {
-  const view = slotView(slot);
-  if (!view) return false;
-  pressOn(view, button, shift, middleOf(view));
-  return true;
-}
-
-/**
- * Clicks beside the open slot screen's panel, on its backdrop (its top left corner), as the mouse
- * does: the screen sends `slot.click` on slot −1, which throws the cursor stack (left, 0) or one of
- * its items (right, 1). Returns false when no slot screen is open.
- */
-export function clickOutside(button: 0 | 1 = 0): boolean {
-  const screen = slotScreen();
-  if (!screen) return false;
-  const box = screen.getBoundingClientRect();
-  pressOn(screen, button, false, { clientX: box.left + 1, clientY: box.top + 1 });
-  return true;
-}
-
-/**
- * Moves the stack of one slot to an empty one as the mouse does: a left click on each (taken onto
- * the cursor, put down). Returns false, clicking nothing, when either slot does not show.
- */
-export function moveSlot(from: number, to: number): boolean {
-  if (!slotView(from) || !slotView(to)) return false;
-  return clickSlot(from) && clickSlot(to);
 }
 
 /** Sets the view angles (radians; the pitch is clamped like the mouse look). */

@@ -22,6 +22,21 @@ export const PIXEL_RATIOS: readonly number[] = [0.75, 1, 1.5, 2];
 export const SENSITIVITY_RANGE = { min: 0.25, max: 3 } as const;
 /** Interface scale: a factor of the HUD, screens and menus (the `--ui-scale` CSS variable). */
 export const UI_SCALE_RANGE = { min: 0.75, max: 1.5 } as const;
+
+/** Window height (px) the interface is drawn for at its own size, and its largest growth. */
+const UI_DESIGN_HEIGHT = 800;
+const UI_MAX_GROWTH = 2;
+
+/**
+ * The interface's scale (plan v3 « M35 »): the player's setting times the window's height over
+ * UI_DESIGN_HEIGHT (never below 1, at most UI_MAX_GROWTH: ×1.35 at 1080 pixels high), so the
+ * HUD and screens read the same on a large screen.
+ */
+export function uiScaleFor(setting: number, height: number): number {
+  // No window height (tests): the interface's own size.
+  const growth = height > 0 ? height / UI_DESIGN_HEIGHT : 1;
+  return setting * Math.min(UI_MAX_GROWTH, Math.max(1, growth));
+}
 export const CROUCH_MODES = ['hold', 'toggle'] as const;
 export type CrouchMode = (typeof CROUCH_MODES)[number];
 /** The quality presets, lowest first (the Settings screen lists them). */
