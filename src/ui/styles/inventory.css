@@ -361,6 +361,11 @@
   overflow-y: auto;
 }
 
+/* The inventory scrolls too once carrying points and frames grow it past the panel. */
+.screen-slots .bag-inventory {
+  overflow-y: auto;
+}
+
 .container-slots {
   flex: 1;
   align-items: flex-start;
