@@ -19,6 +19,14 @@ describe('boot params', () => {
     expect(parseBootParams('', true).world).toBeNull();
   });
 
+  it('reads the render scale between a quarter and 1', () => {
+    expect(parseBootParams('?renderScale=0.5', true).renderScale).toBe(0.5);
+    expect(parseBootParams('?renderScale=0.1', true).renderScale).toBe(0.25);
+    expect(parseBootParams('?renderScale=3', true).renderScale).toBe(1);
+    expect(parseBootParams('?renderScale=x', true).renderScale).toBe(1);
+    expect(parseBootParams('', true).renderScale).toBe(1);
+  });
+
   it('reads the quality preset: its render distance unless ?rd= is given', () => {
     expect(parseBootParams('?quality=low', true)).toMatchObject({ quality: 'low', rd: 4 });
     expect(parseBootParams('?quality=high&rd=5', true)).toMatchObject({ quality: 'high', rd: 5 });
