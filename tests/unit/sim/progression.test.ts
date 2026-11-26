@@ -98,13 +98,20 @@ describe('skills', () => {
   });
 
   it('metabolism slows hunger and thirst, resistance widens comfort, strength speeds blows', () => {
+    // The same effort (exhaustion) costs less hunger, and the thirst drains slower.
     const drained = (points: number) => {
       const s = levelled(`skills-meta-${points}`, points);
       for (let i = 0; i < points; i++) spend(s, 'metabolism');
+      const survival = s.player.survival;
+      survival.saturation = 0;
+      survival.exhaustion = b.hunger.exhaustionPerStep * 4;
       s.step(60 * TICKS_PER_SECOND);
-      return b.hunger.max - s.player.survival.hunger;
+      return [b.hunger.max - survival.hunger, b.thirst.max - survival.thirst];
     };
-    expect(drained(2) / drained(0)).toBeCloseTo(1 - 2 * p.skills.metabolism, 2);
+    const [hunger2, thirst2] = drained(2);
+    const [hunger0, thirst0] = drained(0);
+    expect(hunger2! / hunger0!).toBeCloseTo(1 - 2 * p.skills.metabolism, 2);
+    expect(thirst2! / thirst0!).toBeCloseTo(1 - 2 * p.skills.metabolism, 2);
     const cold = b.climate.comfortMinC - p.skills.resistance;
     expect(targetTemperature(cold, b, 0)).toBeLessThan(0);
     expect(targetTemperature(cold, b, p.skills.resistance)).toBe(0);

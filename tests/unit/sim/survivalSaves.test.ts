@@ -85,7 +85,8 @@ describe('survival saves', () => {
     };
     const player = readPlayer(saved, registry, spawn)!;
     // Fields of older saves (effects, shelter) are not read.
-    expect(player.survival).toEqual({ ...createSurvival(b), hunger: 12 });
+    // The hidden saturation stays within the hunger read (plan v3 « M30 »).
+    expect(player.survival).toEqual({ ...createSurvival(b), hunger: 12, saturation: 12 });
     expect(player.equipment).toEqual([{ item: 'item:fur_hood', count: 1 }, null, null, null, null]);
     expect(player.respawn).toBeNull();
     expect(player.graves).toEqual([{ x: 1, y: 2, z: 3 }]);
@@ -114,7 +115,7 @@ describe('survival saves', () => {
       cause: 5,
       dead: 1,
       god: 'yes',
-      calmTicks: [4],
+      foodTicks: [4],
       // Gauges out of their ranges.
       health: 500,
       hunger: -20,
@@ -132,6 +133,8 @@ describe('survival saves', () => {
       temperature: -b.temperature.limit,
       toxicity: b.toxicity.max,
       breath: 0,
+      // The hidden saturation never above hunger (plan v3 « M30 »).
+      saturation: 0,
     });
     expect(player.drank).toBe(false);
   });

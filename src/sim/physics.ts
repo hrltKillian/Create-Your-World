@@ -14,6 +14,14 @@ export const PHYSICS = {
   sprint: 6.4,
   crouch: 1.6,
   swim: 2.4,
+  /**
+   * In water (plan v3 « M30 », the reference game's): walking on the bottom with the head out
+   * (wading) at `wade`, sprinting at `wadeSprint`; swimming at `swim`, sprinting (`swimSprint`)
+   * along the view, diving and rising with it.
+   */
+  wade: 3.4,
+  wadeSprint: 5.1,
+  swimSprint: 4.6,
   gravity: 28,
   jump: 8.4,
   groundAccel: 50,
@@ -80,6 +88,8 @@ export interface MoveInput {
   speedFactor: number;
   /** Radians, 0 looks north (−z). */
   yaw: number;
+  /** Radians, positive looks up (a sprint under water swims along it). */
+  pitch: number;
 }
 
 export interface StepResult {
@@ -196,7 +206,7 @@ export function stepBody(
     !body.inWater &&
     (climbableAt(world, tables, body.x, body.y + 0.05, body.z) ||
       climbableAt(world, tables, body.x, body.y + 0.9, body.z));
-  const sprinting = input.sprint && !body.crouching && !body.inWater && input.forward > 0;
+  const sprinting = input.sprint && !body.crouching && input.forward > 0;
   out.sprinting = sprinting;
   accelerate(body, input, world, tables, sprinting, dt);
   const dy = jumpAndGravity(body, input, world, tables, dt, out);
@@ -235,8 +245,15 @@ function accelerate(
   sprinting: boolean,
   dt: number,
 ): void {
+  const wading = body.onGround && !body.headInWater;
   const mode = body.inWater
-    ? PHYSICS.swim
+    ? wading
+      ? sprinting
+        ? PHYSICS.wadeSprint
+        : PHYSICS.wade
+      : sprinting
+        ? PHYSICS.swimSprint * Math.cos(input.pitch)
+        : PHYSICS.swim
     : body.crouching
       ? PHYSICS.crouch
       : sprinting
@@ -307,6 +324,12 @@ function jumpAndGravity(
       out.jumped = true;
     } else if (exit > 0) {
       body.vy = Math.max(body.vy, exit);
+    } else if (out.sprinting && body.headInWater) {
+      // Sprinting under water swims along the view: up, down or level, no sinking.
+      const want = PHYSICS.swimSprint * Math.sin(input.pitch) * input.speedFactor;
+      const step = PHYSICS.waterAccel * dt;
+      body.vy += Math.max(-step, Math.min(step, want - body.vy));
+      return body.vy * dt;
     } else if (input.jump && body.vy < PHYSICS.swimUp) {
       body.vy = Math.min(PHYSICS.swimUp, body.vy + 30 * dt);
     }

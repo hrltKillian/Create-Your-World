@@ -152,7 +152,8 @@ export class UiBridge {
     const reroll = canReroll(player, this.view.time().ticks);
     const tasks = taskRows(registry, player.tasks, reroll);
     const balance = registry.pack.balance;
-    const status = statusView(progressOf(player, balance), balance.progression, SKILLS);
+    const progress = progressOf(player, balance);
+    const status = statusView(progress, balance.progression, SKILLS, balance.health.max);
     this.views.bag.update(
       screenSlots(inventory, equipment),
       cursor,

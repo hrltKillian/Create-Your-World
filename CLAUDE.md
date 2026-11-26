@@ -3,8 +3,8 @@
 Original voxel survival-adventure sandbox for the browser (Chrome first). The full spec is
 `docs/conception.md` (in French): follow it, milestone by milestone (M0–M11).
 Plan v2 (after the first playtest: decisions 15–21, milestones M12–M17 done) is followed by
-plan v3 (after the second playtest: decisions 22–25, milestones M18–M33; M28 and M29 answer the
-third playtest), its last part (`# Plan v3` in `docs/conception.md`), which replaces the rest of
+plan v3 (after the second playtest: decisions 22–25, milestones M18–M35; M28–M29 answer the
+third playtest, M30–M31 the fourth), its last part (`# Plan v3` in `docs/conception.md`), which replaces the rest of
 plan v2.
 
 ## Commands
@@ -262,6 +262,17 @@ They never override the rules above (determinism, zero allocations in hot loops,
     `uGamma` in `LIGHT_CURVE` (render/shaders/voxel.glsl.ts, shared with the box shader); the
     gauges as rows of symbols over the hotbar (`ui/hud/vitals.ts`: `IconRow`, `ROW_ICONS`,
     `.row-health`…, `.stat-icon` `--fill` 0/0.5/1);
+  - feel and units of the fourth play test (plan v3 « M30 »): gauges counted in symbols
+    (`ui/symbols.ts`: `ROW_ICONS`, `inSymbols`, `symbolCount`, `InfoLine`/`SymbolLine`,
+    `lineElement`, `miniSymbol`; `.gauge-*` shapes shared by the HUD rows and `.mini-icon`;
+    `itemLines`, `bestiaryRows`, `statusView(…, healthMax)` return them; a vital cell is always
+    `health.max / 10`: `IconRow.set(level, max, alarm, unit)`); the reference game's hunger
+    (`SurvivalState.saturation`/`exhaustion`/`foodTicks`, `exhaust`, `saturate`, `tire`, `feed`
+    in sim/survival.ts; `balance.hunger.exhaustion`, `sprintFrom`, `starve*`; `health.regen*`;
+    `ConsumeDef.saturation`); water movement (`PHYSICS.wade`/`wadeSprint`/`swimSprint`,
+    `MoveInput.pitch`: a sprint under water swims along the view); the hand (`render/HandView.ts`:
+    the arm turns about the shoulder, a held sprite is its icon unturned, `SPRITE_GRIP_*`);
+    particles skip invisible states (`PASS_NONE`); every plant drops something;
   - world and rules of the third play test (plan v3 « M29 »): a throw waits
     `DROPS.thrownPickupDelayTicks` (2 s) for everyone, the thrower too; the stone / dark stone
     band `deepStoneAt` (`WorldgenDef.deepStoneBlend`, generateColumn.ts; `flatBiome`); lava
@@ -491,6 +502,9 @@ They never override the rules above (determinism, zero allocations in hot loops,
   Web Locks; every test gets an empty context). `e2e/selftest.ts` holds the shared e2e steps.
 - Generated-world checks: `?seed=7&rd=4&selftest=m0,m2,m6` (real ticks: m6 waits in wall time;
   skipped in flat/arena worlds and with `?freecam`).
+- Feel checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m30` (`selftest/m30.ts`): the
+  held icon unturned (the bare arm otherwise), a sprint wading in shallow water, a food's ration
+  pods in its bubble, a sprint's exhaustion.
 - World checks of plan v3: `?worldType=flat&fixedStep=1&selftest=m0,m29` (`selftest/m29.ts`): a
   throw picked up standing on it, lava's fire shown and put out by water, lava hardening at
   water; the stone band in the generated world (`?seed=7&rd=4&fixedStep=1`).

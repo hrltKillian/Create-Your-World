@@ -127,19 +127,23 @@ const equipment = [
 
 /** Food and remedies (« Survie »: raw meat +10 toxicity, the antidote −40); effects in M9. */
 const consumables = [
-  item('berries', { hintKey: 'where.berries', consume: { seconds: 0.8, hunger: 6 } }),
+  // Foods as the reference game's (×5): a snack, raw meat, a grilled steak, a fruit.
+  item('berries', {
+    hintKey: 'where.berries',
+    consume: { seconds: 0.8, hunger: 10, saturation: 2 },
+  }),
   item('raw_meat', {
     hintKey: 'where.raw_meat',
-    consume: { seconds: 1.2, hunger: 10, toxicity: 10 },
+    consume: { seconds: 1.2, hunger: 15, saturation: 9, toxicity: 10 },
   }),
-  item('grilled_meat', { consume: { seconds: 1.2, hunger: 30 } }),
+  item('grilled_meat', { consume: { seconds: 1.2, hunger: 40, saturation: 64 } }),
   // Melts in the mouth: water from the Rimefrost (plan v3 « M23 »).
   found('ice_bulb', 'where.ice_bulb', { consume: { seconds: 0.8, thirst: 15 } }),
   // Fitted to the bag in 1.5 s: 8 more slots (plan v3 « M22 », level 3).
   item('pack_frame', { consume: { seconds: 1.5, bagSlots: 8 } }),
   item('palmthorn_fruit', {
     hintKey: 'where.palmthorn_fruit',
-    consume: { seconds: 1, hunger: 6, thirst: 10 },
+    consume: { seconds: 1, hunger: 10, saturation: 6, thirst: 10 },
   }),
   item('bandage', { consume: { seconds: 2, health: 20 } }),
   item('antidote_tea', { consume: { seconds: 1.5, thirst: 5, toxicity: -40 } }),

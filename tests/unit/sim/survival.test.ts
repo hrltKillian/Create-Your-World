@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TICKS_PER_SECOND } from '../../../src/sim/clock.ts';
+import { TICKS_PER_SECOND, ticksOf } from '../../../src/sim/clock.ts';
 import type { DebugStat } from '../../../src/sim/commands.ts';
 import {
   dayFactor,
@@ -99,13 +99,13 @@ const hot = (s: SurvivalState) => thermalStatus(s.temperature, b) >= 1;
 const overheating = (s: SurvivalState) => thermalStatus(s.temperature, b) === 2;
 
 describe('hunger, thirst and an idle death', () => {
-  it('empties hunger in 25 min (± 1 %) and thirst in 16 min', () => {
-    const hunger = minutesUntil(
-      () => {},
-      (s) => s.hunger === 0,
-    );
-    expect(hunger).toBeCloseTo(b.hunger.max / b.hunger.perMin, 2);
-    expect(Math.abs(hunger - 25)).toBeLessThanOrEqual(0.25);
+  it('empties thirst in 16 min; standing still costs no hunger (the reference game’s)', () => {
+    expect(
+      minutesUntil(
+        () => {},
+        (s) => s.hunger < b.hunger.max,
+      ),
+    ).toBe(Number.POSITIVE_INFINITY);
     const thirst = minutesUntil(
       () => {},
       (s) => s.thirst === 0,
@@ -150,20 +150,36 @@ describe('hunger, thirst and an idle death', () => {
     expect(player.survival.thirst).toBe(thirst);
   });
 
-  it('drains faster while sprinting, and stamina spent costs hunger', () => {
-    const sprinting = { ...idle, sprinting: true };
-    const hunger = minutesUntil(
-      () => {},
-      (s) => s.hunger === 0,
-      60,
-      sprinting,
-    );
-    expect(hunger).toBeCloseTo(b.hunger.max / b.hunger.perMin / b.hunger.sprintFactor, 2);
+  it('spends exhaustion on the hidden saturation first, then on hunger, a step at a time', () => {
+    const h = b.hunger;
     const s = createSurvival(b);
-    s.staminaSpent = b.hunger.staminaPerPoint * 3;
+    expect(s.saturation).toBe(h.startSaturation);
+    s.exhaustion = h.exhaustionPerStep * 3 + 1;
     stepGauges(s, b, idle);
-    expect(s.hunger).toBeCloseTo(b.hunger.max - 3 - b.hunger.perMin / MINUTE, 6);
-    expect(s.staminaSpent).toBe(0);
+    expect(s.saturation).toBe(h.startSaturation - 3 * h.step);
+    expect(s.exhaustion).toBeCloseTo(1, 9);
+    expect(s.hunger).toBe(h.max);
+    // Saturation gone: hunger pays.
+    s.saturation = 0;
+    s.exhaustion = h.exhaustionPerStep * 2;
+    stepGauges(s, b, idle);
+    expect(s.hunger).toBe(h.max - 2 * h.step);
+    // The metabolism skill makes each step cost less.
+    s.exhaustion = h.exhaustionPerStep;
+    stepGauges(s, b, { ...idle, metabolism: 0.5 });
+    expect(s.hunger).toBe(h.max - 2.5 * h.step);
+  });
+
+  it('starves at 0: a blow every starveSeconds', () => {
+    const s = createSurvival(b);
+    s.hunger = 0;
+    s.saturation = 0;
+    const ticks = ticksOf(b.hunger.starveSeconds);
+    for (let i = 0; i < ticks - 1; i++) stepGauges(s, b, idle);
+    expect(s.health).toBe(b.health.max);
+    stepGauges(s, b, idle);
+    expect(s.health).toBe(b.health.max - b.hunger.starveDamage);
+    expect(s.cause).toBe('starvation');
   });
 });
 
@@ -248,11 +264,12 @@ describe('toxicity', () => {
     stepGauges(s, b, idle);
     expect(s.toxicity).toBeCloseTo(10 - b.toxicity.decayPerMin / MINUTE, 9);
     // Each value lies 1 above a threshold: the step's decay must not take it below. Below harmAt
-    // a fed, calm player heals as usual (no status in the way, plan v3 « M20 »).
+    // a fed player heals as usual (no status in the way, plan v3 « M20 »).
     s.health = 50;
     s.toxicity = b.toxicity.harmAt - 1;
-    stepGauges(s, b, idle);
-    expect(s.health).toBeCloseTo(50 + b.health.regenPerSec / TICKS_PER_SECOND, 9);
+    s.foodTicks = 0;
+    for (let i = 0; i < ticksOf(b.health.fastRegenSeconds); i++) stepGauges(s, b, idle);
+    expect(s.health).toBe(50 + b.health.regenAmount);
     s.health = 50;
     s.toxicity = b.toxicity.harmAt + 1;
     stepGauges(s, b, idle);
@@ -274,31 +291,44 @@ describe('toxicity', () => {
 });
 
 describe('health, breath, falls and effects', () => {
-  it('regenerates 0.4/s after 6 s without damage, for half a point of hunger each', () => {
+  it('regenerates the reference game’s way: fast while full and saturated, else every 4 s', () => {
+    const h = b.health;
+    // Full hunger with saturation left: regenAmount every fastRegenSeconds, tiring the player.
     const s = createSurvival(b);
     s.health = 50;
-    s.calmTicks = 0;
-    for (let i = 0; i < b.health.regenDelaySec * TICKS_PER_SECOND - 1; i++) stepGauges(s, b, idle);
+    const fast = ticksOf(h.fastRegenSeconds);
+    for (let i = 0; i < fast - 1; i++) stepGauges(s, b, idle);
     expect(s.health).toBe(50);
-    const hunger = s.hunger;
     stepGauges(s, b, idle);
-    const healed = b.health.regenPerSec / TICKS_PER_SECOND;
-    expect(s.health).toBeCloseTo(50 + healed, 9);
-    expect(hunger - s.hunger).toBeCloseTo(b.hunger.perMin / MINUTE + healed / 2, 9);
-    // Not while hungry or thirsty; the cold band changes nothing (plan v3 « M20 »).
-    for (const field of ['hunger', 'thirst'] as const) {
+    expect(s.health).toBe(50 + h.regenAmount);
+    expect(s.exhaustion).toBeCloseTo(h.regenExhaustion, 9);
+    // From regenHungerAt without saturation: every regenSeconds.
+    const slow = createSurvival(b);
+    slow.health = 50;
+    slow.hunger = h.regenHungerAt;
+    slow.saturation = 0;
+    for (let i = 0; i < ticksOf(h.regenSeconds) - 1; i++) stepGauges(slow, b, idle);
+    expect(slow.health).toBe(50);
+    stepGauges(slow, b, idle);
+    expect(slow.health).toBe(50 + h.regenAmount);
+    // Not below regenHungerAt, nor without water; the cold band changes nothing (« M20 »).
+    for (const [field, value] of [
+      ['hunger', h.regenHungerAt - 1],
+      ['thirst', h.regenThirstAt - 1],
+    ] as const) {
       const low = createSurvival(b);
       low.health = 50;
-      low[field] = b.health.regenFedAt - 1;
-      stepGauges(low, b, idle);
+      low.saturation = 0;
+      low[field] = value;
+      for (let i = 0; i < ticksOf(h.regenSeconds) * 2; i++) stepGauges(low, b, idle);
       expect(low.health).toBe(50);
     }
     const chilled = createSurvival(b);
     chilled.health = 50;
     chilled.temperature = -b.temperature.mildAt;
     chilled.target = chilled.temperature;
-    stepGauges(chilled, b, idle);
-    expect(chilled.health).toBeCloseTo(50 + healed, 9);
+    for (let i = 0; i < fast; i++) stepGauges(chilled, b, idle);
+    expect(chilled.health).toBe(50 + h.regenAmount);
   });
 
   it('holds the breath 15 s under water, then drowns at 5/s', () => {
@@ -328,6 +358,9 @@ describe('health, breath, falls and effects', () => {
     s.step(30);
     expect(player.survival.health).toBe(b.health.max);
     s.host.send({ type: 'debug.teleport', x: 0.5, y: 75, z: 0.5 });
+    // No healing meanwhile: no saturation, hunger below regenHungerAt.
+    player.survival.saturation = 0;
+    player.survival.hunger = b.health.regenHungerAt - 1;
     s.step(60);
     expect(player.body.onGround).toBe(true);
     expect(b.health.max - player.survival.health).toBeGreaterThanOrEqual(38);
@@ -402,15 +435,11 @@ describe('stamina and the gauges', () => {
     s.temperature = -b.temperature.severeAt + 1;
     s.target = s.temperature;
     s.health = 50;
-    stepGauges(s, b, idle);
-    // A fed, calm player heals even in the cold band.
-    expect(s.health).toBeCloseTo(50 + b.health.regenPerSec / TICKS_PER_SECOND, 9);
-    expect(s.hunger).toBeCloseTo(
-      b.hunger.max -
-        b.hunger.perMin / MINUTE -
-        (b.health.regenPerSec / TICKS_PER_SECOND) * b.health.hungerPerPoint,
-      9,
-    );
+    for (let i = 0; i < ticksOf(b.health.fastRegenSeconds); i++) stepGauges(s, b, idle);
+    // A fed player heals even in the cold band, and the cold costs nothing more than the heal.
+    expect(s.health).toBe(50 + b.health.regenAmount);
+    expect(s.hunger).toBe(b.hunger.max);
+    expect(s.exhaustion).toBeCloseTo(b.health.regenExhaustion, 9);
     s.temperature = -b.temperature.severeAt - 1;
     s.target = s.temperature;
     const before = s.health;

@@ -265,7 +265,7 @@ class QuestWalk extends Supplies {
   private async quench(): Promise<void> {
     const balance = this.registry.pack.balance;
     const s = this.me().survival;
-    if (s.thirst >= balance.health.regenFedAt) return;
+    if (s.thirst >= balance.health.regenThirstAt) return;
     for (let sip = 0; sip < MAX_SIPS && s.thirst < balance.thirst.max * FULL; sip++)
       await this.sip();
   }

@@ -49,9 +49,14 @@ const statusCase: SelftestCase = {
       player.survival.healthMax === before + p.skills.vitality,
       `the largest health is ${player.survival.healthMax}`,
     );
-    const rule = t('skill.vitality.rule', { total: p.skills.vitality, each: p.skills.vitality });
-    const shows = () => document.querySelector('#screen-bag .status')?.textContent?.includes(rule);
-    assert(await withinFrames(UI_FRAMES, () => shows() === true), 'the rule does not show');
+    // In vital cells (plan v3 « M30 »): a tenth of the health each, with its symbol.
+    const cells = p.skills.vitality / (b.health.max / 10);
+    const rule =
+      t('skill.vitality.rule', { total: cells }) + t('skill.vitality.after', { each: cells });
+    const page = () => document.querySelector('#screen-bag .status');
+    const shows = () =>
+      page()?.textContent?.includes(rule) && page()?.querySelector('.mini-icon.gauge-health');
+    assert(await withinFrames(UI_FRAMES, () => !!shows()), 'the rule does not show');
     // A task done, claimed by its button.
     tap('KeyJ', 'j');
     const task = player.tasks[0];

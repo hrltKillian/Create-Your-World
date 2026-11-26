@@ -20,6 +20,9 @@ function standingIn(block: string) {
   s.fill(0, 64, 0, 0, 64, 0, 'block:stone');
   s.fill(0, 65, 0, 0, 65, 0, block);
   s.send({ type: 'debug.teleport', x: 0.5, y: 65, z: 0.5 });
+  // No healing while the fire is measured (a fed player heals fast: plan v3 « M30 »).
+  s.player.survival.saturation = 0;
+  s.player.survival.hunger = b.health.regenHungerAt - 1;
   return s;
 }
 

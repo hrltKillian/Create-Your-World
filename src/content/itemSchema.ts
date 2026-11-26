@@ -75,6 +75,8 @@ export interface ConsumeDef {
   /** Hold time. */
   readonly seconds: number;
   readonly hunger?: number;
+  /** Hidden saturation it gives (plan v3 « M30 »), never above the hunger reached. */
+  readonly saturation?: number;
   readonly thirst?: number;
   readonly health?: number;
   readonly toxicity?: number;

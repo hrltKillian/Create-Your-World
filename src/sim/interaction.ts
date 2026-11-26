@@ -31,6 +31,7 @@ import { type PlayerState, STAMINA, spendStamina } from './player.ts';
 import { strengthFactor } from './progression.ts';
 import type { Simulation } from './Simulation.ts';
 import { sleepOn } from './sleep.ts';
+import { exhaust } from './survival.ts';
 import { AIM_HIT, AIM_NONE, AIM_OUT_OF_REACH, aim } from './targeting.ts';
 
 /** Progress at which a block breaks (absorbs the rounding of summed tick fractions). */
@@ -129,6 +130,7 @@ export function stopMining(player: PlayerState, out: SimEvent[]): void {
 function breakAimed(sim: Simulation, player: PlayerState, itemId: number, out: SimEvent[]): void {
   const { x, y, z, state } = hit;
   removeWhole(sim, player.playerId, x, y, z, canHarvest(sim.registry, state, itemId), out);
+  exhaust(player.survival, sim.registry.pack.balance.hunger.exhaustion.mine);
   const wear = toolWear(sim.registry, state, itemId);
   if (wear > 0 && player.inventory[player.input.slot]) {
     spendUses(sim.registry, player.inventory, player.input.slot, wear);

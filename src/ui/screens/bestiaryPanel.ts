@@ -1,6 +1,9 @@
 import type { BestiaryRow } from '../bestiary.ts';
 import { h } from '../h.ts';
+import { lineElement } from '../symbols.ts';
 
+/** Class of a line's element. */
+const LINE = 'bestiary-line';
 /**
  * The Bestiary page of the Bag (ui/bestiary.ts writes its rows): one card per creature of the
  * pack, rebuilt only when an entry changes. Cards carry `data-creature` and `data-level`.
@@ -22,7 +25,7 @@ export class BestiaryPanel {
             attrs: { 'data-creature': row.creature, 'data-level': String(row.level) },
           },
           h('h3', null, row.name),
-          ...row.lines.map((line) => h('p', null, line)),
+          ...row.lines.map((line) => h('p', null, lineElement(line, LINE))),
         ),
       ),
     );

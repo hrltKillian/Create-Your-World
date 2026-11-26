@@ -31,6 +31,7 @@ const idle: MoveInput = {
   crouch: false,
   speedFactor: 1,
   yaw: 0,
+  pitch: 0,
 };
 const out: StepResult = { landedFrom: 0, jumped: false, sprinting: false };
 
@@ -169,6 +170,55 @@ describe('player physics', () => {
     for (let i = 0; i < 20; i++)
       stepBody(body, { ...idle, jump: true }, world, registry.tables, DT, out);
     expect(body.y).toBeGreaterThan(y0);
+  });
+
+  it('sprints wading in shallow water, as on land but slower', () => {
+    const world = flatWorld();
+    for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 64, z, WATER);
+    // The water stands in a pit: floor at 63, so the feet are in it and the head out.
+    for (let x = -8; x < 8; x++) for (let z = -30; z < 8; z++) world.setBlock(x, 63, z, STONE);
+    const pace = (sprint: boolean) => {
+      const body = createBody(0.5, 64, 0.5);
+      for (let i = 0; i < 10; i++) stepBody(body, idle, world, registry.tables, DT, out);
+      const z0 = body.z;
+      for (let i = 0; i < 30; i++)
+        stepBody(body, { ...idle, forward: 1, sprint }, world, registry.tables, DT, out);
+      expect(body.inWater && !body.headInWater).toBe(true);
+      return (z0 - body.z) / 1;
+    };
+    const walk = pace(false);
+    const run = pace(true);
+    expect(out.sprinting).toBe(true);
+    expect(walk).toBeCloseTo(PHYSICS.wade, 0);
+    expect(run).toBeGreaterThan(walk * 1.3);
+    expect(run).toBeLessThan(PHYSICS.sprint);
+  });
+
+  it('swims fast along the view when sprinting under water: dives and rises with it', () => {
+    const world = flatWorld();
+    for (let x = -8; x < 8; x++)
+      for (let z = -40; z < 8; z++) for (let y = 64; y < 80; y++) world.setBlock(x, y, z, WATER);
+    const swim = (pitch: number) => {
+      const body = createBody(0.5, 70, 0.5);
+      for (let i = 0; i < 5; i++) stepBody(body, idle, world, registry.tables, DT, out);
+      const [y0, z0] = [body.y, body.z];
+      for (let i = 0; i < 30; i++)
+        stepBody(
+          body,
+          { ...idle, forward: 1, sprint: true, pitch },
+          world,
+          registry.tables,
+          DT,
+          out,
+        );
+      expect(body.headInWater).toBe(true);
+      return { dy: body.y - y0, dz: z0 - body.z };
+    };
+    const level = swim(0);
+    expect(level.dz).toBeGreaterThan(PHYSICS.swim * 1.4);
+    expect(Math.abs(level.dy)).toBeLessThan(0.3);
+    expect(swim(-0.8).dy).toBeLessThan(-2);
+    expect(swim(0.8).dy).toBeGreaterThan(2);
   });
 
   /** Water `depth` deep over the stone floor (top at 64 + depth), a bank to the north rising

@@ -1,4 +1,5 @@
 import { h } from './h.ts';
+import { type InfoLine, lineElement, lineText } from './symbols.ts';
 
 /** Pixels between the pointer and the bubble. */
 const GAP = 14;
@@ -25,13 +26,13 @@ export class Tooltip {
   }
 
   /** Shows a title and its lines beside the pointer (viewport pixels). */
-  show(title: string, lines: readonly string[], x: number, y: number): void {
-    const key = [title, ...lines].join('\n');
+  show(title: string, lines: readonly InfoLine[], x: number, y: number): void {
+    const key = [title, ...lines.map(lineText)].join('\n');
     if (key !== this.shown) {
       this.shown = key;
       this.box.replaceChildren(
         h('strong', null, title),
-        ...lines.map((line) => h('span', { class: 'tooltip-line' }, line)),
+        ...lines.map((line) => lineElement(line, 'tooltip-line')),
       );
     }
     this.element.hidden = false;

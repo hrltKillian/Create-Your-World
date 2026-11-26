@@ -138,17 +138,22 @@ of them:
 
 ## Try this milestone
 
-**M29 — World and rules from the third play test** (plan v3, `docs/conception.md` « M29 »).
+**M30 — Feel and units from the fourth play test** (plan v3, `docs/conception.md` « M30 »).
 `npm run dev`, then open `http://localhost:5173/?skipMenu=1`.
 
-- **Lava** fills the deepest caves: it flows slowly, glows, hurts badly and sets you on fire; a
-  fire burns a few seconds once out of it, water puts it out; lava meeting water turns to rock.
-- **Stone and dark stone** now mix over a few rows instead of a sharp line.
-- **Thrown items** come back after two seconds, even when you stand on them.
-- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m29`.
+- **Everything counts in symbols**: foods restore ration pods and drops, blows deal vital cells,
+  shown with their symbol; vitality adds vital cells.
+- **Hunger as in Minecraft**: efforts tire you (sprinting, jumping, fighting, mining), a hidden
+  saturation goes first, standing still costs nothing; healing needs a full stomach.
+- **Water**: sprint while wading, sprint-swim under water along your view.
+- **The hand**: a bigger arm swinging from the shoulder; a held item is its slot's icon.
+- **Every plant gives something**: fibre or sticks.
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m30`.
 
 ### Earlier milestones
 
+- **M29, world and rules**: flowing lava and fire, a stone / dark stone band, thrown items picked
+  up after two seconds; `?worldType=flat&fixedStep=1&selftest=m0,m29`.
 - **M28, interfaces**: gauges as rows of symbols over the hotbar, hover bubbles and fixed-size
   screens, journals read as books, Gamma, longer quest messages;
   `?worldType=flat&fixedStep=1&selftest=m0,m28`.

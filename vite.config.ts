@@ -27,7 +27,9 @@ export default defineConfig(({ mode }) => ({
     // Perf thresholds are for plain Node: Vite's module runner turns every imported binding into a
     // getter call, which slows the meshing and generation hot loops several times over.
     experimental: { viteModuleRunner: mode !== 'perf' },
-    testTimeout: mode === 'slow' ? 180_000 : 10_000,
+    // The simulation's longer cases take ~4 s alone and over 10 s with every file in parallel on
+    // a busy machine: 30 s keeps them from failing on load alone.
+    testTimeout: mode === 'slow' ? 180_000 : 30_000,
     include:
       mode === 'perf'
         ? ['tests/perf/**/*.perf.ts']

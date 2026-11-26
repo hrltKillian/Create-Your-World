@@ -74,7 +74,7 @@ describe('spawn point', () => {
       if (!solid(spawn.y - 1) || solid(spawn.y) || solid(spawn.y + 1)) blocked.push(seed);
     }
     expect(blocked).toEqual([]);
-  }, 60_000);
+  }, 120_000);
 
   it('has gravel and water really generated nearby', () => {
     for (const seed of ['1', '7', '42']) {

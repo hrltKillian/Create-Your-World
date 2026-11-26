@@ -2334,7 +2334,7 @@ Ce plan v2 répond à chacun d'eux.
 
 ### M18 — Structures et contenu de la colonie perdue (retour 10, après M16)
 
-> Remplacé par le plan v3 (M26), comme M19 à M21 ci-dessous (M21, M22, M33 du plan v3).
+> Remplacé par le plan v3 (M26), comme M19 à M21 ci-dessous (M21, M22, M35 du plan v3).
 
 **Moteur** :
 
@@ -2740,7 +2740,7 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 | **Ochre Waste**                     | brûlant le jour, froid la nuit, dunes              | Palmépine                                                                                                                      | arbustes secs, gourde-citerne (eau)                         | Shellbacks                      | argile réfractaire            |
 | **Sporefen** (toxique, à confirmer) | tiède, eau croupie, air toxique                    | Roseaux-lances et arbres-gousses bas (pas de champignons)                                                                      | gousses à spores, roseaux (fibre)                           | Swarmlings                      | fer des marais                |
 | **Shard Highlands**                 | frais, montagnes et falaises, seul biome à rochers | Pin tordu, écorce olive                                                                                                        | cristaux affleurants, lichens                               | Shagbacks                       | cristal d'aube en surface     |
-| **Mirror Basin**                    | doux, lacs et rives                                | Saule-miroir : écorce ardoise, feuilles pendantes argentées                                                                    | roseaux, nénuphars, argile                                  | nouvelle espèce aquatique (M25) | argile, pêche (M31)           |
+| **Mirror Basin**                    | doux, lacs et rives                                | Saule-miroir : écorce ardoise, feuilles pendantes argentées                                                                    | roseaux, nénuphars, argile                                  | nouvelle espèce aquatique (M25) | argile, pêche (M33)           |
 | **Ashen Steppe** (optionnel)        | chaud et sec, sol de cendre, orgues de basalte     | Charbonnier : écorce noire, feuilles bronze                                                                                    | herbes sèches, fumerolles chaudes                           | Prowlers                        | Emberstone en surface         |
 
 **Logique** :
@@ -2837,7 +2837,7 @@ M12 à M17 du plan v2 sont faits et mergés. Tu as rejoué et fait 16 retours. C
 
 #### Retours de la troisième partie test (pendant le M27)
 
-Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte). Les autres forment deux jalons insérés avant la suite du plan. Les anciens M28 à M31 deviennent M30 à M33.
+Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte). Les autres forment deux jalons insérés avant la suite du plan. Les anciens M28 à M31 deviennent M30 à M33 (puis M32 à M35 après la quatrième partie test).
 
 | Retour                       | Où                     | Décision                                                                                                                                                                                                                                                                            |
 | ---------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -2884,25 +2884,59 @@ Neuf retours. La carte passe sur le HUD dès le M27 (minicarte et grande carte).
 - Feu : la lave blesse vite (20 par seconde, cause « lava ») et allume le joueur (`contact.ignites`) ; tant qu'il la touche, le feu est rallumé pour une durée tirée entre 4 et 8 s (`balance.fire`), qui court une fois sorti, à 4 par seconde (cause « fire »). Les pieds dans l'eau l'éteignent. Le HUD montre des flammes (`#hud-fire`). `SurvivalState.burnTicks`, SAVE 14.
 - Selftest `m29` (`?worldType=flat&fixedStep=1&selftest=m0,m29` ; la bande dans le monde généré, `?seed=7&rd=4&fixedStep=1`).
 
-### M30 — Confort d'inventaire
+#### Retours de la quatrième partie test (pendant le M29)
+
+| Retour                    | Décision                                                                                                                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Stats en symboles partout | Un symbole vaut un dixième de sa jauge (10 points sur 100). Tout nombre de jauge lu par le joueur est compté en symboles, avec le symbole dessiné : aliments, coups, santé et coups des créatures, vitalité. La Vitalité ajoute des cellules de même valeur. |
+| Faim                      | Comme Minecraft : saturation cachée et épuisement.                                                                                                                                                                                                           |
+| Eau                       | Comme Minecraft : on court en marchant dans l'eau ; immergé, le sprint devient une nage rapide qui suit le regard.                                                                                                                                           |
+| Plantes décoratives       | Chaque plante donne quelque chose : fibre pour la famille des herbes, bâtons pour les buissons.                                                                                                                                                              |
+| Particules des herbes     | Le damier noir et violet venait de la poussière d'un bloc déjà cassé.                                                                                                                                                                                        |
+| Bras et objet en main     | Le coup part de l'épaule. L'objet tenu est l'icône de sa case, sans rotation, tenue au milieu de la main. La main est plus grande.                                                                                                                           |
+| Carte                     | Plus détaillée, moins pixelisée ; balises avec icônes et noms (M31).                                                                                                                                                                                         |
+
+### M30 — Ressenti et unités (quatrième partie test)
+
+- Particules, bras et objet en main.
+- Sprint et nage dans l'eau, plantes utiles.
+- Stats en symboles.
+- Faim de Minecraft.
+
+**Retenu à la réalisation** :
+
+- Particules : la poussière et les éclats d'un bloc invisible (déjà cassé au premier coup, comme une plante) ne s'affichent plus.
+- Bras : il pivote depuis l'épaule, hors champ en bas à droite ; le coup l'emmène vers l'avant, le bas et le centre. Il est plus large (0,17). L'objet tenu est l'icône de sa case, face à la vue, sans aucune rotation, tenue au milieu de la main ; un bloc tenu garde son quart de tour pour montrer ses faces.
+- Eau : marcher dans l'eau peu profonde (au fond, la tête hors de l'eau) va à 3,4 blocs/s, 5,1 en sprint. Nager va à 2,4 ; immergé, le sprint nage à 4,6 le long du regard (plonger, remonter).
+- Plantes : lichen de givre, clochette d'ambre, fougère voilée et pousse de chapeau donnent de la fibre comme les hautes herbes ; le buisson épineux donne des bâtons. Un test refuse toute plante qui ne donne rien.
+- Symboles (`ui/symbols.ts`) : `inSymbols`, `symbolCount` (une décimale au plus), lignes `InfoLine` avec un petit symbole (`.mini-icon.gauge-*`, les mêmes formes que les rangées du HUD). Descriptions d'objets (dégâts en cellules vitales, aliments en gousses, gouttes, cristaux), bestiaire (santé et coups des créatures en cellules vitales), page État (vitalité en cellules). Une cellule vitale vaut toujours 10 points : avec la Vitalité, la rangée de santé gagne des cellules, sur une ligne au-dessus au-delà de dix.
+- Faim (le modèle de Minecraft, ×5) : chaque effort ajoute de l'épuisement (sprint 0,1 par bloc, nage 0,01 par bloc, saut 0,05, saut en sprint 0,2, coup porté 0,1, coup ou chute subis 0,1, bloc cassé 0,005, chaque soin 6). Tous les 4 d'épuisement, la saturation cachée perd 5, ou la faim une fois la saturation vide. Rester immobile ne coûte rien. Les aliments donnent faim et saturation, celle-ci jamais au-delà de la faim : baies 10/2, viande crue 15/9, viande grillée 40/64, fruit 10/6. Régénération : 5 de santé toutes les 0,5 s à faim pleine avec de la saturation, sinon toutes les 4 s dès 90 de faim, et 50 d'eau au moins dans les deux cas. Famine : 5 toutes les 4 s à 0. Le sprint demande plus de 30 de faim. La métabolisme réduit le coût de chaque pas de faim. SAVE 15 (saturation à un quart de la faim, plus de délai de régénération).
+- Selftest `m30` (`?worldType=flat&fixedStep=1&selftest=m0,m30`).
+
+### M31 — Carte détaillée et balises (quatrième partie test)
+
+- Une carte plus fine (un bloc par pixel), ombrée par le relief, avec les blocs réellement posés quand ils sont chargés.
+- Des balises avec icône, couleur et nom, posées depuis la grande carte (clic à l'endroit voulu) ou aux pieds du joueur, affichées sur la carte, la minicarte et la boussole.
+
+### M32 — Confort d'inventaire
 
 - Tri du sac, bouton « tout ranger », dépôt rapide dans les coffres proches.
 - Fabrication avec le contenu des coffres voisins de l'établi.
 
-### M31 — Agriculture et cuisine
+### M33 — Agriculture et cuisine
 
 - Planter et récolter les plantes utiles des biomes, avec croissance par mises à jour de blocs.
 - Plats cuisinés au feu de camp qui nourrissent mieux.
 - Pêche au Mirror Basin.
 
-### M32 — Météo et ambiance
+### M34 — Météo et ambiance
 
 - Pluie, orage, brouillard par biome.
 - La pluie remplit les récipients posés.
 - L'orage rend la nuit plus dangereuse.
 - Sons synthétisés.
 
-### M33 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
+### M35 — Lisibilité et disposition du HUD (restes des anciens M20 et M21)
 
 - Animation pour manger et boire.
 - Disposition du HUD testée en 1024×768, 1280×720 et 1920×1080.

@@ -78,7 +78,7 @@ interface Screens {
 /**
  * The first launch's help (docs « Prise en main »): the controls card when a world opens, then a
  * tip line (`#hud-tip`) once per tip: the bag opened, mining started, thirst under the level health
- * needs to regenerate (`health.regenFedAt`), the first dusk (in place of the sunset banner:
+ * needs to regenerate (`health.regenThirstAt`), the first dusk (in place of the sunset banner:
  * HudBridge asks `dusk()`). Each is marked seen when shown (the card when dismissed); with no
  * tips store (automation) nothing shows.
  */
@@ -103,7 +103,7 @@ export class Onboarding {
     this.session = session;
     this.input = input;
     this.screens = screens;
-    this.thirstAt = session.host.view.registry.pack.balance.health.regenFedAt;
+    this.thirstAt = session.host.view.registry.pack.balance.health.regenThirstAt;
     this.card = new ControlsCard(() => this.dismiss(true));
     layer.append(this.tip.element, this.card.element);
     session.listeners.push((event) => this.onEvent(event));

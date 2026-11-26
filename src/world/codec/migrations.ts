@@ -8,7 +8,7 @@ import { isWhole } from '../../core/guards.ts';
  * they are decoded; a save newer than the game is refused.
  */
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 export type RecordKind = 'world' | 'player' | 'column';
 
@@ -169,6 +169,27 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       });
       return { ...record, entities };
     },
+  },
+  // 14 → 15 (plan v3 « M30 »): the reference game's hunger. The hidden saturation starts at a
+  // quarter of the hunger held, no exhaustion yet; the regeneration delay and the stamina's hunger
+  // cost are gone.
+  {
+    world: (record) => record,
+    player: (record) => {
+      const survival = record.survival;
+      if (typeof survival !== 'object' || survival === null) return record;
+      const {
+        calmTicks: _calm,
+        staminaSpent: _spent,
+        ...rest
+      } = survival as Record<string, unknown>;
+      const hunger = typeof rest.hunger === 'number' ? rest.hunger : 0;
+      return {
+        ...record,
+        survival: { ...rest, saturation: hunger / 4, exhaustion: 0, foodTicks: 0 },
+      };
+    },
+    column: (record) => record,
   },
 ];
 
