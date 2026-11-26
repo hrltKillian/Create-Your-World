@@ -3382,7 +3382,7 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
 
 ### Partie C — Identité visuelle
 
-#### M48 — Interfaces « colonie effondrée »
+#### M48 — Interfaces « colonie effondrée » (fait)
 
 - **Base visuelle** :
   - jetons CSS refaits (couleurs, formes, ombres) ;
@@ -3398,6 +3398,16 @@ Une PR par jalon (`claude/mNN-…`), fusionnée après la CI verte, une à la fo
   - `hudLayout` reste vert aux trois tailles.
 
 **Tests** : selftest `m48` (chaque écran s'ouvre ; les jetons et la police sont appliqués), `e2e/hud.spec.ts`, i18n.
+
+**Retenu à la réalisation** :
+
+- le décor est du pixel art généré au démarrage (`assets/procedural/uiArt.ts`, `ui/uiArt.ts`) : plaque peinte usée (tuile de 96 px affichée sur 192, à peine marquée pour rester lisible), rivets, mousse, liane, bandes ambre, et les symboles des jauges pleins et vides (capsule médicale, boîte de ration, gourde, spores, bulle) ; ils deviennent des variables CSS (`--art-*`, `--icon-*`) ;
+- plus de flou derrière les panneaux : il retenait la bulle et coûtait à chaque image ;
+- la police est Barlow Semi Condensed (OFL), en 500 et 700, chiffres tabulaires ;
+- la température devient un cadran dont l'aiguille tourne du froid (à gauche) au chaud (à droite) ;
+- tout le visuel de chaque composant est refait, pas seulement les jetons : les cases sont des douilles en pixel art (sol creusé, une cornière vissée à chaque coin, en 9-slice), sarcelle au survol et ambre en main ; l'encre est os, le secondaire lichen, les libellés de section mousse avec un trait ; tout ce qui est survolé luit sarcelle, tout ce qui est choisi est ambre ; onglets, lignes (encoche à gauche), champs creusés, cases à cocher, curseurs à bouton riveté, contrôles segmentés, barres de défilement mousse, bandeaux du jour à bandes de danger, nom du biome en capitales mousse, écran de mort rouille, page de journal tachée ;
+- les tailles du HUD ne changent pas (sa disposition est testée) : le cadran garde les 16 pixels de son art ;
+- le selftest `m43` vérifie désormais les plaques rivetées et les douilles.
 
 #### M49 — Icônes d'objets redessinées
 

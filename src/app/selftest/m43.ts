@@ -9,16 +9,17 @@ import {
 } from './support.ts';
 
 /*
- * M43 the colony's interface (plan v4 « M43 »), on the flat world with fixed steps
- * (?worldType=flat&fixedStep=1): the Bag is a pane of smoked glass with Veyra's teal rim, the
- * hotbar a glass tray, and the slots pressed into them (the HUD's layout is m35's).
+ * M43 the colony's interface (plan v4 « M43 »; its look since plan v5 « M48 »), on the flat world
+ * with fixed steps (?worldType=flat&fixedStep=1): the Bag and the hotbar are riveted painted
+ * plates (pixel art, no blur: a blur would hold the bubble), their slots sockets pressed in (the
+ * HUD's layout is m35's).
  */
 
-/** Whether a computed box shadow holds Veyra's teal rim. */
-const teal = (shadow: string) => shadow.includes('127, 224, 200');
+/** Whether a computed background draws the code's pixel art. */
+const pixelArt = (background: string) => background.includes('data:image/png');
 
 const themeCase: SelftestCase = {
-  name: 'the Bag and the hotbar are smoked glass with a teal rim, their slots pressed in',
+  name: 'the Bag and the hotbar are riveted painted plates, unblurred, their slots pressed in',
   scenes: PLAY_SCENES,
   skip: needsFlatPlayer,
   run: async (app) => {
@@ -28,15 +29,16 @@ const themeCase: SelftestCase = {
       const panel = document.querySelector<HTMLElement>('#screen-bag .bag-panel');
       assert(panel, 'no Bag panel');
       const style = getComputedStyle(panel);
-      assert(
-        style.backdropFilter.includes('blur'),
-        `the Bag's backdrop is ${style.backdropFilter}`,
-      );
-      assert(teal(style.boxShadow), `the Bag's rim is ${style.boxShadow}`);
+      assert(style.backdropFilter === 'none', `the Bag's backdrop is ${style.backdropFilter}`);
+      assert(pixelArt(style.backgroundImage), "the Bag's plate is not the code's pixel art");
       const hotbar = document.querySelector<HTMLElement>('.hotbar');
-      assert(hotbar && teal(getComputedStyle(hotbar).boxShadow), 'the hotbar has no teal rim');
+      assert(
+        hotbar && pixelArt(getComputedStyle(hotbar).backgroundImage),
+        'the hotbar is no plate',
+      );
       const slot = document.querySelector<HTMLElement>('#screen-bag [data-slot="0"]');
-      assert(slot && getComputedStyle(slot).boxShadow.includes('inset'), 'the slots are flat');
+      // A socket: its bracketed rim and recessed floor drawn as a 9-slice of the code's art.
+      assert(slot && pixelArt(getComputedStyle(slot).borderImageSource), 'the slots are flat');
     } finally {
       app.inventory!.closeScreen();
     }

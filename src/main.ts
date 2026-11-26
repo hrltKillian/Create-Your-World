@@ -1,3 +1,6 @@
+// The interface's typeface (plan v5 « M48 »): Barlow Semi Condensed, SIL Open Font License.
+import '@fontsource/barlow-semi-condensed/latin-500.css';
+import '@fontsource/barlow-semi-condensed/latin-700.css';
 import './ui/styles/main.css';
 import './ui/styles/inventory.css';
 import './ui/styles/logbook.css';
@@ -5,9 +8,12 @@ import './ui/styles/stations.css';
 import './ui/styles/menus.css';
 import './ui/styles/hud.css';
 import { App } from './app/App.ts';
+import { applyUiArt } from './ui/uiArt.ts';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('Missing #app root element');
+// The interface's pixel art, before anything shows (plan v5 « M48 »).
+applyUiArt(document.documentElement);
 
 const app = new App(root, location.search);
 

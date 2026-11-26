@@ -38,10 +38,17 @@
   position: relative;
   width: 320px;
   height: 26px;
-  border-bottom: 2px solid rgba(232, 176, 74, 0.4);
-  border-radius: 13px 13px 6px 6px;
-  background: var(--glass);
-  box-shadow: var(--glass-edge);
+  /* A riveted metal band (plan v5 « M48 »), its rivets at both ends. */
+  border-radius: 4px 12px 4px 12px;
+  background:
+    var(--art-rivet) left 6px center / 10px 10px no-repeat,
+    var(--art-rivet) right 6px center / 10px 10px no-repeat,
+    var(--plate);
+  box-shadow:
+    inset 0 -2px 0 rgba(226, 164, 58, 0.55),
+    0 0 0 2px #0c0f0b,
+    0 4px 12px rgba(0, 0, 0, 0.45);
+  image-rendering: pixelated;
   overflow: hidden;
 }
 
@@ -71,19 +78,20 @@
 
 .compass-point {
   color: var(--c-ink);
-  font: 700 0.78rem var(--font);
-  letter-spacing: 0.04em;
+  font: 700 0.8rem var(--font);
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 var(--c-outline);
 }
 
 .compass-strip > .compass-point:first-child {
-  color: var(--c-accent);
+  color: var(--c-active);
 }
 
 .compass-tick {
   width: 2px;
   height: 7px;
-  border-radius: 1px;
-  background: var(--c-ink-muted);
+  background: var(--c-label);
+  opacity: 0.8;
 }
 
 .compass-sun {
@@ -105,8 +113,8 @@
 .compass-quest {
   width: 9px;
   height: 9px;
-  border: 2px solid var(--c-accent);
-  border-radius: 2px;
+  border: 2px solid var(--c-active);
+  background: rgba(226, 164, 58, 0.25);
   transform: translate(calc(var(--x, 0) * var(--half) - 50%), -50%) rotate(45deg);
 }
 
@@ -129,30 +137,40 @@
 
 .hud-clock {
   margin: 0;
-  padding: 2px 11px;
-  border-radius: 999px;
-  background: var(--glass);
+  padding: 2px 12px;
+  border-radius: 3px 9px 3px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px #0c0f0b;
   color: var(--c-ink);
-  font: 600 0.8rem var(--font-mono);
+  font: 700 0.8rem var(--font-mono);
+  letter-spacing: 0.04em;
+  image-rendering: pixelated;
 }
 
 .hud-quest {
   margin: 0;
-  padding: 2px 11px;
+  padding: 2px 12px 2px 10px;
   border-left: 3px solid var(--c-accent);
-  border-radius: 4px 999px 999px 4px;
-  background: var(--glass);
+  border-radius: 2px 9px 3px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px #0c0f0b;
   color: var(--c-ink);
   font-size: 0.78rem;
+  image-rendering: pixelated;
 }
 
+/* What is aimed at: its name, and a hint in rust under it. */
 .hud-target {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin: 0;
   font-size: 0.8rem;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 1px 0 var(--c-outline),
+    0 0 6px rgba(0, 0, 0, 0.8);
 }
 
 .target-name {
@@ -160,14 +178,15 @@
 }
 
 .target-hint {
-  color: #f0a58f;
+  color: #f0a08c;
   font-size: 0.74rem;
 }
 
 /* ---- Centre: stamina arc on the right of the crosshair ---- */
 
+/* Stamina: a bioluminescent teal arc right of the crosshair. */
 .stamina-arc {
-  --arc: #a7d46f;
+  --arc: var(--c-hover);
   position: absolute;
   left: 50%;
   top: 50%;
@@ -178,10 +197,11 @@
   background: conic-gradient(
     from 35deg,
     var(--arc) calc(var(--fill, 1) * 110deg),
-    rgba(255, 255, 255, 0.16) 0 110deg,
+    rgba(12, 15, 11, 0.55) 0 110deg,
     transparent 0
   );
   mask-image: radial-gradient(circle, transparent 17px, #000 18px 21px, transparent 22px);
+  filter: drop-shadow(0 0 3px rgba(90, 240, 207, 0.6));
   opacity: 0.9;
   transition: opacity 0.5s ease-out;
 }
@@ -290,8 +310,8 @@
   display: flex;
   /* Ten a row; more (health with vitality) on rows above, as the reference game stacks them. */
   flex-wrap: wrap-reverse;
-  gap: 2px;
-  width: 198px;
+  gap: 3px;
+  width: 190px;
   /* An outline around every symbol, whatever its shape. */
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
@@ -305,89 +325,70 @@
   display: none;
 }
 
+/*
+ * A gauge's symbol (plan v5 « M48 »): its pixel art empty, and full over it as far as `--fill`
+ * reaches (0, 0.5 or 1), from the side of the full ones.
+ */
 .stat-icon {
-  width: 18px;
-  height: 18px;
-  background: linear-gradient(
-    90deg,
-    var(--full) calc(var(--fill, 1) * 100%),
-    var(--empty) calc(var(--fill, 1) * 100%)
-  );
+  position: relative;
+  /* The art's own 16 pixels: whole device pixels at any common pixel ratio. */
+  width: 16px;
+  height: 16px;
+  background: var(--empty) center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.stat-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--full) center / 100% 100% no-repeat;
+  clip-path: inset(0 calc((1 - var(--fill, 1)) * 100%) 0 0);
 }
 
 /* A half symbol keeps its filled half towards the full ones. */
-.vitals-right .stat-icon {
-  background: linear-gradient(
-    270deg,
-    var(--full) calc(var(--fill, 1) * 100%),
-    var(--empty) calc(var(--fill, 1) * 100%)
-  );
+.vitals-right .stat-icon::before {
+  clip-path: inset(0 0 0 calc((1 - var(--fill, 1)) * 100%));
 }
 
 /*
- * The gauges' symbols (plan v3 « M28 », « M30 »), on the HUD's rows and small in the texts that
- * count in them (`.mini-icon`, always full).
+ * The gauges' symbols (plan v5 « M48 », ui/uiArt.ts): a medical capsule, a ration tin, a canteen,
+ * a cloud of spores, an air bubble; on the HUD's rows and small in the texts that count in them
+ * (`.mini-icon`, always full).
  */
-
-/* Health: vital cells (hexagons). */
 .gauge-health {
-  --full: #d8475c;
-  --empty: rgba(40, 14, 18, 0.85);
-  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
+  --full: var(--icon-health);
+  --empty: var(--icon-health-empty);
 }
 
-/* Hunger: ration pods. */
 .gauge-hunger {
-  --full: #e0973c;
-  --empty: rgba(52, 32, 12, 0.85);
-  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  --full: var(--icon-hunger);
+  --empty: var(--icon-hunger-empty);
 }
 
-/* Thirst: drops. */
 .gauge-thirst {
-  --full: #4598e0;
-  --empty: rgba(12, 28, 48, 0.85);
-  clip-path: polygon(
-    50% 0,
-    72% 32%,
-    86% 55%,
-    86% 74%,
-    74% 91%,
-    50% 100%,
-    26% 91%,
-    14% 74%,
-    14% 55%,
-    28% 32%
-  );
+  --full: var(--icon-thirst);
+  --empty: var(--icon-thirst-empty);
 }
 
-/* Toxicity: spore crystals. */
 .gauge-toxicity {
-  --full: #86bd3c;
-  --empty: rgba(22, 36, 10, 0.85);
-  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  --full: var(--icon-toxicity);
+  --empty: var(--icon-toxicity-empty);
 }
 
-/* Breath: bubbles. */
 .gauge-breath {
-  --full: #a8dcff;
-  --empty: rgba(20, 40, 60, 0.6);
-  border-radius: 50%;
-}
-
-.stat-icon.gauge-breath {
-  width: 14px;
-  height: 14px;
-  margin: 2px;
+  --full: var(--icon-breath);
+  --empty: var(--icon-breath-empty);
 }
 
 .mini-icon {
   display: inline-block;
-  width: 0.95em;
-  height: 0.95em;
+  width: 1.05em;
+  height: 1.05em;
   margin: 0 0.15em 0 0.3em;
-  vertical-align: -0.12em;
-  background: var(--full);
+  vertical-align: -0.16em;
+  background: var(--full) center / 100% 100% no-repeat;
+  image-rendering: pixelated;
 }
 
 .icon-row.alarm .stat-icon {
@@ -400,68 +401,59 @@
   }
 }
 
-/* The thermometer: a bulb, a horizontal tube with comfort in the middle, the felt °C, the trend. */
+/*
+ * The temperature (plan v5 « M48 »): a dial whose needle swings from cold (left) to hot (right),
+ * comfort straight up, then the felt °C and the trend.
+ */
 .thermo {
-  --thermo: #e6d8ad;
+  --thermo: #ece6d3;
   display: flex;
   align-items: center;
-  gap: 0;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
 }
 
 .thermo.cold {
-  --thermo: #86c8f0;
+  --thermo: #8fdcf0;
 }
 
 .thermo.hot {
-  --thermo: #ec8a4c;
-}
-
-.thermo-bulb {
-  order: 0;
-  width: 14px;
-  height: 14px;
-  margin-right: -2px;
-  border-radius: 50%;
-  background: var(--thermo);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
+  --thermo: #ec6a4c;
 }
 
 .thermo-glass {
+  display: none;
+}
+
+.thermo-bulb {
   position: relative;
-  order: 1;
-  width: 92px;
-  height: 8px;
-  border-radius: 0 4px 4px 0;
-  background: rgba(20, 20, 20, 0.6);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.24);
-  overflow: hidden;
+  order: 0;
+  /* The art's own 16 pixels, like the gauges' symbols. */
+  width: 16px;
+  height: 16px;
+  background: var(--icon-dial) center / 100% 100% no-repeat;
+  image-rendering: pixelated;
 }
 
-.thermo-liquid {
+/* The needle: from the dial's centre, turned by the gauge (0 coldest, 1 hottest). */
+.thermo-bulb::after {
+  content: "";
   position: absolute;
-  inset: 0;
-  background: var(--thermo);
-  transform: scaleX(var(--fill, 0.5));
-  transform-origin: 0 50%;
+  left: calc(50% - 1px);
+  top: 3px;
+  width: 2px;
+  height: 6px;
+  background: #1b1f1a;
+  box-shadow: 0 0 0 0.5px var(--thermo);
+  transform: rotate(calc((var(--fill, 0.5) - 0.5) * 150deg));
+  transform-origin: 50% 100%;
   transition: transform 0.4s ease-out;
-}
-
-/* Comfort, in the middle of the scale. */
-.thermo-mark {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.6);
 }
 
 .thermo-value {
   order: 2;
   margin-left: 6px;
-  color: var(--c-ink);
-  font: 600 0.7rem var(--font-mono);
+  color: var(--thermo);
+  font: 700 0.78rem var(--font-mono);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
@@ -477,17 +469,17 @@
 
 .thermo.rising .thermo-trend {
   border-top-width: 0;
-  border-bottom: 7px solid #ec8a4c;
+  border-bottom: 7px solid #ec6a4c;
   opacity: 1;
 }
 
 .thermo.falling .thermo-trend {
   border-bottom-width: 0;
-  border-top: 7px solid #86c8f0;
+  border-top: 7px solid #8fdcf0;
   opacity: 1;
 }
 
-.thermo.severe .thermo-glass {
+.thermo.severe .thermo-bulb {
   animation: hud-alarm 0.8s ease-in-out infinite alternate;
 }
 
@@ -507,10 +499,12 @@
 }
 
 .pickup {
-  padding: 3px 11px 3px 8px;
-  border-left: 3px solid #a7d46f;
-  border-radius: 4px 999px 999px 4px;
-  background: var(--glass);
+  padding: 3px 12px 3px 8px;
+  border-left: 3px solid var(--c-moss);
+  border-radius: 2px 9px 3px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px #0c0f0b;
+  image-rendering: pixelated;
   color: var(--c-ink);
   font-size: 0.8rem;
   opacity: 1;
@@ -601,15 +595,27 @@
   top: 276px;
 }
 
+/* The day's banners: a riveted plate with amber stencil letters and hazard ends. */
 .hud-banner .flash-text {
-  padding: 6px 26px;
-  border-top: 1px solid rgba(232, 176, 74, 0.55);
-  border-bottom: 1px solid rgba(232, 176, 74, 0.55);
-  background: linear-gradient(90deg, transparent, var(--c-panel) 20% 80%, transparent);
-  color: var(--c-ink);
-  font-size: 1.4rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  padding: 7px 40px;
+  border-radius: 2px 12px 2px 12px;
+  background:
+    var(--art-hazard) left top / 16px 16px repeat-y,
+    var(--art-hazard) right top / 16px 16px repeat-y,
+    var(--plate);
+  background-size:
+    12px 16px,
+    12px 16px,
+    auto;
+  box-shadow:
+    0 0 0 2px var(--c-outline),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  color: var(--c-active);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  image-rendering: pixelated;
 }
 
 .hud-banner.play {
@@ -636,14 +642,29 @@
   top: 238px;
 }
 
+/* The biome's name: moss-green capitals between two short rules. */
 .hud-biome .flash-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 4px 22px;
-  border-bottom: 1px solid rgba(232, 176, 74, 0.55);
-  color: var(--c-ink);
-  font-size: 1.05rem;
-  font-style: italic;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+  color: var(--c-label);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow:
+    0 2px 0 var(--c-outline),
+    0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.hud-biome .flash-text::before,
+.hud-biome .flash-text::after {
+  content: "";
+  width: 28px;
+  height: 2px;
+  background: var(--c-label);
+  box-shadow: 0 1px 0 var(--c-outline);
 }
 
 .hud-biome.play {
@@ -652,10 +673,11 @@
 
 .hud-sleep {
   inset: 0;
-  background: rgba(4, 7, 11, 0.94);
-  color: var(--c-ink-muted);
-  font-size: 1.1rem;
-  font-style: italic;
+  background: rgba(4, 7, 5, 0.95);
+  color: var(--c-label);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .hud-sleep.play {
@@ -677,30 +699,35 @@
 
 /* ---- Death screen ---- */
 
+/* Death: the light drains to rust and black; the cause in stencil red. */
 .screen-death {
   gap: 10px;
-  background: radial-gradient(ellipse at center, rgba(46, 10, 12, 0.76), rgba(10, 4, 6, 0.94));
+  background: radial-gradient(ellipse at center, rgba(52, 16, 8, 0.78), rgba(8, 4, 3, 0.95));
 }
 
 .death-title {
   margin: 0 0 4px;
-  color: #f2d6cc;
-  font-size: 2rem;
-  letter-spacing: 0.03em;
+  color: var(--c-ink);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 var(--c-outline);
 }
 
 .death-cause {
   margin: 0;
-  color: var(--c-danger);
-  font-size: 1.15rem;
-  font-weight: 600;
+  color: #f07a5c;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .death-note {
   max-width: 460px;
   margin: 0;
   color: var(--c-ink-muted);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
 }
 
 .screen-death .button {
@@ -719,7 +746,7 @@
   top: 164px;
   width: max-content;
   max-width: min(560px, calc(100% - 32px));
-  border-left-color: #a7d46f;
+  border-left-color: var(--c-good);
   line-height: 1.4;
   text-align: center;
   white-space: normal;
@@ -728,19 +755,19 @@
 /* Above the vitals' rows and the hotbar (plan v3 « M35 »). */
 #hud-tip {
   top: auto;
-  bottom: 140px;
+  bottom: 150px;
   width: max-content;
   max-width: min(560px, calc(100% - 32px));
   padding: 8px 16px 8px 13px;
-  border-left-color: var(--c-ink-muted);
-  font-size: 0.9rem;
+  border-left-color: var(--c-hover);
+  font-size: 0.92rem;
   line-height: 1.4;
   text-align: center;
   white-space: normal;
 }
 
 .screen-onboarding {
-  background: rgba(8, 13, 16, 0.72);
+  background: radial-gradient(120% 90% at 50% 50%, rgba(8, 12, 8, 0.45), rgba(8, 12, 8, 0.8));
 }
 
 .onboarding-panel {
@@ -750,24 +777,27 @@
   gap: 10px;
   width: min(460px, 100%);
   max-height: 100%;
-  padding: 20px 22px 18px;
+  padding: 22px 24px 20px;
   overflow: auto;
-  border-top: 2px solid rgba(232, 176, 74, 0.45);
-  border-radius: 16px 16px 12px 12px;
+  border-radius: var(--shape);
   background: var(--glass);
+  box-shadow: var(--glass-edge);
+  image-rendering: pixelated;
 }
 
 .onboarding-title {
   margin: 0;
-  color: var(--c-accent);
-  font-size: 1.3rem;
-  letter-spacing: 0.04em;
+  color: var(--c-active);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .onboarding-intro {
   margin: 0;
   color: var(--c-ink-muted);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
 }
 
 .controls-rows {
@@ -793,22 +823,24 @@
   margin: 0;
 }
 
-/* A key cap: a raised tag in our panel colours. */
+/* A key cap: a small riveted metal cap, amber ink. */
 .controls-rows kbd {
   min-width: 26px;
   padding: 2px 7px;
-  border-radius: 6px 6px 6px 3px;
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px 7px 2px 7px;
+  background: var(--metal);
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 -2px 0 rgba(0, 0, 0, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  color: var(--c-ink);
-  font: 600 0.78rem var(--font-mono);
+    0 0 0 1px var(--c-outline);
+  color: var(--c-active);
+  font: 700 0.8rem var(--font-mono);
   text-align: center;
 }
 
 /* ---- Centre: a worn scanner's progress ---- */
 
+/* A worn scanner studying a creature: a violet ring filling round the crosshair. */
 .scan-ring {
   position: absolute;
   left: 50%;
@@ -817,9 +849,13 @@
   height: 34px;
   margin: -17px 0 0 -17px;
   border-radius: 50%;
-  background: conic-gradient(#4fd6c8 calc(var(--fill, 0) * 360deg), rgba(255, 255, 255, 0.14) 0);
+  background: conic-gradient(
+    var(--c-violet) calc(var(--fill, 0) * 360deg),
+    rgba(12, 15, 11, 0.55) 0
+  );
   mask: radial-gradient(circle, transparent 13px, #000 14px);
-  opacity: 0.85;
+  filter: drop-shadow(0 0 3px rgba(185, 139, 255, 0.7));
+  opacity: 0.9;
   pointer-events: none;
 }
 
@@ -829,6 +865,7 @@
 
 /* ---- Centre: the attack gauge under the crosshair ---- */
 
+/* The attack gauge under the crosshair: amber filling a dark groove. */
 .attack-gauge {
   position: absolute;
   left: 50%;
@@ -836,12 +873,12 @@
   width: 28px;
   height: 4px;
   margin: 16px 0 0 -14px;
-  border-radius: 2px;
   background: linear-gradient(
     90deg,
-    #f1d48a calc(var(--fill, 1) * 100%),
-    rgba(255, 255, 255, 0.2) 0
+    var(--c-active) calc(var(--fill, 1) * 100%),
+    rgba(12, 15, 11, 0.6) 0
   );
+  box-shadow: 0 0 0 1px var(--c-outline);
   transition: opacity 0.25s ease-out;
   pointer-events: none;
 }
@@ -857,7 +894,7 @@
 @keyframes attack-ready {
   0% {
     opacity: 1;
-    box-shadow: 0 0 6px #f1d48a;
+    box-shadow: 0 0 8px var(--c-active);
   }
   100% {
     opacity: 0;
@@ -877,15 +914,18 @@
   gap: 3px;
 }
 
+/* A porthole (plan v5 « M48 »): a thick ring of worn metal, its rim lit amber. */
 .minimap-canvas {
   width: 160px;
   height: 160px;
-  border: 2px solid rgba(232, 176, 74, 0.45);
+  border: 5px solid #3a4537;
   border-radius: 50%;
   box-shadow:
-    0 0 0 1px var(--c-sheen-soft),
-    0 2px 10px rgba(0, 0, 0, 0.45),
-    inset 0 0 18px rgba(0, 0, 0, 0.45);
+    0 0 0 2px #0c0f0b,
+    0 0 0 3px rgba(226, 164, 58, 0.55),
+    0 4px 14px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 2px #0c0f0b,
+    inset 0 0 20px rgba(0, 0, 0, 0.55);
 }
 
 .minimap-hint {

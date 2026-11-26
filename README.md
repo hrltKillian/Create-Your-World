@@ -138,6 +138,18 @@ of them:
 
 ## Try this milestone
 
+**M48 — The collapsed colony's interface** (plan v5, `docs/conception.md` « M48 »). `npm run
+dev`, then open `http://localhost:5173/`.
+
+- **Every screen** is a worn, riveted plate of the colony, a vine over its corner and moss along its
+  foot; amber hazard tabs on the titles; slots are sockets pressed into the metal.
+- **The HUD's gauges** are pixel art: medical capsules for health, ration tins, canteens, spores,
+  air bubbles, and a dial whose needle swings with the cold and the heat.
+- **A typeface of its own** (Barlow Semi Condensed, SIL Open Font License).
+- **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m48`.
+
+### Earlier milestones
+
 **M47 — Lightning and fire** (plan v5, `docs/conception.md` « M47 »). `npm run dev`, then open
 `http://localhost:5173/?skipMenu=1`.
 
@@ -147,8 +159,6 @@ of them:
   wood and burns out; rain and water put it out.
 - **Try**: `__game.weather.strike(x, z)` in the console.
 - **Checks**: `?worldType=flat&fixedStep=1&selftest=m0,m47`.
-
-### Earlier milestones
 
 **M46 — The fifth play test's fixes** (plan v5, `docs/conception.md` « M46 »). `npm run dev`, then
 open `http://localhost:5173/?skipMenu=1`.

@@ -1,36 +1,76 @@
 :root {
-  --c-bg: #0b1216;
-  --c-panel: rgba(12, 19, 24, 0.84);
-  --c-ink: #eef3ee;
-  --c-ink-muted: #a9b8b2;
-  --c-accent: #e8b04a;
-  --c-danger: #e0644f;
-  /* Veyra's teal (plan v4 « M43 »): the edge light of the colony's panels and slots. */
-  --c-sheen: #7fe0c8;
-  --c-sheen-soft: rgba(127, 224, 200, 0.18);
   /*
-   * The colony's materials: smoked glass panels with a lit top edge and a teal rim, brushed metal
-   * buttons, slots pressed into the panel. Only colours, shadows and blur: no size changes.
+   * The « collapsed colony » (plan v5 « M48 »): the colonists' worn painted metal, rivets and
+   * amber hazard stripes, overgrown by Veyra's moss and vines, lit by its bioluminescent teal and
+   * violet. The pixel art (--art-*, --icon-*) is drawn by code at boot (ui/uiArt.ts).
    */
+  --c-bg: #0c110d;
+  --c-panel: rgba(26, 32, 25, 0.94);
+  --c-ink: #ece6d3;
+  --c-ink-muted: #a3aa8e;
+  --c-accent: #e2a43a;
+  --c-accent-dark: #8c6224;
+  --c-danger: #e0523c;
+  --c-moss: #6f9136;
+  --c-violet: #b98bff;
+  /* Veyra's bioluminescent teal: what glows, the slot in hand, a hovered thing. */
+  --c-sheen: #5af0cf;
+  --c-sheen-soft: rgba(90, 240, 207, 0.22);
+  /*
+   * Text and states (plan v5 « M48 »): bone ink, lichen for what is secondary, moss for section
+   * labels; a hovered thing glows teal, a chosen one is amber.
+   */
+  --c-ink-dim: #6b7360;
+  --c-label: #9bbf4e;
+  --c-good: #9bbf4e;
+  --c-cold: #8fdcf0;
+  --c-hover: #5af0cf;
+  --c-hover-soft: rgba(90, 240, 207, 0.1);
+  --c-active: #e2a43a;
+  --c-active-soft: rgba(226, 164, 58, 0.15);
+  /* Lines, recessed fields and the rows of lists on a plate. */
+  --c-line: #3d473a;
+  --c-outline: #0c0f0b;
+  --c-field: #10150f;
+  --c-row: rgba(10, 13, 9, 0.5);
+  /* A painted plate (small parts: tags, bubbles), and a riveted one (panels and screens). */
+  --plate:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.32)),
+    var(--art-plate) 0 0 / 192px 192px, #2a322a;
   --glass:
-    linear-gradient(180deg, rgba(48, 68, 76, 0.42), rgba(10, 16, 20, 0) 46%), rgba(11, 18, 23, 0.82);
+    var(--art-rivet) left 8px top 8px / 12px 12px no-repeat,
+    var(--art-rivet) right 8px top 8px / 12px 12px no-repeat,
+    var(--art-rivet) left 8px bottom 8px / 12px 12px no-repeat,
+    var(--art-rivet) right 8px bottom 8px / 12px 12px no-repeat, var(--plate);
   --glass-edge:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px var(--c-sheen-soft),
-    0 12px 32px rgba(0, 0, 0, 0.38);
-  --glass-blur: blur(12px) saturate(1.25);
-  --metal: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
-  --slot-bg: radial-gradient(120% 120% at 30% 18%, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.28));
+    inset 0 2px 0 rgba(255, 255, 255, 0.07), inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    0 0 0 2px #0c0f0b, 0 0 0 3px rgba(85, 96, 76, 0.55), 0 14px 32px rgba(0, 0, 0, 0.55);
+  /* No blur: a filter would hold the bubble and cost every frame. */
+  --glass-blur: none;
+  --metal: linear-gradient(180deg, #4a5643, #323c2f);
+  /* A slot: a socket pressed into the plate. */
+  --slot-bg: linear-gradient(160deg, #0f130e, #1b2219);
   --slot-edge:
-    inset 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px rgba(127, 224, 200, 0.1);
-  --radius: 10px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    inset 0 2px 0 rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px #0c0f0b,
+    0 1px 0 1px rgba(85, 96, 76, 0.5);
+  /* Shapes: worn plates, one corner pair rounder than the other. */
+  --radius: 6px;
+  --shape: 4px 14px 4px 14px;
+  --font: "Barlow Semi Condensed", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Barlow Semi Condensed", ui-monospace, "SF Mono", Menlo, monospace;
   color-scheme: dark;
 }
 
 * {
   box-sizing: border-box;
+  /* Scrollbars: a moss thumb in a dark groove. */
+  scrollbar-color: #4e6b2c var(--c-field);
+  scrollbar-width: thin;
+}
+
+::selection {
+  background: rgba(90, 240, 207, 0.35);
+  color: var(--c-ink);
 }
 
 /* Screens are display: flex, which would otherwise beat the hidden attribute. */
@@ -46,6 +86,8 @@ body {
   background: var(--c-bg);
   color: var(--c-ink);
   font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.015em;
 }
 
 #app {
@@ -111,45 +153,113 @@ body {
   max-height: 30vh;
   overflow: auto;
   padding: 12px;
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--c-danger);
-  font-family: var(--font-mono);
+  border-left: 3px solid var(--c-danger);
+  border-radius: 1px 9px 1px 9px;
+  background: var(--c-field);
+  color: #f0a08c;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.8rem;
   text-align: left;
   white-space: pre-wrap;
 }
 
+/*
+ * The colony's panels (plan v5 « M48 »: screens and menus): a riveted painted plate, a vine over
+ * its top-left corner, moss along its foot.
+ */
+.menu-panel,
+.bag-panel {
+  position: relative;
+  border-radius: var(--shape);
+  background: var(--glass);
+  box-shadow: var(--glass-edge);
+  image-rendering: pixelated;
+}
+
+.menu-panel::before,
+.bag-panel::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 80px;
+  height: 80px;
+  background: var(--art-vine) 0 0 / 80px 80px no-repeat;
+  pointer-events: none;
+}
+
+.menu-panel::after,
+.bag-panel::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -4px;
+  height: 18px;
+  background: var(--art-moss) 0 100% / 96px 20px repeat-x;
+  pointer-events: none;
+}
+
+/* A panel's title: amber stencil letters after a worn hazard tab. */
+.bag-header h2,
+.menu-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.bag-header h2::before,
+.menu-heading::before {
+  content: "";
+  width: 18px;
+  height: 10px;
+  background: var(--art-hazard) 0 0 / 16px 16px;
+  box-shadow: 0 0 0 1px #0c0f0b;
+  image-rendering: pixelated;
+}
+
+/*
+ * The colony's buttons (plan v5 « M48 »): an amber painted plate with a worn hazard band on its
+ * left, cut corners; pressed, it sinks.
+ */
 .button {
-  padding: 10px 22px;
+  padding: 9px 22px 9px 28px;
   border: 0;
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, #f4c766, #d8982f);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  background:
+    var(--art-hazard) left top / 16px 16px repeat-y,
+    linear-gradient(180deg, #ecb24c, #c78b2b);
+  background-clip: border-box;
+  background-size:
+    8px 16px,
+    100% 100%;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.25);
   color: #1b1408;
-  font: 600 1rem var(--font);
-  letter-spacing: 0.01em;
+  font: 700 0.98rem var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  image-rendering: pixelated;
   cursor: pointer;
   transition:
     filter 0.12s ease-out,
-    transform 0.12s ease-out,
-    box-shadow 0.12s ease-out;
+    transform 0.12s ease-out;
 }
 
 .button:hover {
-  filter: brightness(1.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18),
-    0 0 0 1px var(--c-sheen-soft),
-    0 0 16px rgba(127, 224, 200, 0.22);
+  filter: brightness(1.1) drop-shadow(0 0 6px rgba(90, 240, 207, 0.35));
 }
 
 .button:active {
   transform: translateY(1px);
+  filter: brightness(0.92);
+}
+
+.button:disabled {
+  filter: grayscale(0.8) brightness(0.6);
+  cursor: default;
 }
 
 /*
@@ -191,23 +301,30 @@ body {
 .title-overlay .title {
   margin: 0;
   font-size: clamp(2rem, 6vw, 4rem);
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 var(--c-outline);
 }
 
 .title-overlay .tagline {
   margin: 0;
-  color: var(--c-ink-muted);
+  color: var(--c-label);
   font-size: 1.1rem;
+  letter-spacing: 0.08em;
 }
 
 .title-overlay .milestone,
 .title-overlay .notice {
   margin: 10px 0 0;
   padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--c-panel);
-  color: var(--c-accent);
-  font-size: 0.85rem;
+  border-radius: 2px 8px 2px 8px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px var(--c-outline);
+  color: var(--c-active);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .selftest {
@@ -239,18 +356,20 @@ body {
   right: 12px;
   min-width: 230px;
   padding: 10px 12px 8px;
-  border: 1px solid rgba(232, 176, 74, 0.35);
-  border-radius: var(--radius);
-  background: var(--c-panel);
-  font-size: 0.78rem;
+  border-left: 3px solid var(--c-hover);
+  border-radius: 1px 10px 1px 10px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px var(--c-outline);
+  font-size: 0.8rem;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
 .debug-overlay h2 {
   margin: 0 0 6px;
-  color: var(--c-accent);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  color: var(--c-hover);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -267,6 +386,7 @@ body {
 
 .debug-body dd {
   margin: 0;
+  color: var(--c-ink);
   font-family: var(--font-mono);
   text-align: right;
 }
@@ -278,28 +398,34 @@ body {
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
   padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--c-panel);
+  border-radius: 2px 9px 2px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px var(--c-outline);
   color: var(--c-ink-muted);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   text-align: center;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
+/* Loading: a dark veil, a spinning amber gear tooth ring, moss-green words. */
 .screen-loading {
-  background: rgba(13, 20, 24, 0.82);
+  background: radial-gradient(ellipse at center, rgba(10, 15, 10, 0.78), rgba(6, 9, 6, 0.92));
   gap: 14px;
-  color: var(--c-ink-muted);
+  color: var(--c-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   pointer-events: none;
 }
 
 .spinner {
   width: 34px;
   height: 34px;
-  border: 3px solid rgba(232, 176, 74, 0.25);
-  border-top-color: var(--c-accent);
   border-radius: 50%;
-  animation: spin 0.9s linear infinite;
+  background: repeating-conic-gradient(var(--c-active) 0 18deg, transparent 18deg 36deg);
+  mask: radial-gradient(circle, transparent 10px, #000 11px 15px, transparent 16px);
+  animation: spin 1.4s linear infinite;
 }
 
 @keyframes spin {
@@ -308,6 +434,7 @@ body {
   }
 }
 
+/* The crosshair: a bone point in a thin dark ring. */
 .crosshair {
   position: absolute;
   left: 50%;
@@ -316,8 +443,8 @@ body {
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.35);
+  background: var(--c-ink);
+  box-shadow: 0 0 0 1.5px rgba(12, 15, 11, 0.7);
   pointer-events: none;
 }
 
@@ -326,21 +453,25 @@ body {
 }
 
 .screen-click {
-  background: rgba(13, 20, 24, 0.55);
+  background: radial-gradient(ellipse at center, rgba(8, 12, 8, 0.35), rgba(8, 12, 8, 0.7));
   cursor: pointer;
   gap: 10px;
 }
 
 .screen-click .click-title {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  color: var(--c-active);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 var(--c-outline);
 }
 
 .screen-click .click-controls {
   margin: 0;
   color: var(--c-ink-muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 /* The light prompt after a screen closed with the mouse still free: play goes on behind it. */
@@ -352,9 +483,14 @@ body {
 
 .screen-click.click-light .click-title {
   padding: 5px 14px;
-  border-radius: var(--radius);
-  background: var(--c-panel);
+  border-radius: 2px 9px 2px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px var(--c-outline);
+  color: var(--c-ink);
   font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+  image-rendering: pixelated;
 }
 
 .screen-click.click-light .click-controls {
@@ -374,12 +510,14 @@ body {
   max-width: calc(100% - 32px);
   margin: 0;
   padding: 5px 14px 5px 11px;
-  border-left: 3px solid var(--c-accent);
-  border-radius: 4px var(--radius) var(--radius) 4px;
-  background: var(--c-panel);
+  border-left: 3px solid var(--c-active);
+  border-radius: 1px 9px 1px 9px;
+  background: var(--plate);
+  box-shadow: 0 0 0 2px var(--c-outline);
   color: var(--c-ink);
-  font-size: 0.86rem;
-  letter-spacing: 0.01em;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  image-rendering: pixelated;
   transform: translateX(-50%);
   pointer-events: none;
   animation: hud-hint-in 0.18s ease-out;
