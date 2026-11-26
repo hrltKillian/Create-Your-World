@@ -253,8 +253,8 @@ const REACH_IN = 0.001;
 /**
  * The contact of the blocks the body is in, written into `out` (the strongest of each). As in the
  * reference game, every block the body's box overlaps, feet to head, counts and none beside it:
- * lava and fire hurt only who is inside them; the block stood on counts too (a magma block), unless
- * crouching on it.
+ * lava and fire hurt only who is inside them; the solid block stood on counts too (a magma block),
+ * unless crouching on it.
  */
 export function touch(
   registry: Registry,
@@ -279,8 +279,11 @@ export function touch(
   out.douses =
     registry.tables.collision[feet] === COLLISION_LIQUID &&
     !registry.blockDef(feet).contact?.ignites;
-  if (body.onGround && !body.crouching)
-    addContact(registry, world.getBlock(x, Math.floor(body.y - 0.05), z), out);
+  // The block stood on (a magma block): never a liquid. On a rim, the middle of the body may hang
+  // over lava below: the reference game burns only a body in it, never one beside it.
+  const under = world.getBlock(x, Math.floor(body.y - 0.05), z);
+  if (body.onGround && !body.crouching && registry.tables.collision[under] !== COLLISION_LIQUID)
+    addContact(registry, under, out);
   if (out.toxicity > 0 && wornGear(registry, player.equipment, gear).waterproof) out.toxicity = 0;
 }
 

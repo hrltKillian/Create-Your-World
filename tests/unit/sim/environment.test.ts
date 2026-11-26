@@ -120,6 +120,14 @@ describe('thermal model', () => {
     player.body.z = 0.75;
     expect(touched()).toEqual([true, true]);
     expect(contact.burnCause).toBe('fire');
+    // On a rim over a lava pool below, the middle of the body over the lava: no burn (the box is
+    // not in it).
+    world.setBlock(1, 63, 0, registry.defaultState('block:lava'));
+    world.setBlock(1, 64, 0, registry.air);
+    player.body.z = 0.5;
+    player.body.x = 1.15;
+    expect(touched()).toEqual([false, false]);
+    player.body.x = 0.5;
     // A magma block stood on hurts without setting alight, and not while crouching.
     player.body.z = 0.5;
     world.setBlock(0, 63, 0, registry.defaultState('block:magma'));
